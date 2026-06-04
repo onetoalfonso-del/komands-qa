@@ -191,12 +191,34 @@ def pytest_runtest_makereport(item, call):
                 f"<tr><td {th}>Datos utilizados</td><td {td}>{datos_html}</td></tr>"
             )
         if descripcion_resultado:
+            # Extrae el código HTTP del texto original (ej: "HTTP 202" → "202")
+            codigo_match = re.search(r"HTTP\s+(\d+)", resultado_esperado)
+            badge_esperado = ""
+            if codigo_match:
+                badge_esperado = (
+                    f"&nbsp;<code style='background:#d5f5e3;padding:1px 8px;"
+                    f"border-radius:4px;font-size:0.95em;color:#1e8449'>"
+                    f"HTTP {codigo_match.group(1)}</code>"
+                )
             rows.append(
                 f"<tr><td {th}>Resultado esperado</td>"
-                f"<td {td}>{descripcion_resultado}</td></tr>"
+                f"<td {td}>{descripcion_resultado}{badge_esperado}</td></tr>"
+            )
+
+        # Resultado obtenido: ✅/❌ + código HTTP real recibido
+        codigo_real = req.get("status_code") if req else None
+        badge_real = ""
+        if codigo_real:
+            color = "#d5f5e3" if report.passed else "#fadbd8"
+            text_color = "#1e8449" if report.passed else "#922b21"
+            badge_real = (
+                f"&nbsp;<code style='background:{color};padding:1px 8px;"
+                f"border-radius:4px;font-size:0.95em;color:{text_color}'>"
+                f"HTTP {codigo_real} recibido</code>"
             )
         rows.append(
-            f"<tr><td {th}>Resultado obtenido</td><td {td}>{status_icon}</td></tr>"
+            f"<tr><td {th}>Resultado obtenido</td>"
+            f"<td {td}>{status_icon}{badge_real}</td></tr>"
         )
 
         html = (
