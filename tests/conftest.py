@@ -20,6 +20,94 @@ log = logging.getLogger("komands.qa")
 _last_req: dict = {}
 
 
+# ─── Tablas de lenguaje amigable para el reporte ─────────────────────────────
+
+_URL_OPERACION = {
+    "/unsuscription":      "Baja de Acceso",
+    "/activation":         "Activación de Acceso",
+    "/modification":       "Modificación de Servicio",
+    "/reset-ont":          "Reset de ONT",
+    "/device-modification":"Cambio de Equipo (Swap)",
+    "/port-occupancy":     "Consulta Ocupación Puerto PON",
+    "/access/":            "Consulta de Acceso",
+    "/transaction/":       "Estado de Transacción",
+}
+
+_HTTP_DESCRIPCION = {
+    "HTTP 202": "Solicitud aceptada y encolada para procesamiento",
+    "HTTP 200": "Consulta exitosa",
+    "HTTP 401": "Rechazado — se requiere autenticación válida",
+    "HTTP 403": "Rechazado — el usuario no tiene permisos suficientes",
+    "HTTP 404": "No encontrado — el recurso no existe en el sistema",
+    "HTTP 409": "Conflicto — operación duplicada detectada",
+}
+
+_CAMPO_ETIQUETA = {
+    "vno_id":                   "Cliente",
+    "olt_vendor":               "Fabricante OLT",
+    "olt_name":                 "OLT",
+    "product":                  "Producto",
+    "operation_type":           "Tipo de operación",
+    "old_ont_serial":           "Serial ONT a reemplazar",
+    "new_ont_serial":           "Serial ONT nuevo",
+    "ont_serial":               "Serial ONT",
+    "delete_vlan_on_terminate": "Eliminar VLAN al terminar",
+}
+
+_VENDOR_NOMBRE = {"nokia": "Nokia ISAM 7360 FX", "huawei": "Huawei MA5800"}
+_PRODUCTO_NOMBRE = {"FTTH": "Fibra residencial (FTTH)", "SSAA": "Empresarial (SSAA)"}
+_OPERACION_NOMBRE = {
+    "SPEED_CHANGE": "Cambio de velocidad",
+    "BLOCK":        "Bloqueo de servicio",
+    "UNBLOCK":      "Desbloqueo de servicio",
+}
+
+
+def _operacion_desde_url(url: str) -> str:
+    for patron, nombre in _URL_OPERACION.items():
+        if patron in url:
+            return nombre
+    return url
+
+
+def _descripcion_http(resultado_esperado: str) -> str:
+    clave = resultado_esperado.rstrip(".")
+    return _HTTP_DESCRIPCION.get(clave, resultado_esperado)
+
+
+def _datos_amigables(payload: dict) -> str:
+    if not payload:
+        return ""
+    filas = []
+    for campo, etiqueta in _CAMPO_ETIQUETA.items():
+        if campo not in payload:
+            continue
+        valor = payload[campo]
+        if campo == "olt_vendor":
+            valor = _VENDOR_NOMBRE.get(str(valor).lower(), valor)
+        elif campo == "product":
+            valor = _PRODUCTO_NOMBRE.get(str(valor), valor)
+        elif campo == "operation_type":
+            valor = _OPERACION_NOMBRE.get(str(valor), valor)
+        elif campo == "delete_vlan_on_terminate":
+            if not valor:
+                continue
+            valor = "Sí"
+        filas.append(
+            f"<tr>"
+            f"<td style='color:#555;padding:2px 12px 2px 0;white-space:nowrap'>{etiqueta}</td>"
+            f"<td style='padding:2px 0;font-weight:bold'>{valor}</td>"
+            f"</tr>"
+        )
+    if not filas:
+        return ""
+    return (
+        "<table style='border-collapse:collapse;font-size:0.88em;margin-top:6px'>"
+        + "".join(filas)
+        + "</table>"
+    )
+
+
 # ─── TestClient con captura de request/response ───────────────────────────────
 
 class CapturingTestClient(TestClient):
@@ -27,30 +115,17 @@ class CapturingTestClient(TestClient):
 
     def request(self, method, url, **kwargs):
         response = super().request(method, url, **kwargs)
-        headers = kwargs.get("headers") or {}
-        auth = headers.get("Authorization", "")
-        if not auth:
-            token_display = "Sin token"
-        elif "Bearer " in auth:
-            token_display = "Bearer JWT ✓"
-        else:
-            token_display = "Token presente"
-
         _last_req.clear()
         _last_req.update({
             "method": method.upper(),
             "url": url,
             "payload": kwargs.get("json"),
-            "token": token_display,
             "status_code": response.status_code,
         })
         return response
 
 
 # ─── Helper: extrae el ID del caso desde el nombre de la función ──────────────
-# test_baj01_nokia_... → BAJ-01
-# test_qry03_...       → QRY-03
-# test_ont15_...[DTV]  → ONT-15
 
 def _extract_case_id(fn_name: str) -> str:
     match = re.match(r"test_([a-z]+)(\d+)_", fn_name)
@@ -59,7 +134,7 @@ def _extract_case_id(fn_name: str) -> str:
     return ""
 
 
-# ─── Hook: añade ID, escenario, datos y resultado al reporte HTML ─────────────
+# ─── Hook: reporte HTML en lenguaje no técnico ────────────────────────────────
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -83,49 +158,42 @@ def pytest_runtest_makereport(item, call):
 
         status_icon = "✅ PASS" if report.passed else "❌ FAIL"
 
-        # ── Estilos base ──
-        th = "style='width:160px;font-weight:bold;color:#1a5276;vertical-align:top;padding:3px 6px'"
-        td = "style='padding:3px 6px'"
+        th = (
+            "style='width:170px;font-weight:bold;color:#1a5276;"
+            "vertical-align:top;padding:4px 8px;white-space:nowrap'"
+        )
+        td = "style='padding:4px 8px'"
+
+        req = dict(_last_req)
+        operacion = _operacion_desde_url(req.get("url", "")) if req else ""
+        descripcion_resultado = _descripcion_http(resultado_esperado) if resultado_esperado else ""
+        datos_html = _datos_amigables(req.get("payload") or {}) if req else ""
 
         rows = []
         if case_id:
             rows.append(
-                f"<tr><td {th}>ID Caso</td>"
-                f"<td {td}><code style='background:#d6eaf8;padding:2px 8px;"
-                f"border-radius:4px;font-size:1em'>{case_id}</code></td></tr>"
+                f"<tr><td {th}>Código del caso</td>"
+                f"<td {td}><code style='background:#d6eaf8;padding:2px 10px;"
+                f"border-radius:4px;font-size:1em;font-weight:bold'>{case_id}</code>"
+                f"</td></tr>"
+            )
+        if operacion:
+            rows.append(
+                f"<tr><td {th}>Operación</td>"
+                f"<td {td}><b>{operacion}</b></td></tr>"
             )
         if escenario:
             rows.append(
                 f"<tr><td {th}>Escenario</td><td {td}>{escenario}</td></tr>"
             )
-
-        # ── Datos de prueba: endpoint + payload ──
-        req = dict(_last_req)
-        if req:
-            endpoint_html = (
-                f"<code style='background:#eaf4fb;padding:2px 8px;border-radius:4px'>"
-                f"{req['method']} {req['url']}</code>"
-                f"&nbsp;&nbsp;<span style='color:#666;font-size:0.85em'>"
-                f"Auth: {req['token']}</span>"
-            )
-            payload_html = ""
-            if req.get("payload"):
-                payload_escaped = _html_mod.escape(
-                    _json.dumps(req["payload"], ensure_ascii=False, indent=2)
-                )
-                payload_html = (
-                    f"<pre style='background:#f8f9fa;padding:6px 10px;margin:4px 0;"
-                    f"border-left:3px solid #aed6f1;border-radius:4px;"
-                    f"font-size:0.82em;white-space:pre-wrap'>{payload_escaped}</pre>"
-                )
+        if datos_html:
             rows.append(
-                f"<tr><td {th}>Datos de prueba</td>"
-                f"<td {td}>{endpoint_html}{payload_html}</td></tr>"
+                f"<tr><td {th}>Datos utilizados</td><td {td}>{datos_html}</td></tr>"
             )
-
-        if resultado_esperado:
+        if descripcion_resultado:
             rows.append(
-                f"<tr><td {th}>Resultado esperado</td><td {td}>{resultado_esperado}</td></tr>"
+                f"<tr><td {th}>Resultado esperado</td>"
+                f"<td {td}>{descripcion_resultado}</td></tr>"
             )
         rows.append(
             f"<tr><td {th}>Resultado obtenido</td><td {td}>{status_icon}</td></tr>"
@@ -133,7 +201,7 @@ def pytest_runtest_makereport(item, call):
 
         html = (
             "<table style='width:100%;border-collapse:collapse;"
-            "font-size:0.9em;margin-top:4px'>"
+            "font-size:0.9em;margin-top:4px;border:1px solid #e8e8e8'>"
             + "".join(rows)
             + "</table>"
         )
