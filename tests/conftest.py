@@ -1,4 +1,6 @@
 """Fixtures compartidos para toda la suite de pruebas Komands QA."""
+import html as _html_mod
+import json as _json
 import logging
 import re
 import time
@@ -14,6 +16,36 @@ from jose import jwt, JWTError
 
 log = logging.getLogger("komands.qa")
 
+# Almacena el último request capturado (se sobreescribe en cada test)
+_last_req: dict = {}
+
+
+# ─── TestClient con captura de request/response ───────────────────────────────
+
+class CapturingTestClient(TestClient):
+    """TestClient que guarda el último request para mostrarlo en el reporte HTML."""
+
+    def request(self, method, url, **kwargs):
+        response = super().request(method, url, **kwargs)
+        headers = kwargs.get("headers") or {}
+        auth = headers.get("Authorization", "")
+        if not auth:
+            token_display = "Sin token"
+        elif "Bearer " in auth:
+            token_display = "Bearer JWT ✓"
+        else:
+            token_display = "Token presente"
+
+        _last_req.clear()
+        _last_req.update({
+            "method": method.upper(),
+            "url": url,
+            "payload": kwargs.get("json"),
+            "token": token_display,
+            "status_code": response.status_code,
+        })
+        return response
+
 
 # ─── Helper: extrae el ID del caso desde el nombre de la función ──────────────
 # test_baj01_nokia_... → BAJ-01
@@ -27,7 +59,7 @@ def _extract_case_id(fn_name: str) -> str:
     return ""
 
 
-# ─── Hook: añade ID, escenario y resultado al reporte HTML ────────────────────
+# ─── Hook: añade ID, escenario, datos y resultado al reporte HTML ─────────────
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -51,26 +83,52 @@ def pytest_runtest_makereport(item, call):
 
         status_icon = "✅ PASS" if report.passed else "❌ FAIL"
 
+        # ── Estilos base ──
+        th = "style='width:160px;font-weight:bold;color:#1a5276;vertical-align:top;padding:3px 6px'"
+        td = "style='padding:3px 6px'"
+
         rows = []
         if case_id:
             rows.append(
-                f"<tr><td style='width:160px;font-weight:bold;color:#1a5276'>ID Caso</td>"
-                f"<td><code style='background:#d6eaf8;padding:2px 6px;border-radius:4px'>"
-                f"{case_id}</code></td></tr>"
+                f"<tr><td {th}>ID Caso</td>"
+                f"<td {td}><code style='background:#d6eaf8;padding:2px 8px;"
+                f"border-radius:4px;font-size:1em'>{case_id}</code></td></tr>"
             )
         if escenario:
             rows.append(
-                f"<tr><td style='font-weight:bold;color:#1a5276'>Escenario</td>"
-                f"<td>{escenario}</td></tr>"
+                f"<tr><td {th}>Escenario</td><td {td}>{escenario}</td></tr>"
             )
+
+        # ── Datos de prueba: endpoint + payload ──
+        req = dict(_last_req)
+        if req:
+            endpoint_html = (
+                f"<code style='background:#eaf4fb;padding:2px 8px;border-radius:4px'>"
+                f"{req['method']} {req['url']}</code>"
+                f"&nbsp;&nbsp;<span style='color:#666;font-size:0.85em'>"
+                f"Auth: {req['token']}</span>"
+            )
+            payload_html = ""
+            if req.get("payload"):
+                payload_escaped = _html_mod.escape(
+                    _json.dumps(req["payload"], ensure_ascii=False, indent=2)
+                )
+                payload_html = (
+                    f"<pre style='background:#f8f9fa;padding:6px 10px;margin:4px 0;"
+                    f"border-left:3px solid #aed6f1;border-radius:4px;"
+                    f"font-size:0.82em;white-space:pre-wrap'>{payload_escaped}</pre>"
+                )
+            rows.append(
+                f"<tr><td {th}>Datos de prueba</td>"
+                f"<td {td}>{endpoint_html}{payload_html}</td></tr>"
+            )
+
         if resultado_esperado:
             rows.append(
-                f"<tr><td style='font-weight:bold;color:#1a5276'>Resultado esperado</td>"
-                f"<td>{resultado_esperado}</td></tr>"
+                f"<tr><td {th}>Resultado esperado</td><td {td}>{resultado_esperado}</td></tr>"
             )
         rows.append(
-            f"<tr><td style='font-weight:bold;color:#1a5276'>Resultado obtenido</td>"
-            f"<td>{status_icon}</td></tr>"
+            f"<tr><td {th}>Resultado obtenido</td><td {td}>{status_icon}</td></tr>"
         )
 
         html = (
@@ -515,9 +573,9 @@ def _build_test_app() -> FastAPI:
 
 
 @pytest.fixture(scope="session")
-def test_client() -> TestClient:
+def test_client() -> CapturingTestClient:
     """Cliente HTTP que apunta a la mini app de prueba. No levanta servidor real."""
-    return TestClient(_build_test_app(), raise_server_exceptions=False)
+    return CapturingTestClient(_build_test_app(), raise_server_exceptions=False)
 
 
 # ─── Mini app con Feature Flags e Idempotencia ────────────────────────────────
@@ -688,9 +746,9 @@ def ff_state() -> AppState:
 
 
 @pytest.fixture
-def ff_client(ff_state: AppState) -> TestClient:
+def ff_client(ff_state: AppState) -> CapturingTestClient:
     """Cliente con app fresca — flags e idempotencia reseteados para cada test."""
-    return TestClient(_build_flagged_app(ff_state), raise_server_exceptions=False)
+    return CapturingTestClient(_build_flagged_app(ff_state), raise_server_exceptions=False)
 
 
 # ─── Fixtures de mock OLT (SSH/Netmiko) ──────────────────────────────────────
