@@ -1,5 +1,6 @@
 """Fixtures compartidos para toda la suite de pruebas Komands QA."""
 import logging
+import re
 import time
 import uuid
 from typing import AsyncGenerator
@@ -14,22 +15,72 @@ from jose import jwt, JWTError
 log = logging.getLogger("komands.qa")
 
 
-# ─── Hook: añade descripción y resultado esperado al reporte HTML ─────────────
+# ─── Helper: extrae el ID del caso desde el nombre de la función ──────────────
+# test_baj01_nokia_... → BAJ-01
+# test_qry03_...       → QRY-03
+# test_ont15_...[DTV]  → ONT-15
+
+def _extract_case_id(fn_name: str) -> str:
+    match = re.match(r"test_([a-z]+)(\d+)_", fn_name)
+    if match:
+        return f"{match.group(1).upper()}-{match.group(2)}"
+    return ""
+
+
+# ─── Hook: añade ID, escenario y resultado al reporte HTML ────────────────────
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     pytest_html = item.config.pluginmanager.getplugin("html")
     outcome = yield
     report = outcome.get_result()
-    extra = getattr(report, "extra", [])
+    extra = getattr(report, "extras", [])
 
     if report.when == "call" and pytest_html:
+        case_id = _extract_case_id(item.function.__name__)
         doc = (item.function.__doc__ or "").strip()
-        if doc:
-            extra.append(pytest_html.extras.text(doc, name="Descripción / Resultado esperado"))
 
-        status = "✅ PASS" if report.passed else "❌ FAIL"
-        log.info("%s  %s", status, report.nodeid)
+        escenario = ""
+        resultado_esperado = ""
+        for line in doc.splitlines():
+            line = line.strip()
+            if line.startswith("ESCENARIO:"):
+                escenario = line[len("ESCENARIO:"):].strip()
+            elif line.startswith("Resultado esperado:"):
+                resultado_esperado = line[len("Resultado esperado:"):].strip()
+
+        status_icon = "✅ PASS" if report.passed else "❌ FAIL"
+
+        rows = []
+        if case_id:
+            rows.append(
+                f"<tr><td style='width:160px;font-weight:bold;color:#1a5276'>ID Caso</td>"
+                f"<td><code style='background:#d6eaf8;padding:2px 6px;border-radius:4px'>"
+                f"{case_id}</code></td></tr>"
+            )
+        if escenario:
+            rows.append(
+                f"<tr><td style='font-weight:bold;color:#1a5276'>Escenario</td>"
+                f"<td>{escenario}</td></tr>"
+            )
+        if resultado_esperado:
+            rows.append(
+                f"<tr><td style='font-weight:bold;color:#1a5276'>Resultado esperado</td>"
+                f"<td>{resultado_esperado}</td></tr>"
+            )
+        rows.append(
+            f"<tr><td style='font-weight:bold;color:#1a5276'>Resultado obtenido</td>"
+            f"<td>{status_icon}</td></tr>"
+        )
+
+        html = (
+            "<table style='width:100%;border-collapse:collapse;"
+            "font-size:0.9em;margin-top:4px'>"
+            + "".join(rows)
+            + "</table>"
+        )
+        extra.append(pytest_html.extras.html(html))
+        log.info("%s  [%s]  %s", status_icon, case_id or "?", report.nodeid)
 
     report.extras = extra
 
