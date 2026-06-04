@@ -9,7 +9,7 @@ Fuentes:
 """
 import pytest
 
-from tests.mocks.payloads import DEVICE_MOD_NOKIA_VALID, DEVICE_MOD_HUAWEI_VALID
+from tests.mocks.payloads import DEVICE_MOD_NOKIA_VALID, DEVICE_MOD_HUAWEI_VALID, DEVICE_MOD_ASYMMETRIC_FAIL
 
 pytestmark = pytest.mark.postventa
 
@@ -264,4 +264,46 @@ class TestSwapMultiVNO:
         )
         assert response.status_code == 202, (
             f"VNO {vno_id} recibió {response.status_code} — esperado 202"
+        )
+
+
+# ─── ONT-16: Error de negocio — swap asimétrico ───────────────────────────────
+
+class TestSwapAsimetrico:
+    """
+    El swap tiene dos pasos: (1) baja del ONT viejo, (2) alta del ONT nuevo.
+    Si el paso 1 funciona pero el paso 2 falla, el cliente queda sin servicio
+    porque el equipo viejo ya fue retirado de la OLT y el nuevo no entró.
+
+    Komands debe reportar ROLLED_BACK y escalar a Ingeniería de Redes.
+    El ONT viejo no puede recuperarse automáticamente.
+
+    Riesgo R-02 del plan de pruebas post-venta (Crítico).
+    """
+
+    # ONT-16
+    def test_ont16_swap_asimetrico_alta_falla_retorna_rolled_back(self, test_client, auth_headers):
+        """
+        ESCENARIO: Swap Nokia FTTH — baja del ONT viejo OK, alta del nuevo falla.
+
+        La baja del equipo viejo se ejecuta sin problemas. Al intentar dar de alta
+        el equipo nuevo, la OLT rechaza el serial (equipo defectuoso o configuración
+        inválida). Komands marca la operación como ROLLED_BACK y advierte que
+        el ONT viejo no puede recuperarse automáticamente.
+
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK y campo warning presente.
+        """
+        response = test_client.post(
+            "/api/v1/device-modification",
+            json=DEVICE_MOD_ASYMMETRIC_FAIL,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "ROLLED_BACK", (
+            f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
+        )
+        assert "warning" in data, (
+            f"Se esperaba campo 'warning' en la respuesta, se obtuvo: {data}"
         )

@@ -539,6 +539,29 @@ def _build_test_app() -> FastAPI:
                 raise HTTPException(status_code=403, detail="Rol sin permiso de baja")
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+        body = await request.json()
+        vendor = body.get("olt_vendor", "")
+        ont_id = body.get("ont_id")
+
+        # Centinela BAJ-16: Huawei no puede resolver el INDEX → KMD-2002
+        if vendor == "huawei" and ont_id == 9999:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-2002",
+                "error_message": "No se pudo resolver el INDEX dinámico del service-port Huawei",
+            }
+
+        # Centinela BAJ-17: INDEX parcial → rollback de los eliminados
+        if vendor == "huawei" and ont_id == 9998:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-2002",
+                "error_message": "INDEX parcial: 2 de 3 service-ports resueltos — rollback ejecutado",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "PENDING",
@@ -620,6 +643,19 @@ def _build_test_app() -> FastAPI:
                 raise HTTPException(status_code=403, detail="Rol sin permiso de swap")
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+        body = await request.json()
+
+        # Centinela ONT-16: alta del ONT nuevo falla → swap asimétrico → ROLLED_BACK
+        if body.get("new_ont_serial") == "FAIL00000000":
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-2004",
+                "error_message": "Baja del ONT viejo exitosa, pero alta del ONT nuevo falló — escalar a Ingeniería de Redes",
+                "warning": "ONT viejo no recuperable automáticamente",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "PENDING",

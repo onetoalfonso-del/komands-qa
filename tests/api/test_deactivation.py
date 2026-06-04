@@ -24,6 +24,8 @@ from tests.mocks.payloads import (
     DEACTIVATION_NOKIA_CVTR,
     DEACTIVATION_NOKIA_TCH,
     DEACTIVATION_HUAWEI_VALID,
+    DEACTIVATION_HUAWEI_INDEX_FAIL,
+    DEACTIVATION_HUAWEI_PARTIAL_INDEX,
 )
 
 pytestmark = pytest.mark.postventa
@@ -341,4 +343,65 @@ class TestBajaMultiVNO:
 
         assert response.status_code == 202, (
             f"VNO {vno_id} recibió {response.status_code} — esperado 202"
+        )
+
+
+# ─── BAJ-16 a BAJ-17: Errores de negocio Huawei ──────────────────────────────
+
+class TestBajaErroresNegocioHuawei:
+    """
+    Huawei requiere resolver un INDEX dinámico antes de ejecutar la baja.
+    Si esa resolución falla (total o parcialmente), Komands no puede completar
+    la operación y debe reportar el error sin dejar la OLT en estado inconsistente.
+
+    Riesgo R-01 del plan de pruebas post-venta (Crítico).
+    """
+
+    # BAJ-16
+    def test_baj16_huawei_index_no_resuelto_retorna_kmd2002(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Huawei FTTH — OLT no entrega el INDEX del service-port.
+
+        Antes de ejecutar cualquier comando en la OLT, Komands consulta el INDEX
+        dinámico del service-port del cliente. Si la OLT no responde o el INDEX
+        no existe, Komands aborta la operación con error KMD-2002 sin tocar nada.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_INDEX_FAIL,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba error_code=KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+    # BAJ-17
+    def test_baj17_huawei_index_parcial_retorna_rolled_back(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Huawei FTTH — cliente con 3 service-ports, solo 2 tienen INDEX.
+
+        Komands resuelve el INDEX de 2 service-ports y los elimina de la OLT.
+        El 3ro no tiene INDEX y no se puede eliminar. Para no dejar al cliente
+        con servicio parcial, Komands hace rollback de los 2 que ya borró.
+
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_PARTIAL_INDEX,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "ROLLED_BACK", (
+            f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
         )

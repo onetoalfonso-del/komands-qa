@@ -260,6 +260,25 @@ MODIFICATION_SERVICE_REMOVE_VOIP = {
     "service": "VOIP",
 }
 
+# ─── Payloads centinela — errores de negocio Huawei ──────────────────────────
+# ont_id=9999 → simula que _resolve_dynamic_ids() no puede obtener el INDEX
+DEACTIVATION_HUAWEI_INDEX_FAIL = {
+    **DEACTIVATION_HUAWEI_VALID,
+    "ont_id": 9999,
+}
+
+# ont_id=9998 → simula INDEX parcial: 2 de 3 service-ports resueltos, 1 falla
+DEACTIVATION_HUAWEI_PARTIAL_INDEX = {
+    **DEACTIVATION_HUAWEI_VALID,
+    "ont_id": 9998,
+}
+
+# new_ont_serial centinela → simula que el alta del ONT nuevo falla (swap asimétrico)
+DEVICE_MOD_ASYMMETRIC_FAIL = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "new_ont_serial": "FAIL00000000",
+}
+
 # ─── Callbacks esperados (contratos de respuesta) ─────────────────────────────
 
 CALLBACK_COMPLETED = {
