@@ -82,6 +82,9 @@ class TestFeatureFlagsBaja:
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         data = response.json()
+        assert response.status_code != 202, (
+            f"Con flag desactivado NO se esperaba 202, se obtuvo {response.status_code}"
+        )
         assert data.get("error") == "KMD-4001", (
             f"Con flag desactivado se esperaba KMD-4001, se obtuvo: {data}"
         )

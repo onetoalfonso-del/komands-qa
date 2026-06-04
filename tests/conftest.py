@@ -31,7 +31,7 @@ def pytest_runtest_makereport(item, call):
         status = "✅ PASS" if report.passed else "❌ FAIL"
         log.info("%s  %s", status, report.nodeid)
 
-    report.extra = extra
+    report.extras = extra
 
 # ─── Constantes de entorno de prueba ──────────────────────────────────────────
 
@@ -551,11 +551,12 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         # la operación. ServiceNow debe usar BluePlanet en su lugar.
         # Fuente: docs/05_gaps_seguridad.md → FF-01, FF-03
         if not state.is_enabled(vno_id, product):
-            return {
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content={
                 "error": "KMD-4001",
                 "message": f"Feature flag desactivado para VNO={vno_id} producto={product}",
                 "redirect": "blueplanet",
-            }
+            })
 
         # ── Idempotencia ──────────────────────────────────────────────────────
         # Si el txn_id ya fue procesado, devolvemos el resultado anterior
@@ -605,11 +606,12 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         product = body.get("product", "FTTH")
 
         if not state.is_enabled(vno_id, product):
-            return {
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content={
                 "error": "KMD-4001",
                 "message": f"Feature flag desactivado para VNO={vno_id} producto={product}",
                 "redirect": "blueplanet",
-            }
+            })
 
         txn_id = body.get("txn_id")
         if txn_id and txn_id in state.seen_txns:

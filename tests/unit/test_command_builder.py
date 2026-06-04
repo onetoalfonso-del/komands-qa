@@ -1150,3 +1150,58 @@ class TestDeviceModification:
                 old_ont_serial="485754C12345",
                 new_ont_serial="485754C99999",
             )
+
+
+# ─── CB-47 a CB-48: Huawei BLOCK / UNBLOCK — comandos CLI ─────────────────────
+
+@pytest.mark.postventa
+class TestHuaweiFTTHModificationBlockUnblock:
+    """
+    Huawei MA5800/MA5600T — operaciones BLOCK y UNBLOCK.
+
+    BLOCK  → ont deactivate {port} {ont_id}   (corta el servicio sin borrar config)
+    UNBLOCK → ont activate {port} {ont_id}    (reactiva el servicio)
+
+    Complemento de CB-36 (solo cubría SPEED_CHANGE para Huawei).
+    """
+
+    def setup_method(self):
+        self.builder = CommandBuilder(vendor="huawei", product="FTTH")
+
+    # CB-47
+    def test_huawei_mod_block_contiene_ont_deactivate(self):
+        """
+        ESCENARIO: Bloqueo de servicio Huawei FTTH.
+
+        BLOCK en Huawei usa 'ont deactivate {port} {ont_id}' — suspende el ONT
+        sin borrar la configuración. Distinto a Nokia que usa admin-state down.
+
+        Resultado esperado: los comandos contienen 'ont deactivate'.
+        """
+        cmds = self.builder.build_modification(
+            **HUAWEI_DEACT_BASE,
+            operation_type="BLOCK",
+        )
+
+        assert any("ont deactivate" in c for c in cmds), (
+            "BLOCK Huawei debe usar 'ont deactivate {port} {ont_id}'"
+        )
+
+    # CB-48
+    def test_huawei_mod_unblock_contiene_ont_activate(self):
+        """
+        ESCENARIO: Desbloqueo de servicio Huawei FTTH.
+
+        UNBLOCK en Huawei usa 'ont activate {port} {ont_id}' — reactiva el ONT
+        previamente bloqueado. Reverso de BLOCK sin reconfiguración.
+
+        Resultado esperado: los comandos contienen 'ont activate'.
+        """
+        cmds = self.builder.build_modification(
+            **HUAWEI_DEACT_BASE,
+            operation_type="UNBLOCK",
+        )
+
+        assert any("ont activate" in c for c in cmds), (
+            "UNBLOCK Huawei debe usar 'ont activate {port} {ont_id}'"
+        )
