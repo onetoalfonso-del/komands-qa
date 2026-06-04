@@ -152,6 +152,24 @@ DEACTIVATION_HUAWEI_VALID = {
     "callback_url": CALLBACK_URL,
 }
 
+# ─── POST /api/v1/reset-ont ──────────────────────────────────────────────────
+
+RESET_ONT_NOKIA_VALID = {
+    "vno_id": "DTV",
+    "olt_name": "OLT-SAN-001",
+    "olt_vendor": "nokia",
+    "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
+    "callback_url": CALLBACK_URL,
+}
+
+RESET_ONT_HUAWEI_VALID = {
+    "vno_id": "DTV",
+    "olt_name": "OLT-SAN-002",
+    "olt_vendor": "huawei",
+    "shelf": 0, "card": 1, "port": 2, "logic_pon": 0, "ont_id": 10,
+    "callback_url": CALLBACK_URL,
+}
+
 # ─── POST /api/v1/device-modification (swap ONT) ─────────────────────────────
 
 DEVICE_MOD_NOKIA_VALID = {

@@ -373,6 +373,93 @@ def _build_test_app() -> FastAPI:
             "message": "Modificación encolada",
         }
 
+    # ── /reset-ont ─────────────────────────────────────────────────────────────
+    @app.post("/api/v1/reset-ont", status_code=202)
+    async def reset_ont(request: Request):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token ausente o malformado")
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+        if "vno_id" in payload:
+            if payload["vno_id"] not in VNOS:
+                raise HTTPException(status_code=403, detail="VNO no autorizada")
+            if "komands:write" not in payload.get("scope", ""):
+                raise HTTPException(status_code=403, detail="Scope insuficiente")
+        elif "role" in payload:
+            if "activation:write" not in payload.get("permissions", []):
+                raise HTTPException(status_code=403, detail="Rol sin permiso de reset")
+        else:
+            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+        return {
+            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "status": "PENDING",
+            "message": "Reset encolado",
+        }
+
+    # ── /device-modification — swap de ONT ────────────────────────────────────
+    @app.post("/api/v1/device-modification", status_code=202)
+    async def device_modification(request: Request):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token ausente o malformado")
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+        if "vno_id" in payload:
+            if payload["vno_id"] not in VNOS:
+                raise HTTPException(status_code=403, detail="VNO no autorizada")
+            if "komands:write" not in payload.get("scope", ""):
+                raise HTTPException(status_code=403, detail="Scope insuficiente")
+        elif "role" in payload:
+            if "activation:write" not in payload.get("permissions", []):
+                raise HTTPException(status_code=403, detail="Rol sin permiso de swap")
+        else:
+            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+        return {
+            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "status": "PENDING",
+            "message": "Cambio de equipo encolado",
+        }
+
+    # ── GET /access/{access_id} — consulta estado ONT ─────────────────────────
+    # Retorna 404 para el access_id centinela "NOTFOUND" (usado en QRY-003)
+    @app.get("/api/v1/access/{access_id}")
+    async def query_access(access_id: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if access_id == "NOTFOUND":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2002")
+        return {
+            "access_id": access_id,
+            "ont_serial": "ALCLF1234567",
+            "status": "ACTIVE",
+            "olt_name": "OLT-SAN-001",
+            "source": "cache",
+        }
+
+    # ── GET /port-occupancy — consulta ocupación PON ──────────────────────────
+    @app.get("/api/v1/port-occupancy")
+    async def port_occupancy(request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        return {"max_onts": 128, "active_onts": 87, "available": 41}
+
+    # ── GET /transaction/{txn_id} — ya existía, actualizado con 404 ──────────
+    # Retorna 404 para el UUID centinela de ceros (usado en QRY-006)
+    @app.get("/api/v1/transaction/{txn_id}/status")
+    async def get_transaction_status(txn_id: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if txn_id == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return {"txn_id": txn_id, "status": "COMPLETED", "steps": []}
+
     return app
 
 
@@ -488,6 +575,54 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         if txn_id:
             state.seen_txns[txn_id] = result
 
+        return result
+
+    # ── /unsuscription con Feature Flag e Idempotencia ────────────────────────
+    @app.post("/api/v1/unsuscription", status_code=202)
+    async def unsuscription_flagged(request: Request):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token ausente")
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+        if "vno_id" in payload:
+            vno_id = payload["vno_id"]
+            if vno_id not in VNOS:
+                raise HTTPException(status_code=403, detail="VNO no autorizada")
+            if "komands:write" not in payload.get("scope", ""):
+                raise HTTPException(status_code=403, detail="Scope insuficiente")
+        elif "role" in payload:
+            vno_id = "DTV"
+            if "activation:write" not in payload.get("permissions", []):
+                raise HTTPException(status_code=403, detail="Sin permiso")
+        else:
+            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+        body = await request.json()
+        product = body.get("product", "FTTH")
+
+        if not state.is_enabled(vno_id, product):
+            return {
+                "error": "KMD-4001",
+                "message": f"Feature flag desactivado para VNO={vno_id} producto={product}",
+                "redirect": "blueplanet",
+            }
+
+        txn_id = body.get("txn_id")
+        if txn_id and txn_id in state.seen_txns:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content=state.seen_txns[txn_id])
+
+        result = {
+            "txn_id": txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "status": "PENDING",
+            "message": "Baja encolada",
+        }
+        if txn_id:
+            state.seen_txns[txn_id] = result
         return result
 
     return app

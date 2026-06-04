@@ -949,3 +949,204 @@ class TestHuaweiFTTHModification:
         assert set(nokia_cmds) != set(huawei_cmds), (
             "Nokia y Huawei SPEED_CHANGE no pueden generar los mismos comandos"
         )
+
+
+# ─── CB-38 a CB-41: Reset ONT Nokia y Huawei ─────────────────────────────────
+
+@pytest.mark.postventa
+class TestResetONT:
+    """
+    Reset ONT — reinicia el equipo sin borrar la configuración.
+
+    Nokia: configure equipment ont interface {iface} + reset + exit
+    Huawei: interface gpon {shelf}/{card} + ont reset {port} {ont_id} + quit
+
+    Caso de uso: cuando el ONT queda colgado y el técnico no puede ir al sitio.
+    SLO del plan: la operación debe completarse en menos de 15 segundos.
+    """
+
+    # CB-38
+    def test_nokia_reset_contiene_comando_reset(self):
+        """
+        ESCENARIO: Reset Nokia FTTH.
+
+        El comando 'reset' aplicado sobre la interfaz del ONT fuerza
+        un reinicio del equipo. Es el paso único de esta operación.
+
+        Resultado esperado: los comandos contienen 'reset'.
+        """
+        cmds = CommandBuilder(vendor="nokia", product="FTTH").build_reset(
+            **NOKIA_DEACT_BASE
+        )
+
+        assert any("reset" in c for c in cmds), (
+            "Nokia reset debe contener el comando 'reset'"
+        )
+
+    # CB-39
+    def test_huawei_reset_contiene_ont_reset(self):
+        """
+        ESCENARIO: Reset Huawei FTTH.
+
+        Huawei usa 'ont reset {port} {ont_id}' a diferencia de Nokia
+        que aplica 'reset' sobre la interfaz configurada.
+
+        Resultado esperado: los comandos contienen 'ont reset'.
+        """
+        cmds = CommandBuilder(vendor="huawei", product="FTTH").build_reset(
+            **HUAWEI_DEACT_BASE
+        )
+
+        assert any("ont reset" in c for c in cmds), (
+            "Huawei reset debe usar 'ont reset {port} {ont_id}'"
+        )
+
+    # CB-40
+    def test_nokia_y_huawei_reset_generan_comandos_distintos(self):
+        """
+        ESCENARIO: Reset con mismos parámetros, vendors distintos.
+
+        Confirma que los templates de Nokia y Huawei no se mezclan
+        tampoco en la operación de reset.
+
+        Resultado esperado: conjuntos de comandos distintos.
+        """
+        nokia = CommandBuilder(vendor="nokia", product="FTTH").build_reset(**NOKIA_DEACT_BASE)
+        huawei = CommandBuilder(vendor="huawei", product="FTTH").build_reset(**HUAWEI_DEACT_BASE)
+
+        assert set(nokia) != set(huawei), (
+            "Nokia y Huawei reset no pueden generar los mismos comandos"
+        )
+
+    # CB-41
+    def test_nokia_reset_no_elimina_ont(self):
+        """
+        ESCENARIO: Reset Nokia — verificar que NO es una baja.
+
+        Reset reinicia el equipo pero NO lo elimina de la OLT.
+        El comando 'no equipment ont interface' (baja) no debe aparecer.
+
+        Resultado esperado: los comandos NO contienen 'no equipment'.
+        """
+        cmds = CommandBuilder(vendor="nokia", product="FTTH").build_reset(
+            **NOKIA_DEACT_BASE
+        )
+        all_cmds = " ".join(cmds)
+
+        assert "no equipment" not in all_cmds, (
+            "Reset no debe eliminar el ONT — ese es el comando de baja"
+        )
+
+
+# ─── CB-42 a CB-46: Cambio de ONT (device-modification) ─────────────────────
+
+@pytest.mark.postventa
+class TestDeviceModification:
+    """
+    Cambio de ONT (swap) — reemplaza el serial del ONT sin cambiar el servicio.
+
+    Secuencia Nokia:
+        1. admin-state down + no equipment ont interface  (baja viejo)
+        2. configure + sernum {new_serial} + admin-state up  (alta nuevo)
+
+    Secuencia Huawei:
+        1. undo service-port + ont delete  (baja viejo, R10)
+        2. ont add sn-auth {new_serial}    (alta nuevo)
+    """
+
+    # CB-42
+    def test_nokia_swap_contiene_baja_del_ont_viejo(self):
+        """
+        ESCENARIO: Swap Nokia — el ONT viejo debe darse de baja primero.
+
+        Si no se da de baja el viejo, la OLT tiene dos registros con el
+        mismo port/id y rechaza el alta del nuevo.
+
+        Resultado esperado: los comandos contienen 'no equipment ont interface'.
+        """
+        cmds = CommandBuilder(vendor="nokia", product="FTTH").build_device_modification(
+            **NOKIA_DEACT_BASE,
+            old_ont_serial="ALCLF1234567",
+            new_ont_serial="ALCLF7654321",
+        )
+
+        assert any("no equipment ont interface" in c for c in cmds), (
+            "Swap Nokia debe dar de baja el ONT viejo antes de registrar el nuevo"
+        )
+
+    # CB-43
+    def test_nokia_swap_contiene_serial_nuevo(self):
+        """
+        ESCENARIO: Swap Nokia — el nuevo serial debe aparecer en los comandos.
+
+        'sernum ALCLF7654321' es lo que registra el nuevo equipo físico.
+
+        Resultado esperado: los comandos contienen 'sernum ALCLF7654321'.
+        """
+        cmds = CommandBuilder(vendor="nokia", product="FTTH").build_device_modification(
+            **NOKIA_DEACT_BASE,
+            old_ont_serial="ALCLF1234567",
+            new_ont_serial="ALCLF7654321",
+        )
+
+        assert any("sernum ALCLF7654321" in c for c in cmds), (
+            "Swap Nokia debe registrar el nuevo serial 'ALCLF7654321'"
+        )
+
+    # CB-44
+    def test_huawei_swap_contiene_undo_service_port(self):
+        """
+        ESCENARIO: Swap Huawei — el service-port del ONT viejo debe borrarse.
+
+        Igual que en la baja, se usa el INDEX dinámico (R10) para identificar
+        el service-port a borrar.
+
+        Resultado esperado: los comandos contienen 'undo service-port 1025'.
+        """
+        cmds = CommandBuilder(vendor="huawei", product="FTTH").build_device_modification(
+            **HUAWEI_DEACT_BASE,
+            old_ont_serial="485754C12345",
+            new_ont_serial="485754C99999",
+            service_port_index=1025,
+        )
+
+        assert any("undo service-port 1025" in c for c in cmds), (
+            "Swap Huawei debe borrar el service-port del ONT viejo"
+        )
+
+    # CB-45
+    def test_huawei_swap_contiene_serial_nuevo(self):
+        """
+        ESCENARIO: Swap Huawei — el nuevo serial debe aparecer en 'sn-auth'.
+
+        'sn-auth 485754C99999' registra el nuevo equipo físico en la OLT.
+
+        Resultado esperado: los comandos contienen 'sn-auth 485754C99999'.
+        """
+        cmds = CommandBuilder(vendor="huawei", product="FTTH").build_device_modification(
+            **HUAWEI_DEACT_BASE,
+            old_ont_serial="485754C12345",
+            new_ont_serial="485754C99999",
+            service_port_index=1025,
+        )
+
+        assert any("sn-auth 485754C99999" in c for c in cmds), (
+            "Swap Huawei debe registrar el nuevo serial en 'sn-auth'"
+        )
+
+    # CB-46
+    def test_huawei_swap_sin_service_port_index_lanza_error(self):
+        """
+        ESCENARIO: Swap Huawei sin service_port_index.
+
+        El INDEX es obligatorio para identificar el service-port a borrar.
+        Sin él no se puede hacer el swap de forma segura.
+
+        Resultado esperado: CommandBuilderError con mención de 'service_port_index'.
+        """
+        with pytest.raises(CommandBuilderError, match="service_port_index"):
+            CommandBuilder(vendor="huawei", product="FTTH").build_device_modification(
+                **HUAWEI_DEACT_BASE,
+                old_ont_serial="485754C12345",
+                new_ont_serial="485754C99999",
+            )

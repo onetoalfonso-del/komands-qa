@@ -414,3 +414,137 @@ class CommandBuilder:
                 "quit",
             ]
         raise CommandBuilderError(f"operation_type no soportado: {operation_type}")
+
+    # ── Reset ONT — FTTH ──────────────────────────────────────────────────────
+
+    def build_reset(self, **params) -> list[str]:
+        """Retorna la lista de comandos CLI para resetear un ONT FTTH."""
+        if self.product == "FTTH":
+            if self.vendor == "nokia":
+                return self._nokia_reset(**params)
+            if self.vendor == "huawei":
+                return self._huawei_reset(**params)
+            raise CommandBuilderError(f"Vendor no soportado: {self.vendor}")
+        raise CommandBuilderError(f"Producto {self.product} no soportado para reset")
+
+    def _nokia_reset(
+        self, *, shelf: int, card: int, port: int, logic_pon: int, ont_id: int, **_
+    ) -> list[str]:
+        iface = f"{shelf}/{card}/{port}/{logic_pon}/{ont_id}"
+        return [
+            f"configure equipment ont interface {iface}",
+            f"  reset",
+            "exit",
+        ]
+
+    def _huawei_reset(
+        self, *, shelf: int, card: int, port: int, logic_pon: int, ont_id: int, **_
+    ) -> list[str]:
+        return [
+            f"interface gpon {shelf}/{card}",
+            f"ont reset {port} {ont_id}",
+            "quit",
+        ]
+
+    # ── Cambio de ONT (device-modification) — FTTH ───────────────────────────
+
+    def build_device_modification(
+        self,
+        *,
+        old_ont_serial: str,
+        new_ont_serial: str,
+        service_port_index: int | None = None,
+        services: list[str] | None = None,
+        speed_profile: str | None = None,
+        **params,
+    ) -> list[str]:
+        """Retorna la lista de comandos CLI para el swap de ONT FTTH."""
+        if self.product == "FTTH":
+            if self.vendor == "nokia":
+                return self._nokia_device_modification(
+                    old_ont_serial=old_ont_serial,
+                    new_ont_serial=new_ont_serial,
+                    services=services,
+                    speed_profile=speed_profile,
+                    **params,
+                )
+            if self.vendor == "huawei":
+                if service_port_index is None:
+                    raise CommandBuilderError(
+                        "service_port_index es obligatorio para Huawei (Riesgo R10)"
+                    )
+                return self._huawei_device_modification(
+                    old_ont_serial=old_ont_serial,
+                    new_ont_serial=new_ont_serial,
+                    service_port_index=service_port_index,
+                    services=services,
+                    **params,
+                )
+            raise CommandBuilderError(f"Vendor no soportado: {self.vendor}")
+        raise CommandBuilderError(
+            f"Producto {self.product} no soportado para device-modification"
+        )
+
+    def _nokia_device_modification(
+        self,
+        *,
+        shelf: int, card: int, port: int, logic_pon: int, ont_id: int,
+        old_ont_serial: str,
+        new_ont_serial: str,
+        speed_profile: str | None = None,
+        services: list[str] | None = None,
+        description: str = "",
+        **_,
+    ) -> list[str]:
+        iface = f"{shelf}/{card}/{port}/{logic_pon}/{ont_id}"
+        cmds = [
+            f"configure equipment ont interface {iface}",
+            f"  admin-state down",
+            "exit",
+            f"no equipment ont interface {iface}",
+            f"configure equipment ont interface {iface}",
+            f"  sernum {new_ont_serial}",
+            f"  sw-ver-pref auto",
+            f"  admin-state up",
+            "exit",
+        ]
+        if services and speed_profile:
+            for svc in services:
+                queue, prio = _NOKIA_SERVICE_QOS.get(svc, ("Q0", "P4"))
+                cmds.append(
+                    f"configure qos ont interface {iface}"
+                    f" service {svc} queue {queue} priority {prio}"
+                    f" profile {speed_profile}"
+                )
+        return cmds
+
+    def _huawei_device_modification(
+        self,
+        *,
+        shelf: int, card: int, port: int, logic_pon: int, ont_id: int,
+        old_ont_serial: str,
+        new_ont_serial: str,
+        service_port_index: int,
+        services: list[str] | None = None,
+        description: str = "",
+        **_,
+    ) -> list[str]:
+        cmds = [
+            f"interface gpon {shelf}/{card}",
+            f"undo service-port {service_port_index}",
+            f"ont delete {port} {ont_id}",
+            "quit",
+            f"interface gpon {shelf}/{card}",
+            f'ont add {port} {ont_id} sn-auth {new_ont_serial} omci'
+            f' ont-lineprofile-id 10 ont-srvprofile-id 10 desc "{description}"',
+            "quit",
+        ]
+        if services:
+            for svc in services:
+                gemport = _HUAWEI_SERVICE_GEMPORT.get(svc, 2)
+                cmds.append(
+                    f"service-port vlan 100 gpon {shelf}/{card}/{port}"
+                    f" ont {ont_id} gemport {gemport}"
+                    f" multi-service user-vlan 100 rx-cttr 6 tx-cttr 6"
+                )
+        return cmds
