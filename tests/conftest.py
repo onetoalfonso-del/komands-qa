@@ -1,4 +1,5 @@
 """Fixtures compartidos para toda la suite de pruebas Komands QA."""
+import logging
 import time
 import uuid
 from typing import AsyncGenerator
@@ -9,6 +10,28 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from jose import jwt, JWTError
+
+log = logging.getLogger("komands.qa")
+
+
+# ─── Hook: añade descripción y resultado esperado al reporte HTML ─────────────
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    pytest_html = item.config.pluginmanager.getplugin("html")
+    outcome = yield
+    report = outcome.get_result()
+    extra = getattr(report, "extra", [])
+
+    if report.when == "call" and pytest_html:
+        doc = (item.function.__doc__ or "").strip()
+        if doc:
+            extra.append(pytest_html.extras.text(doc, name="Descripción / Resultado esperado"))
+
+        status = "✅ PASS" if report.passed else "❌ FAIL"
+        log.info("%s  %s", status, report.nodeid)
+
+    report.extra = extra
 
 # ─── Constantes de entorno de prueba ──────────────────────────────────────────
 
@@ -295,6 +318,60 @@ def _build_test_app() -> FastAPI:
         payload = _decode_portal_token(request)
         _require_permission(payload, "users:write")
         return {"user_id": 1, "message": "Usuario creado"}
+
+    # ── /unsuscription — baja de ONT FTTH ─────────────────────────────────────
+    @app.post("/api/v1/unsuscription", status_code=202)
+    async def unsuscription(request: Request):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token ausente o malformado")
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+        if "vno_id" in payload:
+            if payload["vno_id"] not in VNOS:
+                raise HTTPException(status_code=403, detail="VNO no autorizada")
+            if "komands:write" not in payload.get("scope", ""):
+                raise HTTPException(status_code=403, detail="Scope insuficiente")
+        elif "role" in payload:
+            if "activation:write" not in payload.get("permissions", []):
+                raise HTTPException(status_code=403, detail="Rol sin permiso de baja")
+        else:
+            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+        return {
+            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "status": "PENDING",
+            "message": "Baja encolada",
+        }
+
+    # ── /modification — speed_change / block / unblock ────────────────────────
+    @app.post("/api/v1/modification", status_code=202)
+    async def modification(request: Request):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token ausente o malformado")
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+        if "vno_id" in payload:
+            if payload["vno_id"] not in VNOS:
+                raise HTTPException(status_code=403, detail="VNO no autorizada")
+            if "komands:write" not in payload.get("scope", ""):
+                raise HTTPException(status_code=403, detail="Scope insuficiente")
+        elif "role" in payload:
+            if "activation:write" not in payload.get("permissions", []):
+                raise HTTPException(status_code=403, detail="Rol sin permiso de modificación")
+        else:
+            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+        return {
+            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "status": "PENDING",
+            "message": "Modificación encolada",
+        }
 
     return app
 

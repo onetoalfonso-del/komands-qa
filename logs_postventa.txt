@@ -1,0 +1,88 @@
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaValida::test_baj01_nokia_ftth_dtv_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaValida::test_baj02_huawei_ftth_dtv_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaValida::test_baj03_nokia_ftth_clarovtr_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaValida::test_baj04_nokia_ftth_tch_delete_vlan_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaSinAutenticacion::test_baj05_sin_token_devuelve_401
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaSinAutenticacion::test_baj06_token_expirado_devuelve_401
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaSinAutenticacion::test_baj07_token_malformado_devuelve_401
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaSinAutorizacion::test_baj08_vno_no_autorizada_devuelve_403
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaSinAutorizacion::test_baj09_scope_insuficiente_devuelve_403
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaRBACPortal::test_baj10_admin_puede_dar_de_baja
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaRBACPortal::test_baj11_operator_puede_dar_de_baja
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaRBACPortal::test_baj12_viewer_no_puede_dar_de_baja
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaRespuesta::test_baj13_respuesta_contiene_txn_id
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaRespuesta::test_baj14_respuesta_contiene_status_pending
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaMultiVNO::test_baj15_todos_los_vnos_pueden_dar_de_baja[DTV]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaMultiVNO::test_baj15_todos_los_vnos_pueden_dar_de_baja[ClaroVTR]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaMultiVNO::test_baj15_todos_los_vnos_pueden_dar_de_baja[Entel]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_deactivation.py::TestBajaMultiVNO::test_baj15_todos_los_vnos_pueden_dar_de_baja[TCH]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionValida::test_mod01_nokia_speed_change_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionValida::test_mod02_nokia_block_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionValida::test_mod03_nokia_unblock_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionValida::test_mod04_huawei_speed_change_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionValida::test_mod05_huawei_block_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionValida::test_mod06_huawei_unblock_devuelve_202
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionSinAutenticacion::test_mod07_sin_token_devuelve_401
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionSinAutenticacion::test_mod08_token_expirado_devuelve_401
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionSinAutenticacion::test_mod09_token_malformado_devuelve_401
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionSinAutorizacion::test_mod10_vno_no_autorizada_devuelve_403
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionSinAutorizacion::test_mod11_scope_insuficiente_devuelve_403
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionRBACPortal::test_mod12_admin_puede_modificar
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionRBACPortal::test_mod13_operator_puede_modificar
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionRBACPortal::test_mod14_viewer_no_puede_modificar
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionRespuesta::test_mod15_respuesta_contiene_txn_id
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionRespuesta::test_mod16_respuesta_contiene_status_pending
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionMultiVNO::test_mod17_todos_los_vnos_pueden_modificar[DTV]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionMultiVNO::test_mod17_todos_los_vnos_pueden_modificar[ClaroVTR]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionMultiVNO::test_mod17_todos_los_vnos_pueden_modificar[Entel]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/api/test_modification.py::TestModificacionMultiVNO::test_mod17_todos_los_vnos_pueden_modificar[TCH]
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHDeactivation::test_nokia_baja_contiene_no_equipment_ont_interface
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHDeactivation::test_nokia_baja_contiene_admin_state_down
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHDeactivation::test_nokia_baja_tch_agrega_no_vlan
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHDeactivation::test_nokia_baja_sin_delete_vlan_no_agrega_no_vlan
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestHuaweiFTTHDeactivation::test_huawei_baja_contiene_undo_service_port_con_index
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestHuaweiFTTHDeactivation::test_huawei_baja_contiene_ont_delete
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestHuaweiFTTHDeactivation::test_huawei_baja_sin_service_port_index_lanza_error
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHModification::test_nokia_mod_speed_change_contiene_line_profile_nuevo
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHModification::test_nokia_mod_block_contiene_admin_state_down
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestNokiaFTTHModification::test_nokia_mod_unblock_contiene_admin_state_up
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestHuaweiFTTHModification::test_huawei_mod_speed_change_contiene_traffic_profile
+INFO     komands.qa:conftest.py:32 ✅ PASS  tests/unit/test_command_builder.py::TestHuaweiFTTHModification::test_nokia_y_huawei_mod_speed_change_generan_comandos_distintos

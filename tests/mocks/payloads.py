@@ -121,7 +121,7 @@ ACTIVATION_INVALID_VENDOR = {
     "olt_vendor": "ericsson",
 }
 
-# ─── POST /api/v1/deactivation ────────────────────────────────────────────────
+# ─── POST /api/v1/unsuscription ───────────────────────────────────────────────
 
 DEACTIVATION_NOKIA_VALID = {
     "vno_id": "DTV",
@@ -129,6 +129,19 @@ DEACTIVATION_NOKIA_VALID = {
     "olt_vendor": "nokia",
     "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
     "callback_url": CALLBACK_URL,
+}
+
+DEACTIVATION_NOKIA_CVTR = {
+    **DEACTIVATION_NOKIA_VALID,
+    "vno_id": "ClaroVTR",
+    "olt_name": "OLT-VAL-001",
+}
+
+DEACTIVATION_NOKIA_TCH = {
+    **DEACTIVATION_NOKIA_VALID,
+    "vno_id": "TCH",
+    "delete_vlan_on_terminate": True,
+    "svlan": 300,
 }
 
 DEACTIVATION_HUAWEI_VALID = {
@@ -194,6 +207,26 @@ MODIFICATION_BLOCK_NOKIA = {
 
 MODIFICATION_UNBLOCK_NOKIA = {
     **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "operation_type": "UNBLOCK",
+}
+
+MODIFICATION_SPEED_CHANGE_HUAWEI = {
+    "vno_id": "DTV",
+    "operation_type": "SPEED_CHANGE",
+    "olt_vendor": "huawei",
+    "olt_name": "OLT-SAN-002",
+    "shelf": 0, "card": 1, "port": 2, "logic_pon": 0, "ont_id": 10,
+    "new_speed_profile": "200M_50M",
+    "callback_url": CALLBACK_URL,
+}
+
+MODIFICATION_BLOCK_HUAWEI = {
+    **MODIFICATION_SPEED_CHANGE_HUAWEI,
+    "operation_type": "BLOCK",
+}
+
+MODIFICATION_UNBLOCK_HUAWEI = {
+    **MODIFICATION_SPEED_CHANGE_HUAWEI,
     "operation_type": "UNBLOCK",
 }
 

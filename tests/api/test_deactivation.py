@@ -1,12 +1,344 @@
-"""API tests — POST /api/v1/deactivation.
+"""API tests — POST /api/v1/unsuscription (Baja FTTH, sin SSAA).
 
-Convención: test_deactivation_<vendor>_<producto>_<escenario>
+Convención: test_baj<NN>_<vendor>_<vno>_<escenario>
 
-Cubre:
-- Baja de acceso Nokia FTTH y SSAA
-- Baja de acceso Huawei FTTH y SSAA
-- Rollback automático si falla algún paso
-- ONT inexistente → error descriptivo KMD-1002
-- OLT inalcanzable → KMD-2001 / 503
+Qué estamos probando:
+    El endpoint de baja recibe un payload con los datos del ONT
+    y devuelve HTTP 202 + txn_id cuando todo es válido.
+    También valida autenticación (401), autorización (403) y RBAC.
+
+    Nota: el servidor es la mini-app de conftest.py (TestClient).
+    No se necesita servidor real ni base de datos.
+
+    Scope: Release 1 — solo FTTH, SSAA excluido (confirmado por Pablo).
+
+Fuentes:
+    - Plan_Pruebas_Completo_v3_Final.xlsx → Release 1 → PV-BAJ-182 a PV-BAJ-214
+    - LLD ADR-008 → endpoint /deactivation renombrado a /unsuscription
+    - Plan v3 PV-BAJ → TCH tiene delete_vlan_on_terminate exclusivo
 """
 import pytest
+
+from tests.mocks.payloads import (
+    DEACTIVATION_NOKIA_VALID,
+    DEACTIVATION_NOKIA_CVTR,
+    DEACTIVATION_NOKIA_TCH,
+    DEACTIVATION_HUAWEI_VALID,
+)
+
+pytestmark = pytest.mark.postventa
+
+
+# ─── BAJ-01 a BAJ-04: Payloads válidos → HTTP 202 ────────────────────────────
+
+class TestBajaValida:
+    """
+    Casos felices — el API debe aceptar bajas FTTH de Nokia y Huawei,
+    para los 4 VNOs, devolviendo 202 + txn_id.
+    """
+
+    # BAJ-01
+    def test_baj01_nokia_ftth_dtv_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Nokia FTTH — VNO DTV (caso base).
+
+        Es la baja más básica. Si este caso falla, toda la suite de baja falla.
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202, (
+            f"Se esperaba 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+
+    # BAJ-02
+    def test_baj02_huawei_ftth_dtv_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Huawei FTTH — VNO DTV.
+
+        Valida que el endpoint acepta bajas de equipos Huawei (Riesgo R10).
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_VALID,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+
+    # BAJ-03
+    def test_baj03_nokia_ftth_clarovtr_devuelve_202(self, test_client):
+        """
+        ESCENARIO: Baja Nokia FTTH — VNO ClaroVTR.
+
+        Valida que el endpoint acepta bajas de ClaroVTR con su propio token.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {
+            "Authorization": f"Bearer {_make_token(vno_id='ClaroVTR')}",
+            "X-Correlation-ID": "test-baj03",
+        }
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_CVTR,
+            headers=headers,
+        )
+
+        assert response.status_code == 202
+
+    # BAJ-04
+    def test_baj04_nokia_ftth_tch_delete_vlan_devuelve_202(self, test_client):
+        """
+        ESCENARIO: Baja Nokia FTTH — VNO TCH (Movistar) con delete_vlan_on_terminate=True.
+
+        TCH tiene una regla de negocio especial: se elimina la VLAN del cliente
+        al dar de baja. El endpoint debe aceptar este campo extra sin error.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {
+            "Authorization": f"Bearer {_make_token(vno_id='TCH')}",
+            "X-Correlation-ID": "test-baj04",
+        }
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_TCH,
+            headers=headers,
+        )
+
+        assert response.status_code == 202
+
+
+# ─── BAJ-05 a BAJ-07: Autenticación fallida → HTTP 401 ───────────────────────
+
+class TestBajaSinAutenticacion:
+    """
+    El API debe rechazar bajas sin token o con token inválido.
+    """
+
+    # BAJ-05
+    def test_baj05_sin_token_devuelve_401(self, test_client):
+        """
+        ESCENARIO: Request de baja sin header Authorization.
+
+        Resultado esperado: HTTP 401.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+        )
+
+        assert response.status_code == 401
+
+    # BAJ-06
+    def test_baj06_token_expirado_devuelve_401(self, test_client, expired_token):
+        """
+        ESCENARIO: Token JWT con fecha de expiración pasada.
+
+        Resultado esperado: HTTP 401.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": f"Bearer {expired_token}"},
+        )
+
+        assert response.status_code == 401
+
+    # BAJ-07
+    def test_baj07_token_malformado_devuelve_401(self, test_client):
+        """
+        ESCENARIO: Token con formato inválido (no es un JWT).
+
+        Resultado esperado: HTTP 401.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": "Bearer esto-no-es-un-jwt"},
+        )
+
+        assert response.status_code == 401
+
+
+# ─── BAJ-08 a BAJ-09: Autorización fallida → HTTP 403 ────────────────────────
+
+class TestBajaSinAutorizacion:
+    """
+    Token válido pero sin permisos suficientes.
+    """
+
+    # BAJ-08
+    def test_baj08_vno_no_autorizada_devuelve_403(self, test_client, invalid_vno_token):
+        """
+        ESCENARIO: Token con VNO desconocida ("FAKE_VNO").
+
+        Resultado esperado: HTTP 403.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": f"Bearer {invalid_vno_token}"},
+        )
+
+        assert response.status_code == 403
+
+    # BAJ-09
+    def test_baj09_scope_insuficiente_devuelve_403(self, test_client, readonly_token):
+        """
+        ESCENARIO: Token con solo komands:read — sin permiso de escritura.
+
+        Resultado esperado: HTTP 403.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": f"Bearer {readonly_token}"},
+        )
+
+        assert response.status_code == 403
+
+
+# ─── BAJ-10 a BAJ-12: RBAC portal web ────────────────────────────────────────
+
+class TestBajaRBACPortal:
+    """
+    Solo ADMIN y OPERATOR tienen permiso activation:write.
+    VIEWER no puede dar de baja.
+    """
+
+    # BAJ-10
+    def test_baj10_admin_puede_dar_de_baja(self, test_client, admin_token):
+        """
+        ESCENARIO: Usuario con rol ADMIN da de baja desde el portal.
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        assert response.status_code == 202
+
+    # BAJ-11
+    def test_baj11_operator_puede_dar_de_baja(self, test_client, operator_token):
+        """
+        ESCENARIO: Usuario con rol OPERATOR da de baja desde el portal.
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": f"Bearer {operator_token}"},
+        )
+
+        assert response.status_code == 202
+
+    # BAJ-12
+    def test_baj12_viewer_no_puede_dar_de_baja(self, test_client, viewer_token):
+        """
+        ESCENARIO: Usuario con rol VIEWER intenta dar de baja.
+
+        VIEWER solo puede leer — no puede modificar la red.
+
+        Resultado esperado: HTTP 403.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers={"Authorization": f"Bearer {viewer_token}"},
+        )
+
+        assert response.status_code == 403
+
+
+# ─── BAJ-13 a BAJ-14: Estructura de la respuesta ─────────────────────────────
+
+class TestBajaRespuesta:
+    """
+    El body de la respuesta 202 debe contener txn_id y status=PENDING.
+    """
+
+    # BAJ-13
+    def test_baj13_respuesta_contiene_txn_id(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja válida → verificar que el body tiene txn_id.
+
+        Resultado esperado: campo txn_id presente en la respuesta.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert "txn_id" in data, f"txn_id ausente en respuesta: {data}"
+
+    # BAJ-14
+    def test_baj14_respuesta_contiene_status_pending(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja válida → el status inicial es PENDING.
+
+        La baja es asíncrona — el estado final llega por callback.
+
+        Resultado esperado: campo status == "PENDING".
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_VALID,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "PENDING", (
+            f"Se esperaba status=PENDING, se obtuvo: {data.get('status')}"
+        )
+
+
+# ─── BAJ-15: Todos los VNOs autorizados ──────────────────────────────────────
+
+class TestBajaMultiVNO:
+    """
+    Los 4 VNOs del proyecto deben poder dar de baja con un token válido.
+    """
+
+    # BAJ-15
+    @pytest.mark.parametrize("vno_id", ["DTV", "ClaroVTR", "Entel", "TCH"])
+    def test_baj15_todos_los_vnos_pueden_dar_de_baja(self, test_client, vno_id):
+        """
+        ESCENARIO: Cada VNO autorizado envía una baja.
+
+        Los 4 VNOs (DTV, ClaroVTR, Entel, TCH) deben recibir 202.
+
+        Resultado esperado: HTTP 202 para cada VNO.
+        """
+        from tests.conftest import _make_token
+        token = _make_token(vno_id=vno_id)
+        payload = {**DEACTIVATION_NOKIA_VALID, "vno_id": vno_id}
+
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 202, (
+            f"VNO {vno_id} recibió {response.status_code} — esperado 202"
+        )
