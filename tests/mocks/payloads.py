@@ -192,6 +192,32 @@ DEVICE_MOD_HUAWEI_VALID = {
     "callback_url": CALLBACK_URL,
 }
 
+# ─── Payloads centinela — errores de negocio en reset ────────────────────────
+#
+# Mismos valores reservados de ont_id que en baja y modificación:
+#   8888 → ONT no encontrado en la OLT                              (RST-16/17)
+#   7777 → timeout SSH, la OLT no respondió                         (RST-18/19)
+
+RESET_ONT_NOKIA_ONT_NOT_FOUND = {
+    **RESET_ONT_NOKIA_VALID,
+    "ont_id": 8888,
+}
+
+RESET_ONT_HUAWEI_ONT_NOT_FOUND = {
+    **RESET_ONT_HUAWEI_VALID,
+    "ont_id": 8888,
+}
+
+RESET_ONT_NOKIA_SSH_TIMEOUT = {
+    **RESET_ONT_NOKIA_VALID,
+    "ont_id": 7777,
+}
+
+RESET_ONT_HUAWEI_SSH_TIMEOUT = {
+    **RESET_ONT_HUAWEI_VALID,
+    "ont_id": 7777,
+}
+
 # ─── POST /api/v1/fiber-modification (cambio de pelo) ────────────────────────
 
 FIBER_MOD_NOKIA_VALID = {
@@ -260,23 +286,112 @@ MODIFICATION_SERVICE_REMOVE_VOIP = {
     "service": "VOIP",
 }
 
-# ─── Payloads centinela — errores de negocio Huawei ──────────────────────────
-# ont_id=9999 → simula que _resolve_dynamic_ids() no puede obtener el INDEX
+# ─── Payloads centinela — errores de negocio en modificación ──────────────────
+#
+# Mismos valores de ont_id reservados que en baja:
+#   8888 → ONT no encontrado en la OLT                              (MOD-18/19)
+#   7777 → timeout SSH, la OLT no respondió                         (MOD-20/21)
+#
+# Errores de validación del payload (devuelven 422, no 202):
+#   operation_type = "SERVICE_REMOVE"  → Nokia y Huawei FTTH no lo soportan  (MOD-22)
+#   new_speed_profile = "PERFIL_INVALIDO" → perfil no existe en la OLT       (MOD-23)
+
+MODIFICATION_NOKIA_ONT_NOT_FOUND = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "ont_id": 8888,
+}
+
+MODIFICATION_HUAWEI_ONT_NOT_FOUND = {
+    **MODIFICATION_SPEED_CHANGE_HUAWEI,
+    "ont_id": 8888,
+}
+
+MODIFICATION_NOKIA_SSH_TIMEOUT = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "ont_id": 7777,
+}
+
+MODIFICATION_HUAWEI_SSH_TIMEOUT = {
+    **MODIFICATION_SPEED_CHANGE_HUAWEI,
+    "ont_id": 7777,
+}
+
+# SERVICE_REMOVE Nokia — la OLT Nokia ISAM 7360 no tiene comando de remove-service
+# en FTTH. Komands debe rechazarlo con 422 antes de enviar nada a la red.
+MODIFICATION_SERVICE_REMOVE_NOKIA = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "operation_type": "SERVICE_REMOVE",
+    "service": "VOIP",
+}
+
+# Perfil de velocidad que no existe en el catálogo configurado en la OLT
+MODIFICATION_INVALID_SPEED_PROFILE = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "new_speed_profile": "PERFIL_INVALIDO",
+}
+
+# ─── Payloads centinela — errores de negocio ─────────────────────────────────
+#
+# La mini app del conftest detecta estos valores especiales y devuelve
+# la respuesta de error correspondiente, sin necesidad de una OLT real.
+#
+# Tabla de valores reservados (ont_id):
+#   9999 → Huawei: _resolve_dynamic_ids() no pudo obtener el INDEX   (BAJ-16)
+#   9998 → Huawei: INDEX parcial, 2 de 3 service-ports resueltos     (BAJ-17)
+#   8888 → Nokia/Huawei: ONT ID no existe en la OLT                  (BAJ-18/19)
+#   7777 → Nokia/Huawei: timeout SSH, la OLT no respondió            (BAJ-20/21)
+
+# Centinela Huawei — INDEX dinámico no resuelto (la OLT no entregó el SERVICE-PORT INDEX)
 DEACTIVATION_HUAWEI_INDEX_FAIL = {
     **DEACTIVATION_HUAWEI_VALID,
     "ont_id": 9999,
 }
 
-# ont_id=9998 → simula INDEX parcial: 2 de 3 service-ports resueltos, 1 falla
+# Centinela Huawei — INDEX parcial (cliente con 3 service-ports, solo 2 tienen INDEX)
 DEACTIVATION_HUAWEI_PARTIAL_INDEX = {
     **DEACTIVATION_HUAWEI_VALID,
     "ont_id": 9998,
 }
 
-# new_ont_serial centinela → simula que el alta del ONT nuevo falla (swap asimétrico)
+# Centinela Nokia/Huawei — ONT no encontrado en la OLT
+# La OLT responde que ese ONT ID no existe en su base de datos.
+# Ocurre cuando el ID en ServiceNow está desincronizado con la red.
+DEACTIVATION_NOKIA_ONT_NOT_FOUND = {
+    **DEACTIVATION_NOKIA_VALID,
+    "ont_id": 8888,
+}
+
+DEACTIVATION_HUAWEI_ONT_NOT_FOUND = {
+    **DEACTIVATION_HUAWEI_VALID,
+    "ont_id": 8888,
+}
+
+# Centinela Nokia/Huawei — timeout SSH a la OLT
+# Netmiko lanza socket.timeout cuando la OLT no responde dentro del límite configurado.
+# Komands no puede ejecutar ningún comando; no se tocó nada en la red.
+DEACTIVATION_NOKIA_SSH_TIMEOUT = {
+    **DEACTIVATION_NOKIA_VALID,
+    "ont_id": 7777,
+}
+
+DEACTIVATION_HUAWEI_SSH_TIMEOUT = {
+    **DEACTIVATION_HUAWEI_VALID,
+    "ont_id": 7777,
+}
+
+# Centinela swap asimétrico — baja del ONT viejo OK, pero alta del nuevo falla
+# El ONT viejo ya fue retirado de la OLT y no puede recuperarse automáticamente.
 DEVICE_MOD_ASYMMETRIC_FAIL = {
     **DEVICE_MOD_NOKIA_VALID,
     "new_ont_serial": "FAIL00000000",
+}
+
+# Centinela VLAN_CONFLICT — al dar de alta el ONT nuevo, la VLAN asignada ya está
+# en uso por otro cliente en ese mismo puerto PON. Komands deshace la baja del
+# ONT viejo (si ya se ejecutó) y reporta ROLLED_BACK con KMD-2003.
+DEVICE_MOD_VLAN_CONFLICT = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "new_ont_serial": "VLAN00000000",
 }
 
 # ─── Callbacks esperados (contratos de respuesta) ─────────────────────────────

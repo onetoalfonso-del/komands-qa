@@ -9,7 +9,12 @@ Fuentes:
 """
 import pytest
 
-from tests.mocks.payloads import DEVICE_MOD_NOKIA_VALID, DEVICE_MOD_HUAWEI_VALID, DEVICE_MOD_ASYMMETRIC_FAIL
+from tests.mocks.payloads import (
+    DEVICE_MOD_NOKIA_VALID,
+    DEVICE_MOD_HUAWEI_VALID,
+    DEVICE_MOD_ASYMMETRIC_FAIL,
+    DEVICE_MOD_VLAN_CONFLICT,
+)
 
 pytestmark = pytest.mark.postventa
 
@@ -269,6 +274,7 @@ class TestSwapMultiVNO:
 
 # ─── ONT-16: Error de negocio — swap asimétrico ───────────────────────────────
 
+@pytest.mark.mock_only
 class TestSwapAsimetrico:
     """
     El swap tiene dos pasos: (1) baja del ONT viejo, (2) alta del ONT nuevo.
@@ -306,4 +312,81 @@ class TestSwapAsimetrico:
         )
         assert "warning" in data, (
             f"Se esperaba campo 'warning' en la respuesta, se obtuvo: {data}"
+        )
+
+
+# ─── ONT-17 a ONT-18: VLAN_CONFLICT durante el swap ─────────────────────────
+
+@pytest.mark.mock_only
+class TestSwapVLANConflict:
+    """
+    Al dar de alta el ONT nuevo, la OLT detecta que la VLAN que le queremos
+    asignar ya está en uso por otro cliente en ese mismo puerto PON.
+
+    El swap tiene dos pasos: (1) baja del ONT viejo, (2) alta del ONT nuevo.
+    VLAN_CONFLICT ocurre en el paso 2.
+
+    Diferencia con ONT-16 (swap asimétrico):
+      - ONT-16: el ONT nuevo falla por equipo defectuoso o configuración inválida.
+        El ONT viejo no puede recuperarse.
+      - ONT-17/18: el ONT nuevo falla por conflicto de VLAN en la OLT.
+        Komands puede detectar esto antes de ejecutar el paso 1, o hacer
+        rollback si ya ejecutó la baja del viejo.
+        El error es de planeamiento de red, no del equipo.
+
+    En ambos casos el resultado es ROLLED_BACK con KMD-2003, pero el equipo
+    de Redes necesita saber cuál fue la causa para resolver correctamente.
+
+    Fuente: Plan v4 PV-ONT → casos VLAN_CONFLICT (color verde).
+    """
+
+    # ONT-17
+    def test_ont17_nokia_vlan_conflict_retorna_rolled_back(self, test_client, auth_headers):
+        """
+        ESCENARIO: Swap Nokia FTTH — la VLAN del nuevo ONT ya está en uso en el puerto PON.
+
+        Al activar el nuevo ONT, la OLT responde VLAN_CONFLICT porque esa VLAN
+        ya está asignada a otro cliente en el mismo puerto. Komands reporta
+        ROLLED_BACK con KMD-2003 para que Redes revise el planeamiento de VLANs.
+
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-2003.
+        """
+        response = test_client.post(
+            "/api/v1/device-modification",
+            json=DEVICE_MOD_VLAN_CONFLICT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "ROLLED_BACK", (
+            f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2003", (
+            f"Se esperaba KMD-2003, se obtuvo: {data.get('error_code')}"
+        )
+
+    # ONT-18
+    def test_ont18_huawei_vlan_conflict_retorna_rolled_back(self, test_client, auth_headers):
+        """
+        ESCENARIO: Swap Huawei FTTH — la VLAN del nuevo ONT ya está en uso en el puerto PON.
+
+        Mismo escenario que ONT-17 pero en equipos Huawei MA5800.
+        El conflicto de VLAN es un problema de la red, no del vendor.
+
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-2003.
+        """
+        response = test_client.post(
+            "/api/v1/device-modification",
+            json={**DEVICE_MOD_VLAN_CONFLICT, "olt_vendor": "huawei"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "ROLLED_BACK", (
+            f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2003", (
+            f"Se esperaba KMD-2003, se obtuvo: {data.get('error_code')}"
         )

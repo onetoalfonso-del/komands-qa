@@ -27,6 +27,12 @@ from tests.mocks.payloads import (
     MODIFICATION_SPEED_CHANGE_HUAWEI,
     MODIFICATION_BLOCK_HUAWEI,
     MODIFICATION_UNBLOCK_HUAWEI,
+    MODIFICATION_NOKIA_ONT_NOT_FOUND,
+    MODIFICATION_HUAWEI_ONT_NOT_FOUND,
+    MODIFICATION_NOKIA_SSH_TIMEOUT,
+    MODIFICATION_HUAWEI_SSH_TIMEOUT,
+    MODIFICATION_SERVICE_REMOVE_NOKIA,
+    MODIFICATION_INVALID_SPEED_PROFILE,
 )
 
 pytestmark = pytest.mark.postventa
@@ -363,4 +369,190 @@ class TestModificacionMultiVNO:
 
         assert response.status_code == 202, (
             f"VNO {vno_id} recibió {response.status_code} — esperado 202"
+        )
+
+
+# ─── MOD-18 a MOD-19: ONT no encontrado en la OLT ────────────────────────────
+
+@pytest.mark.mock_only
+class TestModificacionONTNoEncontrado:
+    """
+    La OLT responde que el ONT ID que enviamos no existe en su base de datos.
+
+    Para una modificación esto es tan bloqueante como para una baja:
+    no hay nada a quién aplicarle el cambio de velocidad, bloqueo o desbloqueo.
+
+    Komands aborta antes de enviar comandos y reporta FAILED con KMD-2002.
+    El mismo error code que en baja, porque el problema es el mismo: recurso
+    no encontrado en la OLT.
+    """
+
+    # MOD-18
+    def test_mod18_nokia_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Cambio de velocidad Nokia FTTH — el ONT ID no existe en la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/modification",
+            json=MODIFICATION_NOKIA_ONT_NOT_FOUND,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+    # MOD-19
+    def test_mod19_huawei_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Cambio de velocidad Huawei FTTH — el ONT ID no existe en la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/modification",
+            json=MODIFICATION_HUAWEI_ONT_NOT_FOUND,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+
+# ─── MOD-20 a MOD-21: Timeout SSH a la OLT ───────────────────────────────────
+
+@pytest.mark.mock_only
+class TestModificacionSSHTimeout:
+    """
+    La conexión SSH a la OLT falla por timeout antes de poder ejecutar
+    el cambio de velocidad, bloqueo o desbloqueo.
+
+    Al igual que en la baja (BAJ-20/21), Komands captura el socket.timeout
+    de Netmiko y reporta KMD-5010. El servicio del cliente no cambia porque
+    no se llegó a ejecutar ningún comando en la red.
+    """
+
+    # MOD-20
+    def test_mod20_nokia_ssh_timeout_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Modificación Nokia FTTH — timeout de conexión SSH a la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        """
+        response = test_client.post(
+            "/api/v1/modification",
+            json=MODIFICATION_NOKIA_SSH_TIMEOUT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-5010", (
+            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        )
+
+    # MOD-21
+    def test_mod21_huawei_ssh_timeout_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Modificación Huawei FTTH — timeout de conexión SSH a la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        """
+        response = test_client.post(
+            "/api/v1/modification",
+            json=MODIFICATION_HUAWEI_SSH_TIMEOUT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-5010", (
+            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        )
+
+
+# ─── MOD-22 a MOD-23: Operaciones especiales / validaciones de payload ────────
+
+@pytest.mark.mock_only
+class TestModificacionOperacionesEspeciales:
+    """
+    Casos donde Komands debe rechazar el payload con HTTP 422 antes de llegar
+    a la OLT porque la operación solicitada no es válida.
+
+    Son distintos a los errores KMD-2002/5010: allá llegamos a la OLT y
+    algo falla en la red. Acá Komands detecta el problema en el payload
+    y nunca intenta conectarse.
+
+    Fuente: Plan v4 ESP-001, ESP-003.
+    """
+
+    # MOD-22
+    def test_mod22_service_remove_nokia_devuelve_422(self, test_client, auth_headers):
+        """
+        ESCENARIO: Se intenta hacer SERVICE_REMOVE en Nokia FTTH.
+
+        La OLT Nokia ISAM 7360 no tiene un comando para quitar un servicio
+        individualmente en FTTH. Si el cliente quiere cancelar VOIP, hay que
+        dar de baja el acceso completo y reactivarlo sin ese servicio.
+        Komands rechaza SERVICE_REMOVE antes de conectarse a la OLT.
+
+        Resultado esperado: HTTP 422 con error_code KMD-4002.
+        """
+        response = test_client.post(
+            "/api/v1/modification",
+            json=MODIFICATION_SERVICE_REMOVE_NOKIA,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 422, (
+            f"Se esperaba 422 (operación no soportada), se obtuvo {response.status_code}"
+        )
+        data = response.json()
+        assert data.get("error_code") == "KMD-4002", (
+            f"Se esperaba KMD-4002, se obtuvo: {data.get('error_code')}"
+        )
+
+    # MOD-23
+    def test_mod23_perfil_velocidad_invalido_devuelve_422(self, test_client, auth_headers):
+        """
+        ESCENARIO: Cambio de velocidad con perfil que no existe en la OLT.
+
+        Los perfiles de velocidad (100M_20M, 200M_50M, etc.) son plantillas
+        configuradas en la OLT. Si ServiceNow envía un nombre que no existe
+        en el catálogo, Komands lo detecta en validación y devuelve 422.
+        No se envía ningún comando a la red.
+
+        Resultado esperado: HTTP 422 con error_code KMD-4003.
+        """
+        response = test_client.post(
+            "/api/v1/modification",
+            json=MODIFICATION_INVALID_SPEED_PROFILE,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 422, (
+            f"Se esperaba 422 (perfil inválido), se obtuvo {response.status_code}"
+        )
+        data = response.json()
+        assert data.get("error_code") == "KMD-4003", (
+            f"Se esperaba KMD-4003, se obtuvo: {data.get('error_code')}"
         )

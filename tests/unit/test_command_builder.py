@@ -1205,3 +1205,336 @@ class TestHuaweiFTTHModificationBlockUnblock:
         assert any("ont activate" in c for c in cmds), (
             "UNBLOCK Huawei debe usar 'ont activate {port} {ont_id}'"
         )
+
+
+# ─── CB-49 a CB-59: Guards defensivos — vendor y producto inválidos ───────────
+
+@pytest.mark.postventa
+class TestValidacionVendorProducto:
+    """
+    El Command Builder debe rechazar combinaciones inválidas de vendor o producto
+    antes de intentar generar comandos.
+
+    En producción estas combinaciones no ocurren si el router de operaciones
+    funciona bien, pero son críticos para detectar errores de integración
+    temprano — mejor un error explícito que un comando malformado enviado a la OLT.
+
+    Cubre los 'raise' defensivos al final de cada rama if/elif en todas las
+    operaciones: activación, baja, modificación, reset y swap.
+    """
+
+    # CB-49
+    def test_activacion_ftth_vendor_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_activation con vendor="cisco" y product="FTTH".
+
+        Cisco no es un vendor soportado. El Command Builder debe rechazarlo
+        antes de intentar generar comandos.
+
+        Resultado esperado: CommandBuilderError con mención del vendor.
+        """
+        builder = CommandBuilder(vendor="cisco", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="cisco"):
+            builder.build_activation(**NOKIA_BASE, services=["INTERNET"])
+
+    # CB-50
+    def test_activacion_ssaa_vendor_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_activation con vendor="zte" y product="SSAA".
+
+        ZTE tampoco está soportado — el guard aplica en la rama SSAA también.
+
+        Resultado esperado: CommandBuilderError con mención del vendor.
+        """
+        builder = CommandBuilder(vendor="zte", product="SSAA")
+        with pytest.raises(CommandBuilderError, match="zte"):
+            builder.build_activation(**NOKIA_SSAA_BASE, groups=["A"])
+
+    # CB-51
+    def test_activacion_producto_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_activation con product="GPON".
+
+        El Command Builder solo conoce FTTH y SSAA. Un producto desconocido
+        no tiene template de comandos.
+
+        Resultado esperado: CommandBuilderError con mención de "GPON".
+        """
+        builder = CommandBuilder(vendor="nokia", product="GPON")
+        with pytest.raises(CommandBuilderError, match="GPON"):
+            builder.build_activation(**NOKIA_BASE, services=["INTERNET"])
+
+    # CB-52
+    def test_baja_vendor_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_deactivation con vendor="cisco".
+
+        El guard de vendor aplica en la baja igual que en la activación.
+
+        Resultado esperado: CommandBuilderError con mención del vendor.
+        """
+        builder = CommandBuilder(vendor="cisco", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="cisco"):
+            builder.build_deactivation(**NOKIA_DEACT_BASE)
+
+    # CB-53
+    def test_baja_producto_no_soportado_lanza_error(self):
+        """
+        ESCENARIO: build_deactivation con product="SSAA".
+
+        La baja solo tiene template para FTTH — no existe secuencia de baja SSAA.
+
+        Resultado esperado: CommandBuilderError con mención de "SSAA".
+        """
+        builder = CommandBuilder(vendor="nokia", product="SSAA")
+        with pytest.raises(CommandBuilderError, match="SSAA"):
+            builder.build_deactivation(**NOKIA_DEACT_BASE)
+
+    # CB-54
+    def test_modificacion_vendor_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_modification con vendor="cisco".
+
+        El guard de vendor aplica en modificación también.
+
+        Resultado esperado: CommandBuilderError con mención del vendor.
+        """
+        builder = CommandBuilder(vendor="cisco", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="cisco"):
+            builder.build_modification(**NOKIA_DEACT_BASE, operation_type="BLOCK")
+
+    # CB-55
+    def test_modificacion_producto_no_soportado_lanza_error(self):
+        """
+        ESCENARIO: build_modification con product="SSAA".
+
+        Modificación (SPEED_CHANGE, BLOCK, UNBLOCK) solo tiene template para FTTH.
+
+        Resultado esperado: CommandBuilderError con mención de "SSAA".
+        """
+        builder = CommandBuilder(vendor="nokia", product="SSAA")
+        with pytest.raises(CommandBuilderError, match="SSAA"):
+            builder.build_modification(**NOKIA_DEACT_BASE, operation_type="BLOCK")
+
+    # CB-56
+    def test_reset_vendor_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_reset con vendor="cisco".
+
+        Resultado esperado: CommandBuilderError con mención del vendor.
+        """
+        builder = CommandBuilder(vendor="cisco", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="cisco"):
+            builder.build_reset(**NOKIA_DEACT_BASE)
+
+    # CB-57
+    def test_reset_producto_no_soportado_lanza_error(self):
+        """
+        ESCENARIO: build_reset con product="SSAA".
+
+        Reset solo aplica a FTTH — no existe secuencia de reset SSAA.
+
+        Resultado esperado: CommandBuilderError con mención de "SSAA".
+        """
+        builder = CommandBuilder(vendor="nokia", product="SSAA")
+        with pytest.raises(CommandBuilderError, match="SSAA"):
+            builder.build_reset(**NOKIA_DEACT_BASE)
+
+    # CB-58
+    def test_swap_vendor_desconocido_lanza_error(self):
+        """
+        ESCENARIO: build_device_modification con vendor="cisco".
+
+        Resultado esperado: CommandBuilderError con mención del vendor.
+        """
+        builder = CommandBuilder(vendor="cisco", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="cisco"):
+            builder.build_device_modification(
+                **NOKIA_DEACT_BASE,
+                old_ont_serial="OLD12345",
+                new_ont_serial="NEW12345",
+            )
+
+    # CB-59
+    def test_swap_producto_no_soportado_lanza_error(self):
+        """
+        ESCENARIO: build_device_modification con product="SSAA".
+
+        Swap solo aplica a FTTH.
+
+        Resultado esperado: CommandBuilderError con mención de "SSAA".
+        """
+        builder = CommandBuilder(vendor="nokia", product="SSAA")
+        with pytest.raises(CommandBuilderError, match="SSAA"):
+            builder.build_device_modification(
+                **NOKIA_DEACT_BASE,
+                old_ont_serial="OLD12345",
+                new_ont_serial="NEW12345",
+            )
+
+
+# ─── CB-60 a CB-64: Errores de validación en build_modification ───────────────
+
+@pytest.mark.postventa
+class TestModificacionValidacion:
+    """
+    build_modification tiene validaciones propias antes de construir comandos:
+
+      - operation_type vacío es ambiguo — no se puede saber qué hacer
+      - SPEED_CHANGE sin new_speed_profile no puede generar el comando correcto
+      - operation_type desconocido no debe generar comandos parciales
+
+    Estas validaciones deben lanzar CommandBuilderError con mensajes claros
+    para que el Adapter sepa exactamente qué campo falta o es inválido.
+    """
+
+    # CB-60
+    def test_operation_type_vacio_lanza_error(self):
+        """
+        ESCENARIO: build_modification con operation_type="" (vacío).
+
+        Sin tipo de operación el Command Builder no sabe qué comandos generar.
+        Falla rápido antes de intentar nada.
+
+        Resultado esperado: CommandBuilderError con mención de 'operation_type'.
+        """
+        builder = CommandBuilder(vendor="nokia", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="operation_type"):
+            builder.build_modification(**NOKIA_DEACT_BASE, operation_type="")
+
+    # CB-61
+    def test_nokia_speed_change_sin_perfil_lanza_error(self):
+        """
+        ESCENARIO: SPEED_CHANGE Nokia FTTH sin indicar el nuevo perfil de velocidad.
+
+        SPEED_CHANGE sin new_speed_profile no puede generar el comando 'line-profile'
+        correcto — falta el valor fundamental de la operación.
+
+        Resultado esperado: CommandBuilderError con mención de 'new_speed_profile'.
+        """
+        builder = CommandBuilder(vendor="nokia", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="new_speed_profile"):
+            builder.build_modification(
+                **NOKIA_DEACT_BASE,
+                operation_type="SPEED_CHANGE",
+                new_speed_profile=None,
+            )
+
+    # CB-62
+    def test_huawei_speed_change_sin_perfil_lanza_error(self):
+        """
+        ESCENARIO: SPEED_CHANGE Huawei FTTH sin indicar el nuevo perfil de velocidad.
+
+        Mismo comportamiento que Nokia — Huawei también requiere el perfil
+        para generar 'ont modify ... traffic-profile'.
+
+        Resultado esperado: CommandBuilderError con mención de 'new_speed_profile'.
+        """
+        builder = CommandBuilder(vendor="huawei", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="new_speed_profile"):
+            builder.build_modification(
+                **HUAWEI_DEACT_BASE,
+                operation_type="SPEED_CHANGE",
+                new_speed_profile="",
+            )
+
+    # CB-63
+    def test_nokia_operation_type_desconocido_lanza_error(self):
+        """
+        ESCENARIO: Nokia FTTH con operation_type="REBOOT".
+
+        "REBOOT" no es una operación de modificación válida en Nokia.
+        El Command Builder no debe generar comandos parciales — falla completo.
+
+        Resultado esperado: CommandBuilderError con mención de "REBOOT".
+        """
+        builder = CommandBuilder(vendor="nokia", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="REBOOT"):
+            builder.build_modification(**NOKIA_DEACT_BASE, operation_type="REBOOT")
+
+    # CB-64
+    def test_huawei_operation_type_desconocido_lanza_error(self):
+        """
+        ESCENARIO: Huawei FTTH con operation_type="REBOOT".
+
+        Mismo comportamiento que Nokia — Huawei tampoco conoce REBOOT.
+
+        Resultado esperado: CommandBuilderError con mención de "REBOOT".
+        """
+        builder = CommandBuilder(vendor="huawei", product="FTTH")
+        with pytest.raises(CommandBuilderError, match="REBOOT"):
+            builder.build_modification(**HUAWEI_DEACT_BASE, operation_type="REBOOT")
+
+
+# ─── CB-65 a CB-66: Swap con reconfiguración de QoS / service-ports ──────────
+
+@pytest.mark.postventa
+class TestSwapConReconfiguracion:
+    """
+    Durante un swap (cambio de ONT), además de reemplazar el serial del equipo,
+    el sistema puede re-configurar los servicios del ONT nuevo.
+
+    Para Nokia: si se pasan services + speed_profile, se generan comandos QoS
+    por servicio (igual que en una activación FTTH completa).
+
+    Para Huawei: si se pasan services, se generan service-ports con los
+    gemports fijos: INTERNET=2, VOIP=6, IPTV=7.
+
+    Este flujo ocurre cuando el técnico quiere asegurarse de que el ONT nuevo
+    queda con los servicios correctamente configurados — por ejemplo, tras un
+    reemplazo de urgencia sin historial del ONT anterior.
+    """
+
+    # CB-65
+    def test_nokia_swap_con_services_genera_comandos_qos(self):
+        """
+        ESCENARIO: Swap Nokia FTTH con services=["INTERNET", "VOIP"] y speed_profile.
+
+        El swap re-aplica la configuración QoS para el ONT nuevo.
+        Sin estos comandos el servicio del cliente puede quedar sin la
+        prioridad de tráfico correcta tras el reemplazo.
+
+        Resultado esperado: comandos QoS con Q0/P4 (INTERNET) y Q4/P5 (VOIP).
+        """
+        cmds = CommandBuilder(vendor="nokia", product="FTTH").build_device_modification(
+            **NOKIA_DEACT_BASE,
+            old_ont_serial="ALCLF1234567",
+            new_ont_serial="ALCLF7654321",
+            services=["INTERNET", "VOIP"],
+            speed_profile="100M_20M",
+        )
+
+        all_cmds = " ".join(cmds)
+        assert "Q0" in all_cmds, (
+            "El swap Nokia con INTERNET debe incluir cola Q0 para el ONT nuevo"
+        )
+        assert "Q4" in all_cmds, (
+            "El swap Nokia con VOIP debe incluir cola Q4 para el ONT nuevo"
+        )
+
+    # CB-66
+    def test_huawei_swap_con_services_genera_service_ports(self):
+        """
+        ESCENARIO: Swap Huawei FTTH con services=["INTERNET", "VOIP"].
+
+        Huawei requiere re-crear los service-ports del ONT nuevo tras el swap.
+        Sin estos comandos el tráfico del cliente no tiene dónde salir en la OLT.
+
+        Resultado esperado: comandos service-port con gemport 2 (INTERNET)
+        y gemport 6 (VOIP).
+        """
+        cmds = CommandBuilder(vendor="huawei", product="FTTH").build_device_modification(
+            **HUAWEI_DEACT_BASE,
+            old_ont_serial="485754C12345",
+            new_ont_serial="485754C99999",
+            service_port_index=1025,
+            services=["INTERNET", "VOIP"],
+        )
+
+        all_cmds = " ".join(cmds)
+        assert "gemport 2" in all_cmds, (
+            "El swap Huawei con INTERNET debe re-crear el service-port con gemport 2"
+        )
+        assert "gemport 6" in all_cmds, (
+            "El swap Huawei con VOIP debe re-crear el service-port con gemport 6"
+        )

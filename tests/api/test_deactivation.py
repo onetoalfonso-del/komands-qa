@@ -26,6 +26,10 @@ from tests.mocks.payloads import (
     DEACTIVATION_HUAWEI_VALID,
     DEACTIVATION_HUAWEI_INDEX_FAIL,
     DEACTIVATION_HUAWEI_PARTIAL_INDEX,
+    DEACTIVATION_NOKIA_ONT_NOT_FOUND,
+    DEACTIVATION_HUAWEI_ONT_NOT_FOUND,
+    DEACTIVATION_NOKIA_SSH_TIMEOUT,
+    DEACTIVATION_HUAWEI_SSH_TIMEOUT,
 )
 
 pytestmark = pytest.mark.postventa
@@ -346,8 +350,155 @@ class TestBajaMultiVNO:
         )
 
 
+# ─── BAJ-18 a BAJ-19: ONT no encontrado en la OLT ───────────────────────────
+
+@pytest.mark.mock_only
+class TestBajaONTNoEncontrado:
+    """
+    La OLT responde que el ONT ID que enviamos no existe en su base de datos.
+
+    Esto pasa en dos situaciones reales:
+      1. El ONT fue eliminado manualmente desde la OLT sin pasar por Komands,
+         y ServiceNow sigue teniendo el ID como activo.
+      2. El técnico ingresó el ID incorrecto en la orden de servicio.
+
+    En ambos casos, Komands no puede ejecutar la baja porque no hay nada
+    que eliminar. Reporta FAILED con KMD-2002 sin tocar nada en la red.
+
+    Diferencia con BAJ-16: allá el ONT existe pero no tiene INDEX (Huawei).
+    Acá el ONT simplemente no existe, y aplica a Nokia y Huawei por igual.
+    """
+
+    # BAJ-18
+    def test_baj18_nokia_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Nokia FTTH — el ONT ID no existe en la OLT.
+
+        Komands consulta la OLT por el ONT y recibe respuesta "no encontrado".
+        Sin ONT al que apuntar, la operación se aborta antes de enviar comandos.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_ONT_NOT_FOUND,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+
+        # La operación no se ejecutó, pero la solicitud fue recibida → 202
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        # KMD-2002 cubre todos los casos de "recurso no encontrado en OLT"
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+    # BAJ-19
+    def test_baj19_huawei_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Huawei FTTH — el ONT ID no existe en la OLT.
+
+        Mismo escenario que BAJ-18 pero para equipos Huawei MA5800.
+        El error es el mismo código porque el problema es de negocio, no del vendor.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_ONT_NOT_FOUND,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+
+# ─── BAJ-20 a BAJ-21: Timeout SSH a la OLT ───────────────────────────────────
+
+@pytest.mark.mock_only
+class TestBajaSSHTimeout:
+    """
+    La conexión SSH a la OLT falla por timeout antes de poder enviar comandos.
+
+    Netmiko intenta conectarse usando socket TCP al puerto 22 de la OLT.
+    Si la OLT no responde dentro del límite configurado (típicamente 30 seg),
+    lanza socket.timeout. Komands captura esa excepción y reporta KMD-5010.
+
+    Diferencia clave respecto a KMD-2002 (ONT no encontrado):
+      - KMD-2002: llegamos a la OLT, pero el ONT no existe.
+      - KMD-5010: nunca llegamos a la OLT, no sabemos nada del ONT.
+
+    Ambos casos dejan el cliente sin cambios en la red, pero KMD-5010
+    puede indicar un problema de infraestructura más amplio (OLT caída,
+    problema de routing) que hay que escalar a Redes.
+    """
+
+    # BAJ-20
+    def test_baj20_nokia_ssh_timeout_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Nokia FTTH — timeout de conexión SSH a la OLT.
+
+        Netmiko no logra establecer la sesión SSH dentro del tiempo límite.
+        Komands aborta la operación sin haber ejecutado ningún comando.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_SSH_TIMEOUT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        # KMD-5010 es el código específico para errores de capa de transporte SSH
+        assert data.get("error_code") == "KMD-5010", (
+            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        )
+
+    # BAJ-21
+    def test_baj21_huawei_ssh_timeout_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja Huawei FTTH — timeout de conexión SSH a la OLT.
+
+        Mismo escenario que BAJ-20 pero para equipos Huawei MA5800.
+        El código de error es el mismo: el problema es la red, no el vendor.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        """
+        response = test_client.post(
+            "/api/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_SSH_TIMEOUT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-5010", (
+            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        )
+
+
 # ─── BAJ-16 a BAJ-17: Errores de negocio Huawei ──────────────────────────────
 
+@pytest.mark.mock_only
 class TestBajaErroresNegocioHuawei:
     """
     Huawei requiere resolver un INDEX dinámico antes de ejecutar la baja.

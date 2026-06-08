@@ -9,7 +9,14 @@ Fuentes:
 """
 import pytest
 
-from tests.mocks.payloads import RESET_ONT_NOKIA_VALID, RESET_ONT_HUAWEI_VALID
+from tests.mocks.payloads import (
+    RESET_ONT_NOKIA_VALID,
+    RESET_ONT_HUAWEI_VALID,
+    RESET_ONT_NOKIA_ONT_NOT_FOUND,
+    RESET_ONT_HUAWEI_ONT_NOT_FOUND,
+    RESET_ONT_NOKIA_SSH_TIMEOUT,
+    RESET_ONT_HUAWEI_SSH_TIMEOUT,
+)
 
 pytestmark = pytest.mark.postventa
 
@@ -259,4 +266,124 @@ class TestResetMultiVNO:
         )
         assert response.status_code == 202, (
             f"VNO {vno_id} recibió {response.status_code} — esperado 202"
+        )
+
+
+# ─── RST-16 a RST-17: ONT no encontrado en la OLT ────────────────────────────
+
+@pytest.mark.mock_only
+class TestResetONTNoEncontrado:
+    """
+    La OLT no tiene registrado el ONT ID que estamos intentando resetear.
+
+    El reset es la operación más inocua de post-venta porque no toca
+    la configuración del servicio, pero igual necesita que el ONT exista
+    en la OLT para poder enviar el comando de reinicio.
+
+    Si el ID no existe, Komands aborta y reporta FAILED con KMD-2002.
+    No hay nada que deshacer.
+    """
+
+    # RST-16
+    def test_rst16_nokia_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Reset Nokia FTTH — el ONT ID no existe en la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/reset-ont",
+            json=RESET_ONT_NOKIA_ONT_NOT_FOUND,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+    # RST-17
+    def test_rst17_huawei_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Reset Huawei FTTH — el ONT ID no existe en la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
+        """
+        response = test_client.post(
+            "/api/v1/reset-ont",
+            json=RESET_ONT_HUAWEI_ONT_NOT_FOUND,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-2002", (
+            f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
+        )
+
+
+# ─── RST-18 a RST-19: Timeout SSH a la OLT ───────────────────────────────────
+
+@pytest.mark.mock_only
+class TestResetSSHTimeout:
+    """
+    La conexión SSH a la OLT falla por timeout.
+
+    Para el reset esto es especialmente frustrante: el cliente está sin
+    servicio esperando el reinicio del ONT, y Komands ni siquiera pudo
+    conectarse. El KMD-5010 indica que hay un problema de red o que
+    la OLT está sobrecargada o fuera de servicio.
+
+    El cliente queda en el mismo estado que antes — el ONT no fue reseteado.
+    """
+
+    # RST-18
+    def test_rst18_nokia_ssh_timeout_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Reset Nokia FTTH — timeout de conexión SSH a la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        """
+        response = test_client.post(
+            "/api/v1/reset-ont",
+            json=RESET_ONT_NOKIA_SSH_TIMEOUT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-5010", (
+            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        )
+
+    # RST-19
+    def test_rst19_huawei_ssh_timeout_retorna_failed(self, test_client, auth_headers):
+        """
+        ESCENARIO: Reset Huawei FTTH — timeout de conexión SSH a la OLT.
+
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        """
+        response = test_client.post(
+            "/api/v1/reset-ont",
+            json=RESET_ONT_HUAWEI_SSH_TIMEOUT,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "FAILED", (
+            f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-5010", (
+            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
         )

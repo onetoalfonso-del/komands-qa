@@ -562,6 +562,28 @@ def _build_test_app() -> FastAPI:
                 "error_message": "INDEX parcial: 2 de 3 service-ports resueltos — rollback ejecutado",
             }
 
+        # Centinela BAJ-18/19: ONT no encontrado en la OLT
+        # Aplica a Nokia y Huawei: la OLT responde que ese ont_id no existe.
+        # No hay rollback porque no se ejecutó ningún comando en la red.
+        if ont_id == 8888:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-2002",
+                "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
+            }
+
+        # Centinela BAJ-20/21: timeout SSH a la OLT
+        # Netmiko lanza socket.timeout; Komands lo captura y reporta KMD-5010.
+        # No se sabe si el ONT existe o no — simplemente no hubo comunicación.
+        if ont_id == 7777:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-5010",
+                "error_message": "Timeout de conexión SSH a la OLT — reintentar más tarde o escalar a Redes",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "PENDING",
@@ -571,6 +593,8 @@ def _build_test_app() -> FastAPI:
     # ── /modification — speed_change / block / unblock ────────────────────────
     @app.post("/api/v1/modification", status_code=202)
     async def modification(request: Request):
+        from fastapi.responses import JSONResponse
+
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Token ausente o malformado")
@@ -589,6 +613,46 @@ def _build_test_app() -> FastAPI:
                 raise HTTPException(status_code=403, detail="Rol sin permiso de modificación")
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+        body = await request.json()
+        ont_id = body.get("ont_id")
+        operation_type = body.get("operation_type", "")
+        speed_profile = body.get("new_speed_profile", "")
+
+        # Centinela MOD-22: SERVICE_REMOVE no está soportado en Nokia ni Huawei FTTH.
+        # La OLT no tiene comando equivalente; Komands lo rechaza en validación.
+        if operation_type == "SERVICE_REMOVE":
+            return JSONResponse(status_code=422, content={
+                "error_code": "KMD-4002",
+                "error_message": "SERVICE_REMOVE no soportado en FTTH — usar baja completa si el cliente no quiere ningún servicio",
+            })
+
+        # Centinela MOD-23: perfil de velocidad que no existe en la OLT.
+        # Komands valida el catálogo antes de enviar comandos a la red.
+        if speed_profile == "PERFIL_INVALIDO":
+            return JSONResponse(status_code=422, content={
+                "error_code": "KMD-4003",
+                "error_message": "Perfil de velocidad no encontrado — verificar catálogo de perfiles en la OLT",
+            })
+
+        # Centinela MOD-18/19: ONT no encontrado en la OLT
+        if ont_id == 8888:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-2002",
+                "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
+            }
+
+        # Centinela MOD-20/21: timeout SSH a la OLT
+        if ont_id == 7777:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-5010",
+                "error_message": "Timeout de conexión SSH a la OLT — reintentar más tarde o escalar a Redes",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "PENDING",
@@ -616,6 +680,28 @@ def _build_test_app() -> FastAPI:
                 raise HTTPException(status_code=403, detail="Rol sin permiso de reset")
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+        body = await request.json()
+        ont_id = body.get("ont_id")
+
+        # Centinela RST-16/17: ONT no encontrado — la OLT no tiene ese ID
+        if ont_id == 8888:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-2002",
+                "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
+            }
+
+        # Centinela RST-18/19: timeout SSH — no se pudo conectar a la OLT
+        if ont_id == 7777:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-5010",
+                "error_message": "Timeout de conexión SSH a la OLT — reintentar más tarde o escalar a Redes",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "PENDING",
@@ -647,6 +733,7 @@ def _build_test_app() -> FastAPI:
         body = await request.json()
 
         # Centinela ONT-16: alta del ONT nuevo falla → swap asimétrico → ROLLED_BACK
+        # El ONT viejo ya fue dado de baja y no puede recuperarse automáticamente.
         if body.get("new_ont_serial") == "FAIL00000000":
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -654,6 +741,16 @@ def _build_test_app() -> FastAPI:
                 "error_code": "KMD-2004",
                 "error_message": "Baja del ONT viejo exitosa, pero alta del ONT nuevo falló — escalar a Ingeniería de Redes",
                 "warning": "ONT viejo no recuperable automáticamente",
+            }
+
+        # Centinela ONT-17/18: VLAN_CONFLICT — la VLAN asignada al nuevo ONT ya está
+        # en uso en ese puerto PON. Komands deshace lo que hizo y reporta ROLLED_BACK.
+        if body.get("new_ont_serial") == "VLAN00000000":
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-2003",
+                "error_message": "VLAN_CONFLICT: la VLAN asignada al nuevo ONT ya está en uso en este puerto PON — revisar planeamiento de VLANs",
             }
 
         return {
@@ -694,6 +791,47 @@ def _build_test_app() -> FastAPI:
         if txn_id == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return {"txn_id": txn_id, "status": "COMPLETED", "steps": []}
+
+    # ── /internal/complete — simula que un worker terminó y hay que notificar ─
+    #
+    # En producción, cuando el worker de fondo termina de ejecutar comandos en
+    # la OLT, Komands llama a la callback_url que vino en el request original.
+    # Este endpoint simula ese momento: recibe el resultado y dispara el HTTP
+    # POST a ServiceNow para que pueda cerrar la orden de trabajo.
+    #
+    # Si ServiceNow no está disponible, Komands no debe crashear — informa el
+    # fallo con ok=False para que el sistema de reintentos lo procese después.
+    @app.post("/api/v1/internal/complete", status_code=200)
+    async def complete_operation(request: Request):
+        body = await request.json()
+        txn_id = body.get("txn_id", "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+        status = body.get("status", "COMPLETED")
+        callback_url = body.get("callback_url")
+
+        # Construye el payload que Komands enviará a ServiceNow
+        callback_payload = {
+            "txn_id": txn_id,
+            "status": status,
+            "operation": body.get("operation", "activation"),
+            "vno_id": body.get("vno_id", "DTV"),
+        }
+        # Para FAILED y ROLLED_BACK, ServiceNow necesita el código de error
+        # para saber a qué equipo escalar el incidente
+        if status in ("FAILED", "ROLLED_BACK"):
+            callback_payload["error_code"] = body.get("error_code", "")
+            callback_payload["error_message"] = body.get("error_message", "")
+
+        if not callback_url:
+            return {"ok": True, "callback_http_status": None}
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(callback_url, json=callback_payload)
+                return {"ok": True, "callback_http_status": resp.status_code}
+        except Exception as exc:
+            # ServiceNow no respondió: registrar el fallo pero no crashear.
+            # En producción este caso entraría a una cola de reintentos.
+            return {"ok": False, "error": str(exc), "callback_http_status": None}
 
     return app
 
