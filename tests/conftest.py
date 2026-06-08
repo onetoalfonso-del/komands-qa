@@ -2,6 +2,7 @@
 import html as _html_mod
 import json as _json
 import logging
+import os
 import re
 import time
 import uuid
@@ -18,6 +19,30 @@ log = logging.getLogger("komands.qa")
 
 # Almacena el último request capturado (se sobreescribe en cada test)
 _last_req: dict = {}
+# ID del caso en ejecución — se actualiza antes de cada test
+_current_case_id: str = ""
+
+
+def pytest_configure(config):
+    """Crea el directorio de logs antes de que pytest empiece."""
+    os.makedirs("logs", exist_ok=True)
+
+
+def pytest_runtest_setup(item):
+    """Antes de cada test: escribe un separador en el log con el ID y escenario."""
+    global _current_case_id
+    _current_case_id = _extract_case_id(item.function.__name__)
+    doc = (item.function.__doc__ or "").strip()
+    escenario = ""
+    for line in doc.splitlines():
+        line = line.strip()
+        if line.startswith("ESCENARIO:"):
+            escenario = line[len("ESCENARIO:"):].strip()
+            break
+    log.info("=" * 60)
+    log.info("TEST  [%s]  %s", _current_case_id or "-", item.nodeid.split("::")[-1])
+    if escenario:
+        log.info("      %s", escenario)
 
 
 # ─── Tablas de lenguaje amigable para el reporte ─────────────────────────────
@@ -111,17 +136,34 @@ def _datos_amigables(payload: dict) -> str:
 # ─── TestClient con captura de request/response ───────────────────────────────
 
 class CapturingTestClient(TestClient):
-    """TestClient que guarda el último request para mostrarlo en el reporte HTML."""
+    """TestClient que guarda el último request/response para el reporte y el log."""
 
     def request(self, method, url, **kwargs):
         response = super().request(method, url, **kwargs)
+        payload = kwargs.get("json")
+        try:
+            resp_body = response.json()
+        except Exception:
+            resp_body = None
+
         _last_req.clear()
         _last_req.update({
             "method": method.upper(),
             "url": url,
-            "payload": kwargs.get("json"),
+            "payload": payload,
             "status_code": response.status_code,
+            "response_body": resp_body,
         })
+
+        # Log paso a paso: request enviado y response recibido
+        log.info("  >> %s %s", method.upper(), url)
+        if payload:
+            log.info("     PAYLOAD  %s", _json.dumps(payload, ensure_ascii=False))
+        log.info(
+            "  << %d  %s",
+            response.status_code,
+            _json.dumps(resp_body, ensure_ascii=False) if resp_body else response.text[:300],
+        )
         return response
 
 
@@ -221,6 +263,27 @@ def pytest_runtest_makereport(item, call):
             f"<td {td}>{status_icon}{badge_real}</td></tr>"
         )
 
+        # Payload enviado al API — útil para reproducir el caso manualmente
+        if req.get("payload"):
+            payload_json = _json.dumps(req["payload"], ensure_ascii=False, indent=2)
+            rows.append(
+                f"<tr><td {th}>Payload enviado</td>"
+                f"<td {td}><pre style='background:#f4f6f7;padding:6px 10px;"
+                f"border-radius:4px;font-size:0.8em;margin:0;overflow:auto;"
+                f"max-height:160px'>{_html_mod.escape(payload_json)}</pre></td></tr>"
+            )
+
+        # Response recibido — permite ver exactamente qué retornó el servidor
+        if req.get("response_body"):
+            resp_json = _json.dumps(req["response_body"], ensure_ascii=False, indent=2)
+            bg = "#eafaf1" if report.passed else "#fdedec"
+            rows.append(
+                f"<tr><td {th}>Response recibido</td>"
+                f"<td {td}><pre style='background:{bg};padding:6px 10px;"
+                f"border-radius:4px;font-size:0.8em;margin:0;overflow:auto;"
+                f"max-height:160px'>{_html_mod.escape(resp_json)}</pre></td></tr>"
+            )
+
         html = (
             "<table style='width:100%;border-collapse:collapse;"
             "font-size:0.9em;margin-top:4px;border:1px solid #e8e8e8'>"
@@ -228,7 +291,9 @@ def pytest_runtest_makereport(item, call):
             + "</table>"
         )
         extra.append(pytest_html.extras.html(html))
-        log.info("%s  [%s]  %s", status_icon, case_id or "?", report.nodeid)
+
+        # Línea final en el log con el resultado del test
+        log.info("  RESULTADO  %s", "PASS" if report.passed else "FAIL")
 
     report.extras = extra
 
