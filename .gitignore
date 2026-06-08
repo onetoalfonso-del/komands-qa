@@ -22,3 +22,8 @@ reports/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Documentos de planificación (no van al repo)
+*.xlsx
+*.xls
+~$*
