@@ -27,3 +27,16 @@ Thumbs.db
 *.xlsx
 *.xls
 ~$*
+
+# Reportes HTML generados por pytest
+reporte*.html
+reporte-ci.html
+
+# Logs de ejecución
+logs/
+
+# Configuración local de Claude Code
+.claude/
+
+# Metadatos Windows
+desktop.ini
