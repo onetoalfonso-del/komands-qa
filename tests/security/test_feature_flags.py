@@ -131,7 +131,7 @@ class TestFeatureFlags:
         )
         body = response.json()
         assert "txn_id" in body
-        assert body["status"] == "PENDING"
+        assert body["status"] == "ACCEPTED"
 
     # ──────────────────────────────────────────────────────────────────────────
     # FF-03: FTTH activado, SSAA desactivado → granularidad por producto
@@ -318,7 +318,7 @@ class TestIdempotencia:
         payload_distinto = {
             **ACTIVATION_WITH_TXN_ID,
             "olt_name": "OLT-DIFERENTE-999",  # distinto campo
-            "ont_serial": "ALCLF9999999",
+            "serial_ont": "ALCLF9999999",
         }
 
         # ACT: primera vez con payload original, segunda vez con payload distinto

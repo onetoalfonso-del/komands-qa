@@ -3,7 +3,7 @@
 Convención: test_ont<NN>_<vendor>_<vno>_<escenario>
 
 Fuentes:
-    - Plan_Pruebas_Completo_v3_Final.xlsx → Release 1 → PV-ONT-248 a PV-ONT-267
+    - Plan_Pruebas_Completo_v4_Final.xlsx → Release 1 → PV-ONT-248 a PV-ONT-269
     - Swap = baja ONT viejo + alta ONT nuevo con mismo port/id/servicio
     - Riesgo R10: Huawei requiere service_port_index del ONT viejo
 """
@@ -70,8 +70,8 @@ class TestSwapValido:
         from tests.conftest import _make_token
         response = test_client.post(
             "/api/v1/device-modification",
-            json={**DEVICE_MOD_NOKIA_VALID, "vno_id": "ClaroVTR"},
-            headers={"Authorization": f"Bearer {_make_token(vno_id='ClaroVTR')}"},
+            json={**DEVICE_MOD_NOKIA_VALID, "vno_code": "CVTR"},
+            headers={"Authorization": f"Bearer {_make_token(vno_id='CVTR')}"},
         )
         assert response.status_code == 202
 
@@ -85,7 +85,7 @@ class TestSwapValido:
         from tests.conftest import _make_token
         response = test_client.post(
             "/api/v1/device-modification",
-            json={**DEVICE_MOD_NOKIA_VALID, "vno_id": "TCH"},
+            json={**DEVICE_MOD_NOKIA_VALID, "vno_code": "TCH"},
             headers={"Authorization": f"Bearer {_make_token(vno_id='TCH')}"},
         )
         assert response.status_code == 202
@@ -246,7 +246,7 @@ class TestSwapRespuesta:
             "/api/v1/device-modification", json=DEVICE_MOD_NOKIA_VALID, headers=auth_headers
         )
         assert response.status_code == 202
-        assert response.json().get("status") == "PENDING"
+        assert response.json().get("status") == "ACCEPTED"
 
 
 # ─── ONT-15: Todos los VNOs ───────────────────────────────────────────────────
@@ -254,7 +254,7 @@ class TestSwapRespuesta:
 class TestSwapMultiVNO:
 
     # ONT-15
-    @pytest.mark.parametrize("vno_id", ["DTV", "ClaroVTR", "Entel", "TCH"])
+    @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
     def test_ont15_todos_los_vnos_pueden_hacer_swap(self, test_client, vno_id):
         """
         ESCENARIO: Los 4 VNOs autorizados pueden hacer swap.
@@ -264,7 +264,7 @@ class TestSwapMultiVNO:
         from tests.conftest import _make_token
         response = test_client.post(
             "/api/v1/device-modification",
-            json={**DEVICE_MOD_NOKIA_VALID, "vno_id": vno_id},
+            json={**DEVICE_MOD_NOKIA_VALID, "vno_code": vno_id},
             headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
         )
         assert response.status_code == 202, (
@@ -310,6 +310,10 @@ class TestSwapAsimetrico:
         assert data.get("status") == "ROLLED_BACK", (
             f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
         )
+        # KMD-5021 = CLI_TIMEOUT en paso crítico con rollback automático (AnexoH v2.2)
+        assert data.get("error_code") == "KMD-5021", (
+            f"Se esperaba KMD-5021, se obtuvo: {data.get('error_code')}"
+        )
         assert "warning" in data, (
             f"Se esperaba campo 'warning' en la respuesta, se obtuvo: {data}"
         )
@@ -334,7 +338,7 @@ class TestSwapVLANConflict:
         rollback si ya ejecutó la baja del viejo.
         El error es de planeamiento de red, no del equipo.
 
-    En ambos casos el resultado es ROLLED_BACK con KMD-2003, pero el equipo
+    En ambos casos el resultado es ROLLED_BACK con KMD-3001, pero el equipo
     de Redes necesita saber cuál fue la causa para resolver correctamente.
 
     Fuente: Plan v4 PV-ONT → casos VLAN_CONFLICT (color verde).
@@ -347,9 +351,9 @@ class TestSwapVLANConflict:
 
         Al activar el nuevo ONT, la OLT responde VLAN_CONFLICT porque esa VLAN
         ya está asignada a otro cliente en el mismo puerto. Komands reporta
-        ROLLED_BACK con KMD-2003 para que Redes revise el planeamiento de VLANs.
+        ROLLED_BACK con KMD-3001 para que Redes revise el planeamiento de VLANs.
 
-        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-2003.
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-3001.
         """
         response = test_client.post(
             "/api/v1/device-modification",
@@ -362,8 +366,8 @@ class TestSwapVLANConflict:
         assert data.get("status") == "ROLLED_BACK", (
             f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-2003", (
-            f"Se esperaba KMD-2003, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-3001", (
+            f"Se esperaba KMD-3001, se obtuvo: {data.get('error_code')}"
         )
 
     # ONT-18
@@ -374,11 +378,11 @@ class TestSwapVLANConflict:
         Mismo escenario que ONT-17 pero en equipos Huawei MA5800.
         El conflicto de VLAN es un problema de la red, no del vendor.
 
-        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-2003.
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-3001.
         """
         response = test_client.post(
             "/api/v1/device-modification",
-            json={**DEVICE_MOD_VLAN_CONFLICT, "olt_vendor": "huawei"},
+            json=DEVICE_MOD_VLAN_CONFLICT,
             headers=auth_headers,
         )
 
@@ -387,6 +391,6 @@ class TestSwapVLANConflict:
         assert data.get("status") == "ROLLED_BACK", (
             f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-2003", (
-            f"Se esperaba KMD-2003, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-3001", (
+            f"Se esperaba KMD-3001, se obtuvo: {data.get('error_code')}"
         )

@@ -143,7 +143,7 @@ class TestAutenticacionAPI:
         # También verificamos la estructura del body de respuesta
         body = response.json()
         assert "txn_id" in body, "La respuesta debe incluir txn_id"
-        assert body["status"] == "PENDING", "El estado inicial debe ser PENDING"
+        assert body["status"] == "ACCEPTED", "El estado inicial debe ser ACCEPTED"
 
     # ──────────────────────────────────────────────────────────────────────────
     # SEC-05: VNO no autorizada
@@ -158,7 +158,7 @@ class TestAutenticacionAPI:
 
         Por qué importa:
             Aunque el token esté bien firmado, solo las 4 VNOs reales
-            (DTV, ClaroVTR, Entel, TCH) pueden operar en Komands.
+            (DTV, CVTR, ENTEL, TCH) pueden operar en Komands.
 
         El fixture 'invalid_vno_token' viene del conftest.py.
 

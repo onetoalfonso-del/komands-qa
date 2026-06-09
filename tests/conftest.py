@@ -48,11 +48,12 @@ def pytest_runtest_setup(item):
 # ─── Tablas de lenguaje amigable para el reporte ─────────────────────────────
 
 _URL_OPERACION = {
-    "/unsuscription":      "Baja de Acceso",
+    "/unsuscription":      "Baja / Cancelación de Acceso",
     "/activation":         "Activación de Acceso",
     "/modification":       "Modificación de Servicio",
     "/reset-ont":          "Reset de ONT",
     "/device-modification":"Cambio de Equipo (Swap)",
+    "/fiber-change":       "Cambio de Fibra (Migración OLT)",
     "/port-occupancy":     "Consulta Ocupación Puerto PON",
     "/access/":            "Consulta de Acceso",
     "/transaction/":       "Estado de Transacción",
@@ -68,23 +69,22 @@ _HTTP_DESCRIPCION = {
 }
 
 _CAMPO_ETIQUETA = {
-    "vno_id":                   "Cliente",
-    "olt_vendor":               "Fabricante OLT",
+    "vno_code":                 "Cliente",
     "olt_name":                 "OLT",
-    "product":                  "Producto",
-    "operation_type":           "Tipo de operación",
-    "old_ont_serial":           "Serial ONT a reemplazar",
-    "new_ont_serial":           "Serial ONT nuevo",
-    "ont_serial":               "Serial ONT",
+    "service_type":             "Producto",
+    "modification_type":        "Tipo de operación",
+    "new_serial_ont":           "Serial ONT nuevo",
+    "serial_ont":               "Serial ONT",
     "delete_vlan_on_terminate": "Eliminar VLAN al terminar",
 }
 
-_VENDOR_NOMBRE = {"nokia": "Nokia ISAM 7360 FX", "huawei": "Huawei MA5800"}
 _PRODUCTO_NOMBRE = {"FTTH": "Fibra residencial (FTTH)", "SSAA": "Empresarial (SSAA)"}
 _OPERACION_NOMBRE = {
-    "SPEED_CHANGE": "Cambio de velocidad",
-    "BLOCK":        "Bloqueo de servicio",
-    "UNBLOCK":      "Desbloqueo de servicio",
+    "speed_change":   "Cambio de velocidad",
+    "block":          "Bloqueo de servicio",
+    "unblock":        "Desbloqueo de servicio",
+    "add_service":    "Alta de servicio individual",
+    "remove_service": "Baja de servicio individual",
 }
 
 
@@ -108,11 +108,9 @@ def _datos_amigables(payload: dict) -> str:
         if campo not in payload:
             continue
         valor = payload[campo]
-        if campo == "olt_vendor":
-            valor = _VENDOR_NOMBRE.get(str(valor).lower(), valor)
-        elif campo == "product":
+        if campo == "service_type":
             valor = _PRODUCTO_NOMBRE.get(str(valor), valor)
-        elif campo == "operation_type":
+        elif campo == "modification_type":
             valor = _OPERACION_NOMBRE.get(str(valor), valor)
         elif campo == "delete_vlan_on_terminate":
             if not valor:
@@ -304,7 +302,7 @@ BASE_URL = "http://localhost:8000/api/v1"
 JWT_SECRET = "test-secret-komands-qa"
 JWT_ALGORITHM = "HS256"
 
-VNOS = ["DTV", "ClaroVTR", "Entel", "TCH"]
+VNOS = ["DTV", "CVTR", "ENTEL", "TCH"]
 
 # Permisos por rol — portal web (usuarios humanos)
 # Fuente: docs/04_modelo_datos.md → sección ROLES RBAC
@@ -412,79 +410,67 @@ def txn_id() -> str:
 @pytest.fixture
 def activation_payload_nokia_ftth() -> dict:
     return {
-        "vno_id": "DTV",
-        "product": "FTTH",
-        "technology": "GPON",
+        "vno_code": "DTV",
+        "external_order_id": "SO-ACT-001",
+        "service_type": "FTTH",
         "olt_name": "OLT-SAN-001",
-        "olt_vendor": "nokia",
-        "shelf": 1,
-        "card": 2,
+        "slot": 1,
         "port": 3,
-        "logic_pon": 1,
         "ont_id": 45,
-        "ont_serial": "ALCLF1234567",
-        "services": ["INTERNET", "VOIP", "IPTV"],
+        "serial_ont": "ALCLF1234567",
+        "internet": True,
+        "voip": True,
+        "iptv": True,
         "speed_profile": "100M_20M",
-        "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
     }
 
 
 @pytest.fixture
 def activation_payload_huawei_ftth() -> dict:
     return {
-        "vno_id": "DTV",
-        "product": "FTTH",
-        "technology": "GPON",
+        "vno_code": "DTV",
+        "external_order_id": "SO-ACT-007",
+        "service_type": "FTTH",
         "olt_name": "OLT-SAN-002",
-        "olt_vendor": "huawei",
-        "shelf": 0,
-        "card": 1,
+        "slot": 0,
         "port": 2,
-        "logic_pon": 0,
         "ont_id": 10,
-        "ont_serial": "485754C12345",
-        "services": ["INTERNET", "VOIP"],
+        "serial_ont": "485754C12345",
+        "internet": True,
+        "voip": True,
+        "iptv": False,
         "speed_profile": "100M_20M",
-        "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
     }
 
 
 @pytest.fixture
 def activation_payload_nokia_ssaa() -> dict:
     return {
-        "vno_id": "Entel",
-        "product": "SSAA",
-        "technology": "GPON",
+        "vno_code": "ENTEL",
+        "external_order_id": "SO-ACT-003",
+        "service_type": "SSAA",
         "olt_name": "OLT-SCL-010",
-        "olt_vendor": "nokia",
-        "shelf": 1,
-        "card": 1,
+        "slot": 1,
         "port": 0,
-        "logic_pon": 1,
         "ont_id": 5,
-        "ont_serial": "ALCLF9999999",
-        "groups": ["A", "C"],
-        "svlan": 100,
-        "cvlan_dato": 200,
-        "cvlan_internet": 201,
-        "cvlan_gestion": 202,
+        "serial_ont": "ALCLF9999999",
+        "services": [
+            {"code": "A", "svlan": 100, "cvlan": 200},
+            {"code": "C", "svlan": 100, "cvlan": 202},
+        ],
         "speed_profile": "200M_200M",
-        "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
     }
 
 
 @pytest.fixture
 def deactivation_payload_nokia() -> dict:
     return {
-        "vno_id": "DTV",
+        "vno_code": "DTV",
+        "external_order_id": "SO-BAJ-001",
         "olt_name": "OLT-SAN-001",
-        "olt_vendor": "nokia",
-        "shelf": 1,
-        "card": 2,
+        "slot": 1,
         "port": 3,
-        "logic_pon": 1,
         "ont_id": 45,
-        "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
     }
 
 
@@ -558,7 +544,7 @@ def _build_test_app() -> FastAPI:
 
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Transacción encolada",
         }
 
@@ -606,11 +592,11 @@ def _build_test_app() -> FastAPI:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
         body = await request.json()
-        vendor = body.get("olt_vendor", "")
         ont_id = body.get("ont_id")
 
         # Centinela BAJ-16: Huawei no puede resolver el INDEX → KMD-2002
-        if vendor == "huawei" and ont_id == 9999:
+        # ont_id=9999 es exclusivo de los payloads Huawei (olt_name OLT-SAN-002)
+        if ont_id == 9999:
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "FAILED",
@@ -619,7 +605,7 @@ def _build_test_app() -> FastAPI:
             }
 
         # Centinela BAJ-17: INDEX parcial → rollback de los eliminados
-        if vendor == "huawei" and ont_id == 9998:
+        if ont_id == 9998:
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "ROLLED_BACK",
@@ -638,20 +624,39 @@ def _build_test_app() -> FastAPI:
                 "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
             }
 
-        # Centinela BAJ-20/21: timeout SSH a la OLT
-        # Netmiko lanza socket.timeout; Komands lo captura y reporta KMD-5010.
+        # Centinela BAJ-20/21: timeout esperando respuesta CLI de la OLT (KMD-5020).
+        # KMD-5010 = comando CLI rechazado; KMD-5020 = timeout esperando respuesta.
         # No se sabe si el ONT existe o no — simplemente no hubo comunicación.
         if ont_id == 7777:
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "FAILED",
-                "error_code": "KMD-5010",
-                "error_message": "Timeout de conexión SSH a la OLT — reintentar más tarde o escalar a Redes",
+                "error_code": "KMD-5020",
+                "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes",
             }
+
+        # Centinela CAN-02: el acceso ya no tiene provisión activa.
+        # ServiceNow usa external_order_id="NO_PROVISION" para indicar este caso.
+        # Komands cierra la orden sin generar transacción en la OLT.
+        if body.get("external_order_id") == "NO_PROVISION":
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content={
+                "status": "NO_ACTION",
+                "message": "Sin provisión activa — orden cerrada por ServiceNow",
+            })
+
+        # Centinela CAN-03: ya hay una transacción IN_PROGRESS para este acceso.
+        # Cancelar mientras hay otra operación en curso causaría inconsistencia en red.
+        if body.get("external_order_id") == "IN_PROGRESS":
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=409, content={
+                "error_code": "KMD-3003",
+                "error_message": "Transacción en progreso para este acceso — reintentar en 30 segundos",
+            })
 
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Baja encolada",
         }
 
@@ -681,22 +686,24 @@ def _build_test_app() -> FastAPI:
 
         body = await request.json()
         ont_id = body.get("ont_id")
-        operation_type = body.get("operation_type", "")
+        modification_type = body.get("modification_type", "")
         speed_profile = body.get("new_speed_profile", "")
 
-        # Centinela MOD-22: SERVICE_REMOVE no está soportado en Nokia ni Huawei FTTH.
+        # Centinela MOD-22: remove_service no está soportado en Nokia FTTH.
         # La OLT no tiene comando equivalente; Komands lo rechaza en validación.
-        if operation_type == "SERVICE_REMOVE":
+        # KMD-4001 = OPERATION_NOT_SUPPORTED (AnexoH v2.2).
+        if modification_type == "remove_service":
             return JSONResponse(status_code=422, content={
-                "error_code": "KMD-4002",
+                "error_code": "KMD-4001",
                 "error_message": "SERVICE_REMOVE no soportado en FTTH — usar baja completa si el cliente no quiere ningún servicio",
             })
 
         # Centinela MOD-23: perfil de velocidad que no existe en la OLT.
         # Komands valida el catálogo antes de enviar comandos a la red.
+        # KMD-2004 = NOT_FOUND/perfil no encontrado (AnexoH v2.2 — no existe KMD-4003).
         if speed_profile == "PERFIL_INVALIDO":
             return JSONResponse(status_code=422, content={
-                "error_code": "KMD-4003",
+                "error_code": "KMD-2004",
                 "error_message": "Perfil de velocidad no encontrado — verificar catálogo de perfiles en la OLT",
             })
 
@@ -709,18 +716,18 @@ def _build_test_app() -> FastAPI:
                 "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
             }
 
-        # Centinela MOD-20/21: timeout SSH a la OLT
+        # Centinela MOD-20/21: timeout esperando respuesta CLI de la OLT (KMD-5020)
         if ont_id == 7777:
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "FAILED",
-                "error_code": "KMD-5010",
-                "error_message": "Timeout de conexión SSH a la OLT — reintentar más tarde o escalar a Redes",
+                "error_code": "KMD-5020",
+                "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes",
             }
 
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Modificación encolada",
         }
 
@@ -758,18 +765,18 @@ def _build_test_app() -> FastAPI:
                 "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
             }
 
-        # Centinela RST-18/19: timeout SSH — no se pudo conectar a la OLT
+        # Centinela RST-18/19: timeout esperando respuesta CLI de la OLT (KMD-5020)
         if ont_id == 7777:
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "FAILED",
-                "error_code": "KMD-5010",
-                "error_message": "Timeout de conexión SSH a la OLT — reintentar más tarde o escalar a Redes",
+                "error_code": "KMD-5020",
+                "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes",
             }
 
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Reset encolado",
         }
 
@@ -797,31 +804,61 @@ def _build_test_app() -> FastAPI:
 
         body = await request.json()
 
-        # Centinela ONT-16: alta del ONT nuevo falla → swap asimétrico → ROLLED_BACK
+        # Centinela ONT-16: alta del ONT nuevo falla → swap asimétrico → ROLLED_BACK.
         # El ONT viejo ya fue dado de baja y no puede recuperarse automáticamente.
-        if body.get("new_ont_serial") == "FAIL00000000":
+        # KMD-5021 = CLI_TIMEOUT en paso crítico con rollback automático (AnexoH v2.2).
+        if body.get("new_serial_ont") == "FAIL00000000":
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "ROLLED_BACK",
-                "error_code": "KMD-2004",
+                "error_code": "KMD-5021",
                 "error_message": "Baja del ONT viejo exitosa, pero alta del ONT nuevo falló — escalar a Ingeniería de Redes",
                 "warning": "ONT viejo no recuperable automáticamente",
             }
 
-        # Centinela ONT-17/18: VLAN_CONFLICT — la VLAN asignada al nuevo ONT ya está
-        # en uso en ese puerto PON. Komands deshace lo que hizo y reporta ROLLED_BACK.
-        if body.get("new_ont_serial") == "VLAN00000000":
+        # Centinela ONT-17/18: VLAN_CONFLICT — el ONT ID ya está ocupado en el puerto.
+        # Komands deshace lo que hizo y reporta ROLLED_BACK.
+        # KMD-3001 = CONFLICT/ONT ID ya ocupado en el puerto (AnexoH v2.2).
+        if body.get("new_serial_ont") == "VLAN00000000":
             return {
                 "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "status": "ROLLED_BACK",
-                "error_code": "KMD-2003",
+                "error_code": "KMD-3001",
                 "error_message": "VLAN_CONFLICT: la VLAN asignada al nuevo ONT ya está en uso en este puerto PON — revisar planeamiento de VLANs",
             }
 
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Cambio de equipo encolado",
+        }
+
+    # ── /fiber-change — migración de ONT entre puertos PON / OLTs ──────────────
+    @app.post("/api/v1/fiber-change", status_code=202)
+    async def fiber_change(request: Request):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token ausente o malformado")
+        token = auth.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+        if "vno_id" in payload:
+            if payload["vno_id"] not in VNOS:
+                raise HTTPException(status_code=403, detail="VNO no autorizada")
+            if "komands:write" not in payload.get("scope", ""):
+                raise HTTPException(status_code=403, detail="Scope insuficiente")
+        elif "role" in payload:
+            if "activation:write" not in payload.get("permissions", []):
+                raise HTTPException(status_code=403, detail="Rol sin permiso de cambio de fibra")
+        else:
+            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+        return {
+            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "status": "ACCEPTED",
+            "message": "Cambio de fibra encolado",
         }
 
     # ── GET /access/{access_id} — consulta estado ONT ─────────────────────────
@@ -874,17 +911,29 @@ def _build_test_app() -> FastAPI:
         callback_url = body.get("callback_url")
 
         # Construye el payload que Komands enviará a ServiceNow
+        # Contrato completo per AnexoH v2.2 — todos los campos son obligatorios
         callback_payload = {
             "txn_id": txn_id,
+            "correlation_id": body.get("correlation_id", str(uuid.uuid4())),
+            "external_order_id": body.get("external_order_id", "ORD-TEST-001"),
             "status": status,
             "operation": body.get("operation", "activation"),
-            "vno_id": body.get("vno_id", "DTV"),
+            "vno_code": body.get("vno_code", body.get("vno_id", "DTV")),
+            "olt_name": body.get("olt_name", "OLT-SAN-001"),
+            "started_at": body.get("started_at", "2026-06-09T10:00:00Z"),
+            "completed_at": body.get("completed_at", "2026-06-09T10:00:45Z"),
+            "duration_ms": body.get("duration_ms", 1250),
+            "steps": body.get("steps", []),
         }
-        # Para FAILED y ROLLED_BACK, ServiceNow necesita el código de error
-        # para saber a qué equipo escalar el incidente
-        if status in ("FAILED", "ROLLED_BACK"):
-            callback_payload["error_code"] = body.get("error_code", "")
-            callback_payload["error_message"] = body.get("error_message", "")
+        # Para FAILED / ROLLED_BACK / ROLLED_BACK_FAILED se requiere objeto error
+        # con retryable para que ServiceNow sepa si puede reintentar automáticamente
+        if status in ("FAILED", "ROLLED_BACK", "ROLLED_BACK_FAILED"):
+            callback_payload["error"] = {
+                "code": body.get("error_code", ""),
+                "category": body.get("error_category", "CLI_ERROR"),
+                "message": body.get("error_message", ""),
+                "retryable": body.get("error_retryable", False),
+            }
 
         if not callback_url:
             return {"ok": True, "callback_http_status": None}
@@ -982,7 +1031,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
 
         # Extraer datos del body para verificar feature flag
         body = await request.json()
-        product = body.get("product", "FTTH")
+        product = body.get("service_type", "FTTH")
 
         # ── Feature Flag ──────────────────────────────────────────────────────
         # Si el flag está desactivado para esta VNO+producto, Komands no procesa
@@ -1008,7 +1057,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         # Registrar la transacción
         result = {
             "txn_id": txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Transacción encolada",
         }
         if txn_id:
@@ -1041,7 +1090,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
         body = await request.json()
-        product = body.get("product", "FTTH")
+        product = body.get("service_type", "FTTH")
 
         if not state.is_enabled(vno_id, product):
             from fastapi.responses import JSONResponse
@@ -1058,7 +1107,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
 
         result = {
             "txn_id": txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "PENDING",
+            "status": "ACCEPTED",
             "message": "Baja encolada",
         }
         if txn_id:

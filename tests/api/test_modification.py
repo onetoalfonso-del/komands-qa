@@ -15,7 +15,7 @@ Qué estamos probando:
     Scope: Release 1 — solo FTTH, SSAA excluido (confirmado por Pablo).
 
 Fuentes:
-    - Plan_Pruebas_Completo_v3_Final.xlsx → Release 1 → PV-MOD-215 a PV-MOD-235
+    - Plan_Pruebas_Completo_v4_Final.xlsx → Release 1 → PV-MOD-215 a PV-MOD-247
     - LLD ADR-008 → endpoint /modification (sin cambio de nombre)
 """
 import pytest
@@ -335,8 +335,8 @@ class TestModificacionRespuesta:
 
         assert response.status_code == 202
         data = response.json()
-        assert data.get("status") == "PENDING", (
-            f"Se esperaba status=PENDING, se obtuvo: {data.get('status')}"
+        assert data.get("status") == "ACCEPTED", (
+            f"Se esperaba status=ACCEPTED, se obtuvo: {data.get('status')}"
         )
 
 
@@ -348,18 +348,18 @@ class TestModificacionMultiVNO:
     """
 
     # MOD-17
-    @pytest.mark.parametrize("vno_id", ["DTV", "ClaroVTR", "Entel", "TCH"])
+    @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
     def test_mod17_todos_los_vnos_pueden_modificar(self, test_client, vno_id):
         """
         ESCENARIO: Cada VNO autorizado envía una modificación.
 
-        Los 4 VNOs (DTV, ClaroVTR, Entel, TCH) deben recibir 202.
+        Los 4 VNOs (DTV, CVTR, ENTEL, TCH) deben recibir 202.
 
         Resultado esperado: HTTP 202 para cada VNO.
         """
         from tests.conftest import _make_token
         token = _make_token(vno_id=vno_id)
-        payload = {**MODIFICATION_SPEED_CHANGE_NOKIA, "vno_id": vno_id}
+        payload = {**MODIFICATION_SPEED_CHANGE_NOKIA, "vno_code": vno_id}
 
         response = test_client.post(
             "/api/v1/modification",
@@ -441,7 +441,7 @@ class TestModificacionSSHTimeout:
     el cambio de velocidad, bloqueo o desbloqueo.
 
     Al igual que en la baja (BAJ-20/21), Komands captura el socket.timeout
-    de Netmiko y reporta KMD-5010. El servicio del cliente no cambia porque
+    de Netmiko y reporta KMD-5020. El servicio del cliente no cambia porque
     no se llegó a ejecutar ningún comando en la red.
     """
 
@@ -450,7 +450,7 @@ class TestModificacionSSHTimeout:
         """
         ESCENARIO: Modificación Nokia FTTH — timeout de conexión SSH a la OLT.
 
-        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
             "/api/v1/modification",
@@ -463,8 +463,8 @@ class TestModificacionSSHTimeout:
         assert data.get("status") == "FAILED", (
             f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-5010", (
-            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-5020", (
+            f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
 
     # MOD-21
@@ -472,7 +472,7 @@ class TestModificacionSSHTimeout:
         """
         ESCENARIO: Modificación Huawei FTTH — timeout de conexión SSH a la OLT.
 
-        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
             "/api/v1/modification",
@@ -485,8 +485,8 @@ class TestModificacionSSHTimeout:
         assert data.get("status") == "FAILED", (
             f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-5010", (
-            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-5020", (
+            f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
 
 
@@ -515,7 +515,7 @@ class TestModificacionOperacionesEspeciales:
         dar de baja el acceso completo y reactivarlo sin ese servicio.
         Komands rechaza SERVICE_REMOVE antes de conectarse a la OLT.
 
-        Resultado esperado: HTTP 422 con error_code KMD-4002.
+        Resultado esperado: HTTP 422 con error_code KMD-4001.
         """
         response = test_client.post(
             "/api/v1/modification",
@@ -527,8 +527,8 @@ class TestModificacionOperacionesEspeciales:
             f"Se esperaba 422 (operación no soportada), se obtuvo {response.status_code}"
         )
         data = response.json()
-        assert data.get("error_code") == "KMD-4002", (
-            f"Se esperaba KMD-4002, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-4001", (
+            f"Se esperaba KMD-4001, se obtuvo: {data.get('error_code')}"
         )
 
     # MOD-23
@@ -541,7 +541,7 @@ class TestModificacionOperacionesEspeciales:
         en el catálogo, Komands lo detecta en validación y devuelve 422.
         No se envía ningún comando a la red.
 
-        Resultado esperado: HTTP 422 con error_code KMD-4003.
+        Resultado esperado: HTTP 422 con error_code KMD-2004.
         """
         response = test_client.post(
             "/api/v1/modification",
@@ -553,6 +553,6 @@ class TestModificacionOperacionesEspeciales:
             f"Se esperaba 422 (perfil inválido), se obtuvo {response.status_code}"
         )
         data = response.json()
-        assert data.get("error_code") == "KMD-4003", (
-            f"Se esperaba KMD-4003, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-2004", (
+            f"Se esperaba KMD-2004, se obtuvo: {data.get('error_code')}"
         )

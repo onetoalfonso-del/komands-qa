@@ -12,8 +12,8 @@ Qué estamos probando:
     saber si la operación en la OLT fue exitosa.
 
     Probamos dos cosas:
-      1. Contrato del payload: los campos que Komands envía a ServiceNow
-         tienen los valores correctos (txn_id, status, error_code, etc.)
+      1. Contrato del payload (AnexoH v2.2): todos los campos requeridos están
+         presentes y tienen los tipos/valores correctos.
       2. Resiliencia: si ServiceNow no está disponible, Komands no crashea
          y registra el fallo para poder reintentarlo después.
 
@@ -22,7 +22,7 @@ Qué estamos probando:
 
 Fuentes:
     - Plan_Pruebas_Completo_v4_Final.xlsx → Release 1 → PV-CBK-001 a PV-CBK-005
-    - LLD ADR-008 → sección Callbacks → campos requeridos por ServiceNow
+    - AnexoH_Especificacion_APIs_v2_2_FINAL.docx → sección Callbacks — contrato completo
 """
 import json
 
@@ -35,11 +35,21 @@ pytestmark = [pytest.mark.postventa, pytest.mark.mock_only]
 # URL de callback configurada por ServiceNow en cada request
 SERVICENOW_CB_URL = "https://servicenow.onnet.cl/api/komands/callback"
 
-# Payload base para disparar una notificación de completitud
+# Payload base para disparar una notificación de completitud.
+# Incluye todos los campos requeridos por AnexoH v2.2 para que el mock
+# pueda construir el payload de callback completo.
 _BASE = {
     "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "correlation_id": "corr-test-001",
+    "external_order_id": "ORD-SN-TEST-001",
     "operation": "activation",
     "vno_id": "DTV",
+    "vno_code": "DTV",
+    "olt_name": "OLT-SAN-001",
+    "started_at": "2026-06-09T10:00:00Z",
+    "completed_at": "2026-06-09T10:00:45Z",
+    "duration_ms": 1250,
+    "steps": [],
     "callback_url": SERVICENOW_CB_URL,
 }
 
@@ -48,34 +58,42 @@ _BASE = {
 
 class TestCallbackContrato:
     """
-    ServiceNow necesita campos específicos en cada callback para poder cerrar
-    la orden de trabajo o escalar el incidente:
+    ServiceNow cierra órdenes de trabajo en base al payload del callback.
+    AnexoH v2.2 define un contrato estricto — cada campo tiene un propósito:
 
-      txn_id    → vincula el callback con la solicitud original
-      status    → COMPLETED | FAILED | ROLLED_BACK
-      operation → qué operación terminó (activation, deactivation, swap, etc.)
-      vno_id    → a qué operador pertenece el acceso afectado
+      txn_id           → vincula el callback con la solicitud original
+      correlation_id   → traza el request entre sistemas (X-Correlation-ID)
+      external_order_id→ ID de la orden en ServiceNow — para cerrarla
+      status           → COMPLETED | FAILED | ROLLED_BACK | ROLLED_BACK_FAILED
+      operation        → qué operación terminó (activation, deactivation, …)
+      vno_code         → operador afectado (DTV, CVTR, ENTEL, TCH)
+      olt_name         → OLT donde ocurrió la operación
+      started_at       → inicio de ejecución (ISO 8601)
+      completed_at     → fin de ejecución (ISO 8601)
+      duration_ms      → duración total en milisegundos
+      steps            → lista de pasos ejecutados (auditoría)
 
-    Para FAILED y ROLLED_BACK también se requiere:
-      error_code    → código normalizado para enrutar el escalado
-      error_message → descripción legible para el técnico
+    Para FAILED / ROLLED_BACK también se requiere:
+      error.code       → código normalizado (KMD-xxxx) para enrutar escalado
+      error.message    → descripción legible para el técnico
+      error.retryable  → true si ServiceNow puede reintentar automáticamente
 
-    Si el callback llega a ServiceNow sin alguno de estos campos, la orden
-    queda en estado indeterminado y requiere intervención manual.
+    Si falta cualquier campo, ServiceNow no puede cerrar la orden
+    automáticamente y requiere intervención manual.
     """
 
     # CBK-01
     @respx.mock
-    def test_cbk01_operacion_completada_payload_tiene_campos_requeridos(self, test_client):
+    def test_cbk01_operacion_completada_payload_contiene_contrato_completo(self, test_client):
         """
-        ESCENARIO: Una activación termina con éxito — Komands notifica COMPLETED a ServiceNow.
+        ESCENARIO: Una activación termina con éxito — Komands notifica COMPLETED a ServiceNow
+        con el contrato completo de AnexoH v2.2.
 
         El técnico en ServiceNow verá la orden cerrada automáticamente.
-        Para eso, el callback debe llegar con txn_id, status, operation y vno_id.
+        Para eso, el callback debe incluir todos los campos del contrato.
 
-        Resultado esperado: HTTP 200 desde Komands y callback disparado con todos los campos.
+        Resultado esperado: HTTP 200 desde Komands y callback con todos los campos requeridos.
         """
-        # Interceptamos la llamada HTTP saliente a ServiceNow
         route = respx.post(SERVICENOW_CB_URL).mock(
             return_value=httpx.Response(200, json={"received": True})
         )
@@ -86,31 +104,57 @@ class TestCallbackContrato:
         )
 
         assert response.status_code == 200
-        # Si no se llamó a ServiceNow, la orden quedó sin cerrar
         assert route.called, "Komands no disparó el callback a ServiceNow"
 
         body = json.loads(route.calls[0].request.content)
+
+        # Campos de identidad y trazabilidad
         assert body.get("txn_id") == "3fa85f64-5717-4562-b3fc-2c963f66afa6", (
-            f"txn_id incorrecto en el callback: {body.get('txn_id')}"
+            f"txn_id incorrecto: {body.get('txn_id')}"
         )
+        assert body.get("correlation_id") == "corr-test-001", (
+            "correlation_id ausente — no se puede vincular con X-Correlation-ID del request original"
+        )
+        assert body.get("external_order_id") == "ORD-SN-TEST-001", (
+            "external_order_id ausente — ServiceNow no podrá cerrar la orden de trabajo"
+        )
+
+        # Campos de resultado
         assert body.get("status") == "COMPLETED"
         assert body.get("operation") == "activation"
-        assert body.get("vno_id") == "DTV"
+        assert body.get("vno_code") == "DTV", (
+            f"vno_code incorrecto (AnexoH v2.2 usa vno_code, no vno_id): {body.get('vno_code')}"
+        )
+        assert body.get("olt_name") == "OLT-SAN-001", (
+            "olt_name ausente — ServiceNow no sabrá qué OLT ejecutó la operación"
+        )
+
+        # Campos de temporización
+        assert body.get("started_at"), "started_at ausente — auditoría requiere timestamp de inicio"
+        assert body.get("completed_at"), "completed_at ausente — auditoría requiere timestamp de fin"
+        assert isinstance(body.get("duration_ms"), int), (
+            f"duration_ms debe ser entero, se obtuvo: {type(body.get('duration_ms'))}"
+        )
+        assert body.get("duration_ms") > 0, "duration_ms debe ser positivo"
+
+        # Auditoría de pasos
+        assert isinstance(body.get("steps"), list), (
+            "steps debe ser lista — requerido por AnexoH v2.2 aunque esté vacía"
+        )
 
     # CBK-02
     @respx.mock
-    def test_cbk02_operacion_fallida_callback_incluye_error_code_para_escalado(self, test_client):
+    def test_cbk02_operacion_fallida_callback_incluye_error_object_con_retryable(self, test_client):
         """
-        ESCENARIO: Una baja falla con ONT no encontrado — callback notifica FAILED con KMD-2002.
+        ESCENARIO: Una baja falla con ONT no encontrado — callback notifica FAILED
+        con el objeto error completo de AnexoH v2.2.
 
-        ServiceNow usa el error_code para saber a quién escalar:
-          KMD-2002 → verificar datos en ServiceNow (problema de datos)
-          KMD-5010 → escalar a Redes (problema de infraestructura)
-          KMD-2004 → escalar a Ingeniería de Redes (swap asimétrico, urgente)
+        ServiceNow usa error.code para enrutar el escalado:
+          KMD-2002 → equipo de datos (problema de inventario)
+          KMD-5020 → redes (timeout SSH, problema de infraestructura)
+        error.retryable indica si el scheduler puede reintentar automáticamente.
 
-        Sin error_code, el técnico no sabe qué hacer con la orden fallida.
-
-        Resultado esperado: callback disparado con status=FAILED y error_code=KMD-2002.
+        Resultado esperado: callback con status=FAILED y error.{code, message, retryable}.
         """
         route = respx.post(SERVICENOW_CB_URL).mock(
             return_value=httpx.Response(200, json={"received": True})
@@ -124,6 +168,7 @@ class TestCallbackContrato:
                 "operation": "deactivation",
                 "error_code": "KMD-2002",
                 "error_message": "ONT no encontrado en la OLT — verificar ID en ServiceNow",
+                "error_retryable": False,
             },
         )
 
@@ -132,23 +177,36 @@ class TestCallbackContrato:
 
         body = json.loads(route.calls[0].request.content)
         assert body.get("status") == "FAILED"
-        assert body.get("error_code") == "KMD-2002", (
-            f"Se esperaba error_code=KMD-2002, se obtuvo: {body.get('error_code')}"
+
+        # Verifica que se use el objeto error (no campos planos error_code/error_message)
+        error = body.get("error")
+        assert error is not None, (
+            "Campo 'error' ausente en el callback — AnexoH v2.2 requiere objeto error para FAILED"
         )
-        # error_message no puede estar vacío: el técnico necesita saber qué pasó
-        assert body.get("error_message"), "error_message está vacío — el técnico no sabrá qué hacer"
+        assert error.get("code") == "KMD-2002", (
+            f"error.code incorrecto: {error.get('code')}"
+        )
+        assert error.get("message"), "error.message vacío — el técnico no sabrá qué ocurrió"
+        assert isinstance(error.get("retryable"), bool), (
+            f"error.retryable debe ser booleano, se obtuvo: {type(error.get('retryable'))}"
+        )
+        assert error.get("retryable") is False, (
+            "KMD-2002 (dato incorrecto) no es reintentable — solo reintentables son errores transitorios"
+        )
 
     # CBK-03
     @respx.mock
     def test_cbk03_operacion_rolled_back_callback_notifica_estado_y_error(self, test_client):
         """
-        ESCENARIO: Una baja Huawei con INDEX parcial hace rollback — callback notifica ROLLED_BACK.
+        ESCENARIO: Una baja Huawei con INDEX parcial hace rollback — callback notifica
+        ROLLED_BACK con el objeto error completo.
 
         ROLLED_BACK es el estado más crítico: Komands empezó a ejecutar,
-        algo falló, y tuvo que deshacer. ServiceNow debe abrir un incidente
-        porque la red estuvo en estado inconsistente durante el rollback.
+        algo falló, y tuvo que deshacer los cambios.
+        ServiceNow debe abrir un incidente porque la red estuvo en estado
+        inconsistente durante el rollback.
 
-        Resultado esperado: callback con status=ROLLED_BACK y error_code=KMD-2002.
+        Resultado esperado: callback con status=ROLLED_BACK y error.code=KMD-2002.
         """
         route = respx.post(SERVICENOW_CB_URL).mock(
             return_value=httpx.Response(200, json={"received": True})
@@ -162,6 +220,7 @@ class TestCallbackContrato:
                 "operation": "deactivation",
                 "error_code": "KMD-2002",
                 "error_message": "INDEX parcial: 2 de 3 service-ports resueltos — rollback ejecutado",
+                "error_retryable": False,
             },
         )
 
@@ -170,7 +229,13 @@ class TestCallbackContrato:
 
         body = json.loads(route.calls[0].request.content)
         assert body.get("status") == "ROLLED_BACK"
-        assert body.get("error_code") == "KMD-2002"
+
+        error = body.get("error")
+        assert error is not None, "Campo 'error' ausente para ROLLED_BACK"
+        assert error.get("code") == "KMD-2002"
+        assert isinstance(error.get("retryable"), bool), (
+            "error.retryable debe ser booleano incluso en ROLLED_BACK"
+        )
 
 
 # ─── CBK-04 a CBK-05: Resiliencia cuando ServiceNow no está disponible ────────
@@ -209,12 +274,10 @@ class TestCallbackResiliencia:
             json={**_BASE, "status": "COMPLETED"},
         )
 
-        # Komands no debe devolver 500 aunque ServiceNow haya fallado
         assert response.status_code == 200, (
             f"Komands devolvió {response.status_code} — se esperaba 200 aunque ServiceNow fallara"
         )
         data = response.json()
-        # Komands informa el HTTP status que recibió de ServiceNow
         assert data.get("callback_http_status") == 503, (
             f"Se esperaba callback_http_status=503, se obtuvo: {data.get('callback_http_status')}"
         )

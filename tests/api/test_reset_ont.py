@@ -3,7 +3,7 @@
 Convención: test_rst<NN>_<vendor>_<vno>_<escenario>
 
 Fuentes:
-    - Plan_Pruebas_Completo_v3_Final.xlsx → Release 1 → PV-RST-270 a PV-RST-289
+    - Plan_Pruebas_Completo_v4_Final.xlsx → Release 1 → PV-RST-270 a PV-RST-291
     - SLO: operación < 15s (P95) — verificable solo con servidor real
     - Error KMD-2002: ONT no encontrado → verificable con servidor real
 """
@@ -69,8 +69,8 @@ class TestResetValido:
         from tests.conftest import _make_token
         response = test_client.post(
             "/api/v1/reset-ont",
-            json={**RESET_ONT_NOKIA_VALID, "vno_id": "ClaroVTR"},
-            headers={"Authorization": f"Bearer {_make_token(vno_id='ClaroVTR')}"},
+            json={**RESET_ONT_NOKIA_VALID, "vno_code": "CVTR"},
+            headers={"Authorization": f"Bearer {_make_token(vno_id='CVTR')}"},
         )
         assert response.status_code == 202
 
@@ -84,8 +84,8 @@ class TestResetValido:
         from tests.conftest import _make_token
         response = test_client.post(
             "/api/v1/reset-ont",
-            json={**RESET_ONT_NOKIA_VALID, "vno_id": "Entel"},
-            headers={"Authorization": f"Bearer {_make_token(vno_id='Entel')}"},
+            json={**RESET_ONT_NOKIA_VALID, "vno_code": "ENTEL"},
+            headers={"Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"},
         )
         assert response.status_code == 202
 
@@ -243,7 +243,7 @@ class TestResetRespuesta:
             "/api/v1/reset-ont", json=RESET_ONT_NOKIA_VALID, headers=auth_headers
         )
         assert response.status_code == 202
-        assert response.json().get("status") == "PENDING"
+        assert response.json().get("status") == "ACCEPTED"
 
 
 # ─── RST-15: Todos los VNOs ───────────────────────────────────────────────────
@@ -251,7 +251,7 @@ class TestResetRespuesta:
 class TestResetMultiVNO:
 
     # RST-15
-    @pytest.mark.parametrize("vno_id", ["DTV", "ClaroVTR", "Entel", "TCH"])
+    @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
     def test_rst15_todos_los_vnos_pueden_resetear(self, test_client, vno_id):
         """
         ESCENARIO: Los 4 VNOs autorizados pueden resetear un ONT.
@@ -261,7 +261,7 @@ class TestResetMultiVNO:
         from tests.conftest import _make_token
         response = test_client.post(
             "/api/v1/reset-ont",
-            json={**RESET_ONT_NOKIA_VALID, "vno_id": vno_id},
+            json={**RESET_ONT_NOKIA_VALID, "vno_code": vno_id},
             headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
         )
         assert response.status_code == 202, (
@@ -338,7 +338,7 @@ class TestResetSSHTimeout:
 
     Para el reset esto es especialmente frustrante: el cliente está sin
     servicio esperando el reinicio del ONT, y Komands ni siquiera pudo
-    conectarse. El KMD-5010 indica que hay un problema de red o que
+    conectarse. El KMD-5020 indica que hay un problema de red o que
     la OLT está sobrecargada o fuera de servicio.
 
     El cliente queda en el mismo estado que antes — el ONT no fue reseteado.
@@ -349,7 +349,7 @@ class TestResetSSHTimeout:
         """
         ESCENARIO: Reset Nokia FTTH — timeout de conexión SSH a la OLT.
 
-        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
             "/api/v1/reset-ont",
@@ -362,8 +362,8 @@ class TestResetSSHTimeout:
         assert data.get("status") == "FAILED", (
             f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-5010", (
-            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-5020", (
+            f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
 
     # RST-19
@@ -371,7 +371,7 @@ class TestResetSSHTimeout:
         """
         ESCENARIO: Reset Huawei FTTH — timeout de conexión SSH a la OLT.
 
-        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
             "/api/v1/reset-ont",
@@ -384,6 +384,6 @@ class TestResetSSHTimeout:
         assert data.get("status") == "FAILED", (
             f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-5010", (
-            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-5020", (
+            f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )

@@ -131,7 +131,7 @@ class TestActivacionValida:
     # ACT-06
     def test_act06_huawei_ssaa_grupo_a_devuelve_202(self, test_client, auth_headers):
         """
-        ESCENARIO: Activación Huawei SSAA grupo A — VNO ClaroVTR.
+        ESCENARIO: Activación Huawei SSAA grupo A — VNO CVTR.
 
         Valida combinación Huawei + SSAA + VNO distinta a DTV.
 
@@ -139,9 +139,9 @@ class TestActivacionValida:
         """
         from tests.conftest import _make_token
         headers = {
-            "Authorization": f"Bearer {_make_token(vno_id='ClaroVTR')}",
+            "Authorization": f"Bearer {_make_token(vno_id='CVTR')}",
             "X-Correlation-ID": "test-act06",
-            "X-VNO-ID": "ClaroVTR",
+            "X-VNO-ID": "CVTR",
         }
         response = test_client.post(
             "/api/v1/activation",
@@ -221,7 +221,7 @@ class TestActivacionSinAutorizacion:
         """
         ESCENARIO: Token con VNO desconocida ("FAKE_VNO").
 
-        Komands solo acepta los 4 VNOs registrados: DTV, ClaroVTR, Entel, TCH.
+        Komands solo acepta los 4 VNOs registrados: DTV, CVTR, ENTEL, TCH.
 
         Resultado esperado: HTTP 403.
         """
@@ -359,8 +359,8 @@ class TestActivacionRespuesta:
 
         assert response.status_code == 202
         data = response.json()
-        assert data.get("status") == "PENDING", (
-            f"Se esperaba status=PENDING, se obtuvo: {data.get('status')}"
+        assert data.get("status") == "ACCEPTED", (
+            f"Se esperaba status=ACCEPTED, se obtuvo: {data.get('status')}"
         )
 
 
@@ -372,19 +372,19 @@ class TestActivacionMultiVNO:
     """
 
     # ACT-17
-    @pytest.mark.parametrize("vno_id", ["DTV", "ClaroVTR", "Entel", "TCH"])
+    @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
     def test_act17_todos_los_vnos_pueden_activar(self, test_client, vno_id):
         """
         ESCENARIO: Cada VNO autorizado envía una activación.
 
-        Los 4 VNOs del proyecto (DTV, ClaroVTR, Entel, TCH) deben recibir
+        Los 4 VNOs del proyecto (DTV, CVTR, ENTEL, TCH) deben recibir
         202. Si alguno falla, ese VNO está bloqueado en el Feature Flag.
 
         Resultado esperado: HTTP 202 para cada VNO.
         """
         from tests.conftest import _make_token
         token = _make_token(vno_id=vno_id)
-        payload = {**ACTIVATION_NOKIA_FTTH_VALID, "vno_id": vno_id}
+        payload = {**ACTIVATION_NOKIA_FTTH_VALID, "vno_code": vno_id}
 
         response = test_client.post(
             "/api/v1/activation",

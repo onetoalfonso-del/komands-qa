@@ -13,7 +13,7 @@ Qué estamos probando:
     Scope: Release 1 — solo FTTH, SSAA excluido (confirmado por Pablo).
 
 Fuentes:
-    - Plan_Pruebas_Completo_v3_Final.xlsx → Release 1 → PV-BAJ-182 a PV-BAJ-214
+    - Plan_Pruebas_Completo_v4_Final.xlsx → Release 1 → PV-BAJ-182 a PV-BAJ-214
     - LLD ADR-008 → endpoint /deactivation renombrado a /unsuscription
     - Plan v3 PV-BAJ → TCH tiene delete_vlan_on_terminate exclusivo
 """
@@ -83,15 +83,15 @@ class TestBajaValida:
     # BAJ-03
     def test_baj03_nokia_ftth_clarovtr_devuelve_202(self, test_client):
         """
-        ESCENARIO: Baja Nokia FTTH — VNO ClaroVTR.
+        ESCENARIO: Baja Nokia FTTH — VNO CVTR (ClaroVTR).
 
-        Valida que el endpoint acepta bajas de ClaroVTR con su propio token.
+        Valida que el endpoint acepta bajas de CVTR con su propio token.
 
         Resultado esperado: HTTP 202.
         """
         from tests.conftest import _make_token
         headers = {
-            "Authorization": f"Bearer {_make_token(vno_id='ClaroVTR')}",
+            "Authorization": f"Bearer {_make_token(vno_id='CVTR')}",
             "X-Correlation-ID": "test-baj03",
         }
         response = test_client.post(
@@ -313,8 +313,8 @@ class TestBajaRespuesta:
 
         assert response.status_code == 202
         data = response.json()
-        assert data.get("status") == "PENDING", (
-            f"Se esperaba status=PENDING, se obtuvo: {data.get('status')}"
+        assert data.get("status") == "ACCEPTED", (
+            f"Se esperaba status=ACCEPTED, se obtuvo: {data.get('status')}"
         )
 
 
@@ -326,18 +326,18 @@ class TestBajaMultiVNO:
     """
 
     # BAJ-15
-    @pytest.mark.parametrize("vno_id", ["DTV", "ClaroVTR", "Entel", "TCH"])
+    @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
     def test_baj15_todos_los_vnos_pueden_dar_de_baja(self, test_client, vno_id):
         """
         ESCENARIO: Cada VNO autorizado envía una baja.
 
-        Los 4 VNOs (DTV, ClaroVTR, Entel, TCH) deben recibir 202.
+        Los 4 VNOs (DTV, CVTR, ENTEL, TCH) deben recibir 202.
 
         Resultado esperado: HTTP 202 para cada VNO.
         """
         from tests.conftest import _make_token
         token = _make_token(vno_id=vno_id)
-        payload = {**DEACTIVATION_NOKIA_VALID, "vno_id": vno_id}
+        payload = {**DEACTIVATION_NOKIA_VALID, "vno_code": vno_id}
 
         response = test_client.post(
             "/api/v1/unsuscription",
@@ -428,19 +428,17 @@ class TestBajaONTNoEncontrado:
 @pytest.mark.mock_only
 class TestBajaSSHTimeout:
     """
-    La conexión SSH a la OLT falla por timeout antes de poder enviar comandos.
+    La OLT no responde al comando CLI dentro del tiempo límite configurado.
 
-    Netmiko intenta conectarse usando socket TCP al puerto 22 de la OLT.
-    Si la OLT no responde dentro del límite configurado (típicamente 30 seg),
-    lanza socket.timeout. Komands captura esa excepción y reporta KMD-5010.
+    Netmiko envía el comando pero la OLT no retorna respuesta (ocupada, saturada
+    o con problemas). Komands captura el timeout y reporta KMD-5020.
+    KMD-5020 (CLI_TIMEOUT) es distinto a KMD-5010 (CLI_ERROR/comando rechazado):
+      - KMD-5010: la OLT respondió pero rechazó el comando.
+      - KMD-5020: la OLT no respondió dentro del tiempo límite.
 
-    Diferencia clave respecto a KMD-2002 (ONT no encontrado):
-      - KMD-2002: llegamos a la OLT, pero el ONT no existe.
-      - KMD-5010: nunca llegamos a la OLT, no sabemos nada del ONT.
-
-    Ambos casos dejan el cliente sin cambios en la red, pero KMD-5010
-    puede indicar un problema de infraestructura más amplio (OLT caída,
-    problema de routing) que hay que escalar a Redes.
+    Ambos casos dejan el cliente sin cambios en la red, pero KMD-5020
+    puede indicar un problema de infraestructura (OLT saturada, pérdida
+    de sesión SSH) que hay que escalar a Redes.
     """
 
     # BAJ-20
@@ -451,7 +449,7 @@ class TestBajaSSHTimeout:
         Netmiko no logra establecer la sesión SSH dentro del tiempo límite.
         Komands aborta la operación sin haber ejecutado ningún comando.
 
-        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
             "/api/v1/unsuscription",
@@ -465,9 +463,9 @@ class TestBajaSSHTimeout:
         assert data.get("status") == "FAILED", (
             f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
         )
-        # KMD-5010 es el código específico para errores de capa de transporte SSH
-        assert data.get("error_code") == "KMD-5010", (
-            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        # KMD-5020 = CLI_TIMEOUT: timeout esperando respuesta de la OLT (AnexoH v2.2)
+        assert data.get("error_code") == "KMD-5020", (
+            f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
 
     # BAJ-21
@@ -478,7 +476,7 @@ class TestBajaSSHTimeout:
         Mismo escenario que BAJ-20 pero para equipos Huawei MA5800.
         El código de error es el mismo: el problema es la red, no el vendor.
 
-        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5010.
+        Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
             "/api/v1/unsuscription",
@@ -491,8 +489,8 @@ class TestBajaSSHTimeout:
         assert data.get("status") == "FAILED", (
             f"Se esperaba status=FAILED, se obtuvo: {data.get('status')}"
         )
-        assert data.get("error_code") == "KMD-5010", (
-            f"Se esperaba KMD-5010, se obtuvo: {data.get('error_code')}"
+        assert data.get("error_code") == "KMD-5020", (
+            f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
 
 

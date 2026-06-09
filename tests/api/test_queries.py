@@ -3,7 +3,7 @@
 Convención: test_qry<NN>_<escenario>
 
 Fuentes:
-    - Plan_Pruebas_Completo_v3_Final.xlsx → Release 1 → PV-QRY-001 a PV-QRY-006
+    - Plan_Pruebas_Completo_v4_Final.xlsx → Release 1 → PV-QRY-001 a PV-QRY-006
     - Endpoints síncronos: responden directo sin encolar en Redis
     - Los SLOs de tiempo (< 100ms, < 10s) requieren servidor real
 

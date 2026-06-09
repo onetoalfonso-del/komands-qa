@@ -1,14 +1,29 @@
 """API tests — Feature Flags e Idempotencia post-venta (PV-FLG + PV-IDP).
 
 Fuentes:
-    - Plan_Pruebas_Completo_v3_Final.xlsx → PV-FLG-001..003, PV-IDP-001
+    - Plan_Pruebas_Completo_v4_Final.xlsx → PV-FLG-001..003, PV-IDP-001
     - FF-01: cuando el flag está desactivado, Komands devuelve KMD-4001
-    - PV-IDP-001: X-Correlation-ID duplicado → segundo POST retorna 200 + txn_id original
+    - PV-IDP-001: txn_id duplicado → segundo POST retorna 200 + txn_id original
 """
 import uuid
 import pytest
 
 pytestmark = pytest.mark.postventa
+
+_BASE_BAJ = {
+    "vno_code": "DTV",
+    "external_order_id": "SO-FLG-001",
+    "olt_name": "OLT-SAN-001",
+    "slot": 1,
+    "port": 3,
+    "ont_id": 45,
+}
+
+_BASE_BAJ_HUAWEI = {
+    **_BASE_BAJ,
+    "external_order_id": "SO-FLG-002",
+    "olt_name": "OLT-SAN-002",
+}
 
 
 # ─── FLG-01 a FLG-03: Feature Flags para baja ────────────────────────────────
@@ -17,7 +32,7 @@ class TestFeatureFlagsBaja:
     """
     El Feature Flag controla si Komands procesa la operación o redirige a BluePlanet.
 
-    Cuando está activo → 202 + PENDING (Komands procesa).
+    Cuando está activo → 202 + ACCEPTED (Komands procesa).
     Cuando está desactivado → KMD-4001 (ServiceNow debe usar BluePlanet).
 
     Fuente: docs/05_gaps_seguridad.md → FF-01, FF-03.
@@ -29,7 +44,7 @@ class TestFeatureFlagsBaja:
         ESCENARIO: Conmutación BP→Komands — flag DTV FTTH activado.
 
         Cuando el Feature Flag está activo para DTV+FTTH, Komands debe
-        procesar la baja y devolver 202+PENDING. Es la condición normal
+        procesar la baja y devolver 202+ACCEPTED. Es la condición normal
         de operación para los VNOs que ya migraron a Komands.
 
         Resultado esperado: HTTP 202.
@@ -40,14 +55,7 @@ class TestFeatureFlagsBaja:
         )
         response = ff_client.post(
             "/api/v1/unsuscription",
-            json={
-                "vno_id": "DTV",
-                "olt_vendor": "nokia",
-                "olt_name": "OLT-SAN-001",
-                "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-                "product": "FTTH",
-                "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
-            },
+            json=_BASE_BAJ,
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         assert response.status_code == 202, (
@@ -63,7 +71,7 @@ class TestFeatureFlagsBaja:
         con KMD-4001 y dice a ServiceNow que use BluePlanet.
         Este mecanismo permite un rollback sin deploys.
 
-        Resultado esperado: respuesta con error_code KMD-4001.
+        Resultado esperado: respuesta con error KMD-4001.
         """
         ff_client.post(
             "/test/feature-flags",
@@ -71,14 +79,7 @@ class TestFeatureFlagsBaja:
         )
         response = ff_client.post(
             "/api/v1/unsuscription",
-            json={
-                "vno_id": "DTV",
-                "olt_vendor": "nokia",
-                "olt_name": "OLT-SAN-001",
-                "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-                "product": "FTTH",
-                "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
-            },
+            json=_BASE_BAJ,
             headers={"Authorization": f"Bearer {valid_token}"},
         )
         data = response.json()
@@ -91,13 +92,13 @@ class TestFeatureFlagsBaja:
         assert data.get("redirect") == "blueplanet"
 
     # FLG-03
-    def test_flg03_flag_multidimensional_nokia_activo_huawei_no(self, ff_client):
+    def test_flg03_flag_encendido_luego_apagado_nokia_huawei(self, ff_client):
         """
-        ESCENARIO: Flag multi-dimensional — DTV Nokia activo, DTV Huawei desactivado.
+        ESCENARIO: Flag activo → OLT Nokia retorna 202; flag apagado → OLT Huawei KMD-4001.
 
-        Los flags son por VNO × vendor × producto. Es posible tener Nokia activo
-        y Huawei desactivado simultáneamente para el mismo VNO. Útil durante
-        la migración gradual (Nokia primero, Huawei después).
+        Simula la migración gradual: Nokia primero, Huawei después.
+        Activa el flag, verifica OLT Nokia (OLT-SAN-001), apaga el flag,
+        verifica OLT Huawei (OLT-SAN-002).
 
         Resultado esperado: Nokia → 202, Huawei → KMD-4001.
         """
@@ -106,33 +107,24 @@ class TestFeatureFlagsBaja:
             "/test/feature-flags",
             json={"vno_id": "DTV", "product": "FTTH", "enabled": True},
         )
-        # Activar Nokia (usa el flag general FTTH DTV=True)
-        nokia_payload = {
-            "vno_id": "DTV", "olt_vendor": "nokia", "olt_name": "OLT-SAN-001",
-            "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-            "product": "FTTH",
-            "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
-        }
         nokia_resp = ff_client.post(
             "/api/v1/unsuscription",
-            json=nokia_payload,
+            json=_BASE_BAJ,
             headers={"Authorization": f"Bearer {_make_token(vno_id='DTV')}"},
         )
-        assert nokia_resp.status_code == 202, "Nokia debe estar activo"
+        assert nokia_resp.status_code == 202, "OLT Nokia debe procesar con flag activo"
 
-        # Desactivar Huawei para DTV
         ff_client.post(
             "/test/feature-flags",
             json={"vno_id": "DTV", "product": "FTTH", "enabled": False},
         )
-        huawei_payload = {**nokia_payload, "olt_vendor": "huawei"}
         huawei_resp = ff_client.post(
             "/api/v1/unsuscription",
-            json=huawei_payload,
+            json=_BASE_BAJ_HUAWEI,
             headers={"Authorization": f"Bearer {_make_token(vno_id='DTV')}"},
         )
         assert huawei_resp.json().get("error") == "KMD-4001", (
-            "Con flag desactivado Huawei debe retornar KMD-4001"
+            "Con flag desactivado OLT Huawei debe retornar KMD-4001"
         )
 
 
@@ -146,7 +138,7 @@ class TestIdempotenciaBaja:
     Segundo POST → HTTP 200 + txn_id original (no 202).
     La OLT no debe ser contactada la segunda vez.
 
-    Fuente: Anexo E — duplicado retorna UUID existente con HTTP 200.
+    Fuente: AnexoH v2.2 — duplicado retorna UUID existente con HTTP 200.
     """
 
     # IDP-01
@@ -163,19 +155,13 @@ class TestIdempotenciaBaja:
         Resultado esperado: primer POST → 202, segundo POST → 200, mismo txn_id.
         """
         txn_id_fijo = str(uuid.uuid4())
-        payload = {
-            "vno_id": "DTV",
-            "olt_vendor": "nokia",
-            "olt_name": "OLT-SAN-001",
-            "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-            "product": "FTTH",
-            "txn_id": txn_id_fijo,
-            "callback_url": "https://servicenow.onnet.cl/api/komands/callback",
-        }
+        payload = {**_BASE_BAJ, "txn_id": txn_id_fijo}
         headers = {"Authorization": f"Bearer {valid_token}"}
 
         resp1 = ff_client.post("/api/v1/unsuscription", json=payload, headers=headers)
-        assert resp1.status_code == 202, f"Primer POST debe retornar 202, retornó {resp1.status_code}"
+        assert resp1.status_code == 202, (
+            f"Primer POST debe retornar 202, retornó {resp1.status_code}"
+        )
 
         resp2 = ff_client.post("/api/v1/unsuscription", json=payload, headers=headers)
         assert resp2.status_code == 200, (
