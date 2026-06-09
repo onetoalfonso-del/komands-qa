@@ -28,6 +28,10 @@ Thumbs.db
 *.xls
 ~$*
 
+# Documentos Word — van en SharePoint, no en git
+*.docx
+*.doc
+
 # Reportes HTML generados por pytest
 reporte*.html
 reporte-ci.html
