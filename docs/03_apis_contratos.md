@@ -1,4 +1,7 @@
-# APIs REST de Komands — Contratos
+# APIs REST de Komands — Contratos (AnexoH v2.2)
+
+> Fuente de verdad: `AnexoH_Especificacion_APIs_v2_2_FINAL.docx`
+> Última actualización: 2026-06-09
 
 ## Base URL
 ```
@@ -6,16 +9,19 @@ DEV:  http://localhost:8000/api/v1
 QA:   https://komands-qa.internal/api/v1
 PROD: https://komands.onnet.cl/api/v1  (vía Axway APIM)
 ```
+> Nota ADR-008: el base path migrará a `/api/Komands/v1/` en una versión futura. Por ahora se usa `/api/v1/`.
+
+---
 
 ## Autenticación
+
 - **Tipo:** OAuth 2.0 client_credentials → JWT (Bearer token)
 - **Header obligatorio:** `Authorization: Bearer <token>`
-- **Header trazabilidad:** `X-Correlation-ID: <uuid>` (propagar en toda la cadena)
-- **Header VNO:** `X-VNO-ID: DTV | ClaroVTR | Entel | TCH`
 - Sin token válido → HTTP 401
 - VNO no autorizada → HTTP 403
+- Scope insuficiente → HTTP 403
 
-## JWT claims requeridos
+### JWT claims requeridos
 ```json
 {
   "sub": "servicenow-client",
@@ -24,99 +30,219 @@ PROD: https://komands.onnet.cl/api/v1  (vía Axway APIM)
   "exp": 1714000000
 }
 ```
+> `vno_id` en el JWT es el identificador interno de autenticación (no cambia).
+> En el body del request se usa `vno_code` (ver cada endpoint).
+
+### VNOs autorizadas
+| vno_code | VNO |
+|---|---|
+| `DTV` | DirecTV |
+| `CVTR` | ClaroVTR |
+| `ENTEL` | Entel |
+| `TCH` | Movistar (TCH) |
 
 ---
 
-## OPERACIONES ASÍNCRONAS (202 + callback)
+## OPERACIONES ASÍNCRONAS
+
+Todas responden `HTTP 202 Accepted` con:
+```json
+{
+  "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "status": "ACCEPTED"
+}
+```
+El resultado final llega por **callback** (POST a ServiceNow).
+
+---
 
 ### POST /api/v1/activation — Alta de servicio
 
-**Request body:**
+**FTTH (Nokia y Huawei):**
 ```json
 {
-  "txn_id": "uuid-v4-opcional-si-no-se-genera-uno",
-  "vno_id": "DTV",
-  "product": "FTTH",
-  "technology": "GPON",
+  "vno_code": "DTV",
+  "external_order_id": "SO-ACT-001",
+  "service_type": "FTTH",
   "olt_name": "OLT-SAN-001",
-  "olt_vendor": "nokia",
-  "shelf": 1,
-  "card": 2,
+  "slot": 1,
   "port": 3,
-  "logic_pon": 1,
   "ont_id": 45,
-  "ont_serial": "ALCLF1234567",
-  "services": ["INTERNET", "VOIP", "IPTV"],
-  "speed_profile": "100M_20M",
-  "callback_url": "https://servicenow.onnet.cl/api/komands/callback"
+  "serial_ont": "ALCLF1234567",
+  "internet": true,
+  "voip": true,
+  "iptv": true,
+  "speed_profile": "100M_20M"
 }
 ```
 
-**Campos obligatorios:** vno_id, product, technology, olt_name, olt_vendor, shelf, card, port, logic_pon, ont_serial, services, callback_url
-
-**Respuesta exitosa:**
+**SSAA (grupos A/B/C/D/BX):**
 ```json
-HTTP 202 Accepted
 {
-  "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "status": "PENDING",
-  "message": "Transacción encolada"
+  "vno_code": "ENTEL",
+  "external_order_id": "SO-ACT-003",
+  "service_type": "SSAA",
+  "olt_name": "OLT-SCL-010",
+  "slot": 1,
+  "port": 0,
+  "ont_id": 5,
+  "serial_ont": "ALCLF9999999",
+  "services": [
+    {"code": "A", "svlan": 100, "cvlan": 200},
+    {"code": "C", "svlan": 100, "cvlan": 202}
+  ],
+  "speed_profile": "200M_200M"
 }
 ```
 
-**Ejemplo SSAA grupos A+C:**
+**Campos obligatorios:** `vno_code`, `external_order_id`, `service_type`, `olt_name`, `slot`, `port`, `ont_id`, `serial_ont`
+
+---
+
+### POST /api/v1/unsuscription — Baja de acceso
+
+> Renombrado desde `/deactivation` (ADR-008). También se usa para **cancelación de orden** (mismo endpoint, distinto `external_order_id`).
+
 ```json
 {
-  "vno_id": "Entel",
-  "product": "SSAA",
-  "technology": "GPON",
-  "olt_vendor": "huawei",
-  "olt_name": "OLT-VAL-003",
-  "shelf": 1, "card": 1, "port": 2, "logic_pon": 1, "ont_id": 12,
-  "ont_serial": "485754C12345",
-  "groups": ["A", "C"],
-  "svlan": 100,
-  "cvlan_dato": 200,
-  "cvlan_internet": 201,
-  "cvlan_gestion": 202,
-  "speed_profile": "200M_200M",
-  "callback_url": "https://servicenow.onnet.cl/api/komands/callback"
+  "vno_code": "DTV",
+  "external_order_id": "SO-BAJ-001",
+  "olt_name": "OLT-SAN-001",
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45
+}
+```
+
+**Variante TCH** (requiere limpieza de VLAN en la OLT):
+```json
+{
+  "vno_code": "TCH",
+  "external_order_id": "SO-BAJ-003",
+  "olt_name": "OLT-SAN-001",
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45,
+  "delete_vlan_on_terminate": true,
+  "svlan": 300
+}
+```
+
+**Casos especiales vía `external_order_id`:**
+| Valor | Comportamiento |
+|---|---|
+| `"NO_PROVISION"` | Sin provisión activa → HTTP 200, `status: NO_ACTION` |
+| `"IN_PROGRESS"` | Txn en curso → HTTP 409, `KMD-3003` |
+
+---
+
+### POST /api/v1/modification — Modificación de servicio
+
+**Campo `modification_type` (valores en minúscula):**
+| Valor | Descripción |
+|---|---|
+| `speed_change` | Cambio de perfil de velocidad |
+| `block` | Bloqueo de servicio |
+| `unblock` | Desbloqueo |
+| `add_service` | Agregar servicio (ej: IPTV) |
+| `remove_service` | Eliminar servicio individual |
+| `migrate_ftth_ssaa` | Migración de producto |
+
+**Cambio de velocidad:**
+```json
+{
+  "vno_code": "DTV",
+  "external_order_id": "SO-MOD-001",
+  "modification_type": "speed_change",
+  "olt_name": "OLT-SAN-001",
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45,
+  "new_speed_profile": "200M_50M"
+}
+```
+
+**Bloqueo / desbloqueo:**
+```json
+{
+  "vno_code": "DTV",
+  "external_order_id": "SO-MOD-002",
+  "modification_type": "block",
+  "olt_name": "OLT-SAN-001",
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45
+}
+```
+
+**Agregar / quitar servicio:**
+```json
+{
+  "vno_code": "DTV",
+  "external_order_id": "SO-MOD-007",
+  "modification_type": "add_service",
+  "olt_name": "OLT-SAN-001",
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45,
+  "service_code": "IPTV"
 }
 ```
 
 ---
 
-### POST /api/v1/deactivation — Baja de acceso
+### POST /api/v1/device-modification — Cambio de equipo (swap ONT)
 
-**Request body:**
+Baja ONT anterior + alta ONT nueva con la misma configuración de servicios.
+
 ```json
 {
-  "vno_id": "DTV",
+  "vno_code": "DTV",
+  "external_order_id": "SO-ONT-001",
   "olt_name": "OLT-SAN-001",
-  "olt_vendor": "nokia",
-  "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-  "callback_url": "https://servicenow.onnet.cl/api/komands/callback"
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45,
+  "new_serial_ont": "ALCLF7654321"
 }
 ```
 
-**Respuesta:** HTTP 202 + txn_id (igual que activation)
+---
+
+### POST /api/v1/reset-ont — Reset de ONT
+
+Reinicia el ONT sin borrar la configuración. Operación más rápida de post-venta.
+
+```json
+{
+  "vno_code": "DTV",
+  "external_order_id": "SO-RST-001",
+  "olt_name": "OLT-SAN-001",
+  "slot": 1,
+  "port": 3,
+  "ont_id": 45
+}
+```
 
 ---
 
-### POST /api/v1/device-modification — Cambio de serial ONT (swap)
+### POST /api/v1/fiber-change — Cambio de fibra
 
-**Descripción:** Baja ONT anterior + alta ONT nueva con misma configuración
+Mueve el servicio de una OLT/puerto a otro. Soporta mismo vendor y cross-vendor.
 
-**Request body:**
 ```json
 {
-  "vno_id": "DTV",
-  "olt_name": "OLT-SAN-001",
-  "olt_vendor": "nokia",
-  "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-  "old_ont_serial": "ALCLF1234567",
-  "new_ont_serial": "ALCLF7654321",
-  "callback_url": "https://servicenow.onnet.cl/api/komands/callback"
+  "vno_code": "DTV",
+  "external_order_id": "SO-FIB-001",
+  "current_olt_name": "OLT-SAN-001",
+  "current_slot": 1,
+  "current_port": 3,
+  "current_ont_id": 45,
+  "new_olt_name": "OLT-SAN-002",
+  "new_slot": 1,
+  "new_port": 4,
+  "new_ont_id": 45,
+  "serial_ont": "ALCLF1234567"
 }
 ```
 
@@ -124,62 +250,38 @@ HTTP 202 Accepted
 
 ### POST /api/v1/fiber-modification — Cambio de pelo (puerto PON)
 
-**Descripción:** Mueve servicio de un puerto PON a otro (solo GPON)
+Mueve el servicio a otro puerto PON dentro de la misma OLT. Solo GPON.
 
-**Request body:**
 ```json
 {
-  "vno_id": "DTV",
-  "olt_vendor": "nokia",
-  "source_olt": "OLT-SAN-001",
-  "source_shelf": 1, "source_card": 2, "source_port": 3,
-  "source_logic_pon": 1, "source_ont_id": 45,
-  "target_olt": "OLT-SAN-001",
-  "target_shelf": 1, "target_card": 2, "target_port": 4,
-  "target_logic_pon": 1,
-  "callback_url": "https://servicenow.onnet.cl/api/komands/callback"
-}
-```
-
----
-
-### POST /api/v1/modification — Modificación de servicio
-
-**Sub-operaciones (campo `operation_type`):**
-- `SPEED_CHANGE` — cambio de velocidad
-- `BLOCK` — bloqueo de servicio
-- `UNBLOCK` — desbloqueo
-- `SERVICE_ADD` — alta de servicio adicional (ej: agregar IPTV)
-- `SERVICE_REMOVE` — baja de servicio individual
-- `FTTH_TO_SSAA` — migración de producto
-
-**Request body (cambio de velocidad):**
-```json
-{
-  "vno_id": "DTV",
-  "operation_type": "SPEED_CHANGE",
-  "olt_vendor": "nokia",
+  "vno_code": "DTV",
+  "external_order_id": "SO-FIBM-001",
   "olt_name": "OLT-SAN-001",
-  "shelf": 1, "card": 2, "port": 3, "logic_pon": 1, "ont_id": 45,
-  "new_speed_profile": "200M_50M",
-  "callback_url": "https://servicenow.onnet.cl/api/komands/callback"
+  "current_slot": 1,
+  "current_port": 3,
+  "current_ont_id": 45,
+  "new_slot": 1,
+  "new_port": 4
 }
 ```
 
 ---
 
-## CONSULTAS SÍNCRONAS (200 directo)
+## CONSULTAS SÍNCRONAS
 
-### GET /api/v1/access/{id} — Consulta de acceso
+Responden `HTTP 200` directamente, sin callback.
 
-**Response:**
+### GET /api/v1/access/{access_id} — Estado de acceso
+
+```
+GET /api/v1/access/ACC-12345
+```
 ```json
-HTTP 200
 {
   "access_id": "ACC-12345",
   "status": "ACTIVE",
   "olt_name": "OLT-SAN-001",
-  "ont_serial": "ALCLF1234567",
+  "serial_ont": "ALCLF1234567",
   "services": ["INTERNET", "VOIP"],
   "speed_profile": "100M_20M",
   "last_updated": "2026-04-13T15:30:00Z"
@@ -188,24 +290,11 @@ HTTP 200
 
 ---
 
-### POST /api/v1/query/pon-info — Info por posición PON
-
-**Request:**
-```json
-{
-  "olt_name": "OLT-SAN-001",
-  "olt_vendor": "nokia",
-  "shelf": 1, "card": 2, "port": 3, "logic_pon": 1
-}
-```
-
----
-
 ### GET /api/v1/port-occupancy — Ocupación de puerto PON
 
-**Query params:** `olt_name`, `shelf`, `card`, `port`
-
-**Response:**
+```
+GET /api/v1/port-occupancy?olt_name=OLT-SAN-001&slot=1&port=3
+```
 ```json
 {
   "total_capacity": 128,
@@ -217,9 +306,11 @@ HTTP 200
 
 ---
 
-### GET /api/v1/transaction/{uuid} — Estado de transacción
+### GET /api/v1/transaction/{txn_id}/status — Estado de transacción
 
-**Response:**
+```
+GET /api/v1/transaction/3fa85f64-5717-4562-b3fc-2c963f66afa6/status
+```
 ```json
 {
   "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -227,90 +318,92 @@ HTTP 200
   "created_at": "2026-04-13T15:30:00Z",
   "completed_at": "2026-04-13T15:30:45Z",
   "steps": [
-    { "step": 1, "name": "create_ont", "status": "OK", "duration_ms": 850 },
-    { "step": 2, "name": "configure_service_port", "status": "OK", "duration_ms": 1200 }
+    {"step": 1, "name": "create_ont", "status": "OK", "duration_ms": 850},
+    {"step": 2, "name": "configure_service_port", "status": "OK", "duration_ms": 1200}
   ]
 }
 ```
 
-**Estados posibles:** PENDING, IN_PROGRESS, COMPLETED, FAILED, ROLLBACK, ROLLBACK_FAILED
+**Estados posibles:** `ACCEPTED` → `IN_PROGRESS` → `COMPLETED` / `FAILED` / `ROLLED_BACK` / `ROLLBACK_FAILED`
 
 ---
 
 ## CONTRATO DE CALLBACK
 
-Komands hace POST a `callback_url` al terminar cada operación asíncrona.
+Komands hace POST al endpoint de ServiceNow al finalizar cada operación asíncrona.
 
+**Operación exitosa:**
 ```json
 {
   "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "correlation_id": "corr-sn-001",
+  "external_order_id": "SO-ACT-001",
   "status": "COMPLETED",
   "operation": "activation",
-  "vno_id": "DTV",
+  "vno_code": "DTV",
+  "olt_name": "OLT-SAN-001",
+  "started_at": "2026-04-13T15:30:00Z",
   "completed_at": "2026-04-13T15:30:45Z",
+  "duration_ms": 1250,
   "steps": [
-    {
-      "step": 1,
-      "name": "create_ont",
-      "status": "OK",
-      "command": "configure equipment ont...",
-      "response": "ONT created successfully",
-      "duration_ms": 850
-    }
+    {"step": 1, "name": "create_ont", "status": "OK", "duration_ms": 850},
+    {"step": 2, "name": "configure_service_port", "status": "OK", "duration_ms": 1200}
   ]
 }
 ```
 
-**Callback con error y rollback:**
+**Operación con rollback:**
 ```json
 {
-  "txn_id": "...",
-  "status": "ROLLBACK",
-  "failed_step": 3,
-  "error_code": "KMD-2003",
-  "error_message": "Timeout ejecutando comando en OLT",
-  "steps": [...]
+  "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "status": "ROLLED_BACK",
+  "operation": "unsuscription",
+  "vno_code": "DTV",
+  "error": {
+    "code": "KMD-5020",
+    "category": "CLI_ERROR",
+    "message": "Timeout esperando respuesta de la OLT",
+    "retryable": true
+  }
 }
 ```
 
-**Política de reintentos callback:** 3 intentos, backoff exponencial (30s, 60s, 120s)
+**Política de reintentos:** 3 intentos con backoff exponencial (30s, 60s, 120s).
 
 ---
 
 ## CÓDIGOS DE ERROR HTTP
+
 | Código | Significado |
-|--------|-------------|
-| 200 | OK (consultas síncronas) |
-| 202 | Accepted (operaciones asíncronas encoladas) |
+|---|---|
+| 200 | OK (consultas síncronas / idempotencia) |
+| 202 | Accepted (operación encolada) |
 | 400 | Bad Request — payload malformado |
 | 401 | Unauthorized — token inválido o ausente |
-| 403 | Forbidden — VNO o scope no autorizado |
+| 403 | Forbidden — VNO, rol o scope no autorizado |
 | 404 | Not Found — recurso no existe |
-| 409 | Conflict — txn_id duplicado |
-| 422 | Unprocessable Entity — campo obligatorio ausente o inválido |
+| 409 | Conflict — transacción en curso (KMD-3003) |
+| 422 | Unprocessable Entity — campo obligatorio ausente |
 | 429 | Too Many Requests — rate limit excedido |
 | 500 | Internal Server Error |
 | 503 | Service Unavailable — OLT inaccesible |
 
-## CÓDIGOS DE ERROR INTERNOS (KMD-xxxx)
+## CÓDIGOS DE ERROR INTERNOS (KMD-xxxx) — AnexoH v2.2 Tabla 80
+
 | Código | Descripción |
-|--------|-------------|
-| KMD-1001 | OLT no encontrada en inventario |
-| KMD-1002 | ONT serial inválido o ya existe |
-| KMD-1003 | Puerto PON no disponible |
-| KMD-1004 | Perfil de velocidad no configurado para VNO |
-| KMD-2001 | Error de conexión SSH a OLT |
-| KMD-2002 | Autenticación SSH fallida |
-| KMD-2003 | Timeout ejecutando comando CLI |
-| KMD-2004 | Respuesta inesperada de OLT (parse error) |
-| KMD-3001 | Rollback exitoso |
-| KMD-3002 | Rollback fallido — intervención manual requerida |
-| KMD-4001 | Feature flag desactivado para esta VNO |
-| KMD-4002 | Rate limit excedido para VNO |
+|---|---|
+| `KMD-2002` | ONT no encontrado en la OLT |
+| `KMD-3001` | Conflicto — ONT ocupado o VLAN en uso |
+| `KMD-3003` | Transacción en progreso para este acceso |
+| `KMD-4001` | Operación no soportada / Feature flag desactivado → usar BluePlanet |
+| `KMD-5020` | Timeout CLI — OLT no respondió (retryable) |
+| `KMD-5021` | Timeout en paso crítico — rollback ejecutado |
+
+---
 
 ## RATE LIMITING
-- Por VNO: configurable en Axway
-- Respuesta 429:
+
+Por VNO, configurable en Axway APIM. Respuesta 429:
 ```json
 {
   "error": "KMD-4002",
