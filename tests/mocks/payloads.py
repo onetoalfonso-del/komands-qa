@@ -6,7 +6,7 @@ Ejemplo: ACTIVATION_NOKIA_FTTH_VALID
 Fuente de verdad: AnexoH_Especificacion_APIs_v2_2_FINAL.docx
 """
 
-# ─── POST /api/v1/activation ──────────────────────────────────────────────────
+# ─── POST /api/Komands/v1/activation ──────────────────────────────────────────────────
 
 ACTIVATION_NOKIA_FTTH_VALID = {
     "vno_code": "DTV",
@@ -132,7 +132,7 @@ ACTIVATION_INVALID_VENDOR = {
     "olt_name": "OLT-ERICSSON-001",
 }
 
-# ─── POST /api/v1/unsuscription ───────────────────────────────────────────────
+# ─── POST /api/Komands/v1/unsuscription ───────────────────────────────────────────────
 
 DEACTIVATION_NOKIA_VALID = {
     "vno_code": "DTV",
@@ -167,7 +167,7 @@ DEACTIVATION_HUAWEI_VALID = {
     "ont_id": 10,
 }
 
-# ─── POST /api/v1/reset-ont ──────────────────────────────────────────────────
+# ─── POST /api/Komands/v1/reset-ont ──────────────────────────────────────────────────
 
 RESET_ONT_NOKIA_VALID = {
     "vno_code": "DTV",
@@ -187,7 +187,7 @@ RESET_ONT_HUAWEI_VALID = {
     "ont_id": 10,
 }
 
-# ─── POST /api/v1/device-modification (swap ONT) ─────────────────────────────
+# ─── POST /api/Komands/v1/device-modification (swap ONT) ─────────────────────────────
 
 DEVICE_MOD_NOKIA_VALID = {
     "vno_code": "DTV",
@@ -235,7 +235,7 @@ RESET_ONT_HUAWEI_SSH_TIMEOUT = {
     "ont_id": 7777,
 }
 
-# ─── POST /api/v1/modification ────────────────────────────────────────────────
+# ─── POST /api/Komands/v1/modification ────────────────────────────────────────────────
 #
 # modification_type usa valores en minúscula per AnexoH v2.2 tabla 58:
 #   speed_change, block, unblock, add_service, remove_service, migrate_ftth_ssaa
@@ -441,4 +441,158 @@ CALLBACK_ROLLBACK = {
         "message": "Timeout esperando respuesta de la OLT",
         "retryable": True,
     },
+}
+
+# ─── Payloads baja SSAA (PV-BAJ-004, PV-BAJ-011, PV-BAJ-012) ─────────────────
+
+DEACTIVATION_NOKIA_SSAA_ENTEL = {
+    "vno_code": "ENTEL",
+    "external_order_id": "SO-BAJ-SSAA-001",
+    "service_type": "SSAA",
+    "olt_name": "OLT-SCL-010",
+    "slot": 1,
+    "port": 0,
+    "ont_id": 5,
+}
+
+DEACTIVATION_HUAWEI_SSAA_MULTI_SERVICE = {
+    "vno_code": "CVTR",
+    "external_order_id": "SO-BAJ-SSAA-002",
+    "service_type": "SSAA",
+    "olt_name": "OLT-VAL-003",
+    "slot": 1,
+    "port": 2,
+    "ont_id": 12,
+    "services_to_remove": ["A", "B", "C", "D", "E"],
+}
+
+# Baja parcial — solo se elimina el servicio VoIP, internet e IPTV quedan activos
+DEACTIVATION_HUAWEI_PARTIAL_VOIP = {
+    "vno_code": "DTV",
+    "external_order_id": "SO-BAJ-PART-001",
+    "olt_name": "OLT-SAN-002",
+    "slot": 0,
+    "port": 2,
+    "ont_id": 10,
+    "services_to_remove": ["VOIP"],
+}
+
+# ─── Payloads modificación — nuevos tipos (PV-MOD-005, PV-MOD-007, PV-MOD-009) ──
+
+MODIFICATION_ADD_SERVICE_VOIP_HUAWEI = {
+    "vno_code": "DTV",
+    "external_order_id": "SO-MOD-VOIP-001",
+    "modification_type": "add_service",
+    "olt_name": "OLT-SAN-002",
+    "slot": 0,
+    "port": 2,
+    "ont_id": 10,
+    "service_code": "VOIP",
+}
+
+# remove_service en Huawei es válido (a diferencia de Nokia que devuelve 422)
+MODIFICATION_REMOVE_SERVICE_HUAWEI = {
+    "vno_code": "DTV",
+    "external_order_id": "SO-MOD-RM-001",
+    "modification_type": "remove_service",
+    "olt_name": "OLT-SAN-002",
+    "slot": 0,
+    "port": 2,
+    "ont_id": 10,
+    "service_code": "VOIP",
+}
+
+MODIFICATION_MIGRATE_FTTH_SSAA = {
+    "vno_code": "ENTEL",
+    "external_order_id": "SO-MOD-MIG-001",
+    "modification_type": "migrate_ftth_ssaa",
+    "olt_name": "OLT-SCL-010",
+    "slot": 1,
+    "port": 0,
+    "ont_id": 5,
+    "target_services": [{"code": "A", "svlan": 100, "cvlan": 200}],
+}
+
+# ─── Payloads centinela — swap (device-modification) paso 1 falla ─────────────
+#
+# ont_id=8888 → ONT no encontrado en la OLT (falla antes del alta del equipo nuevo)
+DEVICE_MOD_NOKIA_ONT_NOT_FOUND = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "external_order_id": "SO-ONT-ERR-001",
+    "ont_id": 8888,
+}
+
+# Centinela serial duplicado — new_serial_ont ya está registrado en otra OLT.
+# Komands detecta la colisión durante el alta y aborta con ROLLED_BACK.
+DEVICE_MOD_SERIAL_DUPLICATE = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "external_order_id": "SO-ONT-ERR-002",
+    "new_serial_ont": "DUPL00000000",
+}
+
+# ─── Payload centinela — cambio de fibra con posición destino ocupada ─────────
+#
+# new_ont_id=9000 → ONT ID en el puerto de destino ya está en uso por otro cliente
+FIBER_CHANGE_DEST_PORT_OCCUPIED = {
+    "vno_code": "DTV",
+    "external_order_id": "SO-FIB-ERR-001",
+    "current_olt_name": "OLT-SAN-001",
+    "current_slot": 1,
+    "current_port": 3,
+    "current_ont_id": 45,
+    "new_olt_name": "OLT-SAN-001",
+    "new_slot": 1,
+    "new_port": 5,
+    "new_ont_id": 9000,
+    "serial_ont": "ALCLF1234567",
+}
+
+# ─── Payloads centinela — reset con ONT offline ────────────────────────────────
+#
+# ont_id=6666 → ONT configurado en la OLT pero sin señal óptica (desconectado)
+RESET_ONT_NOKIA_OFFLINE = {
+    **RESET_ONT_NOKIA_VALID,
+    "external_order_id": "SO-RST-OFFLINE-001",
+    "ont_id": 6666,
+}
+
+RESET_ONT_HUAWEI_OFFLINE = {
+    **RESET_ONT_HUAWEI_VALID,
+    "external_order_id": "SO-RST-OFFLINE-002",
+    "ont_id": 6666,
+}
+
+# ─── Payloads PV-RBK Rollback automático ─────────────────────────────────────
+
+ACTIVATION_NOKIA_ROLLBACK = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "external_order_id": "SO-RBK-001",
+    "ont_id": 6661,
+}
+
+ACTIVATION_HUAWEI_ROLLBACK = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "external_order_id": "SO-RBK-002",
+    "olt_name": "OLT-SAN-002",
+    "ont_id": 6662,
+}
+
+ACTIVATION_ROLLBACK_FAILED = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "external_order_id": "SO-RBK-003",
+    "ont_id": 6663,
+}
+
+ACTIVATION_NON_CRITICAL_FAIL = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "external_order_id": "SO-RBK-004",
+    "ont_id": 6664,
+}
+
+# ─── Payloads PV-IDP Idempotencia ─────────────────────────────────────────────
+
+ACTIVATION_IDEMPOTENCY = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "external_order_id": "SO-IDP-001",
+    "ont_id": 46,
 }

@@ -1,4 +1,4 @@
-"""API tests — POST /api/v1/unsuscription (Baja FTTH, sin SSAA).
+"""API tests — POST /api/Komands/v1/unsuscription (Baja FTTH, sin SSAA).
 
 Convención: test_baj<NN>_<vendor>_<vno>_<escenario>
 
@@ -30,6 +30,9 @@ from tests.mocks.payloads import (
     DEACTIVATION_HUAWEI_ONT_NOT_FOUND,
     DEACTIVATION_NOKIA_SSH_TIMEOUT,
     DEACTIVATION_HUAWEI_SSH_TIMEOUT,
+    DEACTIVATION_NOKIA_SSAA_ENTEL,
+    DEACTIVATION_HUAWEI_SSAA_MULTI_SERVICE,
+    DEACTIVATION_HUAWEI_PARTIAL_VOIP,
 )
 
 pytestmark = pytest.mark.postventa
@@ -43,7 +46,7 @@ class TestBajaValida:
     para los 4 VNOs, devolviendo 202 + txn_id.
     """
 
-    # BAJ-01
+    # BAJ-01 | PV-BAJ-182
     def test_baj01_nokia_ftth_dtv_devuelve_202(self, test_client, auth_headers):
         """
         ESCENARIO: Baja Nokia FTTH — VNO DTV (caso base).
@@ -53,7 +56,7 @@ class TestBajaValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers=auth_headers,
         )
@@ -63,7 +66,7 @@ class TestBajaValida:
             f"Body: {response.text}"
         )
 
-    # BAJ-02
+    # BAJ-02 | PV-BAJ-185
     def test_baj02_huawei_ftth_dtv_devuelve_202(self, test_client, auth_headers):
         """
         ESCENARIO: Baja Huawei FTTH — VNO DTV.
@@ -73,14 +76,14 @@ class TestBajaValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_HUAWEI_VALID,
             headers=auth_headers,
         )
 
         assert response.status_code == 202
 
-    # BAJ-03
+    # BAJ-03 | PV-BAJ-191
     def test_baj03_nokia_ftth_clarovtr_devuelve_202(self, test_client):
         """
         ESCENARIO: Baja Nokia FTTH — VNO CVTR (ClaroVTR).
@@ -95,14 +98,14 @@ class TestBajaValida:
             "X-Correlation-ID": "test-baj03",
         }
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_CVTR,
             headers=headers,
         )
 
         assert response.status_code == 202
 
-    # BAJ-04
+    # BAJ-04 | PV-BAJ-209
     def test_baj04_nokia_ftth_tch_delete_vlan_devuelve_202(self, test_client):
         """
         ESCENARIO: Baja Nokia FTTH — VNO TCH (Movistar) con delete_vlan_on_terminate=True.
@@ -118,7 +121,7 @@ class TestBajaValida:
             "X-Correlation-ID": "test-baj04",
         }
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_TCH,
             headers=headers,
         )
@@ -141,7 +144,7 @@ class TestBajaSinAutenticacion:
         Resultado esperado: HTTP 401.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
         )
 
@@ -155,7 +158,7 @@ class TestBajaSinAutenticacion:
         Resultado esperado: HTTP 401.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": f"Bearer {expired_token}"},
         )
@@ -170,7 +173,7 @@ class TestBajaSinAutenticacion:
         Resultado esperado: HTTP 401.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": "Bearer esto-no-es-un-jwt"},
         )
@@ -193,7 +196,7 @@ class TestBajaSinAutorizacion:
         Resultado esperado: HTTP 403.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": f"Bearer {invalid_vno_token}"},
         )
@@ -208,7 +211,7 @@ class TestBajaSinAutorizacion:
         Resultado esperado: HTTP 403.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": f"Bearer {readonly_token}"},
         )
@@ -232,7 +235,7 @@ class TestBajaRBACPortal:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -247,7 +250,7 @@ class TestBajaRBACPortal:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": f"Bearer {operator_token}"},
         )
@@ -264,7 +267,7 @@ class TestBajaRBACPortal:
         Resultado esperado: HTTP 403.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers={"Authorization": f"Bearer {viewer_token}"},
         )
@@ -287,7 +290,7 @@ class TestBajaRespuesta:
         Resultado esperado: campo txn_id presente en la respuesta.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers=auth_headers,
         )
@@ -306,7 +309,7 @@ class TestBajaRespuesta:
         Resultado esperado: campo status == "PENDING".
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_VALID,
             headers=auth_headers,
         )
@@ -325,7 +328,7 @@ class TestBajaMultiVNO:
     Los 4 VNOs del proyecto deben poder dar de baja con un token válido.
     """
 
-    # BAJ-15
+    # BAJ-15 | PV-BAJ-182, PV-BAJ-191, PV-BAJ-200, PV-BAJ-209
     @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
     def test_baj15_todos_los_vnos_pueden_dar_de_baja(self, test_client, vno_id):
         """
@@ -340,7 +343,7 @@ class TestBajaMultiVNO:
         payload = {**DEACTIVATION_NOKIA_VALID, "vno_code": vno_id}
 
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=payload,
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -369,7 +372,7 @@ class TestBajaONTNoEncontrado:
     Acá el ONT simplemente no existe, y aplica a Nokia y Huawei por igual.
     """
 
-    # BAJ-18
+    # BAJ-18 | PV-BAJ-183
     def test_baj18_nokia_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
         """
         ESCENARIO: Baja Nokia FTTH — el ONT ID no existe en la OLT.
@@ -380,7 +383,7 @@ class TestBajaONTNoEncontrado:
         Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_ONT_NOT_FOUND,
             headers=auth_headers,
         )
@@ -397,7 +400,7 @@ class TestBajaONTNoEncontrado:
             f"Se esperaba KMD-2002, se obtuvo: {data.get('error_code')}"
         )
 
-    # BAJ-19
+    # BAJ-19 | PV-BAJ-186
     def test_baj19_huawei_ont_no_encontrado_retorna_failed(self, test_client, auth_headers):
         """
         ESCENARIO: Baja Huawei FTTH — el ONT ID no existe en la OLT.
@@ -408,7 +411,7 @@ class TestBajaONTNoEncontrado:
         Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_HUAWEI_ONT_NOT_FOUND,
             headers=auth_headers,
         )
@@ -441,7 +444,7 @@ class TestBajaSSHTimeout:
     de sesión SSH) que hay que escalar a Redes.
     """
 
-    # BAJ-20
+    # BAJ-20 | PV-BAJ-184
     def test_baj20_nokia_ssh_timeout_retorna_failed(self, test_client, auth_headers):
         """
         ESCENARIO: Baja Nokia FTTH — timeout de conexión SSH a la OLT.
@@ -452,7 +455,7 @@ class TestBajaSSHTimeout:
         Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_NOKIA_SSH_TIMEOUT,
             headers=auth_headers,
         )
@@ -468,7 +471,7 @@ class TestBajaSSHTimeout:
             f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
 
-    # BAJ-21
+    # BAJ-21 | PV-BAJ-187
     def test_baj21_huawei_ssh_timeout_retorna_failed(self, test_client, auth_headers):
         """
         ESCENARIO: Baja Huawei FTTH — timeout de conexión SSH a la OLT.
@@ -479,7 +482,7 @@ class TestBajaSSHTimeout:
         Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-5020.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_HUAWEI_SSH_TIMEOUT,
             headers=auth_headers,
         )
@@ -492,6 +495,96 @@ class TestBajaSSHTimeout:
         assert data.get("error_code") == "KMD-5020", (
             f"Se esperaba KMD-5020, se obtuvo: {data.get('error_code')}"
         )
+
+
+# ─── BAJ-22 a BAJ-24: Bajas SSAA y baja parcial (PV-BAJ-004, 011, 012) ──────
+
+class TestBajaSSAA:
+    """
+    Escenarios SSAA y baja parcial del plan de pruebas post-venta.
+
+    SSAA (Servicios Adicionales) usa grupos de servicios (A-E) en lugar de
+    servicios individuales (internet/voip/iptv). La baja puede ser total
+    (todos los grupos) o parcial (solo algunos servicios).
+
+    Nokia Entel: grupo de servicios A — verificar que el endpoint acepta
+    service_type="SSAA" con el campo ONT correcto.
+
+    Huawei multi-service: grupos A-E activos simultáneamente — Komands
+    debe dar de baja todos los service-ports correspondientes en la OLT.
+
+    Baja parcial: solo se elimina VoIP, dejando internet activo. El payload
+    incluye services_to_remove para especificar qué eliminar.
+    """
+
+    # BAJ-22 | PV-BAJ-203
+    def test_baj22_nokia_ssaa_entel_devuelve_202(self, test_client):
+        """
+        ESCENARIO: Baja Nokia SSAA — VNO ENTEL, servicio SSAA grupo A.
+
+        SSAA Nokia Entel es el primer escenario SSAA del plan de pruebas.
+        El campo service_type="SSAA" cambia la lógica de comandos CLI en la OLT.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        response = test_client.post(
+            "/api/Komands/v1/unsuscription",
+            json=DEACTIVATION_NOKIA_SSAA_ENTEL,
+            headers={"Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"},
+        )
+
+        assert response.status_code == 202, (
+            f"Baja Nokia SSAA Entel debería retornar 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+
+    # BAJ-23 → PV-BAJ-011
+    def test_baj23_huawei_ssaa_multi_service_devuelve_202(self, test_client):
+        """
+        ESCENARIO: Baja Huawei SSAA — VNO CVTR con grupos A-E activos.
+
+        Huawei MA5800 con 5 service-ports activos (grupos A, B, C, D, E).
+        Komands debe dar de baja todos los service-ports de la OLT en una
+        sola operación. services_to_remove indica cuáles eliminar.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        response = test_client.post(
+            "/api/Komands/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_SSAA_MULTI_SERVICE,
+            headers={"Authorization": f"Bearer {_make_token(vno_id='CVTR')}"},
+        )
+
+        assert response.status_code == 202, (
+            f"Baja Huawei SSAA multi-service debería retornar 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+
+    # BAJ-24 → PV-BAJ-012
+    def test_baj24_huawei_partial_baja_solo_voip_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Baja parcial Huawei FTTH — se elimina solo VoIP, internet queda activo.
+
+        Es la única operación de baja donde el cliente no pierde todo el acceso.
+        Se usa cuando el cliente cancela el servicio de telefonía pero mantiene
+        internet. Komands elimina solo el service-port de VoIP en la OLT Huawei.
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/Komands/v1/unsuscription",
+            json=DEACTIVATION_HUAWEI_PARTIAL_VOIP,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202, (
+            f"Baja parcial Huawei (solo VoIP) debería retornar 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+        data = response.json()
+        assert "txn_id" in data, f"txn_id ausente en baja parcial: {data}"
 
 
 # ─── BAJ-16 a BAJ-17: Errores de negocio Huawei ──────────────────────────────
@@ -518,7 +611,7 @@ class TestBajaErroresNegocioHuawei:
         Resultado esperado: HTTP 202 con estado FAILED y error_code KMD-2002.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_HUAWEI_INDEX_FAIL,
             headers=auth_headers,
         )
@@ -544,7 +637,7 @@ class TestBajaErroresNegocioHuawei:
         Resultado esperado: HTTP 202 con estado ROLLED_BACK.
         """
         response = test_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=DEACTIVATION_HUAWEI_PARTIAL_INDEX,
             headers=auth_headers,
         )
@@ -554,3 +647,90 @@ class TestBajaErroresNegocioHuawei:
         assert data.get("status") == "ROLLED_BACK", (
             f"Se esperaba status=ROLLED_BACK, se obtuvo: {data.get('status')}"
         )
+
+
+# ─── Completitud matriz VNO × OLT — PV-BAJ faltantes ────────────────────────
+#
+# Los tests individuales baj01-baj22 cubren DTV/Nokia, DTV/Huawei MA5800 y
+# algunas combinaciones de CVTR/ENTEL/TCH para Nokia.
+# Estos tests parametrizados cubren el resto de la matriz del Excel.
+
+@pytest.mark.parametrize("case_id,vno_id,olt_name,is_huawei", [
+    ("PV-BAJ-188", "DTV",  "OLT-SAN-003", True),   # DTV/Huawei MA5600T
+    ("PV-BAJ-194", "CVTR", "OLT-VAL-002", True),   # CVTR/Huawei MA5800
+    ("PV-BAJ-197", "CVTR", "OLT-VAL-003", True),   # CVTR/Huawei MA5600T
+    ("PV-BAJ-206", "ENTEL","OLT-SCL-011", True),   # ENTEL/Huawei MA5800
+    ("PV-BAJ-212", "TCH",  "OLT-SCL-010", False),  # TCH/Nokia SSAA
+])
+def test_baj_matriz_success(case_id, vno_id, olt_name, is_huawei, test_client):
+    """PV-BAJ: Baja exitosa — combinaciones VNO × OLT faltantes en la matriz."""
+    from tests.conftest import _make_token
+    base = DEACTIVATION_HUAWEI_VALID if is_huawei else DEACTIVATION_NOKIA_VALID
+    payload = {**base, "vno_code": vno_id, "olt_name": olt_name, "ont_id": 45,
+               "external_order_id": f"SO-{case_id}"}
+    response = test_client.post(
+        "/api/Komands/v1/unsuscription",
+        json=payload,
+        headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
+    )
+    assert response.status_code == 202, (
+        f"{case_id} {vno_id}/{olt_name}: esperado 202, obtuvo {response.status_code}"
+    )
+
+
+@pytest.mark.mock_only
+@pytest.mark.parametrize("case_id,vno_id,olt_name,is_huawei", [
+    ("PV-BAJ-189", "DTV",  "OLT-SAN-003", True),   # DTV/Huawei MA5600T
+    ("PV-BAJ-192", "CVTR", "OLT-VAL-001", False),  # CVTR/Nokia
+    ("PV-BAJ-195", "CVTR", "OLT-VAL-002", True),   # CVTR/Huawei MA5800
+    ("PV-BAJ-198", "CVTR", "OLT-VAL-003", True),   # CVTR/Huawei MA5600T
+    ("PV-BAJ-201", "ENTEL","OLT-SCL-010", False),  # ENTEL/Nokia FTTH
+    ("PV-BAJ-204", "ENTEL","OLT-SCL-010", False),  # ENTEL/Nokia SSAA
+    ("PV-BAJ-207", "ENTEL","OLT-SCL-011", True),   # ENTEL/Huawei MA5800
+    ("PV-BAJ-210", "TCH",  "OLT-SAN-001", False),  # TCH/Nokia FTTH
+    ("PV-BAJ-213", "TCH",  "OLT-SCL-010", False),  # TCH/Nokia SSAA
+])
+def test_baj_matriz_ont_not_found(case_id, vno_id, olt_name, is_huawei, test_client):
+    """PV-BAJ: ONT no encontrado (KMD-2002) — combinaciones VNO × OLT faltantes."""
+    from tests.conftest import _make_token
+    base = DEACTIVATION_HUAWEI_VALID if is_huawei else DEACTIVATION_NOKIA_VALID
+    payload = {**base, "vno_code": vno_id, "olt_name": olt_name, "ont_id": 8888,
+               "external_order_id": f"SO-{case_id}"}
+    response = test_client.post(
+        "/api/Komands/v1/unsuscription",
+        json=payload,
+        headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
+    )
+    assert response.status_code == 202, f"{case_id}: esperado 202"
+    assert response.json().get("error_code") == "KMD-2002", (
+        f"{case_id} {vno_id}: esperado KMD-2002, obtuvo {response.json().get('error_code')}"
+    )
+
+
+@pytest.mark.mock_only
+@pytest.mark.parametrize("case_id,vno_id,olt_name,is_huawei", [
+    ("PV-BAJ-190", "DTV",  "OLT-SAN-003", True),   # DTV/Huawei MA5600T
+    ("PV-BAJ-193", "CVTR", "OLT-VAL-001", False),  # CVTR/Nokia
+    ("PV-BAJ-196", "CVTR", "OLT-VAL-002", True),   # CVTR/Huawei MA5800
+    ("PV-BAJ-199", "CVTR", "OLT-VAL-003", True),   # CVTR/Huawei MA5600T
+    ("PV-BAJ-202", "ENTEL","OLT-SCL-010", False),  # ENTEL/Nokia FTTH
+    ("PV-BAJ-205", "ENTEL","OLT-SCL-010", False),  # ENTEL/Nokia SSAA
+    ("PV-BAJ-208", "ENTEL","OLT-SCL-011", True),   # ENTEL/Huawei MA5800
+    ("PV-BAJ-211", "TCH",  "OLT-SAN-001", False),  # TCH/Nokia FTTH
+    ("PV-BAJ-214", "TCH",  "OLT-SCL-010", False),  # TCH/Nokia SSAA
+])
+def test_baj_matriz_ssh_timeout(case_id, vno_id, olt_name, is_huawei, test_client):
+    """PV-BAJ: SSH timeout (KMD-5020) — combinaciones VNO × OLT faltantes."""
+    from tests.conftest import _make_token
+    base = DEACTIVATION_HUAWEI_VALID if is_huawei else DEACTIVATION_NOKIA_VALID
+    payload = {**base, "vno_code": vno_id, "olt_name": olt_name, "ont_id": 7777,
+               "external_order_id": f"SO-{case_id}"}
+    response = test_client.post(
+        "/api/Komands/v1/unsuscription",
+        json=payload,
+        headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
+    )
+    assert response.status_code == 202, f"{case_id}: esperado 202"
+    assert response.json().get("error_code") == "KMD-5020", (
+        f"{case_id} {vno_id}: esperado KMD-5020, obtuvo {response.json().get('error_code')}"
+    )

@@ -84,7 +84,7 @@ class TestFeatureFlags:
 
         # ACT
         response = ff_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=headers,
         )
@@ -120,7 +120,7 @@ class TestFeatureFlags:
 
         # ACT
         response = ff_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=headers,
         )
@@ -163,13 +163,13 @@ class TestFeatureFlags:
 
         # ACT 1: activación FTTH
         resp_ftth = ff_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=headers,
         )
         # ACT 2: activación SSAA
         resp_ssaa = ff_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_SSAA_GROUP_A,
             headers=headers,
         )
@@ -213,7 +213,7 @@ class TestFeatureFlags:
 
         # ACT 1: primera operación — Komands activo
         resp_antes = ff_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=headers,
         )
@@ -225,7 +225,7 @@ class TestFeatureFlags:
 
         # ACT 2: siguiente operación — debe ir a BluePlanet
         resp_despues = ff_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=headers,
         )
@@ -274,8 +274,8 @@ class TestIdempotencia:
         payload = ACTIVATION_WITH_TXN_ID  # tiene txn_id fijo en mocks/payloads.py
 
         # ACT: enviamos el mismo request dos veces
-        resp1 = ff_client.post("/api/v1/activation", json=payload, headers=headers)
-        resp2 = ff_client.post("/api/v1/activation", json=payload, headers=headers)
+        resp1 = ff_client.post("/api/Komands/v1/activation", json=payload, headers=headers)
+        resp2 = ff_client.post("/api/Komands/v1/activation", json=payload, headers=headers)
 
         # ASSERT primera vez: 202 (encolado)
         assert resp1.status_code == 202, (
@@ -322,8 +322,8 @@ class TestIdempotencia:
         }
 
         # ACT: primera vez con payload original, segunda vez con payload distinto
-        resp1 = ff_client.post("/api/v1/activation", json=payload_original, headers=headers)
-        resp2 = ff_client.post("/api/v1/activation", json=payload_distinto, headers=headers)
+        resp1 = ff_client.post("/api/Komands/v1/activation", json=payload_original, headers=headers)
+        resp2 = ff_client.post("/api/Komands/v1/activation", json=payload_distinto, headers=headers)
 
         # ASSERT: ambas respuestas tienen el mismo txn_id (el original gana)
         assert resp2.status_code == 200, (
@@ -331,4 +331,72 @@ class TestIdempotencia:
         )
         assert resp1.json()["txn_id"] == resp2.json()["txn_id"], (
             "El segundo request debe devolver el txn_id original, no crear uno nuevo"
+        )
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # IDEM-03 → PV-IDP-002: Reintento por external_order_id tras timeout
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def test_idem03_external_order_id_reintento_devuelve_txn_id_original(
+        self, ff_client: TestClient
+    ):
+        """
+        ESCENARIO: ServiceNow envía una activación, pero NO recibe respuesta
+                   (timeout de red antes de que llegue el HTTP 202).
+                   ServiceNow no sabe qué txn_id asignó Komands.
+                   Al reintentar, envía el mismo external_order_id pero SIN txn_id.
+
+        Diferencia con IDEM-01: allá SN sí recibió el txn_id y lo reenvía.
+        Acá SN no lo tiene (timeout) y envía un payload "fresco" sin txn_id.
+
+        Resultado esperado:
+            - Primera vez → HTTP 202, Komands asigna un txn_id nuevo.
+            - Segunda vez (mismo external_order_id, sin txn_id) → HTTP 200,
+              Komands devuelve el txn_id de la primera ejecución.
+              La OLT NO recibe comandos por segunda vez.
+
+        Por qué importa: sin este comportamiento, el cliente podría quedar
+        con dos activaciones activas en la OLT (dos service-ports).
+        """
+        # ARRANGE: flag activo
+        ff_client.post("/test/feature-flags", json={"vno_id": "DTV", "enabled": True})
+        headers = {"Authorization": f"Bearer {_token('DTV')}"}
+
+        # Payload sin txn_id — SN genera external_order_id pero deja que Komands asigne el txn
+        payload_sin_txn = {
+            "vno_code": "DTV",
+            "external_order_id": "SO-IDEM-RETRY-001",
+            "service_type": "FTTH",
+            "olt_name": "OLT-SAN-001",
+            "slot": 1,
+            "port": 3,
+            "ont_id": 45,
+            "serial_ont": "ALCLF1234567",
+            "internet": True,
+            "voip": False,
+            "iptv": False,
+            "speed_profile": "100M_20M",
+        }
+
+        # ACT: primera vez — Komands asigna txn_id
+        resp1 = ff_client.post("/api/Komands/v1/activation", json=payload_sin_txn, headers=headers)
+
+        # ACT: reintento — mismo external_order_id, sin txn_id (SN no lo tiene)
+        resp2 = ff_client.post("/api/Komands/v1/activation", json=payload_sin_txn, headers=headers)
+
+        # ASSERT primera vez: 202 (encolado)
+        assert resp1.status_code == 202, (
+            f"Primera vez debería ser 202 pero fue {resp1.status_code}"
+        )
+        txn_id_original = resp1.json().get("txn_id")
+        assert txn_id_original, "Primera respuesta debe incluir txn_id"
+
+        # ASSERT reintento: 200 (idempotente por external_order_id)
+        assert resp2.status_code == 200, (
+            f"Reintento con mismo external_order_id debería ser 200 (idempotente) "
+            f"pero fue {resp2.status_code}"
+        )
+        assert resp2.json().get("txn_id") == txn_id_original, (
+            "El reintento debe devolver el txn_id original — no crear uno nuevo. "
+            "Sin esto el cliente quedaría con dos activaciones en la OLT."
         )

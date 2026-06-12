@@ -38,7 +38,7 @@ class TestAutenticacionAPI:
     """
 
     # ──────────────────────────────────────────────────────────────────────────
-    # SEC-01: Sin token
+    # SEC-01: Sin token | PV-SEC-001
     # ──────────────────────────────────────────────────────────────────────────
 
     def test_sec01_sin_token_devuelve_401(self, test_client: TestClient):
@@ -53,7 +53,7 @@ class TestAutenticacionAPI:
         """
         # ARRANGE: no ponemos ningún header de autenticación
         # ACT: hacemos el request como si viniese desde ServiceNow sin auth
-        response = test_client.post("/api/v1/activation", json=PAYLOAD)
+        response = test_client.post("/api/Komands/v1/activation", json=PAYLOAD)
 
         # ASSERT: el servidor debe rechazarlo con 401
         assert response.status_code == 401, (
@@ -78,7 +78,7 @@ class TestAutenticacionAPI:
         headers = {"Authorization": "Bearer esto_no_es_un_jwt_valido_abc123"}
 
         # ACT
-        response = test_client.post("/api/v1/activation", json=PAYLOAD, headers=headers)
+        response = test_client.post("/api/Komands/v1/activation", json=PAYLOAD, headers=headers)
 
         # ASSERT
         assert response.status_code == 401, (
@@ -86,7 +86,7 @@ class TestAutenticacionAPI:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # SEC-03: Token expirado
+    # SEC-03: Token expirado | PV-SEC-002
     # ──────────────────────────────────────────────────────────────────────────
 
     def test_sec03_token_expirado_devuelve_401(
@@ -107,7 +107,7 @@ class TestAutenticacionAPI:
         headers = {"Authorization": f"Bearer {expired_token}"}
 
         # ACT
-        response = test_client.post("/api/v1/activation", json=PAYLOAD, headers=headers)
+        response = test_client.post("/api/Komands/v1/activation", json=PAYLOAD, headers=headers)
 
         # ASSERT
         assert response.status_code == 401, (
@@ -133,7 +133,7 @@ class TestAutenticacionAPI:
         headers = {"Authorization": f"Bearer {valid_token}"}
 
         # ACT
-        response = test_client.post("/api/v1/activation", json=PAYLOAD, headers=headers)
+        response = test_client.post("/api/Komands/v1/activation", json=PAYLOAD, headers=headers)
 
         # ASSERT: el código es 202
         assert response.status_code == 202, (
@@ -169,7 +169,7 @@ class TestAutenticacionAPI:
         headers = {"Authorization": f"Bearer {invalid_vno_token}"}
 
         # ACT
-        response = test_client.post("/api/v1/activation", json=PAYLOAD, headers=headers)
+        response = test_client.post("/api/Komands/v1/activation", json=PAYLOAD, headers=headers)
 
         # ASSERT: 403, no 401 — la diferencia es importante
         assert response.status_code == 403, (
@@ -177,7 +177,7 @@ class TestAutenticacionAPI:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # SEC-06: Scope insuficiente
+    # SEC-06: Scope insuficiente | PV-SEC-003
     # ──────────────────────────────────────────────────────────────────────────
 
     def test_sec06_scope_insuficiente_devuelve_403(
@@ -200,9 +200,48 @@ class TestAutenticacionAPI:
         headers = {"Authorization": f"Bearer {readonly_token}"}
 
         # ACT
-        response = test_client.post("/api/v1/activation", json=PAYLOAD, headers=headers)
+        response = test_client.post("/api/Komands/v1/activation", json=PAYLOAD, headers=headers)
 
         # ASSERT
         assert response.status_code == 403, (
             f"Scope insuficiente se esperaba 403 pero llegó {response.status_code}"
         )
+
+
+# ─── PV-SEC-004..006: Seguridad infraestructura (bloqueados) ─────────────────
+
+@pytest.mark.skip(reason="PV-SEC-004: Requiere API Gateway con rate limiting configurado")
+def test_sec_pv004_rate_limit_60rpm_retorna_429():
+    """
+    PV-SEC-004: Rate limit 60 req/min por token — solicitud 61 retorna 429.
+
+    El API Gateway debe rechazar con HTTP 429 Too Many Requests cuando un
+    token supera el límite de 60 solicitudes por minuto.
+    Requiere configuración de throttling en Axway APIM o Kong.
+    """
+    pass
+
+
+@pytest.mark.skip(reason="PV-SEC-005: Requiere PostgreSQL DEV + audit_log con trigger de inmutabilidad")
+def test_sec_pv005_operacion_exitosa_registra_audit_log():
+    """
+    PV-SEC-005: Toda operación exitosa genera registro en audit_log PostgreSQL.
+
+    audit_log debe contener: txn_id, action, vno_code, olt_name, actor,
+    timestamp. El trigger de inmutabilidad impide UPDATE/DELETE posterior.
+    Requiere PostgreSQL DEV con schema Komands desplegado.
+    """
+    pass
+
+
+@pytest.mark.skip(reason="PV-SEC-006: Requiere OLT real en QA — verifica TLS 1.2+ hacia OLT SSH")
+def test_sec_pv006_conexion_sin_cert_tls_rechazada():
+    """
+    PV-SEC-006: Conexión SSH a OLT sin certificado TLS válido es rechazada.
+
+    Komands debe usar TLS 1.2 mínimo en todas las conexiones salientes.
+    Un intento de conexión sin cert o con cert expirado debe devolver
+    error de handshake (KMD-5020 o similar), no conectar sin verificar.
+    Requiere OLT física en ambiente QA.
+    """
+    pass

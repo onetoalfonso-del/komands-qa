@@ -1,4 +1,4 @@
-"""API tests — POST /api/v1/activation.
+"""API tests — POST /api/Komands/v1/activation.
 
 Convención: test_act<NN>_<vendor>_<producto>_<escenario>
 
@@ -13,7 +13,7 @@ Qué estamos probando:
 
 Fuentes:
     - AnexoH_Especificacion_APIs_v2_2_FINAL → contrato POST /activation
-    - LLD ADR-008 → base path /api/v1/ (pendiente migrar a /api/Komands/v1/)
+    - LLD ADR-008 → base path /api/Komands/v1/ (pendiente migrar a /api/Komands/v1/)
     - tests/mocks/payloads.py → payloads reutilizables
 """
 import pytest
@@ -48,7 +48,7 @@ class TestActivacionValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=auth_headers,
         )
@@ -69,7 +69,7 @@ class TestActivacionValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_INTERNET_ONLY,
             headers=auth_headers,
         )
@@ -86,7 +86,7 @@ class TestActivacionValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_HUAWEI_FTTH_VALID,
             headers=auth_headers,
         )
@@ -103,7 +103,7 @@ class TestActivacionValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_HUAWEI_FTTH_WITH_IPTV,
             headers=auth_headers,
         )
@@ -121,7 +121,7 @@ class TestActivacionValida:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_SSAA_GROUP_A,
             headers=auth_headers,
         )
@@ -144,7 +144,7 @@ class TestActivacionValida:
             "X-VNO-ID": "CVTR",
         }
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_HUAWEI_SSAA_GROUP_A,
             headers=headers,
         )
@@ -170,7 +170,7 @@ class TestActivacionSinAutenticacion:
         Resultado esperado: HTTP 401.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
         )
 
@@ -186,7 +186,7 @@ class TestActivacionSinAutenticacion:
         Resultado esperado: HTTP 401.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers={"Authorization": f"Bearer {expired_token}"},
         )
@@ -201,7 +201,7 @@ class TestActivacionSinAutenticacion:
         Resultado esperado: HTTP 401.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers={"Authorization": "Bearer esto-no-es-un-jwt"},
         )
@@ -226,7 +226,7 @@ class TestActivacionSinAutorizacion:
         Resultado esperado: HTTP 403.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_INVALID_VNO,
             headers={"Authorization": f"Bearer {invalid_vno_token}"},
         )
@@ -244,7 +244,7 @@ class TestActivacionSinAutorizacion:
         Resultado esperado: HTTP 403.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers={"Authorization": f"Bearer {readonly_token}"},
         )
@@ -270,7 +270,7 @@ class TestActivacionRBACPortal:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -287,7 +287,7 @@ class TestActivacionRBACPortal:
         Resultado esperado: HTTP 202.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers={"Authorization": f"Bearer {operator_token}"},
         )
@@ -305,7 +305,7 @@ class TestActivacionRBACPortal:
         Resultado esperado: HTTP 403.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers={"Authorization": f"Bearer {viewer_token}"},
         )
@@ -332,7 +332,7 @@ class TestActivacionRespuesta:
         Resultado esperado: campo txn_id presente en la respuesta.
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=auth_headers,
         )
@@ -352,7 +352,7 @@ class TestActivacionRespuesta:
         Resultado esperado: campo status == "PENDING".
         """
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=ACTIVATION_NOKIA_FTTH_VALID,
             headers=auth_headers,
         )
@@ -387,7 +387,7 @@ class TestActivacionMultiVNO:
         payload = {**ACTIVATION_NOKIA_FTTH_VALID, "vno_code": vno_id}
 
         response = test_client.post(
-            "/api/v1/activation",
+            "/api/Komands/v1/activation",
             json=payload,
             headers={"Authorization": f"Bearer {token}"},
         )

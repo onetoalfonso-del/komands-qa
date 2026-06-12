@@ -16,13 +16,13 @@ Qué estamos probando:
 
 Fuentes:
     - Plan_Pruebas_PostVenta_v1_regresion.docx → PV-FIB-001 a PV-FIB-003
-    - AnexoH_Especificacion_APIs_v2_2_FINAL.docx → POST /api/v1/fiber-change
+    - AnexoH_Especificacion_APIs_v2_2_FINAL.docx → POST /api/Komands/v1/fiber-change
 """
 import pytest
 
 pytestmark = [pytest.mark.postventa, pytest.mark.ftth]
 
-FIBER_CHANGE_URL = "/api/v1/fiber-change"
+FIBER_CHANGE_URL = "/api/Komands/v1/fiber-change"
 
 # Nokia: mismo fabricante en origen y destino (mismo o diferente puerto PON)
 _NOKIA = {
@@ -174,3 +174,62 @@ class TestFiberChangeAutenticacion:
             headers={"Authorization": f"Bearer {invalid_vno_token}"},
         )
         assert response.status_code == 403
+
+
+# ─── FIB-07: Posición destino ocupada (PV-FIB-003) ───────────────────────────
+
+# Centinela: new_ont_id=9000 → ONT ID en la posición destino ya está en uso
+_DEST_OCCUPIED = {
+    "vno_code": "DTV",
+    "external_order_id": "SO-FIB-ERR-001",
+    "current_olt_name": "OLT-SAN-001",
+    "current_slot": 1,
+    "current_port": 3,
+    "current_ont_id": 45,
+    "new_olt_name": "OLT-SAN-001",
+    "new_slot": 1,
+    "new_port": 5,
+    "new_ont_id": 9000,
+    "serial_ont": "ALCLF1234567",
+}
+
+
+@pytest.mark.mock_only
+class TestFiberChangeErrores:
+    """
+    PV-FIB-003: Cambio de fibra falla porque el ONT ID de destino ya está ocupado.
+
+    El cambio de fibra tiene dos pasos: (1) baja en OLT origen, (2) alta en OLT destino.
+    Si el ONT ID de destino ya está asignado a otro cliente, el alta falla.
+    Komands debe reportar ROLLED_BACK con KMD-3003 y escalar a Redes para
+    que liberen la posición de destino antes de reintentar.
+
+    Diferencia con FIB-01/02/03 (happy path): allá el destino está libre.
+    """
+
+    # FIB-07 → PV-FIB-003
+    def test_fib07_destino_ont_id_ocupado_retorna_rolled_back(self, test_client, auth_headers):
+        """
+        ESCENARIO: Cambio de fibra Nokia — el ONT ID en el puerto de destino ya está en uso.
+
+        El técnico planificó mover el cliente al puerto 5 ONT ID 9000,
+        pero ese ONT ID ya tiene otro cliente activo.
+        Komands detecta la colisión en el paso 2 (alta en destino) y hace
+        rollback del paso 1 (re-activa en el origen).
+
+        Resultado esperado: HTTP 202 con estado ROLLED_BACK y error_code KMD-3003.
+        """
+        response = test_client.post(
+            FIBER_CHANGE_URL,
+            json=_DEST_OCCUPIED,
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "ROLLED_BACK", (
+            f"Destino ocupado debería retornar ROLLED_BACK, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("error_code") == "KMD-3003", (
+            f"Se esperaba KMD-3003 (posición destino ocupada), se obtuvo: {data.get('error_code')}"
+        )

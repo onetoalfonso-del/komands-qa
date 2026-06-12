@@ -1,0 +1,46 @@
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Local Mock Server",
+  "values": [
+    {
+      "key": "baseURL",
+      "value": "http://localhost:8000/api/Komands/v1",
+      "type": "default",
+      "enabled": true,
+      "description": "Mock server local — arrancar con: python mock_server.py"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "JWT — se rellena automáticamente por el prerequest script de la colección"
+    },
+    {
+      "key": "txn_id",
+      "value": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID de transacción — se actualiza automáticamente tras cada POST"
+    },
+    {
+      "key": "access_id",
+      "value": "ACC-DTV-00123",
+      "type": "default",
+      "enabled": true,
+      "description": "ID de acceso para consultas GET /access/{access_id}"
+    },
+    {
+      "key": "sys_id",
+      "value": "newman-test-sys-id-001",
+      "type": "default",
+      "enabled": true,
+      "description": "sys_id ficticio para header X-Source-System-ID"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "info": {
+    "name": "Local Mock Server",
+    "description": "Ambiente para pruebas locales con newman + mock_server.py.\n\nPre-requisitos:\n  1. pip install fastapi uvicorn python-jose\n  2. python mock_server.py   (en una terminal aparte)\n  3. npm install -g newman\n  4. newman run \"collection Kommand/SN a Kommand.postman_collection.json\" -e \"collection Kommand/newman-environment-local.json\""
+  }
+}

@@ -297,7 +297,7 @@ def pytest_runtest_makereport(item, call):
 
 # ─── Constantes de entorno de prueba ──────────────────────────────────────────
 
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = "http://localhost:8000/api/Komands/v1"
 
 JWT_SECRET = "test-secret-komands-qa"
 JWT_ALGORITHM = "HS256"
@@ -516,7 +516,7 @@ def _build_test_app() -> FastAPI:
     #
     # Ambos tipos llegan al mismo endpoint en Komands.
 
-    @app.post("/api/v1/activation", status_code=202)
+    @app.post("/api/Komands/v1/activation", status_code=202)
     async def activation(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -542,6 +542,60 @@ def _build_test_app() -> FastAPI:
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
+        body = await request.json()
+        ont_id = body.get("ont_id")
+
+        # Centinela RBK-001: Nokia paso crítico falla a mitad → ROLLED_BACK
+        if ont_id == 6661:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-5021",
+                "error_message": "Paso crítico Nokia falló — rollback ejecutado correctamente",
+            }
+
+        # Centinela RBK-002: Huawei paso crítico falla a mitad → ROLLED_BACK
+        if ont_id == 6662:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-5021",
+                "error_message": "Paso crítico Huawei falló — rollback ejecutado correctamente",
+            }
+
+        # Centinela RBK-003: paso crítico falla Y rollback también falla → ROLLBACK_FAILED
+        if ont_id == 6663:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLBACK_FAILED",
+                "error_code": "KMD-5030",
+                "error_message": "Paso crítico falló y rollback también falló — intervención manual requerida",
+            }
+
+        # Centinela RBK-004: paso NO crítico falla → operación continúa → COMPLETED
+        if ont_id == 6664:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ACCEPTED",
+                "message": "Transacción encolada",
+                "warning": "Paso no crítico omitido — operación continúa",
+            }
+
+        # Centinela IDP-001: idempotencia — X-Correlation-ID duplicado
+        corr_id = request.headers.get("X-Correlation-ID", "")
+        if corr_id == "idempotency-test-fixed-uuid-001":
+            _idempotency_store = getattr(app.state, "idempotency_store", {})
+            if corr_id in _idempotency_store:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=200, content={
+                    "txn_id": _idempotency_store[corr_id],
+                    "status": "ACCEPTED",
+                    "message": "Solicitud duplicada — txn_id original devuelto",
+                })
+            txn_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            _idempotency_store[corr_id] = txn_id
+            app.state.idempotency_store = _idempotency_store
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "ACCEPTED",
@@ -551,26 +605,26 @@ def _build_test_app() -> FastAPI:
     # ── Portal web — endpoints con RBAC por rol ───────────────────────────────
     # Estos endpoints usan tokens de portal (role + permissions), no de API.
 
-    @app.get("/api/v1/transaction/{txn_id}")
+    @app.get("/api/Komands/v1/transaction/{txn_id}")
     async def get_transaction(txn_id: str, request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
         return {"txn_id": txn_id, "status": "COMPLETED"}
 
-    @app.get("/api/v1/audit-log")
+    @app.get("/api/Komands/v1/audit-log")
     async def get_audit_log(request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "audit:read")
         return {"logs": [], "total": 0}
 
-    @app.post("/api/v1/users", status_code=201)
+    @app.post("/api/Komands/v1/users", status_code=201)
     async def create_user(request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "users:write")
         return {"user_id": 1, "message": "Usuario creado"}
 
     # ── /unsuscription — baja de ONT FTTH ─────────────────────────────────────
-    @app.post("/api/v1/unsuscription", status_code=202)
+    @app.post("/api/Komands/v1/unsuscription", status_code=202)
     async def unsuscription(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -661,7 +715,7 @@ def _build_test_app() -> FastAPI:
         }
 
     # ── /modification — speed_change / block / unblock ────────────────────────
-    @app.post("/api/v1/modification", status_code=202)
+    @app.post("/api/Komands/v1/modification", status_code=202)
     async def modification(request: Request):
         from fastapi.responses import JSONResponse
 
@@ -689,10 +743,12 @@ def _build_test_app() -> FastAPI:
         modification_type = body.get("modification_type", "")
         speed_profile = body.get("new_speed_profile", "")
 
-        # Centinela MOD-22: remove_service no está soportado en Nokia FTTH.
-        # La OLT no tiene comando equivalente; Komands lo rechaza en validación.
-        # KMD-4001 = OPERATION_NOT_SUPPORTED (AnexoH v2.2).
-        if modification_type == "remove_service":
+        # Centinela MOD-22: remove_service no soportado en Nokia FTTH.
+        # Huawei MA5800 sí soporta la eliminación de service-ports individuales.
+        # Nokia OLTs usan nombres sin "-002"/"-003"; Huawei usan OLT-SAN-002 / OLT-VAL-003.
+        _HUAWEI_OLTS = {"OLT-SAN-002", "OLT-VAL-003"}
+        olt_name = body.get("olt_name", "")
+        if modification_type == "remove_service" and olt_name not in _HUAWEI_OLTS:
             return JSONResponse(status_code=422, content={
                 "error_code": "KMD-4001",
                 "error_message": "SERVICE_REMOVE no soportado en FTTH — usar baja completa si el cliente no quiere ningún servicio",
@@ -732,7 +788,7 @@ def _build_test_app() -> FastAPI:
         }
 
     # ── /reset-ont ─────────────────────────────────────────────────────────────
-    @app.post("/api/v1/reset-ont", status_code=202)
+    @app.post("/api/Komands/v1/reset-ont", status_code=202)
     async def reset_ont(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -765,6 +821,16 @@ def _build_test_app() -> FastAPI:
                 "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
             }
 
+        # Centinela RST-20/21: ONT offline — existe en la OLT pero sin señal óptica
+        # KMD-2003 = ONT_OFFLINE: equipo configurado pero no responde (sin luz, apagado)
+        if ont_id == 6666:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-2003",
+                "error_message": "ONT offline — sin señal óptica. Verificar alimentación y fibra del cliente",
+            }
+
         # Centinela RST-18/19: timeout esperando respuesta CLI de la OLT (KMD-5020)
         if ont_id == 7777:
             return {
@@ -781,7 +847,7 @@ def _build_test_app() -> FastAPI:
         }
 
     # ── /device-modification — swap de ONT ────────────────────────────────────
-    @app.post("/api/v1/device-modification", status_code=202)
+    @app.post("/api/Komands/v1/device-modification", status_code=202)
     async def device_modification(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -827,6 +893,26 @@ def _build_test_app() -> FastAPI:
                 "error_message": "VLAN_CONFLICT: la VLAN asignada al nuevo ONT ya está en uso en este puerto PON — revisar planeamiento de VLANs",
             }
 
+        # Centinela ONT-19: ONT viejo no encontrado — fallo en paso 1 del swap
+        # KMD-2002 = recurso no encontrado (mismo código que en baja)
+        if body.get("ont_id") == 8888:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "FAILED",
+                "error_code": "KMD-2002",
+                "error_message": "ONT no encontrado en la OLT — no se puede iniciar el swap sin el equipo origen",
+            }
+
+        # Centinela ONT-20: serial del ONT nuevo ya está en otra OLT
+        # KMD-3002 = serial duplicado (distinct de KMD-3001 que es VLAN conflict)
+        if body.get("new_serial_ont") == "DUPL00000000":
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-3002",
+                "error_message": "Serial duplicado: el ONT nuevo ya está registrado en otra OLT — verificar si fue instalado en otro cliente",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "ACCEPTED",
@@ -834,7 +920,7 @@ def _build_test_app() -> FastAPI:
         }
 
     # ── /fiber-change — migración de ONT entre puertos PON / OLTs ──────────────
-    @app.post("/api/v1/fiber-change", status_code=202)
+    @app.post("/api/Komands/v1/fiber-change", status_code=202)
     async def fiber_change(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -855,6 +941,18 @@ def _build_test_app() -> FastAPI:
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
+        body = await request.json()
+
+        # Centinela FIB-07: posición destino ocupada (new_ont_id=9000)
+        # KMD-3003 = posición de destino ya en uso por otro cliente
+        if body.get("new_ont_id") == 9000:
+            return {
+                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "status": "ROLLED_BACK",
+                "error_code": "KMD-3003",
+                "error_message": "Posición destino ocupada: ONT ID en el puerto de destino ya está asignado a otro cliente",
+            }
+
         return {
             "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "status": "ACCEPTED",
@@ -863,7 +961,7 @@ def _build_test_app() -> FastAPI:
 
     # ── GET /access/{access_id} — consulta estado ONT ─────────────────────────
     # Retorna 404 para el access_id centinela "NOTFOUND" (usado en QRY-003)
-    @app.get("/api/v1/access/{access_id}")
+    @app.get("/api/Komands/v1/access/{access_id}")
     async def query_access(access_id: str, request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
@@ -878,7 +976,7 @@ def _build_test_app() -> FastAPI:
         }
 
     # ── GET /port-occupancy — consulta ocupación PON ──────────────────────────
-    @app.get("/api/v1/port-occupancy")
+    @app.get("/api/Komands/v1/port-occupancy")
     async def port_occupancy(request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
@@ -886,7 +984,7 @@ def _build_test_app() -> FastAPI:
 
     # ── GET /transaction/{txn_id} — ya existía, actualizado con 404 ──────────
     # Retorna 404 para el UUID centinela de ceros (usado en QRY-006)
-    @app.get("/api/v1/transaction/{txn_id}/status")
+    @app.get("/api/Komands/v1/transaction/{txn_id}/status")
     async def get_transaction_status(txn_id: str, request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
@@ -903,7 +1001,7 @@ def _build_test_app() -> FastAPI:
     #
     # Si ServiceNow no está disponible, Komands no debe crashear — informa el
     # fallo con ok=False para que el sistema de reintentos lo procese después.
-    @app.post("/api/v1/internal/complete", status_code=200)
+    @app.post("/api/Komands/v1/internal/complete", status_code=200)
     async def complete_operation(request: Request):
         body = await request.json()
         txn_id = body.get("txn_id", "3fa85f64-5717-4562-b3fc-2c963f66afa6")
@@ -938,9 +1036,22 @@ def _build_test_app() -> FastAPI:
         if not callback_url:
             return {"ok": True, "callback_http_status": None}
 
+        attempt = body.get("attempt", 1)
+        max_attempts = body.get("max_attempts", 5)
+
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.post(callback_url, json=callback_payload)
+                if resp.status_code >= 400:
+                    # Callback falló — verificar si se agotaron los reintentos
+                    if attempt >= max_attempts:
+                        return {
+                            "ok": False,
+                            "callback_http_status": resp.status_code,
+                            "exhausted": True,
+                            "status": "CALLBACK_FAILED",
+                        }
+                    return {"ok": False, "callback_http_status": resp.status_code}
                 return {"ok": True, "callback_http_status": resp.status_code}
         except Exception as exc:
             # ServiceNow no respondió: registrar el fallo pero no crashear.
@@ -971,8 +1082,11 @@ class AppState:
         # {"DTV": {"FTTH": True, "SSAA": False}}
         # Si el producto es None, aplica a todos los productos de esa VNO
         self.flags: dict = {}
-        # {txn_id: response_data} — para idempotencia
+        # {txn_id: response_data} — idempotencia por txn_id (IDEM-01)
         self.seen_txns: dict = {}
+        # {external_order_id: response_data} — idempotencia por orden (IDEM-03)
+        # Cubre el caso donde SN no recibió el txn_id (timeout de red)
+        self.seen_orders: dict = {}
 
     def is_enabled(self, vno_id: str, product: str) -> bool:
         """Retorna True si el flujo Komands está activo para esa VNO+producto."""
@@ -1004,7 +1118,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         state.flags[vno][key] = enabled
         return {"ok": True, "vno_id": vno, "product": product, "enabled": enabled}
 
-    @app.post("/api/v1/activation", status_code=202)
+    @app.post("/api/Komands/v1/activation", status_code=202)
     async def activation(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -1045,7 +1159,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
                 "redirect": "blueplanet",
             })
 
-        # ── Idempotencia ──────────────────────────────────────────────────────
+        # ── Idempotencia por txn_id (IDEM-01/02) ─────────────────────────────
         # Si el txn_id ya fue procesado, devolvemos el resultado anterior
         # sin re-ejecutar la operación en la OLT.
         # Fuente: Anexo E → "duplicado retorna UUID existente con HTTP 200"
@@ -1054,19 +1168,31 @@ def _build_flagged_app(state: AppState) -> FastAPI:
             from fastapi.responses import JSONResponse
             return JSONResponse(status_code=200, content=state.seen_txns[txn_id])
 
+        # ── Idempotencia por external_order_id (IDEM-03) ─────────────────────
+        # SN puede reintentar sin saber el txn_id (timeout antes de recibir el 202).
+        # Si reconocemos el external_order_id, devolvemos el txn_id original.
+        # Fuente: Plan v1 PV-IDP-002.
+        external_order_id = body.get("external_order_id")
+        if not txn_id and external_order_id and external_order_id in state.seen_orders:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content=state.seen_orders[external_order_id])
+
         # Registrar la transacción
+        assigned_txn_id = txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6"
         result = {
-            "txn_id": txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "txn_id": assigned_txn_id,
             "status": "ACCEPTED",
             "message": "Transacción encolada",
         }
         if txn_id:
             state.seen_txns[txn_id] = result
+        if external_order_id:
+            state.seen_orders[external_order_id] = result
 
         return result
 
     # ── /unsuscription con Feature Flag e Idempotencia ────────────────────────
-    @app.post("/api/v1/unsuscription", status_code=202)
+    @app.post("/api/Komands/v1/unsuscription", status_code=202)
     async def unsuscription_flagged(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):

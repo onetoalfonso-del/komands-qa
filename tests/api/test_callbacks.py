@@ -99,7 +99,7 @@ class TestCallbackContrato:
         )
 
         response = test_client.post(
-            "/api/v1/internal/complete",
+            "/api/Komands/v1/internal/complete",
             json={**_BASE, "status": "COMPLETED"},
         )
 
@@ -142,7 +142,7 @@ class TestCallbackContrato:
             "steps debe ser lista — requerido por AnexoH v2.2 aunque esté vacía"
         )
 
-    # CBK-02
+    # CBK-02 | PV-CBK-004
     @respx.mock
     def test_cbk02_operacion_fallida_callback_incluye_error_object_con_retryable(self, test_client):
         """
@@ -161,7 +161,7 @@ class TestCallbackContrato:
         )
 
         response = test_client.post(
-            "/api/v1/internal/complete",
+            "/api/Komands/v1/internal/complete",
             json={
                 **_BASE,
                 "status": "FAILED",
@@ -213,7 +213,7 @@ class TestCallbackContrato:
         )
 
         response = test_client.post(
-            "/api/v1/internal/complete",
+            "/api/Komands/v1/internal/complete",
             json={
                 **_BASE,
                 "status": "ROLLED_BACK",
@@ -253,7 +253,7 @@ class TestCallbackResiliencia:
       - El error queda registrado para que el sistema de reintentos lo procese
     """
 
-    # CBK-04
+    # CBK-04 | PV-CBK-002
     @respx.mock
     def test_cbk04_servicenow_responde_503_komands_informa_el_fallo(self, test_client):
         """
@@ -270,7 +270,7 @@ class TestCallbackResiliencia:
         )
 
         response = test_client.post(
-            "/api/v1/internal/complete",
+            "/api/Komands/v1/internal/complete",
             json={**_BASE, "status": "COMPLETED"},
         )
 
@@ -301,7 +301,7 @@ class TestCallbackResiliencia:
         )
 
         response = test_client.post(
-            "/api/v1/internal/complete",
+            "/api/Komands/v1/internal/complete",
             json={**_BASE, "status": "COMPLETED"},
         )
 
@@ -313,3 +313,144 @@ class TestCallbackResiliencia:
             "Komands debería reportar ok=False cuando el callback no llegó a ServiceNow"
         )
         assert data.get("error"), "Komands debería incluir el mensaje del error para el log"
+
+
+# ─── CBK-06: CALLBACK_FAILED tras 5 reintentos agotados (PV-CBK-003) ─────────
+
+class TestCallbackRetriesAgotados:
+    """
+    PV-CBK-003: Después de 5 intentos fallidos de entrega, Komands marca la
+    transacción como CALLBACK_FAILED.
+
+    El sistema de reintentos está controlado por las propiedades del sistema:
+      x_komands.retry.max_attempts = 5
+      x_komands.retry.interval_seconds = 10
+      x_komands.retry.retryable_return_codes = "40,50"
+
+    Si ServiceNow devuelve 503 en los 5 intentos, Komands:
+      1. Registra cada intento fallido.
+      2. Al agotar los reintentos, marca la transacción como CALLBACK_FAILED.
+      3. Reporta ok=False con exhausted=True para que el operador sepa
+         que el callback necesita intervención manual.
+
+    No hay re-ejecución de la operación en la OLT — la red ya fue modificada.
+    El problema es solo la notificación a ServiceNow.
+    """
+
+    # CBK-06 → PV-CBK-003
+    @respx.mock
+    def test_cbk06_callback_failed_tras_reintentos_agotados(self, test_client):
+        """
+        ESCENARIO: ServiceNow devuelve 503 en todos los intentos de callback.
+
+        Komands ha intentado 5 veces entregar la notificación. En el último
+        intento (attempt=5 de max_attempts=5), el scheduler marca la transacción
+        como CALLBACK_FAILED y detiene los reintentos.
+
+        ServiceNow tendrá que reconciliar el estado manualmente consultando
+        GET /transaction/{txn_id}/status.
+
+        Resultado esperado: HTTP 200 desde Komands, ok=False, exhausted=True
+        (o status=CALLBACK_FAILED en el body).
+        """
+        respx.post(SERVICENOW_CB_URL).mock(
+            return_value=httpx.Response(503, json={"error": "Service Unavailable"})
+        )
+
+        response = test_client.post(
+            "/api/Komands/v1/internal/complete",
+            json={
+                **_BASE,
+                "status": "COMPLETED",
+                "attempt": 5,
+                "max_attempts": 5,
+            },
+        )
+
+        assert response.status_code == 200, (
+            f"Komands devolvió {response.status_code} — se esperaba 200 incluso al agotar reintentos"
+        )
+        data = response.json()
+        assert data.get("ok") is False, (
+            "Con reintentos agotados, ok debe ser False"
+        )
+        # El sistema debe marcar el intento como final (exhausted=True o status=CALLBACK_FAILED)
+        assert data.get("exhausted") is True or data.get("status") == "CALLBACK_FAILED", (
+            f"Tras agotar los {5} reintentos, Komands debe marcar la transacción como CALLBACK_FAILED. "
+            f"Body recibido: {data}"
+        )
+
+
+# ─── CBK-07: ROLLED_BACK_FAILED — rollback también falló (PV-RBK-003) ────────
+
+class TestRollbackFailed:
+    """
+    PV-RBK-003: La operación falló Y el rollback automático también falló.
+
+    Es el peor escenario operacional: Komands intentó ejecutar una operación,
+    algo salió mal en la OLT, intentó deshacer los cambios, y la reversión
+    también falló. La red quedó en estado parcialmente modificado.
+
+    Estado resultante: ROLLED_BACK_FAILED (distinto de ROLLED_BACK).
+      - ROLLED_BACK: operación falló, rollback exitoso → red en estado original.
+      - ROLLED_BACK_FAILED: operación falló, rollback también falló → red en
+        estado desconocido, requiere intervención manual de Redes.
+
+    Este estado se notifica a ServiceNow vía callback con error.code=KMD-5030.
+    ServiceNow debe abrir un incidente P1 porque el cliente puede tener
+    servicio parcial o sin servicio.
+    """
+
+    # CBK-07 → PV-RBK-003
+    @respx.mock
+    def test_cbk07_rolled_back_failed_callback_contiene_estado_critico(self, test_client):
+        """
+        ESCENARIO: Una baja Huawei falló y el rollback también falló.
+        Komands notifica ROLLED_BACK_FAILED a ServiceNow con KMD-5030.
+
+        ServiceNow debe abrir un incidente P1 automáticamente cuando recibe
+        este estado — el cliente puede estar con servicio parcial.
+        El objeto error debe incluir retryable=False porque no hay recuperación
+        automática posible; requiere intervención manual de Redes.
+
+        Resultado esperado: HTTP 200 desde Komands y callback con
+        status=ROLLED_BACK_FAILED y error.code=KMD-5030.
+        """
+        route = respx.post(SERVICENOW_CB_URL).mock(
+            return_value=httpx.Response(200, json={"received": True})
+        )
+
+        response = test_client.post(
+            "/api/Komands/v1/internal/complete",
+            json={
+                **_BASE,
+                "status": "ROLLED_BACK_FAILED",
+                "operation": "unsuscription",
+                "error_code": "KMD-5030",
+                "error_message": (
+                    "Rollback falló: no se pudo restaurar el service-port en la OLT. "
+                    "Cliente en estado parcial — requiere intervención manual de Redes."
+                ),
+                "error_retryable": False,
+            },
+        )
+
+        assert response.status_code == 200
+        assert route.called, "Komands no disparó el callback a ServiceNow para ROLLED_BACK_FAILED"
+
+        body = json.loads(route.calls[0].request.content)
+
+        assert body.get("status") == "ROLLED_BACK_FAILED", (
+            f"El callback debe notificar ROLLED_BACK_FAILED, se obtuvo: {body.get('status')}"
+        )
+
+        error = body.get("error")
+        assert error is not None, (
+            "Campo 'error' ausente para ROLLED_BACK_FAILED — ServiceNow no puede abrir el incidente"
+        )
+        assert error.get("code") == "KMD-5030", (
+            f"Se esperaba KMD-5030 (rollback fallido), se obtuvo: {error.get('code')}"
+        )
+        assert error.get("retryable") is False, (
+            "ROLLED_BACK_FAILED no es reintentable — requiere intervención manual de Redes"
+        )

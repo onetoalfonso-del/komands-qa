@@ -1,4 +1,4 @@
-"""API tests — POST /api/v1/fiber-modification (cambio de pelo/puerto PON).
+"""API tests — POST /api/Komands/v1/fiber-modification (cambio de pelo/puerto PON).
 
 Convención: test_fiber_modification_<vendor>_<escenario>
 

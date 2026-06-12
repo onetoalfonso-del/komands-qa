@@ -8,9 +8,9 @@ Fuentes:
     - Los SLOs de tiempo (< 100ms, < 10s) requieren servidor real
 
 Endpoints cubiertos:
-    GET /api/v1/access/{access_id}     — estado de ONT por ID de acceso
-    GET /api/v1/port-occupancy         — ocupación del puerto PON
-    GET /api/v1/transaction/{txn_id}/status — estado de transacción
+    GET /api/Komands/v1/access/{access_id}     — estado de ONT por ID de acceso
+    GET /api/Komands/v1/port-occupancy         — ocupación del puerto PON
+    GET /api/Komands/v1/transaction/{txn_id}/status — estado de transacción
 """
 import pytest
 
@@ -24,7 +24,7 @@ NOT_FOUND_TXN_ID = "00000000-0000-0000-0000-000000000000"
 
 class TestConsultaAcceso:
     """
-    GET /api/v1/access/{access_id}
+    GET /api/Komands/v1/access/{access_id}
 
     Retorna el estado del ONT asociado a un ID de acceso.
     Usado por ServiceNow para verificar el estado antes de una operación.
@@ -41,7 +41,7 @@ class TestConsultaAcceso:
         Resultado esperado: HTTP 200 con datos del ONT.
         """
         response = test_client.get(
-            "/api/v1/access/ACC-DTV-00123",
+            "/api/Komands/v1/access/ACC-DTV-00123",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200, (
@@ -51,7 +51,7 @@ class TestConsultaAcceso:
         assert "access_id" in data
         assert "status" in data
 
-    # QRY-02
+    # QRY-02 | PV-QRY-002
     def test_qry02_respuesta_contiene_campos_obligatorios(self, test_client, admin_token):
         """
         ESCENARIO: Consulta válida — verificar contrato de respuesta.
@@ -62,7 +62,7 @@ class TestConsultaAcceso:
         Resultado esperado: HTTP 200 con todos los campos presentes.
         """
         response = test_client.get(
-            "/api/v1/access/ACC-DTV-00123",
+            "/api/Komands/v1/access/ACC-DTV-00123",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200
@@ -70,7 +70,7 @@ class TestConsultaAcceso:
         for campo in ["access_id", "ont_serial", "status", "olt_name", "source"]:
             assert campo in data, f"Campo '{campo}' ausente en la respuesta"
 
-    # QRY-03
+    # QRY-03 | PV-QRY-003
     def test_qry03_acceso_inexistente_devuelve_404(self, test_client, admin_token):
         """
         ESCENARIO: Consulta con access_id que no existe en el sistema.
@@ -81,7 +81,7 @@ class TestConsultaAcceso:
         Resultado esperado: HTTP 404.
         """
         response = test_client.get(
-            f"/api/v1/access/{NOT_FOUND_ACCESS_ID}",
+            f"/api/Komands/v1/access/{NOT_FOUND_ACCESS_ID}",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 404, (
@@ -93,13 +93,13 @@ class TestConsultaAcceso:
 
 class TestConsultaOcupacionPON:
     """
-    GET /api/v1/port-occupancy
+    GET /api/Komands/v1/port-occupancy
 
     Retorna cuántos ONTs están activos en un puerto PON.
     Se usa antes de activar para verificar que hay capacidad disponible.
     """
 
-    # QRY-04
+    # QRY-04 | PV-QRY-004
     def test_qry04_ocupacion_pon_devuelve_200(self, test_client, admin_token):
         """
         ESCENARIO: Consulta de ocupación de puerto PON.
@@ -110,7 +110,7 @@ class TestConsultaOcupacionPON:
         Resultado esperado: HTTP 200 con max_onts y active_onts.
         """
         response = test_client.get(
-            "/api/v1/port-occupancy",
+            "/api/Komands/v1/port-occupancy",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200, (
@@ -125,13 +125,13 @@ class TestConsultaOcupacionPON:
 
 class TestConsultaTransaccion:
     """
-    GET /api/v1/transaction/{txn_id}/status
+    GET /api/Komands/v1/transaction/{txn_id}/status
 
     Retorna el estado actual de una transacción asíncrona.
     ServiceNow consulta este endpoint mientras espera el callback.
     """
 
-    # QRY-05
+    # QRY-05 | PV-QRY-005
     def test_qry05_transaccion_existente_devuelve_200_completed(self, test_client, admin_token):
         """
         ESCENARIO: Consulta de transacción completada.
@@ -142,7 +142,7 @@ class TestConsultaTransaccion:
         Resultado esperado: HTTP 200, status=COMPLETED.
         """
         response = test_client.get(
-            "/api/v1/transaction/3fa85f64-5717-4562-b3fc-2c963f66afa6/status",
+            "/api/Komands/v1/transaction/3fa85f64-5717-4562-b3fc-2c963f66afa6/status",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200, (
@@ -162,7 +162,7 @@ class TestConsultaTransaccion:
         Resultado esperado: HTTP 404.
         """
         response = test_client.get(
-            f"/api/v1/transaction/{NOT_FOUND_TXN_ID}/status",
+            f"/api/Komands/v1/transaction/{NOT_FOUND_TXN_ID}/status",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 404, (

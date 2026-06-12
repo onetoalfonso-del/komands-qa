@@ -54,7 +54,7 @@ class TestFeatureFlagsBaja:
             json={"vno_id": "DTV", "product": "FTTH", "enabled": True},
         )
         response = ff_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=_BASE_BAJ,
             headers={"Authorization": f"Bearer {valid_token}"},
         )
@@ -62,7 +62,7 @@ class TestFeatureFlagsBaja:
             f"Con flag activo se esperaba 202, se obtuvo {response.status_code}"
         )
 
-    # FLG-02
+    # FLG-02 | PV-FLG-002
     def test_flg02_flag_desactivado_baja_retorna_kmd4001(self, ff_client, valid_token):
         """
         ESCENARIO: Rollback Komands→BP — flag DTV FTTH desactivado.
@@ -78,7 +78,7 @@ class TestFeatureFlagsBaja:
             json={"vno_id": "DTV", "product": "FTTH", "enabled": False},
         )
         response = ff_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=_BASE_BAJ,
             headers={"Authorization": f"Bearer {valid_token}"},
         )
@@ -91,7 +91,7 @@ class TestFeatureFlagsBaja:
         )
         assert data.get("redirect") == "blueplanet"
 
-    # FLG-03
+    # FLG-03 | PV-FLG-003
     def test_flg03_flag_encendido_luego_apagado_nokia_huawei(self, ff_client):
         """
         ESCENARIO: Flag activo → OLT Nokia retorna 202; flag apagado → OLT Huawei KMD-4001.
@@ -108,7 +108,7 @@ class TestFeatureFlagsBaja:
             json={"vno_id": "DTV", "product": "FTTH", "enabled": True},
         )
         nokia_resp = ff_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=_BASE_BAJ,
             headers={"Authorization": f"Bearer {_make_token(vno_id='DTV')}"},
         )
@@ -119,7 +119,7 @@ class TestFeatureFlagsBaja:
             json={"vno_id": "DTV", "product": "FTTH", "enabled": False},
         )
         huawei_resp = ff_client.post(
-            "/api/v1/unsuscription",
+            "/api/Komands/v1/unsuscription",
             json=_BASE_BAJ_HUAWEI,
             headers={"Authorization": f"Bearer {_make_token(vno_id='DTV')}"},
         )
@@ -158,12 +158,12 @@ class TestIdempotenciaBaja:
         payload = {**_BASE_BAJ, "txn_id": txn_id_fijo}
         headers = {"Authorization": f"Bearer {valid_token}"}
 
-        resp1 = ff_client.post("/api/v1/unsuscription", json=payload, headers=headers)
+        resp1 = ff_client.post("/api/Komands/v1/unsuscription", json=payload, headers=headers)
         assert resp1.status_code == 202, (
             f"Primer POST debe retornar 202, retornó {resp1.status_code}"
         )
 
-        resp2 = ff_client.post("/api/v1/unsuscription", json=payload, headers=headers)
+        resp2 = ff_client.post("/api/Komands/v1/unsuscription", json=payload, headers=headers)
         assert resp2.status_code == 200, (
             f"Segundo POST con mismo txn_id debe retornar 200, retornó {resp2.status_code}"
         )

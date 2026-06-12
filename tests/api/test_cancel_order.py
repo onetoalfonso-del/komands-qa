@@ -17,13 +17,13 @@ Qué estamos probando:
 
 Fuentes:
     - Plan_Pruebas_PostVenta_v1_regresion.docx → PV-CAN-001 a PV-CAN-003
-    - AnexoH_Especificacion_APIs_v2_2_FINAL.docx → POST /api/v1/unsuscription
+    - AnexoH_Especificacion_APIs_v2_2_FINAL.docx → POST /api/Komands/v1/unsuscription
 """
 import pytest
 
 pytestmark = [pytest.mark.postventa, pytest.mark.ftth]
 
-CANCEL_URL = "/api/v1/unsuscription"
+CANCEL_URL = "/api/Komands/v1/unsuscription"
 
 _BASE = {
     "vno_code": "DTV",
@@ -43,7 +43,7 @@ class TestCancelOrderHappyPath:
     el acceso existe en la OLT y Komands lo dará de baja al ejecutarse.
     """
 
-    # CAN-01
+    # CAN-01 | PV-CAN-001
     def test_can01_cancelacion_normal_acepta_y_encola(self, test_client, auth_headers):
         """
         ESCENARIO: Cancelación estándar — el acceso tiene provisión activa en la OLT Nokia.
@@ -71,7 +71,7 @@ class TestCancelOrderCasosEspeciales:
     contra el servidor real sin acceso a la base de datos de transacciones.
     """
 
-    # CAN-02
+    # CAN-02 | PV-CAN-002
     @pytest.mark.mock_only
     def test_can02_sin_provision_activa_cierra_orden_sin_transaccion(self, test_client, auth_headers):
         """
@@ -96,7 +96,7 @@ class TestCancelOrderCasosEspeciales:
             f"Se esperaba status=NO_ACTION, se obtuvo: {data.get('status')}"
         )
 
-    # CAN-03
+    # CAN-03 | PV-CAN-003
     @pytest.mark.mock_only
     def test_can03_txn_en_progreso_rechaza_409_kmd3003(self, test_client, auth_headers):
         """
@@ -123,3 +123,93 @@ class TestCancelOrderCasosEspeciales:
         assert data.get("error_code") == "KMD-3003", (
             f"Se esperaba KMD-3003 (transacción duplicada), se obtuvo: {data.get('error_code')}"
         )
+
+
+# ─── Completitud matriz VNO × OLT — PV-CAN faltantes ────────────────────────
+#
+# can01-can03 cubren DTV/Nokia para los 3 escenarios (éxito, sin provisión, en progreso).
+# Los siguientes parametrize cubren el resto de la matriz (PV-CAN-004 a PV-CAN-033).
+#
+# Los 3 escenarios se reproducen con centinelas:
+#   éxito       → external_order_id estándar (encola baja)
+#   sin provisión → external_order_id="NO_PROVISION"
+#   en progreso → external_order_id="IN_PROGRESS"
+
+_CAN_COMBOS = [
+    # (case_ids_éxito/sin_prov/en_prog, vno_id, olt_name, is_huawei, descripcion)
+    (("PV-CAN-004","PV-CAN-005","PV-CAN-006"),  "DTV",  "OLT-SAN-002", True,  "DTV/Huawei-MA5800"),
+    (("PV-CAN-007","PV-CAN-008","PV-CAN-009"),  "DTV",  "OLT-SAN-003", True,  "DTV/Huawei-MA5600T"),
+    (("PV-CAN-010","PV-CAN-011","PV-CAN-012"),  "CVTR", "OLT-VAL-001", False, "CVTR/Nokia"),
+    (("PV-CAN-013","PV-CAN-014","PV-CAN-015"),  "CVTR", "OLT-VAL-002", True,  "CVTR/Huawei-MA5800"),
+    (("PV-CAN-016","PV-CAN-017","PV-CAN-018"),  "CVTR", "OLT-VAL-003", True,  "CVTR/Huawei-MA5600T"),
+    (("PV-CAN-019","PV-CAN-020","PV-CAN-021"),  "ENTEL","OLT-SCL-010", False, "ENTEL/Nokia-FTTH"),
+    (("PV-CAN-022","PV-CAN-023","PV-CAN-024"),  "ENTEL","OLT-SCL-010", False, "ENTEL/Nokia-SSAA"),
+    (("PV-CAN-025","PV-CAN-026","PV-CAN-027"),  "ENTEL","OLT-SCL-011", True,  "ENTEL/Huawei-MA5800"),
+    (("PV-CAN-028","PV-CAN-029","PV-CAN-030"),  "TCH",  "OLT-SAN-001", False, "TCH/Nokia-FTTH"),
+    (("PV-CAN-031","PV-CAN-032","PV-CAN-033"),  "TCH",  "OLT-SCL-010", False, "TCH/Nokia-SSAA"),
+]
+
+
+@pytest.mark.parametrize("ids,vno_id,olt_name,is_huawei,desc", _CAN_COMBOS)
+def test_can_matriz_cancelacion_exitosa(ids, vno_id, olt_name, is_huawei, desc, test_client):
+    """PV-CAN: Cancelación encola baja — combinaciones VNO × OLT faltantes."""
+    from tests.conftest import _make_token
+    case_id = ids[0]
+    payload = {
+        "vno_code": vno_id,
+        "external_order_id": f"SO-{case_id}",
+        "olt_name": olt_name,
+        "slot": 1 if not is_huawei else 0,
+        "port": 3 if not is_huawei else 2,
+        "ont_id": 45,
+    }
+    response = test_client.post(
+        CANCEL_URL, json=payload,
+        headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
+    )
+    assert response.status_code == 202, f"{case_id} {desc}: esperado 202, obtuvo {response.status_code}"
+    assert response.json().get("status") == "ACCEPTED", f"{case_id}: esperado ACCEPTED"
+
+
+@pytest.mark.mock_only
+@pytest.mark.parametrize("ids,vno_id,olt_name,is_huawei,desc", _CAN_COMBOS)
+def test_can_matriz_sin_provision_activa(ids, vno_id, olt_name, is_huawei, desc, test_client):
+    """PV-CAN: Sin provisión activa → NO_ACTION — combinaciones VNO × OLT faltantes."""
+    from tests.conftest import _make_token
+    case_id = ids[1]
+    payload = {
+        "vno_code": vno_id,
+        "external_order_id": "NO_PROVISION",
+        "olt_name": olt_name,
+        "slot": 1 if not is_huawei else 0,
+        "port": 3 if not is_huawei else 2,
+        "ont_id": 45,
+    }
+    response = test_client.post(
+        CANCEL_URL, json=payload,
+        headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
+    )
+    assert response.status_code == 200, f"{case_id} {desc}: esperado 200, obtuvo {response.status_code}"
+    assert response.json().get("status") == "NO_ACTION", f"{case_id}: esperado NO_ACTION"
+
+
+@pytest.mark.mock_only
+@pytest.mark.parametrize("ids,vno_id,olt_name,is_huawei,desc", _CAN_COMBOS)
+def test_can_matriz_txn_en_progreso_409(ids, vno_id, olt_name, is_huawei, desc, test_client):
+    """PV-CAN: Transacción en progreso → 409 KMD-3003 — combinaciones VNO × OLT faltantes."""
+    from tests.conftest import _make_token
+    case_id = ids[2]
+    payload = {
+        "vno_code": vno_id,
+        "external_order_id": "IN_PROGRESS",
+        "olt_name": olt_name,
+        "slot": 1 if not is_huawei else 0,
+        "port": 3 if not is_huawei else 2,
+        "ont_id": 45,
+    }
+    response = test_client.post(
+        CANCEL_URL, json=payload,
+        headers={"Authorization": f"Bearer {_make_token(vno_id=vno_id)}"},
+    )
+    assert response.status_code == 409, f"{case_id} {desc}: esperado 409, obtuvo {response.status_code}"
+    assert response.json().get("error_code") == "KMD-3003", f"{case_id}: esperado KMD-3003"

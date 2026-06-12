@@ -63,7 +63,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.post(
-            "/api/v1/activation", json=PAYLOAD, headers=headers
+            "/api/Komands/v1/activation", json=PAYLOAD, headers=headers
         )
 
         # ASSERT
@@ -91,7 +91,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.post(
-            "/api/v1/activation", json=PAYLOAD, headers=headers
+            "/api/Komands/v1/activation", json=PAYLOAD, headers=headers
         )
 
         # ASSERT
@@ -120,7 +120,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.post(
-            "/api/v1/activation", json=PAYLOAD, headers=headers
+            "/api/Komands/v1/activation", json=PAYLOAD, headers=headers
         )
 
         # ASSERT
@@ -149,7 +149,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.post(
-            "/api/v1/activation", json=PAYLOAD, headers=headers
+            "/api/Komands/v1/activation", json=PAYLOAD, headers=headers
         )
 
         # ASSERT
@@ -177,7 +177,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.get(
-            f"/api/v1/transaction/{TXN_ID}", headers=headers
+            f"/api/Komands/v1/transaction/{TXN_ID}", headers=headers
         )
 
         # ASSERT
@@ -208,7 +208,7 @@ class TestRBAC:
         headers = {"Authorization": f"Bearer {auditor_token}"}
 
         # ACT
-        response = test_client.get("/api/v1/audit-log", headers=headers)
+        response = test_client.get("/api/Komands/v1/audit-log", headers=headers)
 
         # ASSERT
         assert response.status_code == 200, (
@@ -235,7 +235,7 @@ class TestRBAC:
         headers = {"Authorization": f"Bearer {viewer_token}"}
 
         # ACT
-        response = test_client.get("/api/v1/audit-log", headers=headers)
+        response = test_client.get("/api/Komands/v1/audit-log", headers=headers)
 
         # ASSERT
         assert response.status_code == 403, (
@@ -267,7 +267,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.post(
-            "/api/v1/users", json=nuevo_usuario, headers=headers
+            "/api/Komands/v1/users", json=nuevo_usuario, headers=headers
         )
 
         # ASSERT
@@ -300,7 +300,7 @@ class TestRBAC:
 
         # ACT
         response = test_client.post(
-            "/api/v1/users", json=nuevo_usuario, headers=headers
+            "/api/Komands/v1/users", json=nuevo_usuario, headers=headers
         )
 
         # ASSERT
