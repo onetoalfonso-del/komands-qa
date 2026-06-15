@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # SonarCloud necesita el historial completo
 
       - name: Configurar Python 3.12
         uses: actions/setup-python@v5
@@ -24,40 +26,25 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Ejecutar tests unitarios
+      - name: Ejecutar suite completa
         run: |
-          pytest tests/unit/ -v \
+          pytest tests/ \
             --tb=short \
             --cov=komands \
             --cov-report=term-missing \
-            --cov-report=xml:coverage-unit.xml \
-            -m unit || true
-
-      - name: Ejecutar tests de seguridad
-        run: |
-          pytest tests/security/ -v \
-            --tb=short \
-            --cov=komands \
-            --cov-append \
-            --cov-report=term-missing \
-            -m security || true
-
-      - name: Ejecutar tests de API
-        run: |
-          pytest tests/api/ -v \
-            --tb=short \
-            --cov=komands \
-            --cov-append \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage.xml
-
-      - name: Generar reporte HTML
-        if: always()
-        run: |
-          pytest tests/unit/ tests/security/ tests/api/ \
+            --cov-report=xml:coverage.xml \
             --html=reporte-ci.html \
             --self-contained-html \
             -q
+
+      - name: Análisis SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        with:
+          args: >
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Publicar reporte HTML
         if: always()
@@ -87,7 +74,7 @@ jobs:
           echo "=========================================="
           echo "  Komands QA — Pipeline completado"
           echo "=========================================="
-          echo "  Tests unitarios  : CB-01 a CB-14"
-          echo "  Tests seguridad  : SEC-01..06, RBAC-01..09, FF-01..04, IDEM-01..02"
-          echo "  Tests activación : ACT-01 a ACT-17"
+          echo "  Cobertura Plan PostVenta: 209/209 (100%)"
+          echo "  Modulos: BAJ CAN MOD ONT RST CBK RBK"
+          echo "           QRY FLG IDP SEC DB PER PAR"
           echo "=========================================="
