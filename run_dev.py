@@ -104,4 +104,4 @@ if __name__ == "__main__":
     print("  Docs Swagger: http://localhost:8000/docs")
     print("  Obtener token: http://localhost:8000/dev/token")
     print("="*60 + "\n")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
