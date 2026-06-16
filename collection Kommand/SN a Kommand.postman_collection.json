@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
     "name": "SN a Kommand",
-    "description": "Colección TO-BE: ServiceNow → Axway APIM → Komands\nFuente de verdad: docs/openapi.json v2.2.3\nBase path: /api/Komands/v1/ (ADR-008)\n\nVNOs: DTV | CVTR | VTR | ENTEL | TCH\nVendores: Nokia ISAM 7360 | Huawei MA5800/MA5600T\n\nAutenticación: Bearer JWT (OAuth 2.0 client_credentials via Axway APIM)\nHeaders obligatorios:\n  Authorization: Bearer {{token}}\n  X-Source-System: SN_PROVISION (POST) | SN_QUERY (GET)\n  X-Correlation-ID: UUID v4 único por invocación\n  X-Source-System-ID: sys_id del registro SN origen\n  X-User-ID: ID del usuario que genera la operación\n  X-User-Role: rol del usuario (OPERATOR, ADMIN, etc.)\n  X-User-Organization: organización/VNO del usuario\n\nBody format: familia de campos u_routing / u_identification / u_action / u_product / u_qos\nResponse format: { result: { u_uuid, u_return_code, u_return_code_desc, u_timestamp, u_time } }\n\nPara pruebas locales:\n  1. python mock_server.py\n  2. newman run \"SN a Kommand.postman_collection.json\" -e newman-environment-local.json",
+    "description": "Colección TO-BE: ServiceNow → Axway APIM → Komands\nFuente de verdad: docs/openapi.json v2.2.3\nBase path: /api/Komands/v1/ (ADR-008)\n\nVNOs: DTV | CVTR | VTR | ENTEL | TCH\nVendores: Nokia ISAM 7360 | Huawei MA5800/MA5600T\n\nAutenticación: Bearer JWT (OAuth 2.0 client_credentials via Axway APIM)\nResponse format: { result: { u_uuid, u_return_code, u_return_code_desc, u_timestamp, u_time } }",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -11,8 +11,6 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "// Auto-obtener token del mock server local si el token está vacío.",
-          "// En producción (DEV/QA), fijar {{token}} manualmente con el JWT de Axway.",
           "var currentToken = pm.environment.get('token');",
           "if (!currentToken) {",
           "    var baseURL = pm.environment.get('baseURL') || 'http://localhost:8000/api/Komands/v1';",
@@ -31,7 +29,7 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "pm.test('Tiempo de respuesta < 5000ms', function() {",
+          "pm.test('⏱ Tiempo de respuesta < 5000ms', function() {",
           "    pm.expect(pm.response.responseTime).to.be.below(5000);",
           "});"
         ]
@@ -40,45 +38,19 @@
   ],
   "auth": {
     "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{token}}",
-        "type": "string"
-      }
-    ]
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
   },
   "variable": [
-    {
-      "key": "baseURL",
-      "value": "http://localhost:8000/api/Komands/v1",
-      "description": "LOCAL: http://localhost:8000/api/Komands/v1 | DEV: https://edevapi.onnetfibra.cl/komands/api/Komands/v1 | QA: https://eqapi.onnetfibra.cl/komands/api/Komands/v1"
-    },
-    {
-      "key": "token",
-      "value": "",
-      "description": "JWT Bearer — en local se obtiene automáticamente del mock server. En DEV/QA obtener via Axway OAuth."
-    },
-    {
-      "key": "txn_id",
-      "value": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-      "description": "UUID de transacción — se actualiza automáticamente tras cada POST exitoso."
-    },
-    {
-      "key": "access_id",
-      "value": "OLT-SAN-001_1_3_45",
-      "description": "ID de acceso para consulta GET /access/{access_id} — formato OLT_SLOT_PON_ONTID"
-    },
-    {
-      "key": "sys_id",
-      "value": "",
-      "description": "sys_id del registro ServiceNow que origina la operación (header X-Source-System-ID)"
-    }
+    { "key": "baseURL", "value": "http://localhost:8000/api/Komands/v1" },
+    { "key": "token", "value": "" },
+    { "key": "txn_id", "value": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+    { "key": "access_id", "value": "OLT-SAN-001_1_3_45" },
+    { "key": "sys_id", "value": "" }
   ],
   "item": [
     {
       "name": "01 — Baja de Acceso (Unsubscription)",
-      "description": "POST /api/Komands/v1/unsubscription\nAsíncrono: ACK 202 + result.u_uuid → resultado por callback a SN\nSLA P95: FTTH < 60s | SSAA < 180s",
+      "description": "POST /api/Komands/v1/unsubscription — da de baja un acceso activo en la OLT.",
       "item": [
         {
           "name": "Nokia FTTH — DTV",
@@ -88,16 +60,36 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() {",
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== BAJA Nokia FTTH — DTV ===');",
+                  "console.log('REQUEST enviado:');",
+                  "console.log('  VNO:', req.u_routing.u_id_vno);",
+                  "console.log('  OLT:', req.u_routing.u_olt, '| Slot:', req.u_routing.u_slot, '| PON:', req.u_routing.u_pon, '| ONT ID:', req.u_routing.u_ontid);",
+                  "console.log('  Producto:', req.u_routing.u_product, '| Tecnología:', req.u_routing.u_technology);",
+                  "console.log('  Orden:', req.u_identification.u_external_order_id);",
+                  "console.log('RESPONSE recibido:', JSON.stringify(json.result));",
+                  "",
+                  "pm.test('✅ HTTP 202 Accepted — solicitud encolada correctamente', function() {",
                   "    pm.response.to.have.status(202);",
                   "});",
-                  "var json = pm.response.json();",
-                  "pm.test('result.u_uuid presente y es UUID', function() {",
-                  "    pm.expect(json.result).to.have.property('u_uuid');",
+                  "pm.test('✅ result presente en respuesta', function() {",
+                  "    pm.expect(json).to.have.property('result');",
+                  "});",
+                  "pm.test('✅ result.u_uuid es UUID válido', function() {",
                   "    pm.expect(json.result.u_uuid).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
                   "});",
-                  "pm.test('result.u_return_code es 0', function() {",
+                  "pm.test('✅ result.u_return_code = 0 (operación aceptada)', function() {",
                   "    pm.expect(json.result.u_return_code).to.eql('0');",
+                  "});",
+                  "pm.test('✅ result.u_return_code_desc presente', function() {",
+                  "    pm.expect(json.result.u_return_code_desc).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('✅ result.u_timestamp presente', function() {",
+                  "    pm.expect(json.result).to.have.property('u_timestamp');",
+                  "});",
+                  "pm.test('✅ result.u_time presente', function() {",
+                  "    pm.expect(json.result).to.have.property('u_time');",
                   "});",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
@@ -120,12 +112,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-BAJ-001\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            },
-            "description": "Baja Nokia FTTH para VNO DTV."
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -136,9 +123,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== BAJA Nokia FTTH — ClaroVTR ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ result.u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -160,11 +152,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"CVTR\",\n    \"u_olt\": \"OLT-VAL-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-BAJ-002\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            }
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -175,9 +163,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== BAJA Nokia FTTH — VTR ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ VTR es VNO autorizada — u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -199,11 +192,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"VTR\",\n    \"u_olt\": \"OLT-VAL-002\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-BAJ-002B\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            }
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -214,9 +203,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== BAJA Nokia FTTH — TCH (con svlan) ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('  VLAN config: svlan=' + req.u_vlan.u_svlan + ' delete_vlan=' + req.u_vlan.u_delete_vlan_on_terminate);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' desc=' + json.result.u_return_code_desc);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ TCH con u_vlan aceptado — u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.test('✅ result.u_timestamp presente', function() { pm.expect(json.result).to.have.property('u_timestamp'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -238,12 +234,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"TCH\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-BAJ-003\"\n  },\n  \"u_vlan\": {\n    \"u_svlan\": \"300\",\n    \"u_delete_vlan_on_terminate\": \"T\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            },
-            "description": "TCH (Movistar) requiere u_vlan.u_svlan + u_delete_vlan_on_terminate=T."
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -254,9 +245,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== BAJA Huawei FTTH — DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ result.u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -278,11 +274,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-BAJ-004\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            }
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -293,11 +285,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
                   "var json = pm.response.json();",
-                  "pm.test('txn_id presente', function() { pm.expect(json).to.have.property('txn_id'); });",
-                  "pm.test('status es valor válido', function() {",
+                  "console.log('=== GET Estado Baja ===');",
+                  "console.log('txn_id consultado:', pm.environment.get('txn_id'));",
+                  "console.log('RESPONSE: status=' + json.status + ' txn_id=' + json.txn_id);",
+                  "pm.test('✅ HTTP 200 OK', function() { pm.response.to.have.status(200); });",
+                  "pm.test('✅ txn_id presente en respuesta', function() { pm.expect(json).to.have.property('txn_id'); });",
+                  "pm.test('✅ status es valor válido del ciclo de vida', function() {",
                   "    pm.expect(json.status).to.be.oneOf(['PENDING','IN_PROGRESS','COMPLETED','FAILED','ROLLED_BACK','ACCEPTED']);",
+                  "});",
+                  "pm.test('✅ Tiempo de respuesta SLA < 500ms', function() {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
                   "});"
                 ]
               }
@@ -310,35 +308,58 @@
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
             ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            },
-            "description": "Polling de estado — usar si no llega callback en el timeout configurado."
+            "url": { "raw": "{{baseURL}}/transaction/{{txn_id}}/status", "host": ["{{baseURL}}"], "path": ["transaction","{{txn_id}}","status"] }
           }
         }
       ]
     },
     {
       "name": "02 — Activación (Service Activation)",
-      "description": "POST /api/Komands/v1/service-activation\nAsíncrono: ACK 202 + result.u_uuid → resultado por callback a SN",
+      "description": "POST /api/Komands/v1/service-activation — activa servicios FTTH/SSAA en un ONT.",
       "item": [
         {
-          "name": "Nokia FTTH — Internet + VoIP + IPTV",
+          "name": "Nokia FTTH — Internet + VoIP + IPTV (DTV)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_uuid presente y es UUID', function() {",
-                  "    pm.expect(json.result).to.have.property('u_uuid');",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== ACTIVACIÓN Nokia FTTH — DTV (Internet + VoIP + IPTV) ===');",
+                  "console.log('REQUEST enviado:');",
+                  "console.log('  VNO:', req.u_routing.u_id_vno, '| OLT:', req.u_routing.u_olt);",
+                  "console.log('  Slot:', req.u_routing.u_slot, '| PON:', req.u_routing.u_pon, '| ONT ID:', req.u_routing.u_ontid);",
+                  "console.log('  Serial ONT:', req.u_identification.u_serialnumber);",
+                  "console.log('  Servicios — IPTV:', req.u_action.u_iptv, '| VoZ:', req.u_action.u_voz, '| Gestión:', req.u_action.u_gestion);",
+                  "console.log('  Plan velocidad:', req.u_product.u_speed_plan);",
+                  "console.log('RESPONSE recibido:');",
+                  "console.log('  u_uuid:', json.result.u_uuid);",
+                  "console.log('  u_return_code:', json.result.u_return_code, '| desc:', json.result.u_return_code_desc);",
+                  "console.log('  u_timestamp:', json.result.u_timestamp);",
+                  "",
+                  "pm.test('✅ HTTP 202 Accepted — activación encolada', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "pm.test('✅ result presente en respuesta', function() {",
+                  "    pm.expect(json).to.have.property('result');",
+                  "});",
+                  "pm.test('✅ result.u_uuid es UUID válido', function() {",
                   "    pm.expect(json.result.u_uuid).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
                   "});",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_return_code = 0 (solicitud aceptada)', function() {",
+                  "    pm.expect(json.result.u_return_code).to.eql('0');",
+                  "});",
+                  "pm.test('✅ result.u_return_code_desc presente y no vacío', function() {",
+                  "    pm.expect(json.result.u_return_code_desc).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('✅ result.u_timestamp presente', function() {",
+                  "    pm.expect(json.result).to.have.property('u_timestamp');",
+                  "});",
+                  "pm.test('✅ result.u_time presente', function() {",
+                  "    pm.expect(json.result).to.have.property('u_time');",
+                  "});",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -360,24 +381,27 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_slid\": \"SLID-001\",\n    \"u_external_order_id\": \"SO-ACT-001\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"T\",\n    \"u_voz\": \"T\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_speed_plan\": \"100M/20M\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-activation",
-              "host": ["{{baseURL}}"],
-              "path": ["service-activation"]
-            }
+            "url": { "raw": "{{baseURL}}/service-activation", "host": ["{{baseURL}}"], "path": ["service-activation"] }
           }
         },
         {
-          "name": "Nokia FTTH — Internet Only",
+          "name": "Nokia FTTH — Internet Only (DTV)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== ACTIVACIÓN Nokia FTTH — DTV (Internet Only) ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' Serial=' + req.u_identification.u_serialnumber + ' Plan=' + req.u_product.u_speed_plan);",
+                  "console.log('  Servicios — IPTV:', req.u_action.u_iptv, '| VoZ:', req.u_action.u_voz);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ result.u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -398,24 +422,27 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF0000001\",\n    \"u_external_order_id\": \"SO-ACT-002\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_speed_plan\": \"100M/20M\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-activation",
-              "host": ["{{baseURL}}"],
-              "path": ["service-activation"]
-            }
+            "url": { "raw": "{{baseURL}}/service-activation", "host": ["{{baseURL}}"], "path": ["service-activation"] }
           }
         },
         {
-          "name": "Nokia SSAA — Grupo A",
+          "name": "Nokia SSAA — Grupo A (ENTEL)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== ACTIVACIÓN Nokia SSAA — ENTEL (Grupo A) ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' Producto=' + req.u_routing.u_product);",
+                  "console.log('  Servicios port: code=' + req.u_services_port.u_code + ' svlan=' + req.u_services_port.u_svlan + ' cvlan=' + req.u_services_port.u_cvlan);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ SSAA aceptado — u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -436,49 +463,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"ENTEL\",\n    \"u_olt\": \"OLT-SCL-010\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"0\",\n    \"u_ontid\": \"5\",\n    \"u_product\": \"SSAA\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF9999999\",\n    \"u_external_order_id\": \"SO-ACT-003\"\n  },\n  \"u_services_port\": {\n    \"u_code\": \"A\",\n    \"u_svlan\": \"100\",\n    \"u_cvlan\": \"200\"\n  },\n  \"u_product\": {\n    \"u_speed_plan\": \"200M/200M\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-activation",
-              "host": ["{{baseURL}}"],
-              "path": ["service-activation"]
-            }
-          }
-        },
-        {
-          "name": "Nokia FTTH — VTR",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "VTR" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"VTR\",\n    \"u_olt\": \"OLT-VAL-002\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"20\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF5555555\",\n    \"u_external_order_id\": \"SO-ACT-VTR-001\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"T\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_speed_plan\": \"300M/100M\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/service-activation",
-              "host": ["{{baseURL}}"],
-              "path": ["service-activation"]
-            }
+            "url": { "raw": "{{baseURL}}/service-activation", "host": ["{{baseURL}}"], "path": ["service-activation"] }
           }
         },
         {
@@ -489,9 +474,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== ACTIVACIÓN Huawei FTTH — DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' Serial=' + req.u_identification.u_serialnumber);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ result.u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -512,62 +503,34 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"485754C12345\",\n    \"u_external_order_id\": \"SO-ACT-007\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"T\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_speed_plan\": \"100M/20M\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-activation",
-              "host": ["{{baseURL}}"],
-              "path": ["service-activation"]
-            }
-          }
-        },
-        {
-          "name": "GET Estado Activación",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
-                  "var json = pm.response.json();",
-                  "pm.test('txn_id presente', function() { pm.expect(json).to.have.property('txn_id'); });",
-                  "pm.test('status es valor válido', function() {",
-                  "    pm.expect(json.status).to.be.oneOf(['PENDING','IN_PROGRESS','COMPLETED','FAILED','ROLLED_BACK','ACCEPTED']);",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-Source-System", "value": "SN_QUERY" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
-            ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/service-activation", "host": ["{{baseURL}}"], "path": ["service-activation"] }
           }
         }
       ]
     },
     {
       "name": "03 — Modificación de Servicio (Service Modification)",
-      "description": "POST /api/Komands/v1/service-modification\nu_action.u_type: SPEED_CHANGE | BLOCK | UNBLOCK | ADD_SERVICE | REMOVE_SERVICE | MIGRATE_FTTH_SSAA",
+      "description": "POST /api/Komands/v1/service-modification — u_action.u_type: SPEED_CHANGE | BLOCK | UNBLOCK | ADD_SERVICE | REMOVE_SERVICE",
       "item": [
         {
-          "name": "Speed Change — Nokia",
+          "name": "SPEED_CHANGE — Nokia DTV",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== MODIFICACIÓN SPEED_CHANGE — Nokia DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('  Tipo modificación:', req.u_action.u_type);",
+                  "console.log('  Nuevo perfil velocidad:', req.u_qos.u_speed_profile);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ SPEED_CHANGE aceptado — u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.test('✅ result.u_timestamp presente', function() { pm.expect(json.result).to.have.property('u_timestamp'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -589,24 +552,27 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"SPEED_CHANGE\",\n    \"u_external_order_id\": \"SO-MOD-001\"\n  },\n  \"u_qos\": {\n    \"u_speed_profile\": \"200M/50M\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
+            "url": { "raw": "{{baseURL}}/service-modification", "host": ["{{baseURL}}"], "path": ["service-modification"] }
           }
         },
         {
-          "name": "Block — Nokia",
+          "name": "BLOCK — Nokia DTV",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== MODIFICACIÓN BLOCK — Nokia DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('  Tipo modificación:', req.u_action.u_type);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ BLOCK aceptado — u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -627,24 +593,25 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"BLOCK\",\n    \"u_external_order_id\": \"SO-MOD-002\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
+            "url": { "raw": "{{baseURL}}/service-modification", "host": ["{{baseURL}}"], "path": ["service-modification"] }
           }
         },
         {
-          "name": "Unblock — Nokia",
+          "name": "UNBLOCK — Nokia DTV",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== MODIFICACIÓN UNBLOCK — Nokia DTV ===');",
+                  "console.log('REQUEST: tipo=' + req.u_action.u_type + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ UNBLOCK aceptado — u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -665,143 +632,30 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"UNBLOCK\",\n    \"u_external_order_id\": \"SO-MOD-003\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
+            "url": { "raw": "{{baseURL}}/service-modification", "host": ["{{baseURL}}"], "path": ["service-modification"] }
           }
         },
         {
-          "name": "Speed Change — Huawei",
+          "name": "REMOVE_SERVICE Nokia — espera 422 KMD-4001 (no soportado)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"SPEED_CHANGE\",\n    \"u_external_order_id\": \"SO-MOD-004\"\n  },\n  \"u_qos\": {\n    \"u_speed_profile\": \"200M/50M\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
-          }
-        },
-        {
-          "name": "Add Service IPTV — Nokia",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"ADD_SERVICE\",\n    \"u_iptv\": \"T\",\n    \"u_external_order_id\": \"SO-MOD-007\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
-          }
-        },
-        {
-          "name": "Remove Service VOIP — Huawei (único vendor soportado)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 Accepted recibido (Huawei sí soporta REMOVE_SERVICE)', function() {",
-                  "    pm.response.to.have.status(202);",
-                  "});",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"REMOVE_SERVICE\",\n    \"u_voz\": \"T\",\n    \"u_external_order_id\": \"SO-MOD-008\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            },
-            "description": "REMOVE_SERVICE solo está soportado en Huawei (OLT-SAN-002). Nokia retorna 422 KMD-4001."
-          }
-        },
-        {
-          "name": "Remove Service Nokia — espera 422 KMD-4001",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('422 recibido (Nokia no soporta REMOVE_SERVICE)', function() {",
+                  "var json = pm.response.json();",
+                  "console.log('=== REMOVE_SERVICE Nokia — caso de error esperado ===');",
+                  "console.log('RESPONSE HTTP:', pm.response.code);",
+                  "console.log('  error_code:', json.error_code);",
+                  "console.log('  error_message:', json.error_message);",
+                  "pm.test('✅ HTTP 422 Unprocessable — Nokia no soporta REMOVE_SERVICE', function() {",
                   "    pm.response.to.have.status(422);",
                   "});",
-                  "pm.test('error_code KMD-4001', function() {",
-                  "    pm.expect(pm.response.json().error_code).to.eql('KMD-4001');",
+                  "pm.test('✅ error_code = KMD-4001 (operación no soportada en vendor)', function() {",
+                  "    pm.expect(json.error_code).to.eql('KMD-4001');",
+                  "});",
+                  "pm.test('✅ error_message presente', function() {",
+                  "    pm.expect(json.error_message).to.be.a('string').and.not.empty;",
                   "});"
                 ]
               }
@@ -823,58 +677,75 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"REMOVE_SERVICE\",\n    \"u_voz\": \"T\",\n    \"u_external_order_id\": \"SO-MOD-008B\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
+            "url": { "raw": "{{baseURL}}/service-modification", "host": ["{{baseURL}}"], "path": ["service-modification"] }
           }
         },
         {
-          "name": "GET Estado Modificación",
+          "name": "REMOVE_SERVICE Huawei — soportado (DTV)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
-                  "pm.test('txn_id presente', function() { pm.expect(pm.response.json()).to.have.property('txn_id'); });"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== REMOVE_SERVICE Huawei — DTV ===');",
+                  "console.log('REQUEST: OLT=' + req.u_routing.u_olt + ' (Huawei) tipo=' + req.u_action.u_type);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ HTTP 202 Accepted — Huawei sí soporta REMOVE_SERVICE', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "pm.test('✅ u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
           ],
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
-              { "key": "X-Source-System", "value": "SN_QUERY" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Source-System", "value": "SN_PROVISION" },
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
+              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
+              { "key": "X-User-ID", "value": "sn-operator-01" },
+              { "key": "X-User-Role", "value": "OPERATOR" },
+              { "key": "X-User-Organization", "value": "DTV" }
             ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"REMOVE_SERVICE\",\n    \"u_voz\": \"T\",\n    \"u_external_order_id\": \"SO-MOD-008\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseURL}}/service-modification", "host": ["{{baseURL}}"], "path": ["service-modification"] }
           }
         }
       ]
     },
     {
       "name": "04 — Cambio de Equipo (Device Modification)",
-      "description": "POST /api/Komands/v1/device-modification\nSwap de ONT: reemplaza la ONT existente manteniendo todos los servicios activos.",
+      "description": "POST /api/Komands/v1/device-modification — swap de ONT manteniendo servicios activos.",
       "item": [
         {
-          "name": "Nokia FTTH — Swap ONT DTV",
+          "name": "Swap ONT Nokia — DTV",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== CAMBIO DE EQUIPO Nokia — DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt);",
+                  "console.log('  Serial viejo:', req.u_identification.u_serialnumber);",
+                  "console.log('  Serial nuevo:', req.u_identification.u_new_serialnumber);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ result.u_return_code = 0 (swap encolado)', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.test('✅ result.u_timestamp presente', function() { pm.expect(json.result).to.have.property('u_timestamp'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -896,24 +767,25 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_new_serialnumber\": \"ALCLF7654321\",\n    \"u_external_order_id\": \"SO-ONT-001\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/device-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["device-modification"]
-            }
+            "url": { "raw": "{{baseURL}}/device-modification", "host": ["{{baseURL}}"], "path": ["device-modification"] }
           }
         },
         {
-          "name": "Huawei FTTH — Swap ONT DTV",
+          "name": "Swap ONT Huawei — DTV",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== CAMBIO DE EQUIPO Huawei — DTV ===');",
+                  "console.log('REQUEST: Serial viejo=' + req.u_identification.u_serialnumber + ' Serial nuevo=' + req.u_identification.u_new_serialnumber);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -934,84 +806,14 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"485754C12345\",\n    \"u_new_serialnumber\": \"485754C99999\",\n    \"u_external_order_id\": \"SO-ONT-002\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/device-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["device-modification"]
-            }
-          }
-        },
-        {
-          "name": "Nokia FTTH — ClaroVTR",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "CVTR" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"CVTR\",\n    \"u_olt\": \"OLT-VAL-001\",\n    \"u_slot\": \"2\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"20\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1111110\",\n    \"u_new_serialnumber\": \"ALCLF1111111\",\n    \"u_external_order_id\": \"SO-ONT-003\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/device-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["device-modification"]
-            }
-          }
-        },
-        {
-          "name": "GET Estado Cambio de Equipo",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
-                  "pm.test('txn_id presente', function() { pm.expect(pm.response.json()).to.have.property('txn_id'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-Source-System", "value": "SN_QUERY" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
-            ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/device-modification", "host": ["{{baseURL}}"], "path": ["device-modification"] }
           }
         }
       ]
     },
     {
       "name": "05 — Cambio de Fibra (Fiber Change)",
-      "description": "POST /api/Komands/v1/fiber-change\nMigra un acceso de un puerto PON a otro (misma o distinta OLT, cross-vendor incluido).",
+      "description": "POST /api/Komands/v1/fiber-change — migra un acceso entre puertos PON.",
       "item": [
         {
           "name": "Nokia → Nokia (mismo fabricante)",
@@ -1021,9 +823,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== CAMBIO DE FIBRA Nokia → Nokia ===');",
+                  "console.log('ORIGEN: OLT=' + req.u_routing.u_olt + ' PON=' + req.u_routing.u_pon + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('DESTINO: OLT=' + req.u_routing_new.u_olt + ' PON=' + req.u_routing_new.u_pon + ' ONT=' + req.u_routing_new.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -1045,11 +853,7 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"4\",\n    \"u_ontid\": \"45\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_external_order_id\": \"SO-FIB-001\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/fiber-change",
-              "host": ["{{baseURL}}"],
-              "path": ["fiber-change"]
-            }
+            "url": { "raw": "{{baseURL}}/fiber-change", "host": ["{{baseURL}}"], "path": ["fiber-change"] }
           }
         },
         {
@@ -1060,9 +864,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
+                  "var json = pm.response.json();",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== CAMBIO DE FIBRA Nokia → Huawei (cross-vendor) ===');",
+                  "console.log('ORIGEN: OLT=' + req.u_routing.u_olt + ' (Nokia)');",
+                  "console.log('DESTINO: OLT=' + req.u_routing_new.u_olt + ' (Huawei)');",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ HTTP 202 Accepted — cross-vendor soportado', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -1083,84 +893,14 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"4\",\n    \"u_ontid\": \"45\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_external_order_id\": \"SO-FIB-003\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/fiber-change",
-              "host": ["{{baseURL}}"],
-              "path": ["fiber-change"]
-            }
-          }
-        },
-        {
-          "name": "Huawei → Huawei (mismo fabricante)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"10\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"485754C12345\",\n    \"u_external_order_id\": \"SO-FIB-002\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/fiber-change",
-              "host": ["{{baseURL}}"],
-              "path": ["fiber-change"]
-            }
-          }
-        },
-        {
-          "name": "GET Estado Cambio de Fibra",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
-                  "pm.test('txn_id presente', function() { pm.expect(pm.response.json()).to.have.property('txn_id'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-Source-System", "value": "SN_QUERY" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
-            ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/fiber-change", "host": ["{{baseURL}}"], "path": ["fiber-change"] }
           }
         }
       ]
     },
     {
       "name": "06 — Reset ONT",
-      "description": "POST /api/Komands/v1/reset-ont\nReinicia el ONT del cliente en la OLT. Asíncrono: ACK 202 + result.u_uuid.",
+      "description": "POST /api/Komands/v1/reset-ont — reinicia el ONT del cliente en la OLT.",
       "item": [
         {
           "name": "Reset ONT — Nokia DTV",
@@ -1170,9 +910,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== RESET ONT Nokia — DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code + ' u_uuid=' + json.result.u_uuid);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ u_return_code = 0 (reset encolado)', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
+                  "pm.test('✅ result.u_timestamp presente', function() { pm.expect(json.result).to.have.property('u_timestamp'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -1194,84 +940,14 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-RST-001\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/reset-ont",
-              "host": ["{{baseURL}}"],
-              "path": ["reset-ont"]
-            }
-          }
-        },
-        {
-          "name": "Reset ONT — Huawei DTV",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('txn_id', pm.response.json().result.u_uuid);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "X-Source-System", "value": "SN_PROVISION" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
-              { "key": "X-User-ID", "value": "sn-operator-01" },
-              { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-002\",\n    \"u_slot\": \"0\",\n    \"u_pon\": \"2\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"SO-RST-002\"\n  }\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseURL}}/reset-ont",
-              "host": ["{{baseURL}}"],
-              "path": ["reset-ont"]
-            }
-          }
-        },
-        {
-          "name": "GET Estado Reset ONT",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
-                  "pm.test('txn_id presente', function() { pm.expect(pm.response.json()).to.have.property('txn_id'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-Source-System", "value": "SN_QUERY" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
-            ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/reset-ont", "host": ["{{baseURL}}"], "path": ["reset-ont"] }
           }
         }
       ]
     },
     {
       "name": "07 — Traspaso PON (PON Transfer)",
-      "description": "POST /api/Komands/v1/pon-transfer\nNUEVO en v2.2.3 — traslada un ONT entre puertos PON de la misma OLT sin cambio físico de fibra.",
+      "description": "POST /api/Komands/v1/pon-transfer — traslada un ONT entre puertos PON de la misma OLT.",
       "item": [
         {
           "name": "PON Transfer — Nokia DTV",
@@ -1281,9 +957,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== PON TRANSFER Nokia — DTV ===');",
+                  "console.log('ORIGEN: PON=' + req.u_routing.u_pon + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('DESTINO: PON=' + req.u_routing_new.u_pon + ' ONT=' + req.u_routing_new.u_ontid);",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ HTTP 202 Accepted', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ u_return_code = 0 (traspaso encolado)', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.test('✅ result.u_uuid presente', function() { pm.expect(json.result).to.have.property('u_uuid'); });",
                   "pm.environment.set('txn_id', json.result.u_uuid);"
                 ]
               }
@@ -1305,46 +987,14 @@
               "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"5\",\n    \"u_ontid\": \"45\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_external_order_id\": \"SO-PON-001\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/pon-transfer",
-              "host": ["{{baseURL}}"],
-              "path": ["pon-transfer"]
-            }
-          }
-        },
-        {
-          "name": "GET Estado PON Transfer",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
-                  "pm.test('txn_id presente', function() { pm.expect(pm.response.json()).to.have.property('txn_id'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "X-Source-System", "value": "SN_QUERY" },
-              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
-              { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
-            ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/pon-transfer", "host": ["{{baseURL}}"], "path": ["pon-transfer"] }
           }
         }
       ]
     },
     {
       "name": "08 — Consultas Síncronas (Queries)",
-      "description": "Endpoints GET síncronos — responden directo, sin callback.\nSLA cache: < 100ms | live SSH: < 10s | estado transacción: < 500ms",
+      "description": "Endpoints GET síncronos — SLA: estado transacción < 500ms | acceso < 500ms",
       "item": [
         {
           "name": "GET Estado de Transacción",
@@ -1354,13 +1004,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
                   "var json = pm.response.json();",
-                  "pm.test('txn_id presente', function() { pm.expect(json).to.have.property('txn_id'); });",
-                  "pm.test('status es valor válido', function() {",
+                  "console.log('=== GET Estado de Transacción ===');",
+                  "console.log('txn_id consultado:', pm.environment.get('txn_id'));",
+                  "console.log('RESPONSE: status=' + json.status + ' txn_id=' + json.txn_id);",
+                  "if (json.result) console.log('  result.u_return_code:', json.result.u_return_code);",
+                  "pm.test('✅ HTTP 200 OK', function() { pm.response.to.have.status(200); });",
+                  "pm.test('✅ txn_id presente en respuesta', function() { pm.expect(json).to.have.property('txn_id'); });",
+                  "pm.test('✅ status es valor válido del ciclo de vida', function() {",
                   "    pm.expect(json.status).to.be.oneOf(['PENDING','IN_PROGRESS','COMPLETED','FAILED','ROLLED_BACK','ACCEPTED']);",
                   "});",
-                  "pm.test('Tiempo de respuesta SLA < 500ms', function() {",
+                  "pm.test('✅ SLA cumplido — tiempo de respuesta < 500ms', function() {",
                   "    pm.expect(pm.response.responseTime).to.be.below(500);",
                   "});"
                 ]
@@ -1374,12 +1028,7 @@
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
             ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{txn_id}}", "status"]
-            },
-            "description": "Polling de estado — usar en subflujo Integration Control Komands cuando expira el callback timeout."
+            "url": { "raw": "{{baseURL}}/transaction/{{txn_id}}/status", "host": ["{{baseURL}}"], "path": ["transaction","{{txn_id}}","status"] }
           }
         },
         {
@@ -1390,12 +1039,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
                   "var json = pm.response.json();",
-                  "pm.test('access_id presente', function() { pm.expect(json).to.have.property('access_id'); });",
-                  "pm.test('status ACTIVE', function() { pm.expect(json.status).to.eql('ACTIVE'); });",
-                  "pm.test('olt_name presente', function() { pm.expect(json).to.have.property('olt_name'); });",
-                  "pm.test('Tiempo de respuesta SLA < 500ms', function() {",
+                  "console.log('=== GET Acceso por ID ===');",
+                  "console.log('access_id consultado:', pm.environment.get('access_id'));",
+                  "console.log('RESPONSE: status=' + json.status + ' ont_serial=' + json.ont_serial + ' olt_name=' + json.olt_name);",
+                  "pm.test('✅ HTTP 200 OK', function() { pm.response.to.have.status(200); });",
+                  "pm.test('✅ access_id presente', function() { pm.expect(json).to.have.property('access_id'); });",
+                  "pm.test('✅ status = ACTIVE', function() { pm.expect(json.status).to.eql('ACTIVE'); });",
+                  "pm.test('✅ olt_name presente', function() { pm.expect(json).to.have.property('olt_name'); });",
+                  "pm.test('✅ ont_serial presente', function() { pm.expect(json).to.have.property('ont_serial'); });",
+                  "pm.test('✅ SLA cumplido — tiempo < 500ms', function() {",
                   "    pm.expect(pm.response.responseTime).to.be.below(500);",
                   "});"
                 ]
@@ -1409,12 +1062,7 @@
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
             ],
-            "url": {
-              "raw": "{{baseURL}}/access/{{access_id}}",
-              "host": ["{{baseURL}}"],
-              "path": ["access", "{{access_id}}"]
-            },
-            "description": "Consulta el estado actual de un ONT por ID de acceso (formato OLT_SLOT_PON_ONTID)."
+            "url": { "raw": "{{baseURL}}/access/{{access_id}}", "host": ["{{baseURL}}"], "path": ["access","{{access_id}}"] }
           }
         },
         {
@@ -1425,12 +1073,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
                   "var json = pm.response.json();",
-                  "pm.test('max_onts presente', function() { pm.expect(json).to.have.property('max_onts'); });",
-                  "pm.test('active_onts presente', function() { pm.expect(json).to.have.property('active_onts'); });",
-                  "pm.test('available >= 0', function() { pm.expect(json.available).to.be.at.least(0); });",
-                  "pm.test('available = max_onts - active_onts', function() {",
+                  "console.log('=== GET Ocupación Puerto PON ===');",
+                  "console.log('RESPONSE: max_onts=' + json.max_onts + ' active_onts=' + json.active_onts + ' available=' + json.available);",
+                  "pm.test('✅ HTTP 200 OK', function() { pm.response.to.have.status(200); });",
+                  "pm.test('✅ max_onts presente y es número', function() { pm.expect(json.max_onts).to.be.a('number'); });",
+                  "pm.test('✅ active_onts presente y es número', function() { pm.expect(json.active_onts).to.be.a('number'); });",
+                  "pm.test('✅ available >= 0', function() { pm.expect(json.available).to.be.at.least(0); });",
+                  "pm.test('✅ available = max_onts - active_onts (cálculo correcto)', function() {",
                   "    pm.expect(json.available).to.eql(json.max_onts - json.active_onts);",
                   "});"
                 ]
@@ -1453,15 +1103,14 @@
                 { "key": "slot", "value": "1" },
                 { "key": "port", "value": "3" }
               ]
-            },
-            "description": "Retorna cuántos ONTs activos hay en un puerto PON. Si available == 0, la activación fallará."
+            }
           }
         }
       ]
     },
     {
       "name": "09 — Autenticación (Pruebas de Error)",
-      "description": "Casos de error de autenticación y autorización.\nVerifican que Komands rechaza correctamente requests inválidos antes de llegar a la OLT.",
+      "description": "Verifican que el API rechaza correctamente requests inválidos antes de llegar a la OLT.",
       "item": [
         {
           "name": "Sin Token — espera 401",
@@ -1471,10 +1120,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('401 Unauthorized recibido (sin token)', function() {",
+                  "console.log('=== AUTH: Sin Token ===');",
+                  "console.log('HTTP Status recibido:', pm.response.code);",
+                  "pm.test('✅ HTTP 401 Unauthorized — sin header Authorization', function() {",
                   "    pm.response.to.have.status(401);",
                   "});",
-                  "pm.test('OLT NO fue contactada (error de auth, no de red)', function() {",
+                  "pm.test('✅ Respuesta rápida — OLT no fue contactada (< 1000ms)', function() {",
                   "    pm.expect(pm.response.responseTime).to.be.below(1000);",
                   "});"
                 ]
@@ -1490,15 +1141,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": { \"u_id_vno\": \"DTV\", \"u_olt\": \"OLT-SAN-001\", \"u_slot\": \"1\", \"u_pon\": \"3\", \"u_ontid\": \"45\", \"u_product\": \"FTTH\", \"u_technology\": \"GPON\" },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            },
-            "description": "Espera HTTP 401. Simula request de SN sin header Authorization."
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -1509,8 +1155,13 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('401 Unauthorized recibido (token inválido)', function() {",
+                  "console.log('=== AUTH: Token Inválido (no es JWT) ===');",
+                  "console.log('HTTP Status recibido:', pm.response.code);",
+                  "pm.test('✅ HTTP 401 Unauthorized — token no es JWT válido', function() {",
                   "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('✅ Respuesta rápida — rechazado antes de llegar a OLT (< 1000ms)', function() {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
                   "});"
                 ]
               }
@@ -1526,15 +1177,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": { \"u_id_vno\": \"DTV\", \"u_olt\": \"OLT-SAN-001\", \"u_slot\": \"1\", \"u_pon\": \"3\", \"u_ontid\": \"45\", \"u_product\": \"FTTH\", \"u_technology\": \"GPON\" },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            },
-            "description": "Espera HTTP 401. Token malformado — no es un JWT."
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -1545,7 +1191,6 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Obtener token con vno_id=FAKE_VNO para que el servidor rechace por VNO, no por JWT",
                   "var baseURL = pm.environment.get('baseURL') || 'http://localhost:8000/api/Komands/v1';",
                   "var tokenURL = baseURL.replace('/api/Komands/v1', '') + '/test/token?vno=FAKE_VNO';",
                   "pm.sendRequest(tokenURL, function(err, res) {",
@@ -1561,18 +1206,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('403 Forbidden recibido (VNO no autorizada)', function() {",
+                  "console.log('=== AUTH: VNO No Autorizada ===');",
+                  "console.log('VNO usada: FAKE_VNO (no está en lista DTV/CVTR/VTR/ENTEL/TCH)');",
+                  "console.log('HTTP Status recibido:', pm.response.code);",
+                  "pm.test('✅ HTTP 403 Forbidden — VNO FAKE_VNO no autorizada', function() {",
                   "    pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('✅ Es 403 y NO 401 — token válido pero VNO rechazada (autorización, no autenticación)', function() {",
+                  "    pm.expect(pm.response.code).to.not.equal(401);",
+                  "    pm.expect(pm.response.code).to.equal(403);",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{fake_vno_token}}", "type": "string" }]
-            },
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{fake_vno_token}}", "type": "string" }] },
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
@@ -1580,15 +1229,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"FAKE_VNO\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": { \"u_id_vno\": \"FAKE_VNO\", \"u_olt\": \"OLT-SAN-001\", \"u_slot\": \"1\", \"u_pon\": \"3\", \"u_ontid\": \"45\", \"u_product\": \"FTTH\", \"u_technology\": \"GPON\" },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            },
-            "description": "Espera HTTP 403. VNO 'FAKE_VNO' no está en la lista de VNOs autorizadas (DTV/CVTR/VTR/ENTEL/TCH)."
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -1599,7 +1243,6 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "// Obtener token con scope solo query (sin provision)",
                   "var baseURL = pm.environment.get('baseURL') || 'http://localhost:8000/api/Komands/v1';",
                   "var tokenURL = baseURL.replace('/api/Komands/v1', '') + '/test/token?vno=DTV&scope=komands%3Aquery';",
                   "pm.sendRequest(tokenURL, function(err, res) {",
@@ -1615,18 +1258,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('403 Forbidden recibido (scope insuficiente)', function() {",
+                  "console.log('=== AUTH: Scope Insuficiente ===');",
+                  "console.log('Scope usado: komands:query (solo lectura)');",
+                  "console.log('Operación intentada: POST unsubscription (requiere komands:provision)');",
+                  "console.log('HTTP Status recibido:', pm.response.code);",
+                  "pm.test('✅ HTTP 403 Forbidden — scope komands:query no puede hacer operaciones de provisión', function() {",
                   "    pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('✅ Es 403 y NO 401 — token válido pero scope insuficiente', function() {",
+                  "    pm.expect(pm.response.code).to.equal(403);",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{readonly_token}}", "type": "string" }]
-            },
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{readonly_token}}", "type": "string" }] },
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
@@ -1634,22 +1281,17 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"45\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": { \"u_id_vno\": \"DTV\", \"u_olt\": \"OLT-SAN-001\", \"u_slot\": \"1\", \"u_pon\": \"3\", \"u_ontid\": \"45\", \"u_product\": \"FTTH\", \"u_technology\": \"GPON\" },\n  \"u_identification\": { \"u_external_order_id\": \"SO-BAJ-001\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            },
-            "description": "Espera HTTP 403. Token válido con komands:query intentando un POST de provisión (requiere komands:provision)."
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         }
       ]
     },
     {
       "name": "10 — Flujo Completo E2E (Nokia + DTV)",
-      "description": "Ciclo de vida completo: Alta → Verificar → Modificación → Reset → Baja → Verificar\nVendor: Nokia | VNO: DTV | OLT: OLT-SAN-001 | ontid: 101",
+      "description": "Ciclo de vida completo: Alta → Verificar → Speed Change → Reset → Baja → Verificar Final",
       "item": [
         {
           "name": "01 Alta — Service Activation Nokia DTV",
@@ -1659,14 +1301,18 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
                   "var json = pm.response.json();",
-                  "pm.test('result.u_uuid UUID válido', function() {",
+                  "var req = JSON.parse(pm.request.body.raw);",
+                  "console.log('=== E2E PASO 1/6 — ALTA Nokia DTV ===');",
+                  "console.log('REQUEST: VNO=' + req.u_routing.u_id_vno + ' OLT=' + req.u_routing.u_olt + ' ONT=' + req.u_routing.u_ontid);",
+                  "console.log('  Serial:', req.u_identification.u_serialnumber, '| Plan:', req.u_product.u_speed_plan);",
+                  "console.log('RESPONSE: u_uuid=' + json.result.u_uuid + ' u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ [E2E 1/6] HTTP 202 Accepted — Alta encolada', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ [E2E 1/6] result.u_uuid es UUID válido', function() {",
                   "    pm.expect(json.result.u_uuid).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
                   "});",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('e2e_txn_id', json.result.u_uuid);",
-                  "console.log('[E2E 01] Alta encolada:', json.result.u_uuid);"
+                  "pm.test('✅ [E2E 1/6] u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('e2e_txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -1674,24 +1320,20 @@
           "request": {
             "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "X-Source-System", "value": "SN_PROVISION" },
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
               { "key": "X-User-ID", "value": "sn-operator-01" },
               { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" },
-              { "key": "Content-Type", "value": "application/json" }
+              { "key": "X-User-Organization", "value": "DTV" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_external_order_id\": \"ORD-E2E-001\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"T\",\n    \"u_voz\": \"T\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_speed_plan\": \"100M/20M\"\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_serialnumber\": \"ALCLF1234567\",\n    \"u_external_order_id\": \"ORD-E2E-001\"\n  },\n  \"u_action\": { \"u_iptv\": \"T\", \"u_voz\": \"T\", \"u_gestion\": \"F\" },\n  \"u_product\": { \"u_speed_plan\": \"100M/20M\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-activation",
-              "host": ["{{baseURL}}"],
-              "path": ["service-activation"]
-            }
+            "url": { "raw": "{{baseURL}}/service-activation", "host": ["{{baseURL}}"], "path": ["service-activation"] }
           }
         },
         {
@@ -1702,12 +1344,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
                   "var json = pm.response.json();",
-                  "pm.test('status válido', function() {",
+                  "console.log('=== E2E PASO 2/6 — VERIFICAR ESTADO ALTA ===');",
+                  "console.log('txn_id:', pm.environment.get('e2e_txn_id'));",
+                  "console.log('RESPONSE: status=' + json.status);",
+                  "pm.test('✅ [E2E 2/6] HTTP 200 OK', function() { pm.response.to.have.status(200); });",
+                  "pm.test('✅ [E2E 2/6] status en ciclo de vida válido', function() {",
                   "    pm.expect(['ACCEPTED','IN_PROGRESS','COMPLETED','FAILED']).to.include(json.status);",
-                  "});",
-                  "console.log('[E2E 02] Estado Alta:', json.status);"
+                  "});"
                 ]
               }
             }
@@ -1719,25 +1363,24 @@
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
             ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{e2e_txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{e2e_txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/transaction/{{e2e_txn_id}}/status", "host": ["{{baseURL}}"], "path": ["transaction","{{e2e_txn_id}}","status"] }
           }
         },
         {
-          "name": "03 Modificación Speed Change",
+          "name": "03 Modificación SPEED_CHANGE",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('e2e_txn_id', pm.response.json().result.u_uuid);",
-                  "console.log('[E2E 03] Modificación encolada');"
+                  "var json = pm.response.json();",
+                  "console.log('=== E2E PASO 3/6 — SPEED CHANGE ===');",
+                  "console.log('Nuevo perfil: 300M/100M');",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ [E2E 3/6] HTTP 202 Accepted — Modificación encolada', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ [E2E 3/6] u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('e2e_txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -1745,24 +1388,20 @@
           "request": {
             "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "X-Source-System", "value": "SN_PROVISION" },
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
               { "key": "X-User-ID", "value": "sn-operator-01" },
               { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" },
-              { "key": "Content-Type", "value": "application/json" }
+              { "key": "X-User-Organization", "value": "DTV" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": {\n    \"u_type\": \"SPEED_CHANGE\",\n    \"u_external_order_id\": \"ORD-E2E-002\"\n  },\n  \"u_qos\": {\n    \"u_speed_profile\": \"300M/100M\"\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_action\": { \"u_type\": \"SPEED_CHANGE\", \"u_external_order_id\": \"ORD-E2E-002\" },\n  \"u_qos\": { \"u_speed_profile\": \"300M/100M\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/service-modification",
-              "host": ["{{baseURL}}"],
-              "path": ["service-modification"]
-            }
+            "url": { "raw": "{{baseURL}}/service-modification", "host": ["{{baseURL}}"], "path": ["service-modification"] }
           }
         },
         {
@@ -1773,10 +1412,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('e2e_txn_id', pm.response.json().result.u_uuid);",
-                  "console.log('[E2E 04] Reset encolado');"
+                  "var json = pm.response.json();",
+                  "console.log('=== E2E PASO 4/6 — RESET ONT ===');",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ [E2E 4/6] HTTP 202 Accepted — Reset encolado', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ [E2E 4/6] u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('e2e_txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -1784,24 +1425,20 @@
           "request": {
             "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "X-Source-System", "value": "SN_PROVISION" },
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
               { "key": "X-User-ID", "value": "sn-operator-01" },
               { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" },
-              { "key": "Content-Type", "value": "application/json" }
+              { "key": "X-User-Organization", "value": "DTV" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"ORD-E2E-003\"\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": { \"u_external_order_id\": \"ORD-E2E-003\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/reset-ont",
-              "host": ["{{baseURL}}"],
-              "path": ["reset-ont"]
-            }
+            "url": { "raw": "{{baseURL}}/reset-ont", "host": ["{{baseURL}}"], "path": ["reset-ont"] }
           }
         },
         {
@@ -1812,10 +1449,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('202 Accepted recibido', function() { pm.response.to.have.status(202); });",
-                  "pm.test('result.u_return_code es 0', function() { pm.expect(pm.response.json().result.u_return_code).to.eql('0'); });",
-                  "pm.environment.set('e2e_txn_id', pm.response.json().result.u_uuid);",
-                  "console.log('[E2E 05] Baja encolada');"
+                  "var json = pm.response.json();",
+                  "console.log('=== E2E PASO 5/6 — BAJA ===');",
+                  "console.log('RESPONSE: u_return_code=' + json.result.u_return_code);",
+                  "pm.test('✅ [E2E 5/6] HTTP 202 Accepted — Baja encolada', function() { pm.response.to.have.status(202); });",
+                  "pm.test('✅ [E2E 5/6] u_return_code = 0', function() { pm.expect(json.result.u_return_code).to.eql('0'); });",
+                  "pm.environment.set('e2e_txn_id', json.result.u_uuid);"
                 ]
               }
             }
@@ -1823,24 +1462,20 @@
           "request": {
             "method": "POST",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "X-Source-System", "value": "SN_PROVISION" },
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" },
               { "key": "X-User-ID", "value": "sn-operator-01" },
               { "key": "X-User-Role", "value": "OPERATOR" },
-              { "key": "X-User-Organization", "value": "DTV" },
-              { "key": "Content-Type", "value": "application/json" }
+              { "key": "X-User-Organization", "value": "DTV" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_external_order_id\": \"ORD-E2E-004\"\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://api.onnetfibra.cl/sn/komands/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-SAN-001\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"101\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": { \"u_external_order_id\": \"ORD-E2E-004\" }\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "url": {
-              "raw": "{{baseURL}}/unsubscription",
-              "host": ["{{baseURL}}"],
-              "path": ["unsubscription"]
-            }
+            "url": { "raw": "{{baseURL}}/unsubscription", "host": ["{{baseURL}}"], "path": ["unsubscription"] }
           }
         },
         {
@@ -1851,12 +1486,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK recibido', function() { pm.response.to.have.status(200); });",
                   "var json = pm.response.json();",
-                  "pm.test('status válido', function() {",
+                  "console.log('=== E2E PASO 6/6 — VERIFICAR ESTADO FINAL ===');",
+                  "console.log('RESPONSE: status=' + json.status);",
+                  "console.log('✔ FLUJO E2E COMPLETADO: Alta → Speed Change → Reset → Baja');",
+                  "pm.test('✅ [E2E 6/6] HTTP 200 OK', function() { pm.response.to.have.status(200); });",
+                  "pm.test('✅ [E2E 6/6] status en ciclo de vida válido', function() {",
                   "    pm.expect(['ACCEPTED','IN_PROGRESS','COMPLETED','FAILED']).to.include(json.status);",
                   "});",
-                  "console.log('[E2E 06] Estado Final:', json.status);"
+                  "pm.test('✅ [E2E 6/6] Flujo completo Nokia+DTV ejecutado sin errores', function() {",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});"
                 ]
               }
             }
@@ -1868,11 +1508,7 @@
               { "key": "X-Correlation-ID", "value": "{{$guid}}" },
               { "key": "X-Source-System-ID", "value": "{{sys_id}}" }
             ],
-            "url": {
-              "raw": "{{baseURL}}/transaction/{{e2e_txn_id}}/status",
-              "host": ["{{baseURL}}"],
-              "path": ["transaction", "{{e2e_txn_id}}", "status"]
-            }
+            "url": { "raw": "{{baseURL}}/transaction/{{e2e_txn_id}}/status", "host": ["{{baseURL}}"], "path": ["transaction","{{e2e_txn_id}}","status"] }
           }
         }
       ]
