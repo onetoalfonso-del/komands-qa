@@ -17,9 +17,7 @@ from jose import jwt, JWTError
 
 log = logging.getLogger("komands.qa")
 
-# Almacena el último request capturado (se sobreescribe en cada test)
 _last_req: dict = {}
-# ID del caso en ejecución — se actualiza antes de cada test
 _current_case_id: str = ""
 
 
@@ -48,15 +46,20 @@ def pytest_runtest_setup(item):
 # ─── Tablas de lenguaje amigable para el reporte ─────────────────────────────
 
 _URL_OPERACION = {
-    "/unsuscription":      "Baja / Cancelación de Acceso",
-    "/activation":         "Activación de Acceso",
-    "/modification":       "Modificación de Servicio",
-    "/reset-ont":          "Reset de ONT",
-    "/device-modification":"Cambio de Equipo (Swap)",
-    "/fiber-change":       "Cambio de Fibra (Migración OLT)",
-    "/port-occupancy":     "Consulta Ocupación Puerto PON",
-    "/access/":            "Consulta de Acceso",
-    "/transaction/":       "Estado de Transacción",
+    "/service-activation":  "Activación de Acceso",
+    "/activation":          "Activación de Acceso",
+    "/unsubscription":      "Baja / Cancelación de Acceso",
+    "/unsuscription":       "Baja / Cancelación de Acceso",
+    "/service-modification":"Modificación de Servicio",
+    "/modification":        "Modificación de Servicio",
+    "/reset-ont":           "Reset de ONT",
+    "/device-modification": "Cambio de Equipo (Swap)",
+    "/fiber-change":        "Cambio de Fibra (Migración OLT)",
+    "/pon-transfer":        "Transferencia PON (Cambio de Pelo)",
+    "/port-occupancy":      "Consulta Ocupación Puerto PON",
+    "/query-access/":       "Consulta de Acceso",
+    "/access/":             "Consulta de Acceso",
+    "/transaction/":        "Estado de Transacción",
 }
 
 _HTTP_DESCRIPCION = {
@@ -70,21 +73,32 @@ _HTTP_DESCRIPCION = {
 
 _CAMPO_ETIQUETA = {
     "vno_code":                 "Cliente",
+    "u_id_vno":                 "Cliente",
     "olt_name":                 "OLT",
+    "u_olt":                    "OLT",
     "service_type":             "Producto",
+    "u_product":                "Producto",
     "modification_type":        "Tipo de operación",
+    "u_type":                   "Tipo de operación",
     "new_serial_ont":           "Serial ONT nuevo",
+    "u_new_serialnumber":       "Serial ONT nuevo",
     "serial_ont":               "Serial ONT",
+    "u_serialnumber":           "Serial ONT",
     "delete_vlan_on_terminate": "Eliminar VLAN al terminar",
 }
 
 _PRODUCTO_NOMBRE = {"FTTH": "Fibra residencial (FTTH)", "SSAA": "Empresarial (SSAA)"}
 _OPERACION_NOMBRE = {
     "speed_change":   "Cambio de velocidad",
+    "SPEED_CHANGE":   "Cambio de velocidad",
     "block":          "Bloqueo de servicio",
+    "BLOCK":          "Bloqueo de servicio",
     "unblock":        "Desbloqueo de servicio",
+    "UNBLOCK":        "Desbloqueo de servicio",
     "add_service":    "Alta de servicio individual",
+    "ADD_SERVICE":    "Alta de servicio individual",
     "remove_service": "Baja de servicio individual",
+    "REMOVE_SERVICE": "Baja de servicio individual",
 }
 
 
@@ -100,17 +114,27 @@ def _descripcion_http(resultado_esperado: str) -> str:
     return _HTTP_DESCRIPCION.get(clave, resultado_esperado)
 
 
+def _flatten_body(payload: dict) -> dict:
+    """Aplana body jerárquico (familias) para extracción de campos del reporte."""
+    flat = dict(payload)
+    for family in ("u_routing", "u_identification", "u_action", "u_product",
+                   "u_routing_new", "u_hardware", "u_qos", "u_vlan"):
+        flat.update(payload.get(family, {}))
+    return flat
+
+
 def _datos_amigables(payload: dict) -> str:
     if not payload:
         return ""
+    flat = _flatten_body(payload)
     filas = []
     for campo, etiqueta in _CAMPO_ETIQUETA.items():
-        if campo not in payload:
+        if campo not in flat:
             continue
-        valor = payload[campo]
-        if campo == "service_type":
+        valor = flat[campo]
+        if campo in ("service_type", "u_product"):
             valor = _PRODUCTO_NOMBRE.get(str(valor), valor)
-        elif campo == "modification_type":
+        elif campo in ("modification_type", "u_type"):
             valor = _OPERACION_NOMBRE.get(str(valor), valor)
         elif campo == "delete_vlan_on_terminate":
             if not valor:
@@ -153,7 +177,6 @@ class CapturingTestClient(TestClient):
             "response_body": resp_body,
         })
 
-        # Log paso a paso: request enviado y response recibido
         log.info("  >> %s %s", method.upper(), url)
         if payload:
             log.info("     PAYLOAD  %s", _json.dumps(payload, ensure_ascii=False))
@@ -231,7 +254,6 @@ def pytest_runtest_makereport(item, call):
                 f"<tr><td {th}>Datos utilizados</td><td {td}>{datos_html}</td></tr>"
             )
         if descripcion_resultado:
-            # Extrae el código HTTP del texto original (ej: "HTTP 202" → "202")
             codigo_match = re.search(r"HTTP\s+(\d+)", resultado_esperado)
             badge_esperado = ""
             if codigo_match:
@@ -245,7 +267,6 @@ def pytest_runtest_makereport(item, call):
                 f"<td {td}>{descripcion_resultado}{badge_esperado}</td></tr>"
             )
 
-        # Resultado obtenido: ✅/❌ + código HTTP real recibido
         codigo_real = req.get("status_code") if req else None
         badge_real = ""
         if codigo_real:
@@ -261,7 +282,6 @@ def pytest_runtest_makereport(item, call):
             f"<td {td}>{status_icon}{badge_real}</td></tr>"
         )
 
-        # Payload enviado al API — útil para reproducir el caso manualmente
         if req.get("payload"):
             payload_json = _json.dumps(req["payload"], ensure_ascii=False, indent=2)
             rows.append(
@@ -271,7 +291,6 @@ def pytest_runtest_makereport(item, call):
                 f"max-height:160px'>{_html_mod.escape(payload_json)}</pre></td></tr>"
             )
 
-        # Response recibido — permite ver exactamente qué retornó el servidor
         if req.get("response_body"):
             resp_json = _json.dumps(req["response_body"], ensure_ascii=False, indent=2)
             bg = "#eafaf1" if report.passed else "#fdedec"
@@ -290,7 +309,6 @@ def pytest_runtest_makereport(item, call):
         )
         extra.append(pytest_html.extras.html(html))
 
-        # Línea final en el log con el resultado del test
         log.info("  RESULTADO  %s", "PASS" if report.passed else "FAIL")
 
     report.extras = extra
@@ -302,10 +320,9 @@ BASE_URL = "http://localhost:8000/api/Komands/v1"
 JWT_SECRET = "test-secret-komands-qa"
 JWT_ALGORITHM = "HS256"
 
-VNOS = ["DTV", "CVTR", "ENTEL", "TCH"]
+# v2.2.3 — agrega VTR a la lista de VNOs autorizadas
+VNOS = ["DTV", "CVTR", "VTR", "ENTEL", "TCH"]
 
-# Permisos por rol — portal web (usuarios humanos)
-# Fuente: docs/04_modelo_datos.md → sección ROLES RBAC
 ROLE_PERMISSIONS = {
     "ADMIN":    ["activation:write", "transaction:read", "audit:read", "users:write"],
     "OPERATOR": ["activation:write", "transaction:read"],
@@ -313,12 +330,16 @@ ROLE_PERMISSIONS = {
     "AUDITOR":  ["audit:read"],
 }
 
+# UUID fijo para respuestas del mock (equivale a u_uuid en prod)
+_FIXED_UUID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+_FIXED_TS = "2026-06-16T00:00:00Z"
 
-# ─── Helpers de JWT ───────────────────────────────────────────────────────────
+
+# ─── Helpers JWT ──────────────────────────────────────────────────────────────
 
 def _make_token(
     vno_id: str = "DTV",
-    scope: str = "komands:write komands:read",
+    scope: str = "komands:provision komands:query",
     exp_offset: int = 3600,
     sub: str = "servicenow-client",
 ) -> str:
@@ -333,11 +354,7 @@ def _make_token(
 
 
 def _make_portal_token(role: str, exp_offset: int = 3600) -> str:
-    """Token para el portal web (usuarios humanos con rol RBAC).
-
-    Distinto al token de API: en vez de vno_id/scope, lleva rol y permisos.
-    Fuente: docs/05_gaps_seguridad.md + Anexo I core/auth.py
-    """
+    """Token para el portal web (usuarios humanos con rol RBAC)."""
     payload = {
         "sub": f"user_{role.lower()}@onnet.cl",
         "role": role,
@@ -366,10 +383,8 @@ def invalid_vno_token() -> str:
 
 @pytest.fixture
 def readonly_token() -> str:
-    return _make_token(scope="komands:read")
+    return _make_token(scope="komands:query")
 
-
-# ─── Fixtures de roles RBAC (portal web) ─────────────────────────────────────
 
 @pytest.fixture
 def admin_token() -> str:
@@ -396,7 +411,11 @@ def auth_headers(valid_token: str) -> dict:
     return {
         "Authorization": f"Bearer {valid_token}",
         "X-Correlation-ID": str(uuid.uuid4()),
-        "X-VNO-ID": "DTV",
+        "X-Source-System": "ServiceNow",
+        "X-Source-System-ID": "SN-PROD-001",
+        "X-User-ID": "sn-integration",
+        "X-User-Role": "API_CLIENT",
+        "X-User-Organization": "DTV",
     }
 
 
@@ -410,75 +429,242 @@ def txn_id() -> str:
 @pytest.fixture
 def activation_payload_nokia_ftth() -> dict:
     return {
-        "vno_code": "DTV",
-        "external_order_id": "SO-ACT-001",
-        "service_type": "FTTH",
-        "olt_name": "OLT-SAN-001",
-        "slot": 1,
-        "port": 3,
-        "ont_id": 45,
-        "serial_ont": "ALCLF1234567",
-        "internet": True,
-        "voip": True,
-        "iptv": True,
-        "speed_profile": "100M_20M",
+        "u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback",
+        "u_routing": {
+            "u_id_vno": "DTV",
+            "u_olt": "OLT-SAN-001",
+            "u_slot": "1",
+            "u_pon": "3",
+            "u_ontid": "45",
+            "u_product": "FTTH",
+            "u_technology": "GPON",
+        },
+        "u_identification": {
+            "u_serialnumber": "ALCLF1234567",
+        },
+        "u_action": {
+            "u_iptv": "T",
+            "u_voz": "T",
+            "u_gestion": "F",
+        },
+        "u_product": {
+            "u_speed_plan": "100M/20M",
+        },
     }
 
 
 @pytest.fixture
 def activation_payload_huawei_ftth() -> dict:
     return {
-        "vno_code": "DTV",
-        "external_order_id": "SO-ACT-007",
-        "service_type": "FTTH",
-        "olt_name": "OLT-SAN-002",
-        "slot": 0,
-        "port": 2,
-        "ont_id": 10,
-        "serial_ont": "485754C12345",
-        "internet": True,
-        "voip": True,
-        "iptv": False,
-        "speed_profile": "100M_20M",
+        "u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback",
+        "u_routing": {
+            "u_id_vno": "DTV",
+            "u_olt": "OLT-SAN-002",
+            "u_slot": "0",
+            "u_pon": "2",
+            "u_ontid": "10",
+            "u_product": "FTTH",
+            "u_technology": "GPON",
+        },
+        "u_identification": {
+            "u_serialnumber": "485754C12345",
+        },
+        "u_action": {
+            "u_iptv": "F",
+            "u_voz": "T",
+            "u_gestion": "F",
+        },
+        "u_product": {
+            "u_speed_plan": "100M/20M",
+        },
     }
 
 
 @pytest.fixture
 def activation_payload_nokia_ssaa() -> dict:
     return {
-        "vno_code": "ENTEL",
-        "external_order_id": "SO-ACT-003",
-        "service_type": "SSAA",
-        "olt_name": "OLT-SCL-010",
-        "slot": 1,
-        "port": 0,
-        "ont_id": 5,
-        "serial_ont": "ALCLF9999999",
-        "services": [
-            {"code": "A", "svlan": 100, "cvlan": 200},
-            {"code": "C", "svlan": 100, "cvlan": 202},
-        ],
-        "speed_profile": "200M_200M",
+        "u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback",
+        "u_routing": {
+            "u_id_vno": "ENTEL",
+            "u_olt": "OLT-SCL-010",
+            "u_slot": "1",
+            "u_pon": "0",
+            "u_ontid": "5",
+            "u_product": "SSAA",
+            "u_technology": "GPON",
+        },
+        "u_identification": {
+            "u_serialnumber": "ALCLF9999999",
+        },
+        "u_product": {
+            "u_speed_plan": "200M/200M",
+        },
     }
 
 
 @pytest.fixture
 def deactivation_payload_nokia() -> dict:
     return {
-        "vno_code": "DTV",
-        "external_order_id": "SO-BAJ-001",
-        "olt_name": "OLT-SAN-001",
-        "slot": 1,
-        "port": 3,
-        "ont_id": 45,
+        "u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback",
+        "u_routing": {
+            "u_id_vno": "DTV",
+            "u_olt": "OLT-SAN-001",
+            "u_slot": "1",
+            "u_pon": "3",
+            "u_ontid": "45",
+            "u_product": "FTTH",
+            "u_technology": "GPON",
+        },
+        "u_identification": {
+            "u_serialnumber": "ALCLF1234567",
+        },
     }
 
 
-# ─── Mini app de prueba (simula el API Gateway de Komands) ───────────────────
+# ─── Helpers para leer campos del body (soporta formato plano y jerárquico) ───
+
+def _body_ont_id(body: dict) -> int:
+    """Extrae ont_id como int. Prioridad: plano explícito > u_routing.u_ontid."""
+    try:
+        val = body.get("ont_id")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    try:
+        val = body.get("u_routing", {}).get("u_ontid")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    return 0
+
+
+def _body_new_ont_id(body: dict) -> int:
+    """Extrae new_ont_id como int. Prioridad: plano explícito > u_routing_new.u_ontid."""
+    try:
+        val = body.get("new_ont_id")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    try:
+        val = body.get("u_routing_new", {}).get("u_ontid")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    return 0
+
+
+def _body_new_serial(body: dict) -> str:
+    """Extrae serial del ONT nuevo. Prioridad: plano explícito > u_identification."""
+    return (
+        body.get("new_serial_ont")
+        or body.get("u_identification", {}).get("u_new_serialnumber", "")
+    )
+
+
+def _body_cancel_sentinel(body: dict) -> str:
+    """Extrae centinela de cancelación. Prioridad: plano explícito > u_identification."""
+    return (
+        body.get("external_order_id")
+        or body.get("u_identification", {}).get("u_access_id", "")
+    )
+
+
+def _body_olt_name(body: dict) -> str:
+    """Extrae nombre de la OLT. Prioridad: plano explícito > u_routing.u_olt."""
+    return body.get("olt_name") or body.get("u_routing", {}).get("u_olt", "")
+
+
+def _body_mod_type(body: dict) -> str:
+    """Extrae tipo de modificación. Prioridad: plano explícito > u_action.u_type."""
+    return body.get("modification_type") or body.get("u_action", {}).get("u_type", "")
+
+
+def _body_speed_profile(body: dict) -> str:
+    """Extrae perfil de velocidad nuevo. Prioridad: plano explícito > u_product.u_speed_plan."""
+    return body.get("new_speed_profile") or body.get("u_product", {}).get("u_speed_plan", "")
+
+
+def _body_product(body: dict) -> str:
+    """Extrae tipo de producto (FTTH/SSAA). Prioridad: plano explícito > u_routing.u_product."""
+    return body.get("service_type") or body.get("u_routing", {}).get("u_product", "FTTH")
+
+
+# ─── Helpers de respuesta StandardResponse + campos legacy ───────────────────
 #
-# Como el servidor real aún no existe (estamos haciendo TDD), creamos aquí
-# una versión mínima del endpoint /activation que solo implementa la lógica
-# de autenticación. Cuando el servidor real exista, los tests apuntarán a él.
+# El mock retorna AMBOS formatos:
+#   - Nuevo: {"result": {"u_uuid", "u_return_code", ...}}  ← spec real v2.2.3
+#   - Legacy: {"txn_id", "status", "error_code", ...}      ← retrocompat tests
+
+def _ok_response(u_status: str = "COMPLETED", msg: str = "Transacción encolada") -> dict:
+    return {
+        "result": {
+            "u_uuid": _FIXED_UUID,
+            "u_return_code": "0",
+            "u_return_code_desc": "Solicitud aceptada para procesamiento",
+            "u_timestamp": _FIXED_TS,
+            "u_time": "0.001s",
+            "u_status": u_status,
+        },
+        "txn_id": _FIXED_UUID,
+        "status": "ACCEPTED",
+        "message": msg,
+    }
+
+
+def _err_response(
+    return_code: str,
+    desc: str,
+    error_code: str,
+    u_status: str = "FAILED",
+    msg: str = "",
+) -> dict:
+    return {
+        "result": {
+            "u_uuid": _FIXED_UUID,
+            "u_return_code": return_code,
+            "u_return_code_desc": desc,
+            "u_timestamp": _FIXED_TS,
+            "u_time": "0.001s",
+            "u_status": u_status,
+            "u_error_code": error_code,
+        },
+        "txn_id": _FIXED_UUID,
+        "status": u_status,
+        "error_code": error_code,
+        "error_message": msg,
+    }
+
+
+# ─── Helper de auth para endpoints de escritura ───────────────────────────────
+
+def _check_write_auth(request: Request) -> dict:
+    """Valida JWT de escritura (API o portal). Lanza HTTPException si falla."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token ausente o malformado")
+    token = auth.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+    if "vno_id" in payload:
+        if payload["vno_id"] not in VNOS:
+            raise HTTPException(status_code=403, detail="VNO no autorizada")
+        if "komands:provision" not in payload.get("scope", ""):
+            raise HTTPException(status_code=403, detail="Scope insuficiente")
+    elif "role" in payload:
+        if "activation:write" not in payload.get("permissions", []):
+            raise HTTPException(status_code=403, detail="Rol sin permiso de escritura")
+    else:
+        raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+
+    return payload
+
 
 def _decode_portal_token(request: Request) -> dict:
     """Extrae y valida el JWT del portal web. Lanza HTTPException si hay error."""
@@ -503,85 +689,37 @@ def _require_permission(payload: dict, permission: str) -> None:
         )
 
 
+# ─── Mini app de prueba ───────────────────────────────────────────────────────
+
 def _build_test_app() -> FastAPI:
     app = FastAPI()
 
-    # ── /activation — acepta dos tipos de token ───────────────────────────────
-    #
-    # Tipo A — API (ServiceNow → Axway → Komands):
-    #   claims: vno_id, scope="komands:write ..."
-    #
-    # Tipo B — Portal web (usuario humano con rol RBAC):
-    #   claims: role="ADMIN"|"OPERATOR", permissions=[..., "activation:write"]
-    #
-    # Ambos tipos llegan al mismo endpoint en Komands.
-
+    # ── POST /service-activation  (alias: /activation) ───────────────────────
+    @app.post("/api/Komands/v1/service-activation", status_code=202)
     @app.post("/api/Komands/v1/activation", status_code=202)
-    async def activation(request: Request):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token ausente o malformado")
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Token inválido o expirado")
-
-        # ¿Es token de API (tiene vno_id)?
-        if "vno_id" in payload:
-            if payload["vno_id"] not in VNOS:
-                raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
-                raise HTTPException(status_code=403, detail="Scope insuficiente")
-
-        # ¿Es token de portal (tiene role)?
-        elif "role" in payload:
-            if "activation:write" not in payload.get("permissions", []):
-                raise HTTPException(status_code=403, detail="Rol sin permiso de activación")
-
-        else:
-            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
-
+    async def service_activation(request: Request):
+        _check_write_auth(request)
         body = await request.json()
-        ont_id = body.get("ont_id")
+        ont_id = _body_ont_id(body)
 
-        # Centinela RBK-001: Nokia paso crítico falla a mitad → ROLLED_BACK
         if ont_id == 6661:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-5021",
-                "error_message": "Paso crítico Nokia falló — rollback ejecutado correctamente",
-            }
+            return _err_response("115", "Fallo en paso crítico Nokia — rollback ejecutado",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Paso crítico Nokia falló — rollback ejecutado correctamente")
 
-        # Centinela RBK-002: Huawei paso crítico falla a mitad → ROLLED_BACK
         if ont_id == 6662:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-5021",
-                "error_message": "Paso crítico Huawei falló — rollback ejecutado correctamente",
-            }
+            return _err_response("115", "Fallo en paso crítico Huawei — rollback ejecutado",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Paso crítico Huawei falló — rollback ejecutado correctamente")
 
-        # Centinela RBK-003: paso crítico falla Y rollback también falla → ROLLBACK_FAILED
         if ont_id == 6663:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLBACK_FAILED",
-                "error_code": "KMD-5030",
-                "error_message": "Paso crítico falló y rollback también falló — intervención manual requerida",
-            }
+            return _err_response("120", "Fallo crítico sin rollback posible",
+                                 "KMD-5030", "ROLLBACK_FAILED",
+                                 "Paso crítico falló y rollback también falló — intervención manual requerida")
 
-        # Centinela RBK-004: paso NO crítico falla → operación continúa → COMPLETED
         if ont_id == 6664:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ACCEPTED",
-                "message": "Transacción encolada",
-                "warning": "Paso no crítico omitido — operación continúa",
-            }
+            return _ok_response("ACCEPTED", "Paso no crítico omitido — operación continúa")
 
-        # Centinela IDP-001: idempotencia — X-Correlation-ID duplicado
         corr_id = request.headers.get("X-Correlation-ID", "")
         if corr_id == "idempotency-test-fixed-uuid-001":
             _idempotency_store = getattr(app.state, "idempotency_store", {})
@@ -591,25 +729,185 @@ def _build_test_app() -> FastAPI:
                     "txn_id": _idempotency_store[corr_id],
                     "status": "ACCEPTED",
                     "message": "Solicitud duplicada — txn_id original devuelto",
+                    "result": {
+                        "u_uuid": _idempotency_store[corr_id],
+                        "u_return_code": "0",
+                        "u_return_code_desc": "Idempotente — resultado original",
+                        "u_timestamp": _FIXED_TS,
+                        "u_time": "0.001s",
+                        "u_status": "COMPLETED",
+                    },
                 })
-            txn_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-            _idempotency_store[corr_id] = txn_id
+            _idempotency_store[corr_id] = _FIXED_UUID
             app.state.idempotency_store = _idempotency_store
 
-        return {
-            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "ACCEPTED",
-            "message": "Transacción encolada",
-        }
+        return _ok_response(msg="Activación encolada")
+
+    # ── POST /unsubscription  (alias: /unsuscription) ─────────────────────────
+    @app.post("/api/Komands/v1/unsubscription", status_code=202)
+    @app.post("/api/Komands/v1/unsuscription", status_code=202)
+    async def unsubscription(request: Request):
+        _check_write_auth(request)
+        body = await request.json()
+        ont_id = _body_ont_id(body)
+
+        if ont_id == 9999:
+            return _err_response("20", "No se pudo resolver INDEX dinámico Huawei",
+                                 "KMD-2002", "FAILED",
+                                 "No se pudo resolver el INDEX dinámico del service-port Huawei")
+
+        if ont_id == 9998:
+            return _err_response("20", "INDEX parcial — rollback ejecutado",
+                                 "KMD-2002", "ROLLED_BACK",
+                                 "INDEX parcial: 2 de 3 service-ports resueltos — rollback ejecutado")
+
+        if ont_id == 8888:
+            return _err_response("10", "ONT no encontrado en la OLT",
+                                 "KMD-2002", "FAILED",
+                                 "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow")
+
+        if ont_id == 7777:
+            return _err_response("50", "Timeout esperando respuesta de la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes")
+
+        cancel_sentinel = _body_cancel_sentinel(body)
+        if cancel_sentinel == "NO_PROVISION":
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=200, content={
+                "status": "NO_ACTION",
+                "message": "Sin provisión activa — orden cerrada por ServiceNow",
+            })
+
+        if cancel_sentinel == "IN_PROGRESS":
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=409, content={
+                "error_code": "KMD-3003",
+                "error_message": "Transacción en progreso para este acceso — reintentar en 30 segundos",
+            })
+
+        return _ok_response(msg="Baja encolada")
+
+    # ── POST /service-modification  (alias: /modification) ───────────────────
+    @app.post("/api/Komands/v1/service-modification", status_code=202)
+    @app.post("/api/Komands/v1/modification", status_code=202)
+    async def service_modification(request: Request):
+        from fastapi.responses import JSONResponse
+        _check_write_auth(request)
+        body = await request.json()
+        ont_id = _body_ont_id(body)
+        mod_type = _body_mod_type(body)
+        speed_profile = _body_speed_profile(body)
+        olt_name = _body_olt_name(body)
+
+        _HUAWEI_OLTS = {"OLT-SAN-002", "OLT-VAL-003"}
+        if mod_type in ("remove_service", "REMOVE_SERVICE") and olt_name not in _HUAWEI_OLTS:
+            return JSONResponse(status_code=422, content={
+                "error_code": "KMD-4001",
+                "error_message": "SERVICE_REMOVE no soportado en FTTH — usar baja completa si el cliente no quiere ningún servicio",
+            })
+
+        if speed_profile == "PERFIL_INVALIDO":
+            return JSONResponse(status_code=422, content={
+                "error_code": "KMD-2004",
+                "error_message": "Perfil de velocidad no encontrado — verificar catálogo de perfiles en la OLT",
+            })
+
+        if ont_id == 8888:
+            return _err_response("10", "ONT no encontrado en la OLT",
+                                 "KMD-2002", "FAILED",
+                                 "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow")
+
+        if ont_id == 7777:
+            return _err_response("50", "Timeout esperando respuesta de la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes")
+
+        return _ok_response(msg="Modificación encolada")
+
+    # ── POST /reset-ont  (mock-only: no está en el API real) ──────────────────
+    @app.post("/api/Komands/v1/reset-ont", status_code=202)
+    async def reset_ont(request: Request):
+        _check_write_auth(request)
+        body = await request.json()
+        ont_id = _body_ont_id(body)
+
+        if ont_id == 8888:
+            return _err_response("10", "ONT no encontrado en la OLT",
+                                 "KMD-2002", "FAILED",
+                                 "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow")
+
+        if ont_id == 6666:
+            return _err_response("40", "ONT offline — sin señal óptica",
+                                 "KMD-2003", "FAILED",
+                                 "ONT offline — sin señal óptica. Verificar alimentación y fibra del cliente")
+
+        if ont_id == 7777:
+            return _err_response("50", "Timeout esperando respuesta de la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes")
+
+        return _ok_response(msg="Reset encolado")
+
+    # ── POST /device-modification ──────────────────────────────────────────────
+    @app.post("/api/Komands/v1/device-modification", status_code=202)
+    async def device_modification(request: Request):
+        _check_write_auth(request)
+        body = await request.json()
+        new_serial = _body_new_serial(body)
+        ont_id = _body_ont_id(body)
+
+        if new_serial == "FAIL00000000":
+            resp = _err_response("115", "Alta del ONT nuevo falló — rollback ejecutado",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Baja del ONT viejo exitosa, pero alta del ONT nuevo falló — escalar a Ingeniería de Redes")
+            resp["warning"] = "ONT viejo no recuperable automáticamente"
+            return resp
+
+        if new_serial == "VLAN00000000":
+            return _err_response("10", "VLAN_CONFLICT — VLAN asignada ya en uso",
+                                 "KMD-3001", "ROLLED_BACK",
+                                 "VLAN_CONFLICT: la VLAN asignada al nuevo ONT ya está en uso en este puerto PON")
+
+        if ont_id == 8888:
+            return _err_response("10", "ONT no encontrado en la OLT",
+                                 "KMD-2002", "FAILED",
+                                 "ONT no encontrado en la OLT — no se puede iniciar el swap sin el equipo origen")
+
+        if new_serial == "DUPL00000000":
+            return _err_response("20", "Serial duplicado en otra OLT",
+                                 "KMD-3002", "ROLLED_BACK",
+                                 "Serial duplicado: el ONT nuevo ya está registrado en otra OLT")
+
+        return _ok_response(msg="Cambio de equipo encolado")
+
+    # ── POST /fiber-change ─────────────────────────────────────────────────────
+    @app.post("/api/Komands/v1/fiber-change", status_code=202)
+    async def fiber_change(request: Request):
+        _check_write_auth(request)
+        body = await request.json()
+        new_ont_id = _body_new_ont_id(body)
+
+        if new_ont_id == 9000:
+            return _err_response("10", "Posición destino ocupada",
+                                 "KMD-3003", "ROLLED_BACK",
+                                 "Posición destino ocupada: ONT ID en el puerto de destino ya está asignado a otro cliente")
+
+        return _ok_response(msg="Cambio de fibra encolado")
+
+    # ── POST /pon-transfer (Cambio de Pelo) ───────────────────────────────────
+    @app.post("/api/Komands/v1/pon-transfer", status_code=202)
+    async def pon_transfer(request: Request):
+        _check_write_auth(request)
+        return _ok_response(msg="Transferencia PON encolada")
 
     # ── Portal web — endpoints con RBAC por rol ───────────────────────────────
-    # Estos endpoints usan tokens de portal (role + permissions), no de API.
 
-    @app.get("/api/Komands/v1/transaction/{txn_id}")
-    async def get_transaction(txn_id: str, request: Request):
+    @app.get("/api/Komands/v1/transaction/{txn_id_path}")
+    async def get_transaction(txn_id_path: str, request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
-        return {"txn_id": txn_id, "status": "COMPLETED"}
+        return {"txn_id": txn_id_path, "status": "COMPLETED"}
 
     @app.get("/api/Komands/v1/audit-log")
     async def get_audit_log(request: Request):
@@ -623,344 +921,29 @@ def _build_test_app() -> FastAPI:
         _require_permission(payload, "users:write")
         return {"user_id": 1, "message": "Usuario creado"}
 
-    # ── /unsuscription — baja de ONT FTTH ─────────────────────────────────────
-    @app.post("/api/Komands/v1/unsuscription", status_code=202)
-    async def unsuscription(request: Request):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token ausente o malformado")
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Token inválido o expirado")
-        if "vno_id" in payload:
-            if payload["vno_id"] not in VNOS:
-                raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
-                raise HTTPException(status_code=403, detail="Scope insuficiente")
-        elif "role" in payload:
-            if "activation:write" not in payload.get("permissions", []):
-                raise HTTPException(status_code=403, detail="Rol sin permiso de baja")
-        else:
-            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
-
-        body = await request.json()
-        ont_id = body.get("ont_id")
-
-        # Centinela BAJ-16: Huawei no puede resolver el INDEX → KMD-2002
-        # ont_id=9999 es exclusivo de los payloads Huawei (olt_name OLT-SAN-002)
-        if ont_id == 9999:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-2002",
-                "error_message": "No se pudo resolver el INDEX dinámico del service-port Huawei",
-            }
-
-        # Centinela BAJ-17: INDEX parcial → rollback de los eliminados
-        if ont_id == 9998:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-2002",
-                "error_message": "INDEX parcial: 2 de 3 service-ports resueltos — rollback ejecutado",
-            }
-
-        # Centinela BAJ-18/19: ONT no encontrado en la OLT
-        # Aplica a Nokia y Huawei: la OLT responde que ese ont_id no existe.
-        # No hay rollback porque no se ejecutó ningún comando en la red.
-        if ont_id == 8888:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-2002",
-                "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
-            }
-
-        # Centinela BAJ-20/21: timeout esperando respuesta CLI de la OLT (KMD-5020).
-        # KMD-5010 = comando CLI rechazado; KMD-5020 = timeout esperando respuesta.
-        # No se sabe si el ONT existe o no — simplemente no hubo comunicación.
-        if ont_id == 7777:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-5020",
-                "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes",
-            }
-
-        # Centinela CAN-02: el acceso ya no tiene provisión activa.
-        # ServiceNow usa external_order_id="NO_PROVISION" para indicar este caso.
-        # Komands cierra la orden sin generar transacción en la OLT.
-        if body.get("external_order_id") == "NO_PROVISION":
-            from fastapi.responses import JSONResponse
-            return JSONResponse(status_code=200, content={
-                "status": "NO_ACTION",
-                "message": "Sin provisión activa — orden cerrada por ServiceNow",
-            })
-
-        # Centinela CAN-03: ya hay una transacción IN_PROGRESS para este acceso.
-        # Cancelar mientras hay otra operación en curso causaría inconsistencia en red.
-        if body.get("external_order_id") == "IN_PROGRESS":
-            from fastapi.responses import JSONResponse
-            return JSONResponse(status_code=409, content={
-                "error_code": "KMD-3003",
-                "error_message": "Transacción en progreso para este acceso — reintentar en 30 segundos",
-            })
-
+    # ── GET /query-access/{u_id} ──────────────────────────────────────────────
+    @app.get("/api/Komands/v1/query-access/{u_id}")
+    async def query_access_v2(u_id: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if "NOTFOUND" in u_id.upper():
+            raise HTTPException(status_code=404, detail="error_code=KMD-2002")
+        parts = u_id.split("_")
         return {
-            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "ACCEPTED",
-            "message": "Baja encolada",
+            "result": {
+                "u_uuid": _FIXED_UUID,
+                "u_return_code": "0",
+                "u_return_code_desc": "Consulta exitosa",
+                "u_timestamp": _FIXED_TS,
+                "u_time": "0.001s",
+            },
+            "u_id": u_id,
+            "u_olt": parts[0] if parts else u_id,
+            "u_ont_status": "ACTIVE",
+            "u_serialnumber": "ALCLF1234567",
         }
 
-    # ── /modification — speed_change / block / unblock ────────────────────────
-    @app.post("/api/Komands/v1/modification", status_code=202)
-    async def modification(request: Request):
-        from fastapi.responses import JSONResponse
-
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token ausente o malformado")
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Token inválido o expirado")
-        if "vno_id" in payload:
-            if payload["vno_id"] not in VNOS:
-                raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
-                raise HTTPException(status_code=403, detail="Scope insuficiente")
-        elif "role" in payload:
-            if "activation:write" not in payload.get("permissions", []):
-                raise HTTPException(status_code=403, detail="Rol sin permiso de modificación")
-        else:
-            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
-
-        body = await request.json()
-        ont_id = body.get("ont_id")
-        modification_type = body.get("modification_type", "")
-        speed_profile = body.get("new_speed_profile", "")
-
-        # Centinela MOD-22: remove_service no soportado en Nokia FTTH.
-        # Huawei MA5800 sí soporta la eliminación de service-ports individuales.
-        # Nokia OLTs usan nombres sin "-002"/"-003"; Huawei usan OLT-SAN-002 / OLT-VAL-003.
-        _HUAWEI_OLTS = {"OLT-SAN-002", "OLT-VAL-003"}
-        olt_name = body.get("olt_name", "")
-        if modification_type == "remove_service" and olt_name not in _HUAWEI_OLTS:
-            return JSONResponse(status_code=422, content={
-                "error_code": "KMD-4001",
-                "error_message": "SERVICE_REMOVE no soportado en FTTH — usar baja completa si el cliente no quiere ningún servicio",
-            })
-
-        # Centinela MOD-23: perfil de velocidad que no existe en la OLT.
-        # Komands valida el catálogo antes de enviar comandos a la red.
-        # KMD-2004 = NOT_FOUND/perfil no encontrado (AnexoH v2.2 — no existe KMD-4003).
-        if speed_profile == "PERFIL_INVALIDO":
-            return JSONResponse(status_code=422, content={
-                "error_code": "KMD-2004",
-                "error_message": "Perfil de velocidad no encontrado — verificar catálogo de perfiles en la OLT",
-            })
-
-        # Centinela MOD-18/19: ONT no encontrado en la OLT
-        if ont_id == 8888:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-2002",
-                "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
-            }
-
-        # Centinela MOD-20/21: timeout esperando respuesta CLI de la OLT (KMD-5020)
-        if ont_id == 7777:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-5020",
-                "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes",
-            }
-
-        return {
-            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "ACCEPTED",
-            "message": "Modificación encolada",
-        }
-
-    # ── /reset-ont ─────────────────────────────────────────────────────────────
-    @app.post("/api/Komands/v1/reset-ont", status_code=202)
-    async def reset_ont(request: Request):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token ausente o malformado")
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Token inválido o expirado")
-        if "vno_id" in payload:
-            if payload["vno_id"] not in VNOS:
-                raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
-                raise HTTPException(status_code=403, detail="Scope insuficiente")
-        elif "role" in payload:
-            if "activation:write" not in payload.get("permissions", []):
-                raise HTTPException(status_code=403, detail="Rol sin permiso de reset")
-        else:
-            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
-
-        body = await request.json()
-        ont_id = body.get("ont_id")
-
-        # Centinela RST-16/17: ONT no encontrado — la OLT no tiene ese ID
-        if ont_id == 8888:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-2002",
-                "error_message": "ONT no encontrado en la OLT — verificar que el ID sea correcto en ServiceNow",
-            }
-
-        # Centinela RST-20/21: ONT offline — existe en la OLT pero sin señal óptica
-        # KMD-2003 = ONT_OFFLINE: equipo configurado pero no responde (sin luz, apagado)
-        if ont_id == 6666:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-2003",
-                "error_message": "ONT offline — sin señal óptica. Verificar alimentación y fibra del cliente",
-            }
-
-        # Centinela RST-18/19: timeout esperando respuesta CLI de la OLT (KMD-5020)
-        if ont_id == 7777:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-5020",
-                "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes",
-            }
-
-        return {
-            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "ACCEPTED",
-            "message": "Reset encolado",
-        }
-
-    # ── /device-modification — swap de ONT ────────────────────────────────────
-    @app.post("/api/Komands/v1/device-modification", status_code=202)
-    async def device_modification(request: Request):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token ausente o malformado")
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Token inválido o expirado")
-        if "vno_id" in payload:
-            if payload["vno_id"] not in VNOS:
-                raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
-                raise HTTPException(status_code=403, detail="Scope insuficiente")
-        elif "role" in payload:
-            if "activation:write" not in payload.get("permissions", []):
-                raise HTTPException(status_code=403, detail="Rol sin permiso de swap")
-        else:
-            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
-
-        body = await request.json()
-
-        # Centinela ONT-16: alta del ONT nuevo falla → swap asimétrico → ROLLED_BACK.
-        # El ONT viejo ya fue dado de baja y no puede recuperarse automáticamente.
-        # KMD-5021 = CLI_TIMEOUT en paso crítico con rollback automático (AnexoH v2.2).
-        if body.get("new_serial_ont") == "FAIL00000000":
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-5021",
-                "error_message": "Baja del ONT viejo exitosa, pero alta del ONT nuevo falló — escalar a Ingeniería de Redes",
-                "warning": "ONT viejo no recuperable automáticamente",
-            }
-
-        # Centinela ONT-17/18: VLAN_CONFLICT — el ONT ID ya está ocupado en el puerto.
-        # Komands deshace lo que hizo y reporta ROLLED_BACK.
-        # KMD-3001 = CONFLICT/ONT ID ya ocupado en el puerto (AnexoH v2.2).
-        if body.get("new_serial_ont") == "VLAN00000000":
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-3001",
-                "error_message": "VLAN_CONFLICT: la VLAN asignada al nuevo ONT ya está en uso en este puerto PON — revisar planeamiento de VLANs",
-            }
-
-        # Centinela ONT-19: ONT viejo no encontrado — fallo en paso 1 del swap
-        # KMD-2002 = recurso no encontrado (mismo código que en baja)
-        if body.get("ont_id") == 8888:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "FAILED",
-                "error_code": "KMD-2002",
-                "error_message": "ONT no encontrado en la OLT — no se puede iniciar el swap sin el equipo origen",
-            }
-
-        # Centinela ONT-20: serial del ONT nuevo ya está en otra OLT
-        # KMD-3002 = serial duplicado (distinct de KMD-3001 que es VLAN conflict)
-        if body.get("new_serial_ont") == "DUPL00000000":
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-3002",
-                "error_message": "Serial duplicado: el ONT nuevo ya está registrado en otra OLT — verificar si fue instalado en otro cliente",
-            }
-
-        return {
-            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "ACCEPTED",
-            "message": "Cambio de equipo encolado",
-        }
-
-    # ── /fiber-change — migración de ONT entre puertos PON / OLTs ──────────────
-    @app.post("/api/Komands/v1/fiber-change", status_code=202)
-    async def fiber_change(request: Request):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token ausente o malformado")
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="Token inválido o expirado")
-        if "vno_id" in payload:
-            if payload["vno_id"] not in VNOS:
-                raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
-                raise HTTPException(status_code=403, detail="Scope insuficiente")
-        elif "role" in payload:
-            if "activation:write" not in payload.get("permissions", []):
-                raise HTTPException(status_code=403, detail="Rol sin permiso de cambio de fibra")
-        else:
-            raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
-
-        body = await request.json()
-
-        # Centinela FIB-07: posición destino ocupada (new_ont_id=9000)
-        # KMD-3003 = posición de destino ya en uso por otro cliente
-        if body.get("new_ont_id") == 9000:
-            return {
-                "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                "status": "ROLLED_BACK",
-                "error_code": "KMD-3003",
-                "error_message": "Posición destino ocupada: ONT ID en el puerto de destino ya está asignado a otro cliente",
-            }
-
-        return {
-            "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "status": "ACCEPTED",
-            "message": "Cambio de fibra encolado",
-        }
-
-    # ── GET /access/{access_id} — consulta estado ONT ─────────────────────────
-    # Retorna 404 para el access_id centinela "NOTFOUND" (usado en QRY-003)
+    # ── GET /access/{access_id} (mock-only, retrocompat test_queries.py) ──────
     @app.get("/api/Komands/v1/access/{access_id}")
     async def query_access(access_id: str, request: Request):
         payload = _decode_portal_token(request)
@@ -975,41 +958,30 @@ def _build_test_app() -> FastAPI:
             "source": "cache",
         }
 
-    # ── GET /port-occupancy — consulta ocupación PON ──────────────────────────
+    # ── GET /port-occupancy (mock-only) ───────────────────────────────────────
     @app.get("/api/Komands/v1/port-occupancy")
     async def port_occupancy(request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
         return {"max_onts": 128, "active_onts": 87, "available": 41}
 
-    # ── GET /transaction/{txn_id} — ya existía, actualizado con 404 ──────────
-    # Retorna 404 para el UUID centinela de ceros (usado en QRY-006)
-    @app.get("/api/Komands/v1/transaction/{txn_id}/status")
-    async def get_transaction_status(txn_id: str, request: Request):
+    # ── GET /transaction/{txn_id}/status (mock-only, retrocompat test_queries) ─
+    @app.get("/api/Komands/v1/transaction/{txn_id_path}/status")
+    async def get_transaction_status(txn_id_path: str, request: Request):
         payload = _decode_portal_token(request)
         _require_permission(payload, "transaction:read")
-        if txn_id == "00000000-0000-0000-0000-000000000000":
+        if txn_id_path == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
-        return {"txn_id": txn_id, "status": "COMPLETED", "steps": []}
+        return {"txn_id": txn_id_path, "status": "COMPLETED", "steps": []}
 
-    # ── /internal/complete — simula que un worker terminó y hay que notificar ─
-    #
-    # En producción, cuando el worker de fondo termina de ejecutar comandos en
-    # la OLT, Komands llama a la callback_url que vino en el request original.
-    # Este endpoint simula ese momento: recibe el resultado y dispara el HTTP
-    # POST a ServiceNow para que pueda cerrar la orden de trabajo.
-    #
-    # Si ServiceNow no está disponible, Komands no debe crashear — informa el
-    # fallo con ok=False para que el sistema de reintentos lo procese después.
+    # ── POST /internal/complete — simula worker terminado → callback ──────────
     @app.post("/api/Komands/v1/internal/complete", status_code=200)
     async def complete_operation(request: Request):
         body = await request.json()
-        txn_id = body.get("txn_id", "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+        txn_id = body.get("txn_id", _FIXED_UUID)
         status = body.get("status", "COMPLETED")
         callback_url = body.get("callback_url")
 
-        # Construye el payload que Komands enviará a ServiceNow
-        # Contrato completo per AnexoH v2.2 — todos los campos son obligatorios
         callback_payload = {
             "txn_id": txn_id,
             "correlation_id": body.get("correlation_id", str(uuid.uuid4())),
@@ -1018,13 +990,11 @@ def _build_test_app() -> FastAPI:
             "operation": body.get("operation", "activation"),
             "vno_code": body.get("vno_code", body.get("vno_id", "DTV")),
             "olt_name": body.get("olt_name", "OLT-SAN-001"),
-            "started_at": body.get("started_at", "2026-06-09T10:00:00Z"),
-            "completed_at": body.get("completed_at", "2026-06-09T10:00:45Z"),
+            "started_at": body.get("started_at", "2026-06-16T10:00:00Z"),
+            "completed_at": body.get("completed_at", "2026-06-16T10:00:45Z"),
             "duration_ms": body.get("duration_ms", 1250),
             "steps": body.get("steps", []),
         }
-        # Para FAILED / ROLLED_BACK / ROLLED_BACK_FAILED se requiere objeto error
-        # con retryable para que ServiceNow sepa si puede reintentar automáticamente
         if status in ("FAILED", "ROLLED_BACK", "ROLLED_BACK_FAILED"):
             callback_payload["error"] = {
                 "code": body.get("error_code", ""),
@@ -1043,7 +1013,6 @@ def _build_test_app() -> FastAPI:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.post(callback_url, json=callback_payload)
                 if resp.status_code >= 400:
-                    # Callback falló — verificar si se agotaron los reintentos
                     if attempt >= max_attempts:
                         return {
                             "ok": False,
@@ -1054,8 +1023,6 @@ def _build_test_app() -> FastAPI:
                     return {"ok": False, "callback_http_status": resp.status_code}
                 return {"ok": True, "callback_http_status": resp.status_code}
         except Exception as exc:
-            # ServiceNow no respondió: registrar el fallo pero no crashear.
-            # En producción este caso entraría a una cola de reintentos.
             return {"ok": False, "error": str(exc), "callback_http_status": None}
 
     return app
@@ -1068,36 +1035,20 @@ def test_client() -> CapturingTestClient:
 
 
 # ─── Mini app con Feature Flags e Idempotencia ────────────────────────────────
-#
-# Versión separada de la app con dos capacidades extra:
-#   1. Feature flags por VNO/producto — activa o desactiva el flujo Komands
-#   2. Idempotencia — detecta txn_id duplicados y no re-ejecuta
-#
-# Se usa una clase AppState para guardar el estado entre requests dentro
-# de un mismo test, y se crea una instancia fresca por cada test (función).
 
 class AppState:
     """Estado mutable de la mini app — se resetea por cada test."""
     def __init__(self):
-        # {"DTV": {"FTTH": True, "SSAA": False}}
-        # Si el producto es None, aplica a todos los productos de esa VNO
         self.flags: dict = {}
-        # {txn_id: response_data} — idempotencia por txn_id (IDEM-01)
         self.seen_txns: dict = {}
-        # {external_order_id: response_data} — idempotencia por orden (IDEM-03)
-        # Cubre el caso donde SN no recibió el txn_id (timeout de red)
         self.seen_orders: dict = {}
 
     def is_enabled(self, vno_id: str, product: str) -> bool:
-        """Retorna True si el flujo Komands está activo para esa VNO+producto."""
         vno_flags = self.flags.get(vno_id, {})
-        # Primero busca el flag específico de producto
         if product in vno_flags:
             return vno_flags[product]
-        # Si no hay flag de producto, busca el flag global de la VNO
         if "_all" in vno_flags:
             return vno_flags["_all"]
-        # Sin flag explícito → habilitado por defecto
         return True
 
 
@@ -1105,12 +1056,11 @@ def _build_flagged_app(state: AppState) -> FastAPI:
     """Mini app que soporta feature flags e idempotencia."""
     app = FastAPI()
 
-    # Endpoint para controlar flags desde los tests (simula panel admin)
     @app.post("/test/feature-flags")
     async def set_flag(request: Request):
         data = await request.json()
         vno = data["vno_id"]
-        product = data.get("product")   # None = aplica a todos
+        product = data.get("product")
         enabled = data["enabled"]
         if vno not in state.flags:
             state.flags[vno] = {}
@@ -1118,8 +1068,9 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         state.flags[vno][key] = enabled
         return {"ok": True, "vno_id": vno, "product": product, "enabled": enabled}
 
+    @app.post("/api/Komands/v1/service-activation", status_code=202)
     @app.post("/api/Komands/v1/activation", status_code=202)
-    async def activation(request: Request):
+    async def activation_flagged(request: Request):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Token ausente")
@@ -1129,28 +1080,22 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         except JWTError:
             raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
-        # Extraer VNO e identificar tipo de token
         if "vno_id" in payload:
             vno_id = payload["vno_id"]
             if vno_id not in VNOS:
                 raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
+            if "komands:provision" not in payload.get("scope", ""):
                 raise HTTPException(status_code=403, detail="Scope insuficiente")
         elif "role" in payload:
-            vno_id = "DTV"  # portal web usa VNO del payload del body
+            vno_id = "DTV"
             if "activation:write" not in payload.get("permissions", []):
                 raise HTTPException(status_code=403, detail="Sin permiso de activación")
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
-        # Extraer datos del body para verificar feature flag
         body = await request.json()
-        product = body.get("service_type", "FTTH")
+        product = _body_product(body)
 
-        # ── Feature Flag ──────────────────────────────────────────────────────
-        # Si el flag está desactivado para esta VNO+producto, Komands no procesa
-        # la operación. ServiceNow debe usar BluePlanet en su lugar.
-        # Fuente: docs/05_gaps_seguridad.md → FF-01, FF-03
         if not state.is_enabled(vno_id, product):
             from fastapi.responses import JSONResponse
             return JSONResponse(status_code=200, content={
@@ -1159,27 +1104,29 @@ def _build_flagged_app(state: AppState) -> FastAPI:
                 "redirect": "blueplanet",
             })
 
-        # ── Idempotencia por txn_id (IDEM-01/02) ─────────────────────────────
-        # Si el txn_id ya fue procesado, devolvemos el resultado anterior
-        # sin re-ejecutar la operación en la OLT.
-        # Fuente: Anexo E → "duplicado retorna UUID existente con HTTP 200"
         txn_id = body.get("txn_id")
         if txn_id and txn_id in state.seen_txns:
             from fastapi.responses import JSONResponse
             return JSONResponse(status_code=200, content=state.seen_txns[txn_id])
 
-        # ── Idempotencia por external_order_id (IDEM-03) ─────────────────────
-        # SN puede reintentar sin saber el txn_id (timeout antes de recibir el 202).
-        # Si reconocemos el external_order_id, devolvemos el txn_id original.
-        # Fuente: Plan v1 PV-IDP-002.
-        external_order_id = body.get("external_order_id")
+        external_order_id = (
+            body.get("u_identification", {}).get("u_access_id")
+            or body.get("external_order_id")
+        )
         if not txn_id and external_order_id and external_order_id in state.seen_orders:
             from fastapi.responses import JSONResponse
             return JSONResponse(status_code=200, content=state.seen_orders[external_order_id])
 
-        # Registrar la transacción
-        assigned_txn_id = txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        assigned_txn_id = txn_id or _FIXED_UUID
         result = {
+            "result": {
+                "u_uuid": assigned_txn_id,
+                "u_return_code": "0",
+                "u_return_code_desc": "Solicitud aceptada",
+                "u_timestamp": _FIXED_TS,
+                "u_time": "0.001s",
+                "u_status": "COMPLETED",
+            },
             "txn_id": assigned_txn_id,
             "status": "ACCEPTED",
             "message": "Transacción encolada",
@@ -1191,7 +1138,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
 
         return result
 
-    # ── /unsuscription con Feature Flag e Idempotencia ────────────────────────
+    @app.post("/api/Komands/v1/unsubscription", status_code=202)
     @app.post("/api/Komands/v1/unsuscription", status_code=202)
     async def unsuscription_flagged(request: Request):
         auth = request.headers.get("Authorization", "")
@@ -1206,7 +1153,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
             vno_id = payload["vno_id"]
             if vno_id not in VNOS:
                 raise HTTPException(status_code=403, detail="VNO no autorizada")
-            if "komands:write" not in payload.get("scope", ""):
+            if "komands:provision" not in payload.get("scope", ""):
                 raise HTTPException(status_code=403, detail="Scope insuficiente")
         elif "role" in payload:
             vno_id = "DTV"
@@ -1216,7 +1163,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
         body = await request.json()
-        product = body.get("service_type", "FTTH")
+        product = _body_product(body)
 
         if not state.is_enabled(vno_id, product):
             from fastapi.responses import JSONResponse
@@ -1232,7 +1179,15 @@ def _build_flagged_app(state: AppState) -> FastAPI:
             return JSONResponse(status_code=200, content=state.seen_txns[txn_id])
 
         result = {
-            "txn_id": txn_id or "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "result": {
+                "u_uuid": txn_id or _FIXED_UUID,
+                "u_return_code": "0",
+                "u_return_code_desc": "Solicitud aceptada",
+                "u_timestamp": _FIXED_TS,
+                "u_time": "0.001s",
+                "u_status": "COMPLETED",
+            },
+            "txn_id": txn_id or _FIXED_UUID,
             "status": "ACCEPTED",
             "message": "Baja encolada",
         }
@@ -1245,13 +1200,11 @@ def _build_flagged_app(state: AppState) -> FastAPI:
 
 @pytest.fixture
 def ff_state() -> AppState:
-    """Estado fresco para cada test de feature flags. Se resetea automáticamente."""
     return AppState()
 
 
 @pytest.fixture
 def ff_client(ff_state: AppState) -> CapturingTestClient:
-    """Cliente con app fresca — flags e idempotencia reseteados para cada test."""
     return CapturingTestClient(_build_flagged_app(ff_state), raise_server_exceptions=False)
 
 
@@ -1280,8 +1233,6 @@ def mock_huawei_ssh():
         mock_connect.return_value.__exit__ = MagicMock(return_value=False)
         yield conn
 
-
-# ─── Fixture de cliente HTTP ──────────────────────────────────────────────────
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:

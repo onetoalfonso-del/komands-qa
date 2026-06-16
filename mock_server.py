@@ -14,6 +14,7 @@ Luego en otra terminal:
 
 Puerto: 8000
 JWT Secret: test-secret-komands-qa (solo válido en este mock — no es producción)
+Spec: openapi.json v2.2.3
 """
 import time
 import uuid
@@ -24,10 +25,49 @@ from jose import jwt, JWTError
 
 JWT_SECRET = "test-secret-komands-qa"
 JWT_ALGORITHM = "HS256"
-VNOS = ["DTV", "CVTR", "ENTEL", "TCH"]
+VNOS = ["DTV", "CVTR", "VTR", "ENTEL", "TCH"]
 _HUAWEI_OLTS = {"OLT-SAN-002", "OLT-VAL-003"}
 
-app = FastAPI(title="Komands Mock Server — Local QA", version="1.0.0")
+_FIXED_UUID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+_FIXED_TS = "2026-06-16T00:00:00Z"
+
+app = FastAPI(title="Komands Mock Server — Local QA", version="2.2.3")
+
+
+# ─── Helpers de respuesta (StandardResponse) ─────────────────────────────────
+
+def _ok(msg: str = "Solicitud aceptada para procesamiento") -> dict:
+    return {
+        "result": {
+            "u_uuid": _FIXED_UUID,
+            "u_return_code": "0",
+            "u_return_code_desc": msg,
+            "u_timestamp": _FIXED_TS,
+            "u_time": "0.001s",
+            "u_status": "COMPLETED",
+        },
+        "txn_id": _FIXED_UUID,
+        "status": "ACCEPTED",
+        "message": msg,
+    }
+
+
+def _err(return_code: str, desc: str, error_code: str, u_status: str = "FAILED", msg: str = "") -> dict:
+    return {
+        "result": {
+            "u_uuid": _FIXED_UUID,
+            "u_return_code": return_code,
+            "u_return_code_desc": desc,
+            "u_timestamp": _FIXED_TS,
+            "u_time": "0.001s",
+            "u_status": u_status,
+            "u_error_code": error_code,
+        },
+        "txn_id": _FIXED_UUID,
+        "status": u_status,
+        "error_code": error_code,
+        "error_message": msg or desc,
+    }
 
 
 # ─── Helpers de auth ──────────────────────────────────────────────────────────
@@ -42,12 +82,12 @@ def _decode(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
 
-def _require_write(payload: dict) -> None:
+def _require_provision(payload: dict) -> None:
     if "vno_id" in payload:
         if payload["vno_id"] not in VNOS:
             raise HTTPException(status_code=403, detail="VNO no autorizada")
-        if "komands:write" not in payload.get("scope", ""):
-            raise HTTPException(status_code=403, detail="Scope insuficiente")
+        if "komands:provision" not in payload.get("scope", ""):
+            raise HTTPException(status_code=403, detail="Scope insuficiente — requiere komands:provision")
     elif "role" in payload:
         if "activation:write" not in payload.get("permissions", []):
             raise HTTPException(status_code=403, detail="Sin permiso de escritura")
@@ -55,12 +95,13 @@ def _require_write(payload: dict) -> None:
         raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
 
-def _require_read(payload: dict) -> None:
+def _require_query(payload: dict) -> None:
     if "vno_id" in payload:
         if payload["vno_id"] not in VNOS:
             raise HTTPException(status_code=403, detail="VNO no autorizada")
-        if "komands:read" not in payload.get("scope", "") and "komands:write" not in payload.get("scope", ""):
-            raise HTTPException(status_code=403, detail="Scope insuficiente")
+        scope = payload.get("scope", "")
+        if "komands:query" not in scope and "komands:provision" not in scope:
+            raise HTTPException(status_code=403, detail="Scope insuficiente — requiere komands:query")
     elif "role" in payload:
         if "transaction:read" not in payload.get("permissions", []):
             raise HTTPException(status_code=403, detail="Sin permiso de lectura")
@@ -68,24 +109,78 @@ def _require_read(payload: dict) -> None:
         raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
 
-def _ack(message: str = "Operación encolada") -> dict:
-    return {
-        "txn_id": str(uuid.uuid4()),
-        "status": "ACCEPTED",
-        "message": message,
-    }
+# ─── Helpers de extracción de campos (family-format con flat fallback) ────────
+
+def _ont_id(body: dict) -> int:
+    try:
+        val = body.get("ont_id")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    try:
+        val = body.get("u_routing", {}).get("u_ontid")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    return 0
+
+
+def _new_ont_id(body: dict) -> int:
+    try:
+        val = body.get("new_ont_id")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    try:
+        val = body.get("u_routing_new", {}).get("u_ontid")
+        if val is not None:
+            return int(val)
+    except (ValueError, TypeError):
+        pass
+    return 0
+
+
+def _new_serial(body: dict) -> str:
+    s = body.get("new_serial_ont") or body.get("new_serial") or ""
+    if not s:
+        s = body.get("u_identification", {}).get("u_new_serialnumber", "")
+    return s
+
+
+def _mod_type(body: dict) -> str:
+    t = body.get("modification_type", "")
+    if not t:
+        t = body.get("u_action", {}).get("u_type", "")
+    return t.lower() if t else ""
+
+
+def _olt_name(body: dict) -> str:
+    name = body.get("olt_name", "")
+    if not name:
+        name = body.get("u_routing", {}).get("u_olt", "")
+    return name
+
+
+def _speed_profile(body: dict) -> str:
+    p = body.get("new_speed_profile", "") or body.get("speed_profile", "")
+    if not p:
+        p = body.get("u_qos", {}).get("u_speed_profile", "")
+    return p
 
 
 # ─── Endpoint de utilidad: genera token para Newman/Postman local ─────────────
 
 @app.get("/test/token")
-def get_test_token(vno: str = "DTV", scope: str = "komands:write komands:read"):
+def get_test_token(vno: str = "DTV", scope: str = "komands:provision komands:query"):
     """Genera un JWT válido para pruebas locales con Newman. NO usar en producción."""
     payload = {
         "sub": "servicenow-client",
         "vno_id": vno,
         "scope": scope,
-        "exp": int(time.time()) + 86400,  # 24 horas
+        "exp": int(time.time()) + 86400,
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {"token": token, "vno": vno, "expires_in": 86400}
@@ -106,134 +201,170 @@ def get_portal_token():
 
 # ─── 01 Baja de acceso ────────────────────────────────────────────────────────
 
+@app.post("/api/Komands/v1/unsubscription", status_code=202)
 @app.post("/api/Komands/v1/unsuscription", status_code=202)
-async def unsuscription(request: Request):
-    _require_write(_decode(request))
+async def unsubscription(request: Request):
+    _require_provision(_decode(request))
     body = await request.json()
-    ont_id = body.get("ont_id")
+    ont_id = _ont_id(body)
 
     if ont_id == 9999:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-2002", "error_message": "No se pudo resolver el INDEX dinámico del service-port Huawei"}
+        return _err("20", "No se pudo resolver el INDEX dinámico del service-port Huawei", "KMD-2002")
     if ont_id == 9998:
-        return {"txn_id": str(uuid.uuid4()), "status": "ROLLED_BACK",
-                "error_code": "KMD-2002", "error_message": "INDEX parcial — rollback ejecutado"}
+        return _err("120", "INDEX parcial — rollback ejecutado", "KMD-2002", u_status="ROLLED_BACK")
     if ont_id == 8888:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-2002", "error_message": "ONT no encontrado en la OLT"}
+        return _err("10", "ONT no encontrado en la OLT", "KMD-2002")
     if ont_id == 7777:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-5020", "error_message": "Timeout esperando respuesta de la OLT"}
+        return _err("50", "Timeout esperando respuesta de la OLT", "KMD-5020")
 
-    return _ack("Baja encolada")
+    return _ok("Baja encolada")
 
 
-# ─── 02 Activación ───────────────────────────────────────────────────────────
+# ─── 02 Activación (service-activation) ──────────────────────────────────────
 
+@app.post("/api/Komands/v1/service-activation", status_code=202)
 @app.post("/api/Komands/v1/activation", status_code=202)
-async def activation(request: Request):
-    _require_write(_decode(request))
-    return _ack("Activación encolada")
+async def service_activation(request: Request):
+    _require_provision(_decode(request))
+    return _ok("Activación encolada")
 
 
-# ─── 03 Modificación ─────────────────────────────────────────────────────────
+# ─── 03 Modificación de servicio ─────────────────────────────────────────────
 
+@app.post("/api/Komands/v1/service-modification", status_code=202)
 @app.post("/api/Komands/v1/modification", status_code=202)
-async def modification(request: Request):
-    _require_write(_decode(request))
+async def service_modification(request: Request):
+    _require_provision(_decode(request))
     body = await request.json()
-    ont_id = body.get("ont_id")
-    modification_type = body.get("modification_type", "")
-    olt_name = body.get("olt_name", "")
+    ont_id = _ont_id(body)
+    mod_type = _mod_type(body)
+    olt = _olt_name(body)
 
-    if modification_type == "remove_service" and olt_name not in _HUAWEI_OLTS:
+    if mod_type in ("remove_service", "remove service") and olt not in _HUAWEI_OLTS:
         return JSONResponse(status_code=422, content={
             "error_code": "KMD-4001",
-            "error_message": "remove_service no soportado en Nokia FTTH — usar baja completa"})
-    if body.get("new_speed_profile") == "PERFIL_INVALIDO":
+            "error_message": "remove_service no soportado en Nokia FTTH — usar baja completa",
+        })
+    if _speed_profile(body) == "PERFIL_INVALIDO":
         return JSONResponse(status_code=422, content={
-            "error_code": "KMD-2004", "error_message": "Perfil de velocidad no encontrado"})
+            "error_code": "KMD-2004",
+            "error_message": "Perfil de velocidad no encontrado",
+        })
     if ont_id == 8888:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-2002", "error_message": "ONT no encontrado en la OLT"}
+        return _err("10", "ONT no encontrado en la OLT", "KMD-2002")
     if ont_id == 7777:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-5020", "error_message": "Timeout esperando respuesta de la OLT"}
+        return _err("50", "Timeout esperando respuesta de la OLT", "KMD-5020")
 
-    return _ack("Modificación encolada")
+    return _ok("Modificación encolada")
 
 
 # ─── 04 Cambio de equipo (swap ONT) ──────────────────────────────────────────
 
 @app.post("/api/Komands/v1/device-modification", status_code=202)
 async def device_modification(request: Request):
-    _require_write(_decode(request))
+    _require_provision(_decode(request))
     body = await request.json()
+    new_serial = _new_serial(body)
+    ont_id = _ont_id(body)
 
-    if body.get("new_serial_ont") == "FAIL00000000":
-        return {"txn_id": str(uuid.uuid4()), "status": "ROLLED_BACK",
-                "error_code": "KMD-5021", "error_message": "Alta del ONT nuevo falló — escalar a Redes"}
-    if body.get("new_serial_ont") == "VLAN00000000":
-        return {"txn_id": str(uuid.uuid4()), "status": "ROLLED_BACK",
-                "error_code": "KMD-3001", "error_message": "VLAN_CONFLICT en el puerto de destino"}
-    if body.get("ont_id") == 8888:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-2002", "error_message": "ONT no encontrado — no se puede iniciar el swap"}
-    if body.get("new_serial_ont") == "DUPL00000000":
-        return {"txn_id": str(uuid.uuid4()), "status": "ROLLED_BACK",
-                "error_code": "KMD-3002", "error_message": "Serial duplicado — ONT ya registrado en otra OLT"}
+    if new_serial == "FAIL00000000":
+        resp = _err("115", "Alta del ONT nuevo falló — escalar a Redes", "KMD-5021", u_status="ROLLED_BACK")
+        resp["warning"] = "ONT viejo no recuperable automáticamente"
+        return resp
+    if new_serial == "VLAN00000000":
+        return _err("120", "VLAN_CONFLICT en el puerto de destino", "KMD-3001", u_status="ROLLED_BACK")
+    if ont_id == 8888:
+        return _err("10", "ONT no encontrado — no se puede iniciar el swap", "KMD-2002")
+    if new_serial == "DUPL00000000":
+        return _err("20", "Serial duplicado — ONT ya registrado en otra OLT", "KMD-3002", u_status="ROLLED_BACK")
 
-    return _ack("Cambio de equipo encolado")
+    return _ok("Cambio de equipo encolado")
 
 
 # ─── 05 Cambio de fibra ───────────────────────────────────────────────────────
 
 @app.post("/api/Komands/v1/fiber-change", status_code=202)
 async def fiber_change(request: Request):
-    _require_write(_decode(request))
+    _require_provision(_decode(request))
     body = await request.json()
 
-    if body.get("new_ont_id") == 9000:
-        return {"txn_id": str(uuid.uuid4()), "status": "ROLLED_BACK",
-                "error_code": "KMD-3003", "error_message": "Posición destino ocupada"}
+    if _new_ont_id(body) == 9000:
+        return _err("120", "Posición destino ocupada", "KMD-3003", u_status="ROLLED_BACK")
 
-    return _ack("Cambio de fibra encolado")
+    return _ok("Cambio de fibra encolado")
 
 
 # ─── 06 Reset ONT ────────────────────────────────────────────────────────────
 
 @app.post("/api/Komands/v1/reset-ont", status_code=202)
 async def reset_ont(request: Request):
-    _require_write(_decode(request))
+    _require_provision(_decode(request))
     body = await request.json()
-    ont_id = body.get("ont_id")
+    ont_id = _ont_id(body)
 
     if ont_id == 8888:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-2002", "error_message": "ONT no encontrado en la OLT"}
+        return _err("10", "ONT no encontrado en la OLT", "KMD-2002")
     if ont_id == 6666:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-2003", "error_message": "ONT offline — sin señal óptica"}
+        return _err("20", "ONT offline — sin señal óptica", "KMD-2003")
     if ont_id == 7777:
-        return {"txn_id": str(uuid.uuid4()), "status": "FAILED",
-                "error_code": "KMD-5020", "error_message": "Timeout esperando respuesta de la OLT"}
+        return _err("50", "Timeout esperando respuesta de la OLT", "KMD-5020")
 
-    return _ack("Reset encolado")
+    return _ok("Reset encolado")
 
 
-# ─── 07 Consultas síncronas ───────────────────────────────────────────────────
+# ─── 07 Traspaso PON (pon-transfer) ──────────────────────────────────────────
+
+@app.post("/api/Komands/v1/pon-transfer", status_code=202)
+async def pon_transfer(request: Request):
+    _require_provision(_decode(request))
+    body = await request.json()
+
+    if _new_ont_id(body) == 9000:
+        return _err("120", "Posición destino ocupada", "KMD-3003", u_status="ROLLED_BACK")
+
+    return _ok("Traspaso PON encolado")
+
+
+# ─── 08 Cancelación ──────────────────────────────────────────────────────────
+
+@app.post("/api/Komands/v1/cancel-order", status_code=202)
+async def cancel_order(request: Request):
+    _require_provision(_decode(request))
+    body = await request.json()
+    cancel_target = body.get("cancel_txn_id", "") or body.get("u_action", {}).get("u_cancel_txn_id", "")
+
+    if cancel_target == "00000000-0000-0000-0000-000000000000":
+        return _err("10", "Transacción no encontrada o ya finalizada", "KMD-2003")
+
+    return _ok("Cancelación encolada")
+
+
+# ─── 09 Consultas síncronas ───────────────────────────────────────────────────
 
 @app.get("/api/Komands/v1/transaction/{txn_id}/status")
 async def get_transaction_status(txn_id: str, request: Request):
-    _require_read(_decode(request))
+    _require_query(_decode(request))
     if txn_id == "00000000-0000-0000-0000-000000000000":
         raise HTTPException(status_code=404, detail="error_code=KMD-2003")
-    return {"txn_id": txn_id, "status": "COMPLETED", "steps": []}
+    return {
+        "txn_id": txn_id,
+        "status": "COMPLETED",
+        "result": {
+            "u_uuid": txn_id,
+            "u_return_code": "0",
+            "u_return_code_desc": "Operación completada",
+            "u_timestamp": _FIXED_TS,
+            "u_time": "0.001s",
+            "u_status": "COMPLETED",
+        },
+        "steps": [],
+    }
 
 
 @app.get("/api/Komands/v1/access/{access_id}")
+@app.get("/api/Komands/v1/query-access/{access_id}")
 async def get_access(access_id: str, request: Request):
-    _require_read(_decode(request))
+    _require_query(_decode(request))
     if access_id == "NOTFOUND":
         raise HTTPException(status_code=404, detail="error_code=KMD-2002")
     return {
@@ -247,7 +378,7 @@ async def get_access(access_id: str, request: Request):
 
 @app.get("/api/Komands/v1/port-occupancy")
 async def port_occupancy(request: Request):
-    _require_read(_decode(request))
+    _require_query(_decode(request))
     return {"max_onts": 128, "active_onts": 87, "available": 41}
 
 
@@ -255,8 +386,9 @@ async def port_occupancy(request: Request):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  Komands Mock Server — Local QA")
+    print("  Komands Mock Server — Local QA  (spec v2.2.3)")
     print("  http://localhost:8000")
     print("  Token: GET http://localhost:8000/test/token")
+    print("  VNOs: DTV | CVTR | VTR | ENTEL | TCH")
     print("=" * 60)
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")

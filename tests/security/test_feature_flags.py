@@ -42,7 +42,7 @@ def _token(vno_id="DTV"):
         {
             "sub": "servicenow-client",
             "vno_id": vno_id,
-            "scope": "komands:write komands:read",
+            "scope": "komands:provision komands:query",
             "exp": int(time.time()) + 3600,
         },
         "test-secret-komands-qa",
