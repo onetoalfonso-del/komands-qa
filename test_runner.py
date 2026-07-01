@@ -36,7 +36,8 @@ SUITES = [
         "label": "T1 — Spec API + Regresión (mock)",
         "desc":  "608 casos pytest · suite completa",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
-                  "--color=no", "--no-header", "-q"],
+                  "--color=no", "--no-header", "-q",
+                  "--ignore=tests/integration"],
         "cwd":   str(ROOT), "report": None, "requires": None,
     },
     {

@@ -97,6 +97,8 @@ def _fetch_token(apim_url: str, consumer_key: str, consumer_secret: str) -> str:
 
 @pytest.fixture(scope="session")
 def apim_env() -> dict:
+    if not _ENV_FILE.exists():
+        pytest.skip(f"Archivo de ambiente no encontrado: {_ENV_FILE}")
     return _load_postman_env()
 
 
