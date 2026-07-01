@@ -395,15 +395,25 @@ HTML = """<!DOCTYPE html>
 <title>KOMANDs QA Runner</title>
 <style>
 :root{
-  --bg:#090B12;--side:#0C0F1C;--sideh:#111526;--card:#111628;--term:#06080F;
-  --brd:#1C2236;--brdl:#141826;
-  --acc:#4B8EF4;--accd:rgba(75,142,244,.14);
+  --bg:#13132A;--side:#1A1A3E;--sideh:#20204A;--card:#181836;--term:#0D0D20;
+  --brd:#262558;--brdl:#1E1E46;
+  --acc:#00C8D4;--accd:rgba(0,200,212,.13);
   --ok:#3DD68C;--okd:rgba(61,214,140,.13);--okb:rgba(61,214,140,.3);
   --err:#FF6B6B;--errd:rgba(255,107,107,.12);--errb:rgba(255,107,107,.28);
   --warn:#FFB347;
-  --txt:#C2CCEB;--txt2:#687099;--txt3:#3C4462;
+  --txt:#DCE2F6;--txt2:#6272A4;--txt3:#353665;
   --mono:'Cascadia Code','Consolas','Courier New',monospace;
   --sans:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;
+  --logo-dark:#DCE2F6;--logo-light:#0D1B3E;
+}
+body.light{
+  --bg:#F2F5FB;--side:#FFFFFF;--sideh:#EBF5F9;--card:#FFFFFF;--term:#F4F7FC;
+  --brd:#DDE4EF;--brdl:#EEF2FA;
+  --acc:#00A8B4;--accd:rgba(0,168,180,.10);
+  --ok:#1A9E5E;--okd:rgba(26,158,94,.10);--okb:rgba(26,158,94,.25);
+  --err:#D94F4F;--errd:rgba(217,79,79,.10);--errb:rgba(217,79,79,.25);
+  --warn:#B87200;
+  --txt:#0D1B3E;--txt2:#4A5A80;--txt3:#9AAAC8;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;font-size:13px}
@@ -414,9 +424,15 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 
 /* SIDEBAR */
 .sb{width:258px;min-width:258px;background:var(--side);border-right:1px solid var(--brd);display:flex;flex-direction:column;overflow:hidden}
-.sb-head{padding:14px 14px 11px;border-bottom:1px solid var(--brd);flex-shrink:0}
-.sb-logo{font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--acc)}
-.sb-sub{font-size:.66rem;color:var(--txt2);margin-top:2px}
+.sb-head{padding:14px 14px 13px;border-bottom:1px solid var(--brd);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:0;line-height:1}
+.sb-logo .k-text{font-size:.95rem;font-weight:800;letter-spacing:.04em;color:var(--txt);font-family:var(--sans)}
+.sb-logo .k-toggle{display:inline-flex;align-items:center;justify-content:center;width:22px;height:14px;border:2px solid var(--acc);border-radius:14px;position:relative;margin:0 1px;vertical-align:middle;flex-shrink:0}
+.sb-logo .k-toggle::after{content:'';position:absolute;width:8px;height:8px;background:var(--acc);border-radius:50%;right:1px;transition:background .2s}
+.sb-logo .k-suffix{font-size:.95rem;font-weight:800;letter-spacing:.04em;color:var(--acc);font-family:var(--sans)}
+.sb-tagline{font-size:.6rem;color:var(--txt2);margin-top:4px;letter-spacing:.01em}
+.sb-tagline span{color:var(--acc)}
+.sb-sub{font-size:.62rem;color:var(--txt3);margin-top:2px;letter-spacing:.01em}
 .sb-list{flex:1;overflow-y:auto;padding:8px 0}
 .sb-list::-webkit-scrollbar{width:3px}
 .sb-list::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
@@ -435,20 +451,22 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .si-txt{flex:1;overflow:hidden}
 .si-name{font-size:.77rem;font-weight:500;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .si-desc{font-size:.66rem;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.run-all{margin:10px 12px 12px;padding:7px;border-radius:6px;background:var(--acc);border:none;color:#fff;font-size:.76rem;font-weight:600;transition:opacity .15s;flex-shrink:0}
+.run-all{margin:10px 12px 12px;padding:7px;border-radius:6px;background:var(--acc);border:none;color:#0D1B3E;font-size:.76rem;font-weight:700;transition:opacity .15s;flex-shrink:0}
 .run-all:hover{opacity:.85}
 .run-all:disabled{opacity:.35;cursor:not-allowed}
 
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .topbar{padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--card);min-height:44px;position:relative}
-.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--acc),rgba(155,122,230,.4) 50%,transparent);opacity:.25;pointer-events:none}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--acc),rgba(0,200,212,.3) 60%,transparent);opacity:.35;pointer-events:none}
+.theme-btn{width:26px;height:26px;border-radius:50%;border:1px solid var(--brd);background:var(--side);color:var(--txt2);font-size:.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s,color .15s;padding:0}
+.theme-btn:hover{border-color:var(--acc);color:var(--acc)}
 .top-title{font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top-status{font-size:.68rem;padding:3px 9px;border-radius:100px;border:1px solid var(--brd);color:var(--txt2);white-space:nowrap;flex-shrink:0;transition:all .2s}
 .top-status.running{border-color:var(--acc);color:var(--acc);background:var(--accd)}
 .top-status.passed{border-color:var(--okb);color:var(--ok);background:var(--okd)}
 .top-status.failed{border-color:var(--errb);color:var(--err);background:var(--errd)}
-.exec-btn{padding:4px 14px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.73rem;font-weight:600;transition:opacity .15s;flex-shrink:0;cursor:pointer}
+.exec-btn{padding:4px 14px;border-radius:5px;border:none;background:var(--acc);color:#0D1B3E;font-size:.73rem;font-weight:700;transition:opacity .15s;flex-shrink:0;cursor:pointer}
 .exec-btn:disabled{opacity:.28;cursor:not-allowed}
 .exec-btn:hover:not(:disabled){opacity:.82}
 .rpt-btn{padding:4px 11px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt2);font-size:.7rem;transition:all .12s;display:none;flex-shrink:0}
@@ -517,8 +535,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 <div class="layout">
   <aside class="sb">
     <div class="sb-head">
-      <div class="sb-logo">KOMANDs QA</div>
-      <div class="sb-sub">Test Runner &middot; localhost:8001</div>
+      <div class="sb-logo">
+        <span class="k-text">K</span><span class="k-toggle"></span><span class="k-text">MANDs</span><span class="k-suffix">s</span>
+      </div>
+      <div class="sb-tagline">Network Command <span>Administrator</span></div>
+      <div class="sb-sub">QA Test Runner</div>
     </div>
     <div class="sb-list" id="sb-list"></div>
     <button class="run-all" id="run-all" onclick="runAll()">&#9654;&nbsp; Ejecutar todos</button>
@@ -531,6 +552,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <button class="rpt-btn" id="rpt-btn" onclick="openReport()">&#128196; Ver reporte</button>
       <button class="rpt-btn" id="dl-btn" onclick="downloadReport()">&#11015; Descargar</button>
       <button class="clr-btn" onclick="clearTerm()">Limpiar</button>
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">☀</button>
     </div>
     <!-- Vista estándar -->
     <div id="std-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -844,6 +866,17 @@ function downloadReport(){
   a.download='reporte_'+rid+'.html';
   a.click();
 }
+function toggleTheme(){
+  var isLight=document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent=isLight?'☾':'☀';
+  localStorage.setItem('kmq-theme',isLight?'light':'dark');
+}
+(function(){
+  if(localStorage.getItem('kmq-theme')==='light'){
+    document.body.classList.add('light');
+    document.getElementById('theme-btn').textContent='☾';
+  }
+})();
 function clearTerm(){
   document.getElementById('term').innerHTML='';
   document.getElementById('rpt-btn').classList.remove('show');
