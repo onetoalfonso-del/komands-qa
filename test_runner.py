@@ -430,6 +430,7 @@ async def api_health():
             "all_custom_keys": [k for k in os.environ if k.startswith(("SN_", "APIM_", "DEV_", "VNO"))],
             "railway_keys": [k for k in os.environ if "RAILWAY" in k],
             "port": os.environ.get("PORT", "NOT_SET"),
+            "all_non_railway_keys": sorted([k for k in os.environ if "RAILWAY" not in k and k not in ("PATH","HOME","USER","SHELL","TERM","LANG","LC_ALL","PWD","OLDPWD","SHLVL","_")]),
         },
         "env_files": {},
         "write_test": None,
