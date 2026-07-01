@@ -37,8 +37,9 @@ SUITES = [
         "desc":  "608 casos pytest · suite completa",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "--color=no", "--no-header", "-q",
-                  "--ignore=tests/integration"],
-        "cwd":   str(ROOT), "report": None, "requires": None,
+                  "--ignore=tests/integration",
+                  "--html=reporte_t1.html", "--self-contained-html"],
+        "cwd":   str(ROOT), "report": str(ROOT / "reporte_t1.html"), "requires": None,
     },
     {
         "id": "t2", "group": "disponible",
@@ -46,8 +47,9 @@ SUITES = [
         "desc":  "Nokia/Huawei · comandos CLI",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "-k", "activation or cli or command",
-                  "--color=no", "--no-header"],
-        "cwd":   str(ROOT), "report": None, "requires": None,
+                  "--color=no", "--no-header",
+                  "--html=reporte_t2.html", "--self-contained-html"],
+        "cwd":   str(ROOT), "report": str(ROOT / "reporte_t2.html"), "requires": None,
     },
     {
         "id": "t3", "group": "disponible",
@@ -55,8 +57,9 @@ SUITES = [
         "desc":  "Parseo Nokia + INDEX Huawei",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "-k", "olt or parsing or response or operation_status",
-                  "--color=no", "--no-header"],
-        "cwd":   str(ROOT), "report": None, "requires": None,
+                  "--color=no", "--no-header",
+                  "--html=reporte_t3.html", "--self-contained-html"],
+        "cwd":   str(ROOT), "report": str(ROOT / "reporte_t3.html"), "requires": None,
     },
     {
         "id": "newman-dev", "group": "disponible",
@@ -215,7 +218,7 @@ def _apply_params(cmd: list, overrides: dict) -> list:
 # ─── FastAPI ──────────────────────────────────────────────────────────────────
 try:
     from fastapi import FastAPI, Request
-    from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+    from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
     import uvicorn
 except ImportError:
     print("Instalar: pip install fastapi \"uvicorn[standard]\"")
@@ -377,8 +380,10 @@ async def api_report(suite_id: str):
     rp = suite.get("report")
     if not rp or not Path(rp).exists():
         return JSONResponse({"error": "Reporte no generado aún."}, status_code=404)
-    webbrowser.open(f"file:///{Path(rp).as_posix()}")
-    return {"ok": True}
+    filename = f"reporte_{suite_id}.html"
+    return FileResponse(rp, media_type="text/html", headers={
+        "Content-Disposition": f'inline; filename="{filename}"'
+    })
 
 
 # ─── UI ───────────────────────────────────────────────────────────────────────
@@ -523,7 +528,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <span class="top-title" id="top-title">KOMANDs QA Runner</span>
       <span class="top-status" id="top-status">Listo</span>
       <button class="exec-btn" id="exec-btn" onclick="executeSelected()" disabled>&#9654; Ejecutar</button>
-      <button class="rpt-btn" id="rpt-btn" onclick="openReport()">Ver reporte HTML</button>
+      <button class="rpt-btn" id="rpt-btn" onclick="openReport()">&#128196; Ver reporte</button>
+      <button class="rpt-btn" id="dl-btn" onclick="downloadReport()">&#11015; Descargar</button>
       <button class="clr-btn" onclick="clearTerm()">Limpiar</button>
     </div>
     <!-- Vista estándar -->
@@ -760,6 +766,7 @@ function _doRun(url, params, s){
   running=true; tStart=Date.now();
   document.getElementById('term').innerHTML='';
   document.getElementById('rpt-btn').classList.remove('show');
+  document.getElementById('dl-btn').classList.remove('show');
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando'); setIco(s.id,'running'); setActive(s.id);
   document.getElementById('run-all').disabled=true;
@@ -805,7 +812,10 @@ function onDone(d,s){
   h+=stat('ok',d.passed||0,'pasados')+'&nbsp;&nbsp;'+stat('err',d.failed||0,'fallidos');
   h+='<span class="st">'+esc(elapsed)+'</span>';
   document.getElementById('summary').innerHTML=h;
-  if(d.has_report){var rb=document.getElementById('rpt-btn');rb.classList.add('show');rb.dataset.rid=d.report_id;}
+  if(d.has_report){
+    var rb=document.getElementById('rpt-btn');rb.classList.add('show');rb.dataset.rid=d.report_id;
+    var db=document.getElementById('dl-btn');db.classList.add('show');db.dataset.rid=d.report_id;
+  }
   document.getElementById('run-all').disabled=false;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=false;
   if(queue.length){var nx=queue.shift();setTimeout(()=>run(nx),350);}
@@ -824,11 +834,20 @@ function runAll(){
 function openReport(){
   var rid=document.getElementById('rpt-btn').dataset.rid;
   if(!rid) return;
-  fetch('/api/report/'+rid).then(r=>r.json()).then(d=>{if(d.error)alert(d.error);});
+  window.open('/api/report/'+rid,'_blank');
+}
+function downloadReport(){
+  var rid=document.getElementById('rpt-btn').dataset.rid;
+  if(!rid) return;
+  var a=document.createElement('a');
+  a.href='/api/report/'+rid;
+  a.download='reporte_'+rid+'.html';
+  a.click();
 }
 function clearTerm(){
   document.getElementById('term').innerHTML='';
   document.getElementById('rpt-btn').classList.remove('show');
+  document.getElementById('dl-btn').classList.remove('show');
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecuta una suite para ver resultados</span>';
   setTop('','KOMANDs QA Runner','Listo');
 }
