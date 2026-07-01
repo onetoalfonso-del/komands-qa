@@ -376,6 +376,26 @@ async def api_run_parallel(request: Request):
                  "Connection": "keep-alive"})
 
 
+_runtime_config: dict = {}
+
+@app.post("/api/config")
+async def api_config(request: Request):
+    """Guarda credenciales APIM en memoria y genera archivos de ambiente."""
+    body = await request.json()
+    ck = body.get("consumer_key", "").strip()
+    cs = body.get("consumer_secret", "").strip()
+    if not ck or not cs:
+        return JSONResponse({"error": "consumer_key y consumer_secret son requeridos"}, status_code=400)
+    _runtime_config["SN_CONSUMER_KEY"] = ck
+    _runtime_config["SN_CONSUMER_SECRET"] = cs
+    os.environ["SN_CONSUMER_KEY"] = ck
+    os.environ["SN_CONSUMER_SECRET"] = cs
+    _generate_env_files()
+    vno03 = (BP_DIR / "VnoB1_vnoid03 PRE.postman_environment.json").exists()
+    vno02 = (BP_DIR / "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json").exists()
+    return JSONResponse({"ok": True, "vno03": vno03, "vno02": vno02})
+
+
 @app.get("/api/health")
 async def api_health():
     import traceback
@@ -388,6 +408,7 @@ async def api_health():
             "SN_CONSUMER_SECRET": "NOT_SET" if "SN_CONSUMER_SECRET" not in os.environ else ("EMPTY" if not os.environ["SN_CONSUMER_SECRET"] else f"SET(len={len(os.environ['SN_CONSUMER_SECRET'])})"),
             "APIM_URL": "NOT_SET" if "APIM_URL" not in os.environ else os.environ["APIM_URL"],
             "all_custom_keys": [k for k in os.environ if k.startswith(("SN_", "APIM_", "DEV_", "VNO"))],
+            "all_keys_sample": sorted(os.environ.keys())[:40],
         },
         "env_files": {},
         "write_test": None,
@@ -548,6 +569,15 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sn-run{width:100%;padding:7px;border-radius:6px;background:var(--ok);border:none;color:#fff;font-size:.77rem;font-weight:700;cursor:pointer;transition:opacity .15s}
 .sn-run:hover{opacity:.85}
 .sn-run:disabled{opacity:.35;cursor:not-allowed}
+
+/* APIM CONFIG */
+.apim-cfg{background:var(--side);border:1px solid var(--brd);border-radius:7px;padding:10px 13px;margin-bottom:8px}
+.apim-cfg-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.apim-cfg-title{font-size:.75rem;font-weight:700;color:var(--txt2)}
+.apim-status{font-size:.68rem;font-weight:600}
+.apim-fields{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.apim-fields .pp-group{flex:1;min-width:160px}
+.apim-fields .sn-run{flex-shrink:0;padding:5px 14px;font-size:.72rem}
 
 /* SN DUAL TERMINAL */
 .sn-terms{display:flex;flex:1;overflow:hidden;min-height:0}
@@ -725,12 +755,23 @@ function renderSNForm(){
     return h;
   }
   var sf=document.getElementById('sn-form');
-  var h='<div class="sn-cards">';
+  var h='<div class="apim-cfg" id="apim-cfg">'
+    +'<div class="apim-cfg-hdr"><span class="apim-cfg-title">&#9881; Credenciales APIM</span>'
+    +'<span class="apim-status" id="apim-status" style="color:var(--warn)">&#9679; Sin configurar</span></div>'
+    +'<div id="apim-fields" class="apim-fields">'
+    +'<div class="pp-group"><label>Consumer Key</label>'
+    +'<input id="apim-ck" placeholder="KJcg..." type="password" autocomplete="off"></div>'
+    +'<div class="pp-group"><label>Consumer Secret</label>'
+    +'<input id="apim-cs" placeholder="wDux..." type="password" autocomplete="off"></div>'
+    +'<button class="sn-run" style="margin-top:4px;background:var(--acc);color:#0D1B3E" onclick="saveApimConfig()">Guardar credenciales</button>'
+    +'</div></div>';
+  h+='<div class="sn-cards">';
   h+=card('03','Entel','#C586C0',s03);
   h+=card('02','ClaroVTR','#4EC9B0',s02);
   h+='</div>';
   h+='<button class="sn-run" id="sn-run-btn" onclick="executeSN()">&#9654; Ejecutar pruebas</button>';
   sf.innerHTML=h; sf.classList.add('show');
+  checkApimConfig();
   document.getElementById('sn-tog-02').onchange=function(){toggleVNO('02');};
   document.getElementById('sn-tog-03').onchange=function(){toggleVNO('03');};
   snEnabled={'02':true,'03':true};
@@ -738,6 +779,40 @@ function renderSNForm(){
   setTop('','Endpoints Services Now','Configura y ejecuta');
 }
 
+function checkApimConfig(){
+  fetch('/api/health').then(function(r){return r.json();}).then(function(d){
+    var ok=d.env_files&&d.env_files['VnoB1_vnoid03 PRE.postman_environment.json'];
+    var st=document.getElementById('apim-status');
+    var fields=document.getElementById('apim-fields');
+    if(!st) return;
+    if(ok){
+      st.textContent='✓ Configurado';st.style.color='var(--ok)';
+      if(fields) fields.style.display='none';
+    }
+  });
+}
+function saveApimConfig(){
+  var ck=(document.getElementById('apim-ck')||{}).value||'';
+  var cs=(document.getElementById('apim-cs')||{}).value||'';
+  if(!ck.trim()||!cs.trim()){alert('Ingresa Consumer Key y Consumer Secret');return;}
+  var st=document.getElementById('apim-status');
+  if(st){st.textContent='Guardando…';st.style.color='var(--warn)';}
+  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({consumer_key:ck.trim(),consumer_secret:cs.trim()})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.ok){
+      if(st){st.textContent='✓ Configurado';st.style.color='var(--ok)';}
+      var fields=document.getElementById('apim-fields');
+      if(fields) fields.style.display='none';
+    } else {
+      alert('Error: '+(d.error||'Desconocido'));
+      if(st){st.textContent='⚠ Error';st.style.color='var(--err)';}
+    }
+  }).catch(function(e){
+    alert('Error de red: '+e);
+    if(st){st.textContent='⚠ Error';st.style.color='var(--err)';}
+  });
+}
 function toggleVNO(vno){
   var tog=document.getElementById('sn-tog-'+vno);
   var card=document.getElementById('sn-card-'+vno);
