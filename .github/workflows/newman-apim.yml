@@ -40,10 +40,10 @@ jobs:
 
     steps:
       - name: Checkout repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -86,7 +86,7 @@ jobs:
             --reporter-htmlextra-export reporte_entel_extra.html
 
       - name: Subir reporte Entel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: reporte-entel-${{ github.run_number }}
@@ -102,10 +102,10 @@ jobs:
 
     steps:
       - name: Checkout repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -148,7 +148,7 @@ jobs:
             --reporter-htmlextra-export reporte_clarovtr_extra.html
 
       - name: Subir reporte ClaroVTR
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: reporte-clarovtr-${{ github.run_number }}

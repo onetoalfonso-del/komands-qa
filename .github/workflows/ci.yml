@@ -16,12 +16,12 @@ jobs:
 
     steps:
       - name: Clonar repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0          # SonarCloud necesita el historial completo
 
       - name: Configurar Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: "pip"
@@ -62,7 +62,7 @@ jobs:
 
       - name: Publicar reporte HTML (pytest-html)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reporte-pruebas
           path: reporte-ci.html
@@ -70,7 +70,7 @@ jobs:
 
       - name: Publicar cobertura XML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cobertura
           path: coverage.xml
