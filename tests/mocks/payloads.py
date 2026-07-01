@@ -229,6 +229,123 @@ ACTIVATION_HUAWEI_SSAA_GROUP_A = {
     ],
 }
 
+# ─── VNOs descubiertos en portal real (2026-06-17) — GTD, WOM, Claro, Genérico ─
+# Estos VNOs NO estaban en el spec original. Verificados en onf-komands.cl:9010.
+
+ACTIVATION_NOKIA_GTD = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "GTD",
+        "u_olt": "OLT-SAN-001",
+        "u_slot": "1",
+        "u_pon": "3",
+        "u_ontid": "47",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF1234568",
+        "u_slid": "SLID-GTD-001",
+    },
+    "u_action": {"u_iptv": "F", "u_voz": "T", "u_gestion": "F"},
+    "u_product": {"u_speed_plan": "100M/20M"},
+}
+
+ACTIVATION_NOKIA_WOM = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "WOM",
+        "u_olt": "OLT-SAN-001",
+        "u_slot": "1",
+        "u_pon": "4",
+        "u_ontid": "48",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF1234569",
+        "u_slid": "SLID-WOM-001",
+    },
+    "u_action": {"u_iptv": "F", "u_voz": "T", "u_gestion": "F"},
+    "u_product": {"u_speed_plan": "100M/20M"},
+}
+
+ACTIVATION_NOKIA_CLARO = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "Claro",
+        "u_olt": "OLT-SAN-001",
+        "u_slot": "1",
+        "u_pon": "5",
+        "u_ontid": "49",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF1234570",
+        "u_slid": "SLID-CLR-001",
+    },
+    "u_action": {"u_iptv": "T", "u_voz": "T", "u_gestion": "F"},
+    "u_product": {"u_speed_plan": "100M/20M"},
+}
+
+ACTIVATION_NOKIA_GENERICO = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "Genérico",
+        "u_olt": "OLT-SAN-001",
+        "u_slot": "1",
+        "u_pon": "6",
+        "u_ontid": "50",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF1234571",
+        "u_slid": "SLID-GEN-001",
+    },
+    "u_action": {"u_iptv": "F", "u_voz": "F", "u_gestion": "F"},
+    "u_product": {"u_speed_plan": "100M/20M"},
+}
+
+ACTIVATION_HUAWEI_GTD = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "GTD",
+        "u_olt": "OLT-SAN-002",
+        "u_slot": "0",
+        "u_pon": "3",
+        "u_ontid": "11",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "485754C55555",
+        "u_slid": "SLID-H-GTD-001",
+    },
+    "u_action": {"u_iptv": "F", "u_voz": "T", "u_gestion": "F"},
+    "u_product": {"u_speed_plan": "100M/20M"},
+}
+
+ACTIVATION_HUAWEI_WOM = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "WOM",
+        "u_olt": "OLT-SAN-002",
+        "u_slot": "0",
+        "u_pon": "4",
+        "u_ontid": "13",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "485754C66666",
+        "u_slid": "SLID-H-WOM-001",
+    },
+    "u_action": {"u_iptv": "F", "u_voz": "T", "u_gestion": "F"},
+    "u_product": {"u_speed_plan": "100M/20M"},
+}
+
 ACTIVATION_WITH_TXN_ID = {
     **ACTIVATION_NOKIA_FTTH_VALID,
     "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",

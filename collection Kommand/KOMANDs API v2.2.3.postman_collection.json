@@ -1,0 +1,1168 @@
+{
+  "info": {
+    "_postman_id": "b3cd44a9-2abc-4773-9d94-1b7c583a938f",
+    "name": "KOMANDs API v2.2.3",
+    "description": "## KOMANDs Provisioning API v2.2.3\n\nAPI REST de la plataforma KOMANDs para provisión de servicios FTTH y SSAA sobre OLTs Nokia y Huawei.\nExpuesta a ServiceNow SOM a través de Axway APIM mediante OAuth 2.0 client_credentials.\n\n**Proyecto:** Sunset BluePlanet — Dominio 3: Gestión de Red Activa\n**Equipo:** MOS-iT | ON·NET Fibra\n**Clasificación:** CONFIDENCIAL\n\n---\n\n### Autenticación\n\nOAuth 2.0 **client_credentials** configurado a nivel de colección. Todos los requests heredan el token automáticamente (`Inherit auth from parent`).\n\nEl token JWT contiene los claims: `iss`, `sub`, `aud` (`komands-api`), `exp`, `iat`, `jti`, `scope`.\n\n| Parámetro | Valor |\n|-----------|-------|\n| Grant Type | `client_credentials` |\n| Access Token URL | `{{base_url}}/api/Komands/v1/auth/token` |\n| Client ID | `{{client_id}}` |\n| Client Secret | `{{client_secret}}` |\n| Scope | `{{scope}}` |\n| Client Authentication | Send credentials in body |\n\nScopes disponibles:\n- `komands:provision` — requerido para todos los POST funcionales.\n- `komands:query` — requerido para todos los GET funcionales.\n\n---\n\n### Variables de colección\n\n| Variable | Valor por defecto | Descripción |\n|----------|------------------|-------------|\n| `base_url` | `https://onf-komands.cl:9016` | URL base servidor DEV KOMANDs |\n| `client_id` | *(sobreescrito por environment)* | Client ID OAuth2 DEV |\n| `client_secret` | *(sobreescrito por environment)* | Client Secret OAuth2 DEV |\n| `scope` | `komands:provision komands:query` | Scopes solicitados |\n| `callback_url` | `https://api.onnetfibra.cl/sn/komands/callback` | URL de callback para ServiceNow |\n| `u_uuid` | *(se autocompleta al ejecutar POST)* | UUID de la transacción |\n| `u_id` | `OLT-Santiago-01_1_3_10` | ID de acceso (formato OLT_SLOT_PON_ONT) |\n\n---\n\n### Headers requeridos\n\nTodos los endpoints funcionales requieren:\n\n| Header | Descripción |\n|--------|-------------|\n| `Authorization` | Bearer JWT |\n| `X-Source-System` | Sistema origen (`SN`) |\n| `X-Correlation-ID` | UUID v4 único por invocación |\n| `X-Source-System-ID` | sys_id del registro en ServiceNow |\n| `X-User-ID` | Login del usuario humano |\n| `X-User-Role` | Rol: agent/supervisor/admin/system/readonly |\n| `X-User-Organization` | Organización del usuario |\n\n---\n\n### Endpoints (14 requests)\n\n| # | Request | Método | Path | Scope |\n|---|---------|--------|------|-------|\n| 1 | Obtener Token | POST | `/api/Komands/v1/auth/token` | — |\n| 2 | Baja de Acceso | POST | `/api/Komands/v1/unsubscription` | `provision` |\n| 3 | Estado: Baja | GET | `/api/Komands/v1/unsubscription/{u_uuid}` | `query` |\n| 4 | Consulta de Acceso | GET | `/api/Komands/v1/query-access/{u_id}` | `query` |\n| 5 | Cambio de Equipo | POST | `/api/Komands/v1/device-modification` | `provision` |\n| 6 | Estado: Cambio Equipo | GET | `/api/Komands/v1/device-modification/{u_uuid}` | `query` |\n| 7 | Mod. de Servicio | POST | `/api/Komands/v1/service-modification` | `provision` |\n| 8 | Estado: Mod. Servicio | GET | `/api/Komands/v1/service-modification/{u_uuid}` | `query` |\n| 9 | Cambio de Fibra | POST | `/api/Komands/v1/fiber-change` | `provision` |\n| 10 | Estado: Cambio Fibra | GET | `/api/Komands/v1/fiber-change/{u_uuid}` | `query` |\n| 11 | Activación de Servicio | POST | `/api/Komands/v1/service-activation` | `provision` |\n| 12 | Estado: Activación | GET | `/api/Komands/v1/service-activation/{u_uuid}` | `query` |\n| 13 | Health (Liveness) | GET | `/health` | Sin auth |\n| 14 | Health Ready (Readiness) | GET | `/health/ready` | Sin auth |\n\n---\n\n### Patrón de operación\n\n- **POST funcionales:** Responden HTTP 202 Accepted con `u_uuid`. El procesamiento real ocurre en background. El resultado se entrega vía callback HTTP POST al `u_callback_url`.\n- **GET funcionales:** Consultan el estado de una transacción por `u_uuid`. Mecanismo de reconciliación cuando el callback no llega.\n- **Health:** Sin autenticación. Liveness y readiness probes para Kubernetes.\n\n### Tests automáticos incluidos\n\n- **POST:** Validan HTTP 202, `u_return_code == '0'`, presencia de `u_uuid`, y headers de respuesta (`X-Correlation-ID`, `X-Transaction-ID`, `X-API-Version: 2.2.3`). Guardan `u_uuid` en variable de colección.\n- **GET:** Validan HTTP 200, presencia de `u_return_code`, y que `u_uuid` coincida con la variable guardada.\n- **Token:** Valida `access_token`, `token_type: Bearer`, `expires_in`, y scopes.\n- **Health:** Validan HTTP 200, `status: ok`, y versión.\n\n---\n\n### Bodies de ejemplo\n\nLos bodies de cada POST corresponden a los ejemplos de las Tablas 11 (Baja), 25 (Device Mod), 34 (Mod. Servicio), 39 (Fiber Change) y 43 (Activación) del Documento de Diseño Técnico v2.2.3.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "52541730",
+    "_collection_link": "https://go.postman.co/collection/52541730-b3cd44a9-2abc-4773-9d94-1b7c583a938f?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Autenticación",
+      "item": [
+        {
+          "name": "Obtener Token (manual)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.access_token);",
+                  "    pm.test('Token obtenido correctamente', function() {",
+                  "        pm.expect(jsonData.access_token).to.be.a('string');",
+                  "        pm.expect(jsonData.token_type).to.eql('Bearer');",
+                  "        pm.expect(jsonData.expires_in).to.be.a('number');",
+                  "        pm.expect(jsonData.scope).to.include('komands:provision');",
+                  "        pm.expect(jsonData.scope).to.include('komands:query');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{client_id}}"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{client_secret}}"
+                },
+                {
+                  "key": "scope",
+                  "value": "{{scope}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/auth/token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "auth",
+                "token"
+              ]
+            },
+            "description": "Endpoint manual para obtener un token JWT via client_credentials (Tabla 55-57 del documento).\nNormalmente la colección obtiene el token automáticamente via OAuth2 a nivel de colección.\nEste request es útil para inspeccionar el token manualmente o debuggear.\n\nResponse esperado (Tabla 57):\n- access_token: JWT con claims iss, sub, aud, exp, iat, jti, scope\n- token_type: Bearer\n- expires_in: 7200 (120 min)\n- scope: komands:provision komands:query"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoint emisor de tokens JWT (OAuth 2.0 client_credentials). Ref: Sección 5.2."
+    },
+    {
+      "name": "Baja de Acceso",
+      "item": [
+        {
+          "name": "POST Baja de Acceso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code es 202 Accepted', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "if (pm.response.code === 202) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('u_uuid', jsonData.result.u_uuid);",
+                  "    pm.test('u_return_code es 0 (exito)', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.eql('0');",
+                  "    });",
+                  "    pm.test('u_uuid presente', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.be.a('string');",
+                  "    });",
+                  "    pm.test('Response headers presentes', function() {",
+                  "        pm.expect(pm.response.headers.get('X-Correlation-ID')).to.not.be.undefined;",
+                  "        pm.expect(pm.response.headers.get('X-Transaction-ID')).to.not.be.undefined;",
+                  "        pm.expect(pm.response.headers.get('X-API-Version')).to.eql('2.2.3');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "test-nokia-001"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "SN-SYS-005"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jeff"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "admin"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              },
+              {
+                "key": "traceparent",
+                "value": "testing_traceparent",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_id_vno\": \"ENTEL\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"TEST:BBBBBBBB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/unsubscription",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "unsubscription"
+              ]
+            },
+            "description": "Solicita una baja de acceso asincrona (Tabla 11 del documento).\nFamilias: u_routing + u_identification.\nRespuesta: HTTP 202 con u_uuid para tracking.\nEl test guarda u_uuid en la variable de coleccion para el GET."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Estado Baja de Acceso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('u_return_code presente', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.be.a('string');",
+                  "    });",
+                  "    pm.test('u_uuid coincide', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get('u_uuid'));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/unsubscription/{{u_uuid}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "unsubscription",
+                "{{u_uuid}}"
+              ]
+            },
+            "description": "Consulta el estado de una baja previamente creada (Tabla 13).\nUsa el u_uuid guardado por el POST anterior."
+          },
+          "response": []
+        }
+      ],
+      "description": "Operación de baja de acceso FTTH/SSAA. Sección 2.1-2.2 del documento.\nPatrón: POST async 202 + callback → GET sync 200 (reconciliación)."
+    },
+    {
+      "name": "Consulta de Acceso",
+      "item": [
+        {
+          "name": "GET Consulta de Acceso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('u_return_code es 0', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.eql('0');",
+                  "    });",
+                  "    pm.test('Bloque u_access presente', function() {",
+                  "        pm.expect(jsonData.result.u_access).to.be.an('object');",
+                  "    });",
+                  "    pm.test('u_access contiene campos clave', function() {",
+                  "        var acc = jsonData.result.u_access;",
+                  "        pm.expect(acc.u_olt).to.be.a('string');",
+                  "        pm.expect(acc.u_slot).to.be.a('string');",
+                  "        pm.expect(acc.u_pon).to.be.a('string');",
+                  "        pm.expect(acc.u_ontid).to.be.a('string');",
+                  "        pm.expect(acc.u_olt_vendor).to.be.a('string');",
+                  "        pm.expect(acc.u_optical_power).to.be.an('object');",
+                  "        pm.expect(acc.u_status).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{u_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "query-access",
+                "{{u_id}}"
+              ]
+            },
+            "description": "Consulta sincrona de acceso (Tabla 23 del documento).\nRetorna bloque u_access con: identification, routing, profiles, VLANs, services_port, optical_power, optical_diagnostics.\nFormato u_id: OLT_SLOT_PON_ONT. Ej: OLT-Santiago-01_1_3_10."
+          },
+          "response": []
+        }
+      ],
+      "description": "Consulta sincrona del estado de un acceso en la OLT. Sección 2.3 del documento.\nFormato u_id: OLT_SLOT_PON_ONT (separado por _)."
+    },
+    {
+      "name": "Cambio de Dispositivo",
+      "item": [
+        {
+          "name": "POST Cambio de Equipo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code es 202 Accepted', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "if (pm.response.code === 202) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('u_uuid', jsonData.result.u_uuid);",
+                  "    pm.test('u_return_code es 0', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.eql('0');",
+                  "    });",
+                  "    pm.test('u_uuid presente', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.be.a('string');",
+                  "    });",
+                  "    pm.test('Response headers presentes', function() {",
+                  "        pm.expect(pm.response.headers.get('X-API-Version')).to.eql('2.2.3');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_callback_url\": \"http://localhost:9999/callback\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\",\n    \"u_new_serialnumber\": \"SCOM:AAAAAAAA\"\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/device-modification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "device-modification"
+              ]
+            },
+            "description": "Solicita un cambio de equipo (Tabla 25 del documento).\nFamilias: u_routing + u_identification (con u_new_serialnumber).\nEl u_new_serialnumber es el unico campo modificable."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Estado Cambio de Equipo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('u_return_code presente', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.be.a('string');",
+                  "    });",
+                  "    pm.test('u_uuid coincide', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get('u_uuid'));",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/device-modification/{{u_uuid}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "device-modification",
+                "{{u_uuid}}"
+              ]
+            },
+            "description": "Consulta el estado de un cambio de equipo previamente creado."
+          },
+          "response": []
+        }
+      ],
+      "description": "Cambio de equipo (Serial Number). Sección 2.4 del documento.\nPatrón: POST async 202 + callback → GET sync 200."
+    },
+    {
+      "name": "Modificación de Servicio",
+      "item": [
+        {
+          "name": "POST Modificación de Servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 202 Accepted', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "if (pm.response.code === 202) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('u_uuid', jsonData.result.u_uuid);",
+                  "    pm.test('u_return_code es 0', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.eql('0');",
+                  "    });",
+                  "    pm.test('u_uuid presente', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.be.a('string');",
+                  "    });",
+                  "    pm.test('Response headers presentes', function() {",
+                  "        pm.expect(pm.response.headers.get('X-API-Version')).to.eql('2.2.3');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_callback_url\": \"{{callback_url}}\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-Santiago-01\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID001\",\n    \"u_serialnumber\": \"HWTC-ABCD1234\",\n    \"u_customer_id\": \"CUST-001\",\n    \"u_access_id\": \"ACC-STGO-001\"\n  },\n  \"u_action\": {\n    \"u_action\": \"A\",\n    \"u_iptv\": \"T\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\",\n    \"u_description\": \"Alta IPTV residencial\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"HSI-100M\",\n    \"u_line_profile\": \"FTTH-LINE-01\",\n    \"u_speed_plan\": \"100M/50M\",\n    \"u_download_speed_plan\": \"100M\",\n    \"u_upload_speed_plan\": \"50M\",\n    \"u_has_multicast\": true\n  },\n  \"u_qos\": {\n    \"u_QoS_profile_a\": \"QOS-NOKIA-A\",\n    \"u_QoS_profile_b\": \"QOS-NOKIA-B\",\n    \"u_ingress_QoS_profile_a\": \"QOS-TKIP-IN\"\n  },\n  \"u_vlan\": {\n    \"u_vlan_type\": \"double-tagged\",\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100,\n    \"u_inet_uvlan\": 2100,\n    \"u_tkip_datop_cvlan\": 200,\n    \"u_tkip_datop_svlan\": 1200\n  },\n  \"u_hardware\": {\n    \"u_olt_type\": \"Nokia 7360\",\n    \"u_ont_type\": \"HG8245H\",\n    \"u_brownfield\": false\n  },\n  \"u_services_port\": [\n    {\n      \"u_gemport\": 1,\n      \"u_gemport_name\": \"GEMPORT-INET-001\",\n      \"u_gemport_svlan\": 1100,\n      \"u_gemport_uvlan\": 2100,\n      \"u_gemport_cvlan\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/service-modification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "service-modification"
+              ]
+            },
+            "description": "Solicita una modificacion de servicio (Tabla 34 del documento).\n8 familias: routing, identification, action, product, qos, vlan, hardware, services_port.\nCodigos especificos: 70 (ya activo), 80 (ya inactivo), 90 (ningun flag seleccionado)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Estado Mod. de Servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('u_return_code presente', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.be.a('string');",
+                  "    });",
+                  "    pm.test('u_uuid coincide', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get('u_uuid'));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/service-modification/{{u_uuid}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "service-modification",
+                "{{u_uuid}}"
+              ]
+            },
+            "description": "Consulta el estado de una modificacion de servicio previamente creada."
+          },
+          "response": []
+        }
+      ],
+      "description": "Modificación de servicio (alta/baja/modificación de flags IPTV, VOZ, GESTION). Sección 2.5 del documento.\nLleva las 8 familias jerárquicas completas."
+    },
+    {
+      "name": "Cambio de Fibra",
+      "item": [
+        {
+          "name": "POST Cambio de Fibra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 202 Accepted', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "if (pm.response.code === 202) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('u_uuid', jsonData.result.u_uuid);",
+                  "    pm.test('u_return_code es 0', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.eql('0');",
+                  "    });",
+                  "    pm.test('u_uuid presente', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.be.a('string');",
+                  "    });",
+                  "    pm.test('Response headers presentes', function() {",
+                  "        pm.expect(pm.response.headers.get('X-API-Version')).to.eql('2.2.3');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_callback_url\": \"{{callback_url}}\",\n  \"u_routing\": {\n    \"u_id_vno\": \"ENTEL\",\n    \"u_olt\": \"OLT-Santiago-01\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"OLT-Santiago-02\",\n    \"u_slot\": \"2\",\n    \"u_pon\": \"5\",\n    \"u_ontid\": \"20\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID003\",\n    \"u_serialnumber\": \"HWTC-REAL00003\"\n  },\n  \"u_action\": {\n    \"u_action\": \"M\",\n    \"u_iptv\": \"T\",\n    \"u_voz\": \"T\",\n    \"u_gestion\": \"F\",\n    \"u_description\": \"Cambio de fibra por relocalizacion CTO\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"HSI-200M\",\n    \"u_speed_plan\": \"200M/100M\"\n  },\n  \"u_qos\": {\n    \"u_QoS_profile_a\": \"QOS-HUAWEI-A\"\n  },\n  \"u_vlan\": {\n    \"u_vlan_type\": \"double-tagged\",\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  },\n  \"u_hardware\": {\n    \"u_olt_type\": \"Huawei MA5800\",\n    \"u_ont_type\": \"HG8245H\"\n  },\n  \"u_services_port\": [\n    {\n      \"u_gemport\": 1,\n      \"u_gemport_name\": \"GEMPORT-INET-001\",\n      \"u_gemport_svlan\": 1100,\n      \"u_gemport_uvlan\": 2100,\n      \"u_gemport_cvlan\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/fiber-change",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "fiber-change"
+              ]
+            },
+            "description": "Solicita un cambio de fibra (Tabla 39 del documento).\n8 familias + u_routing_new (PON nueva).\nTransaccion atomica de 3 pasos (Tabla 36):\n1. Activar en PON nueva con serial ficticio\n2. Baja en PON antigua\n3. Device modification con serial real\nCodigos: 110 (fallo paso 1), 115 (fallo paso 2 con rollback), 120 (estado inconsistente)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Estado Cambio de Fibra",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('u_return_code presente', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.be.a('string');",
+                  "    });",
+                  "    pm.test('u_uuid coincide', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get('u_uuid'));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/fiber-change/{{u_uuid}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "fiber-change",
+                "{{u_uuid}}"
+              ]
+            },
+            "description": "Consulta el estado de un cambio de fibra previamente creado."
+          },
+          "response": []
+        }
+      ],
+      "description": "Migración de un acceso de una PON a otra (cambio de CTO). Sección 2.6 del documento.\nTransacción atómica de 3 pasos: activar en PON nueva → baja en PON antigua → device modification con serial real.\nCódigos específicos: 11, 110, 115, 120."
+    },
+    {
+      "name": "Activación de Servicio",
+      "item": [
+        {
+          "name": "POST Activación de Servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 202 Accepted', function() {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "if (pm.response.code === 202) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('u_uuid', jsonData.result.u_uuid);",
+                  "    pm.test('u_return_code es 0', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.eql('0');",
+                  "    });",
+                  "    pm.test('u_uuid presente', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.be.a('string');",
+                  "    });",
+                  "    pm.test('Response headers presentes', function() {",
+                  "        pm.expect(pm.response.headers.get('X-API-Version')).to.eql('2.2.3');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_callback_url\": \"{{callback_url}}\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"OLT-Santiago-01\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"10\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID001\",\n    \"u_serialnumber\": \"HWTC-ABCD1234\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"T\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"HSI-100M\"\n  },\n  \"u_qos\": {\n    \"u_QoS_profile_b\": \"QOS-IPTV-B\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  },\n  \"u_services_port\": [\n    {\n      \"u_gemport\": 2,\n      \"u_gemport_name\": \"GEMPORT-IPTV-001\",\n      \"u_gemport_svlan\": 1200,\n      \"u_gemport_cvlan\": 200\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/service-activation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Komands",
+                "v1",
+                "service-activation"
+              ]
+            },
+            "description": "Solicita una activacion de servicio (Tabla 43 del documento).\n7 familias (sin u_hardware): routing, identification, action, product, qos, vlan, services_port.\nFTTH: usa flags. SSAA: ignora flags, activa INTERNET+TRUNKIP automaticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Estado Activación de Servicios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('u_return_code presente', function() {",
+                  "        pm.expect(jsonData.result.u_return_code).to.be.a('string');",
+                  "    });",
+                  "    pm.test('u_uuid coincide', function() {",
+                  "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get('u_uuid'));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Source-System",
+                "value": "SN"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "X-Source-System-ID",
+                "value": "abc123def4567890abcdef0123456789"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "jperez"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "agent"
+              },
+              {
+                "key": "X-User-Organization",
+                "value": "ON-NET CHILE"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/service-activation/{{u_uuid}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "service-activation", "{{u_uuid}}"]
+            },
+            "description": "Consulta el estado de una activación por u_uuid."
+          },
+          "response": []
+        }
+      ],
+      "description": "Activación de servicios en un acceso existente. Sección 2.7 del documento.\n7 familias (sin u_hardware). Tecnología FTTH usa flags, SSAA ignora flags y activa INTERNET+TRUNKIP.\nCódigo específico: 100 (tecnología no reconocida)."
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "GET Health (Liveness)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('status es ok', function() {",
+                  "        pm.expect(jsonData.status).to.eql('ok');",
+                  "    });",
+                  "    pm.test('version es 2.2.3', function() {",
+                  "        pm.expect(jsonData.version).to.eql('2.2.3');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Liveness probe. Verifica que el proceso esta activo.\nHTTP 200 = proceso vivo. HTTP 503 = reiniciar pod."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Health Ready (Readiness)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code es 200 OK', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.test('status es ready', function() {",
+                  "        pm.expect(jsonData.status).to.eql('ready');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "Readiness probe. Verifica que el servicio puede recibir trafico (PostgreSQL y Redis disponibles).\nHTTP 200 = listo. HTTP 503 = excluir del load balancer."
+          },
+          "response": []
+        }
+      ],
+      "description": "Health checks de Kubernetes (Sección 6.3). Sin autenticación. No se publican en Axway APIM."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "var token = pm.collectionVariables.get('access_token');",
+          "var expiry = parseInt(pm.collectionVariables.get('token_expiry') || '0');",
+          "var now = Date.now();",
+          "if (!token || now >= expiry) {",
+          "    var base_url = pm.environment.get('base_url') || pm.collectionVariables.get('base_url');",
+          "    var client_id = pm.environment.get('client_id') || pm.collectionVariables.get('client_id');",
+          "    var client_secret = pm.environment.get('client_secret') || pm.collectionVariables.get('client_secret');",
+          "    var scope = pm.environment.get('scope') || pm.collectionVariables.get('scope');",
+          "    pm.sendRequest({",
+          "        url: base_url + '/api/Komands/v1/auth/token',",
+          "        method: 'POST',",
+          "        header: { 'Content-Type': 'application/x-www-form-urlencoded' },",
+          "        body: {",
+          "            mode: 'urlencoded',",
+          "            urlencoded: [",
+          "                { key: 'grant_type', value: 'client_credentials' },",
+          "                { key: 'client_id', value: client_id },",
+          "                { key: 'client_secret', value: client_secret },",
+          "                { key: 'scope', value: scope }",
+          "            ]",
+          "        }",
+          "    }, function(err, res) {",
+          "        if (!err && res.code === 200) {",
+          "            var body = res.json();",
+          "            pm.collectionVariables.set('access_token', body.access_token);",
+          "            var expiresIn = body.expires_in || 3600;",
+          "            pm.collectionVariables.set('token_expiry', String(Date.now() + (expiresIn - 60) * 1000));",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://onf-komands.cl:9016",
+      "description": "URL base servidor DEV KOMANDs"
+    },
+    {
+      "key": "client_id",
+      "value": "UE9OVFJBTlNGRVIyMDI1S0VZ",
+      "description": "Client ID OAuth2 DEV (sobreescrito por environment)"
+    },
+    {
+      "key": "client_secret",
+      "value": "VEZFUlBPTjIwMjVTRUNSRVQ=",
+      "description": "Client Secret OAuth2 DEV (sobreescrito por environment)"
+    },
+    {
+      "key": "scope",
+      "value": "komands:provision komands:query",
+      "description": "Scopes requeridos por la API"
+    },
+    {
+      "key": "callback_url",
+      "value": "https://api.onnetfibra.cl/sn/komands/callback",
+      "description": "URL de callback para notificaciones asíncronas"
+    },
+    {
+      "key": "u_uuid",
+      "value": "",
+      "description": "UUID de operación — se llena dinámicamente en el test script de cada POST"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "description": "Token OAuth2 — se obtiene automáticamente en el pre-request script"
+    },
+    {
+      "key": "token_expiry",
+      "value": "",
+      "description": "Timestamp de expiración del token (ms) — gestionado automáticamente"
+    },
+    {
+      "key": "u_id",
+      "value": "OLT-Santiago-01_1_3_10",
+      "description": "ID del acceso OLT a operar"
+    }
+  ]
+}

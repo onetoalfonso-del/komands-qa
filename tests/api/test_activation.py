@@ -221,7 +221,8 @@ class TestActivacionSinAutorizacion:
         """
         ESCENARIO: Token con VNO desconocida ("FAKE_VNO").
 
-        Komands solo acepta los 4 VNOs registrados: DTV, CVTR, ENTEL, TCH.
+        Komands solo acepta VNOs registrados (verificados en portal 2026-06-17):
+        DTV, VTR, Entel, ENTEL, TCH, Claro, Genérico. FAKE_VNO no está en esa lista.
 
         Resultado esperado: HTTP 403.
         """
@@ -368,17 +369,18 @@ class TestActivacionRespuesta:
 
 class TestActivacionMultiVNO:
     """
-    Los 4 VNOs del proyecto deben poder activar con un token válido.
+    Todos los VNOs verificados en el portal real deben poder activar con un token válido.
     """
 
     # ACT-17
-    @pytest.mark.parametrize("vno_id", ["DTV", "CVTR", "ENTEL", "TCH"])
+    @pytest.mark.parametrize("vno_id", ["DTV", "VTR", "ENTEL", "TCH", "Claro", "GTD", "WOM", "Genérico"])
     def test_act17_todos_los_vnos_pueden_activar(self, test_client, vno_id):
         """
         ESCENARIO: Cada VNO autorizado envía una activación.
 
-        Los 4 VNOs del proyecto (DTV, CVTR, ENTEL, TCH) deben recibir
-        202. Si alguno falla, ese VNO está bloqueado en el Feature Flag.
+        VNOs verificados en portal real (onf-komands.cl:9010) — 2026-06-17:
+        DTV, VTR, ENTEL, TCH, Claro, GTD, WOM, Genérico.
+        Si alguno falla con 403, ese VNO no está en la lista del mock.
 
         Resultado esperado: HTTP 202 para cada VNO.
         """

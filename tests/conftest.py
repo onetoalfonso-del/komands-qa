@@ -320,8 +320,11 @@ BASE_URL = "http://localhost:8000/api/Komands/v1"
 JWT_SECRET = "test-secret-komands-qa"
 JWT_ALGORITHM = "HS256"
 
-# v2.2.3 — agrega VTR a la lista de VNOs autorizadas
-VNOS = ["DTV", "CVTR", "VTR", "ENTEL", "TCH"]
+# VNOs verificados en portal real onf-komands.cl:9010 — 2026-06-17
+# Flujos activos usan: DTV, VTR, Entel, TCH, Claro, Genérico
+# CVTR mantenido como alias legacy del spec original
+# GTD y WOM: aparecen en documentación pero SIN flujos configurados aún
+VNOS = ["DTV", "VTR", "Entel", "ENTEL", "TCH", "Claro", "Genérico", "GTD", "WOM", "CVTR"]
 
 ROLE_PERMISSIONS = {
     "ADMIN":    ["activation:write", "transaction:read", "audit:read", "users:write"],
@@ -973,6 +976,74 @@ def _build_test_app() -> FastAPI:
         if txn_id_path == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return {"txn_id": txn_id_path, "status": "COMPLETED", "steps": []}
+
+    # ── GET /{operation}/{uuid} — estado de operación asíncrona (spec real) ────
+    # Endpoints presentes en openapi.json v2.2.3 pero ausentes en mocks anteriores.
+    # Auth: portal token con transaction:read (en prod acepta también vno+komands:query).
+
+    def _operation_status_response(op_uuid: str, operation: str) -> dict:
+        return {
+            "txn_id": op_uuid,
+            "operation": operation,
+            "status": "COMPLETED",
+            "result": {
+                "u_uuid": op_uuid,
+                "u_return_code": "0",
+                "u_return_code_desc": "Operación completada",
+                "u_timestamp": _FIXED_TS,
+                "u_time": "0.001s",
+                "u_status": "COMPLETED",
+            },
+            "steps": [],
+        }
+
+    @app.get("/api/Komands/v1/service-activation/{op_uuid}")
+    async def get_activation_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "service-activation")
+
+    @app.get("/api/Komands/v1/unsubscription/{op_uuid}")
+    async def get_unsubscription_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "unsubscription")
+
+    @app.get("/api/Komands/v1/device-modification/{op_uuid}")
+    async def get_device_modification_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "device-modification")
+
+    @app.get("/api/Komands/v1/service-modification/{op_uuid}")
+    async def get_service_modification_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "service-modification")
+
+    @app.get("/api/Komands/v1/fiber-change/{op_uuid}")
+    async def get_fiber_change_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "fiber-change")
+
+    @app.get("/api/Komands/v1/pon-transfer/{op_uuid}")
+    async def get_pon_transfer_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "pon-transfer")
 
     # ── POST /internal/complete — simula worker terminado → callback ──────────
     @app.post("/api/Komands/v1/internal/complete", status_code=200)

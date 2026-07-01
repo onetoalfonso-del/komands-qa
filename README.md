@@ -2,7 +2,48 @@
 
 Suite de pruebas automatizadas para **Komands**, el sistema de provisioning de fibra óptica FTTH que reemplaza a BluePlanet/Ciena en la red de **ON·NET Fibra Chile**.
 
-> Proyecto: Sunset BluePlanet → Komands | Cliente: ON·NET Fibra | Proveedor: MOS-IT | Sprint 01 — Seguridad
+> Proyecto: Sunset BluePlanet → Komands | Cliente: ON·NET Fibra | Proveedor: MOS-IT
+
+---
+
+## Inicio rápido
+
+### 1. Requisitos previos (instalar una sola vez)
+
+| Herramienta | Versión mínima | Para qué sirve |
+|-------------|---------------|----------------|
+| Python | 3.11+ | Correr los 400+ tests de contrato |
+| Node.js | 18+ | Correr la colección Newman contra APIM |
+
+Verificar que estén instalados:
+```bash
+python --version
+node --version
+```
+
+### 2. Instalar dependencias (instalar una sola vez)
+
+```bash
+# Desde la raíz del proyecto:
+python -m pip install -r requirements.txt
+npm install -g newman newman-reporter-html
+```
+
+### 3. Correr todos los tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+Al terminar se genera **`reporte.html`** en la raíz del proyecto. Abrirlo en el browser (doble clic o clic derecho → Abrir con).
+
+### 4. ¿Qué suite necesito correr?
+
+| Situación | Comando | Requiere |
+|-----------|---------|---------|
+| Regresión de contrato (diaria) | `python -m pytest tests/ -v` | Solo Python |
+| Validar APIM real (pre-release) | Ver [Flujo 2](#flujo-2--integración-contra-apim-pre-prod-requiere-vpn--red-onnet) | VPN ONFNet |
+| Validar Komands desplegado | Ver [Flujo 3](#flujo-3--validación-contra-servidor-komands-real-cuando-esté-desplegado) | Servidor DEV activo |
 
 ---
 
@@ -20,12 +61,19 @@ ServiceNow ──► Axway APIM ──► Komands API ──► OLT Nokia/Huawei
 
 ### VNOs soportados
 
-| VNO | Código | Nombre comercial | Tecnología |
-|-----|--------|-----------------|-----------|
-| DTV | `DTV` | DirecTV | FTTH + SSAA |
-| CVTR | `CVTR` | ClaroVTR | FTTH |
-| ENTEL | `ENTEL` | Entel | FTTH + SSAA |
-| TCH | `TCH` | Telefónica / Movistar | FTTH |
+| Código | Nombre comercial | Tecnología |
+|--------|-----------------|-----------|
+| `DTV` | DirecTV | FTTH + SSAA |
+| `VTR` | VTR | FTTH |
+| `Entel` / `ENTEL` | Entel | FTTH + SSAA |
+| `TCH` | Telefónica / Movistar | FTTH |
+| `Claro` | Claro | FTTH |
+| `GTD` | GTD | FTTH |
+| `WOM` | WOM | FTTH |
+| `Genérico` | Genérico | FTTH |
+| `CVTR` | ClaroVTR (legacy) | FTTH |
+
+> VNOs verificados en portal `onf-komands.cl:9010` — 2026-06-17. GTD y WOM aparecen en el portal pero sin flujos configurados aún.
 
 ### OLTs soportadas
 
@@ -158,32 +206,107 @@ Los 44 tests `skip` están identificados con sus IDs de caso y se activarán cua
 python -m pip install -r requirements.txt
 ```
 
-### Todos los tests (modo mock — sin servidor real)
+También se requiere **Newman** para ejecutar la colección Postman contra APIM:
+
+```bash
+npm install -g newman newman-reporter-html
+```
+
+---
+
+### Flujo 1 — Regresión de contrato (sin servidor real, siempre disponible)
+
+Valida que el comportamiento de la API cumple el contrato del AnexoH v2.2.
+No requiere conexión a ningún servidor externo.
+
+```bash
+# Todos los tests — genera reporte.html en el directorio raíz
+python -m pytest tests/ -v
+
+# Solo un módulo
+python -m pytest tests/api/test_deactivation.py -v
+python -m pytest tests/security/ -v
+python -m pytest tests/unit/ -v
+
+# Por tipo de test
+python -m pytest tests/ -m postventa -v
+python -m pytest tests/ -m security -v
+```
+
+El reporte HTML (`reporte.html`) se genera automáticamente en cada ejecución y muestra:
+- Código del caso (`PV-XXX-NNN`)
+- Operación ejecutada
+- Payload enviado
+- Response recibido
+- Resultado esperado vs obtenido
+
+---
+
+### Flujo 2 — Integración contra APIM PRE-PROD (requiere VPN / red ONFNet)
+
+Valida los endpoints reales del API Gateway Axway contra BluePlanet.
+Requiere acceso a `epreapi.onnetfibra.cl`.
+
+**Opción A — Newman (reporte HTML visual):**
+
+```bash
+newman run "collection Blueplanet/Newman_APIM_VNO03.postman_collection.json" \
+  -e "collection Blueplanet/Newman_APIM_VNO03.environment.json" \
+  --insecure \
+  --reporters cli,html \
+  --reporter-html-export newman_report.html
+```
+
+Abre `newman_report.html` para ver el resultado de cada request con status code,
+tiempo de respuesta y assertions.
+
+**Opción B — pytest (se integra con el reporte general):**
+
+```bash
+python -m pytest tests/integration/ -v -m integration --no-cov
+# Con run-id diferente para evitar conflictos entre ejecuciones:
+python -m pytest tests/integration/ -v -m integration --no-cov --run-id 2
+```
+
+> **Nota sobre DeviceModification:** Los tests `test_device_modification_sync` y
+> `test_device_modification_async` retornarán HTTP 500 hasta que ONFNet provisione
+> el AccessID `03-TESTPREPROD-DIR02803674-X` en BluePlanet PRE-PROD.
+> Esto no es un bug de la suite — es una precondición de datos en el ambiente.
+
+---
+
+### Flujo 3 — Validación contra servidor Komands real (cuando esté desplegado)
+
+Cuando ONFNet despliegue el servidor Komands en DEV (`edevapi.onnetfibra.cl`),
+cambiar **una sola línea** en `tests/conftest.py` (línea ~1103):
+
+```python
+# ANTES (mini app interna — modo mock):
+return CapturingTestClient(_build_test_app(), raise_server_exceptions=False)
+
+# DESPUÉS (servidor Komands real):
+import httpx
+return httpx.Client(base_url="https://edevapi.onnetfibra.cl/komands", verify=False)
+```
+
+Luego correr el mismo comando:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-### Solo un módulo
+Los tests que fallen indicarán discrepancias entre la especificación y la implementación real.
+Cada fallo se documenta como defecto y se reporta a ONFNet.
 
-```bash
-python -m pytest tests/api/test_deactivation.py -v
-python -m pytest tests/security/ -v
-python -m pytest tests/unit/ -v
-```
+Los tests con `@pytest.mark.skip` se activarán progresivamente:
 
-### Por tipo de test
+| Módulo | Desbloqueado cuando... |
+|--------|----------------------|
+| `test_database.py` | PostgreSQL DEV con schema Komands desplegado |
+| `test_performance.py` | Servidor DEV activo + herramienta k6 o Locust |
+| `test_par_provision.py` | OLTs físicas Nokia + Huawei en ambiente QA |
 
-```bash
-# Solo tests que requieren mock del servidor (no OLTs reales)
-python -m pytest tests/ -m mock_only -v
-
-# Solo tests de post-venta
-python -m pytest tests/ -m postventa -v
-
-# Excluir tests bloqueados por infraestructura
-python -m pytest tests/ -m "not skip" -v
-```
+---
 
 ### Verificar cobertura del Plan de Pruebas Excel
 
@@ -191,14 +314,8 @@ python -m pytest tests/ -m "not skip" -v
 python check_coverage.py
 ```
 
-Compara los IDs `PV-XXX-NNN` presentes en los archivos de test contra los casos del Excel `Plan_Pruebas_Completo_v4_Final.xlsx`.
-
-### Reporte HTML
-
-```bash
-python -m pytest tests/ --cov=komands --cov-report=html
-# Abre reporte.html en el browser
-```
+Compara los IDs `PV-XXX-NNN` presentes en los tests contra los casos del Excel
+`Plan_Pruebas_Completo_v4_Final.xlsx` y reporta cobertura por módulo.
 
 ---
 
@@ -313,5 +430,4 @@ def test_baj01_nokia_ftth_dtv_devuelve_202(self, test_client, auth_headers):
 
 - **Cliente:** ON·NET Fibra Chile
 - **QA Lead / Automatización:** MOS-IT
-- **Rama activa:** `qa/sprint-01-security`
 - **Branch principal:** `main`

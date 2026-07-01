@@ -1,0 +1,455 @@
+<title>Manual de Ejecución Local — Newman APIM</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:     #1B3A6B;
+    --navy-dk:  #122952;
+    --blue:     #2563EB;
+    --blue-lt:  #EEF3FB;
+    --body:     #1F2937;
+    --muted:    #6B7280;
+    --border:   #D1DCF0;
+    --green:    #166534;
+    --green-bg: #DCFCE7;
+    --warn:     #92400E;
+    --warn-bg:  #FEF3C7;
+    --radius:   5px;
+  }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--body);
+    background: #F0F4FA;
+  }
+
+  .doc {
+    max-width: 820px;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+
+  /* COVER */
+  .cover {
+    background: linear-gradient(135deg, var(--navy-dk) 0%, var(--navy) 55%, #2563EB 100%);
+    color: #fff;
+    padding: 48px 60px 40px;
+  }
+  .cover-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .6;
+    margin-bottom: 14px;
+  }
+  .cover h1 { font-size: 26px; font-weight: 700; line-height: 1.25; margin-bottom: 8px; text-wrap: balance; }
+  .cover-sub { font-size: 14.5px; opacity: .78; margin-bottom: 28px; }
+  .cover-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 20px;
+    font-size: 12px;
+    padding: 4px 12px;
+    font-weight: 500;
+  }
+
+  /* CONTENT */
+  .content { padding: 40px 60px 60px; }
+
+  /* SECTIONS */
+  .section { margin-bottom: 42px; }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--navy);
+    border-bottom: 2px solid var(--navy);
+    padding-bottom: 7px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sec-n {
+    background: var(--navy);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  h3 { font-size: 13.5px; font-weight: 700; color: var(--navy); margin: 20px 0 8px; }
+
+  p { margin-bottom: 10px; font-size: 13.5px; }
+
+  /* STEP LIST */
+  .steps { list-style: none; padding: 0; counter-reset: s; }
+  .steps > li {
+    counter-increment: s;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .steps > li::before {
+    content: counter(s);
+    min-width: 28px;
+    height: 28px;
+    background: var(--blue);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; }
+  .step-title { font-weight: 700; font-size: 13.5px; margin-bottom: 5px; color: var(--body); }
+
+  /* CODE */
+  .code-wrap {
+    background: #0E1B2E;
+    border-radius: var(--radius);
+    margin: 8px 0 12px;
+    overflow: hidden;
+  }
+  .code-label {
+    background: #1B3A6B;
+    color: #93BBFF;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 5px 15px;
+    border-bottom: 1px solid #243F70;
+  }
+  pre {
+    margin: 0;
+    padding: 14px 18px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #CDD9F5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    background: var(--blue-lt);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 12.5px;
+    color: var(--navy);
+  }
+
+  /* CALLOUTS */
+  .callout {
+    display: flex;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: var(--radius);
+    border-left: 4px solid;
+    margin: 10px 0 14px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .callout-i { font-size: 15px; flex-shrink: 0; }
+  .callout.info  { background: var(--blue-lt); border-color: var(--blue);   color: #1E3A70; }
+  .callout.ok    { background: var(--green-bg); border-color: #16A34A;      color: var(--green); }
+  .callout.warn  { background: var(--warn-bg);  border-color: #D97706;      color: var(--warn); }
+
+  /* FILE TREE */
+  .filetree {
+    background: #F8FAFF;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.9;
+    margin: 10px 0 14px;
+  }
+  .filetree .folder { color: var(--navy); font-weight: 700; }
+  .filetree .required { color: #166534; }
+  .filetree .note { color: var(--muted); font-size: 11.5px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; margin: 10px 0 16px; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--navy); color: #fff; }
+  thead th { padding: 9px 14px; text-align: left; font-weight: 600; font-size: 12px; }
+  tbody tr:nth-child(even) { background: var(--blue-lt); }
+  td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* RESULT CARDS */
+  .result-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .rcard {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .rcard-head {
+    background: var(--navy);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+  }
+  .rcard-body {
+    padding: 10px 14px;
+    font-family: Consolas, monospace;
+    font-size: 12.5px;
+    color: var(--green);
+    background: var(--green-bg);
+  }
+
+  /* DIVIDER */
+  hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+  /* FOOTER */
+  .footer {
+    background: var(--blue-lt);
+    border-top: 1px solid var(--border);
+    padding: 16px 60px;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media print {
+    body, .doc { background: #fff; }
+    .cover, thead tr, .code-wrap { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+
+<div class="doc">
+
+  <div class="cover">
+    <div class="cover-tag">Manual Técnico · Ejecución Local</div>
+    <h1>Cómo ejecutar las pruebas Newman<br>desde tu computador</h1>
+    <div class="cover-sub">Pre-requisitos, instalación y ejecución paso a paso para Entel y ClaroVTR en paralelo</div>
+    <div class="cover-chips">
+      <span class="chip">Windows 10 / 11</span>
+      <span class="chip">PowerShell</span>
+      <span class="chip">Newman CLI</span>
+      <span class="chip">APIM PRE-PROD</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- 1. PRE-REQUISITOS -->
+    <div class="section">
+      <h2><span class="sec-n">1</span>Pre-requisitos — qué debes tener instalado</h2>
+      <p>Antes de ejecutar cualquier prueba, tu computador necesita dos programas instalados.</p>
+
+      <h3>1.1 Node.js</h3>
+      <p>Node.js es el motor que hace correr Newman. Si no lo tienes instalado:</p>
+      <ol class="steps">
+        <li>
+          <div class="step-body">
+            <div class="step-title">Ir al sitio oficial de Node.js</div>
+            <p>Ingresar a <strong>nodejs.org</strong> y descargar la versión <strong>LTS</strong> (la que dice "Recomendado para la mayoría").</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Ejecutar el instalador</div>
+            <p>Abrir el archivo descargado (.msi) y seguir los pasos. Dejar todas las opciones por defecto y hacer clic en <strong>Next</strong> hasta finalizar.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Verificar que quedó instalado</div>
+            <p>Abrir PowerShell y ejecutar:</p>
+            <div class="code-wrap">
+              <div class="code-label">PowerShell — verificar Node.js</div>
+              <pre>node --version</pre>
+            </div>
+            <div class="callout ok"><span class="callout-i">✓</span> Debe mostrar algo como <code>v20.x.x</code>. Si aparece un número de versión, está OK.</div>
+          </div>
+        </li>
+      </ol>
+
+      <h3>1.2 Newman y el reporter HTML</h3>
+      <p>Con Node.js instalado, abrir PowerShell y ejecutar este único comando que instala ambas herramientas a la vez:</p>
+      <div class="code-wrap">
+        <div class="code-label">PowerShell — instalar Newman</div>
+        <pre>npm install -g newman newman-reporter-htmlextra</pre>
+      </div>
+      <div class="callout info"><span class="callout-i">ℹ</span> El proceso tarda aproximadamente 1–2 minutos. Es normal que aparezcan muchas líneas de texto mientras instala.</div>
+
+      <h3>1.3 Verificar que todo quedó listo</h3>
+      <div class="code-wrap">
+        <div class="code-label">PowerShell — verificar instalación</div>
+        <pre>newman --version</pre>
+      </div>
+      <div class="callout ok"><span class="callout-i">✓</span> Si aparece un número de versión (ej: <code>6.x.x</code>), ya está todo listo. Solo se hace esta instalación una vez.</div>
+    </div>
+
+    <!-- 2. ARCHIVOS -->
+    <div class="section">
+      <h2><span class="sec-n">2</span>Archivos necesarios en tu computador</h2>
+      <p>Debes tener una carpeta llamada <code>Kommand</code> con exactamente esta estructura:</p>
+
+      <div class="filetree">
+        <span class="folder">Kommand/</span><br>
+        │<br>
+        ├── <span class="required">run_newman.ps1</span> &nbsp;<span class="note">← el script que ejecuta las pruebas</span><br>
+        │<br>
+        └── <span class="folder">collection Blueplanet/</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="required">Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← la colección con los 5 requests</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="required">VnoB1_vnoid03 PRE.postman_environment.json</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← variables de ambiente Entel</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;└── <span class="required">VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="note">← variables de ambiente ClaroVTR</span>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-i">⚠</span>
+        <div>
+          <strong>Estos dos archivos no se incluyen al descargar el repositorio</strong> porque contienen contraseñas de acceso al sistema.<br><br>
+          Debes pedirlos al responsable del proyecto, quien te los enviará por un canal seguro interno (Teams, carpeta compartida, etc.). Una vez que los tengas, cópialos manualmente dentro de la carpeta <code>collection Blueplanet\</code>.
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. EJECUCION -->
+    <div class="section">
+      <h2><span class="sec-n">3</span>Cómo ejecutar las pruebas</h2>
+
+      <h3>3.1 Abrir PowerShell en la carpeta correcta</h3>
+      <p>La forma más fácil es desde el Explorador de Windows:</p>
+      <ol class="steps">
+        <li>
+          <div class="step-body">
+            <div class="step-title">Abrir la carpeta Kommand en el Explorador de Windows</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Clic derecho en un espacio vacío dentro de la carpeta</div>
+            <p>Seleccionar <strong>"Abrir en Terminal"</strong> o <strong>"Abrir ventana de PowerShell aquí"</strong>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Se abre PowerShell ya posicionado en la carpeta correcta</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout info">
+        <span class="callout-i">ℹ</span>
+        Si prefieres abrir PowerShell manualmente, ejecutar: <code>cd "C:\ruta\a\Kommand"</code> para ir a la carpeta antes de ejecutar el script.
+      </div>
+
+      <h3>3.2 Ejecutar con los valores por defecto</h3>
+      <p>Si quieres probar con los valores que ya tiene el script configurados:</p>
+      <div class="code-wrap">
+        <div class="code-label">PowerShell</div>
+        <pre>.\run_newman.ps1</pre>
+      </div>
+
+      <h3>3.3 Ejecutar con tus propios datos de prueba</h3>
+      <p>Cada vez que se prueba un acceso diferente, se pasan los valores como parámetros. Solo cambian los últimos dígitos del <code>accessId</code> y <code>serial</code>:</p>
+      <div class="code-wrap">
+        <div class="code-label">PowerShell — con parámetros personalizados</div>
+        <pre>.\run_newman.ps1 `
+    -AccessIdEntel "03-TESTPREPROD-DIR02873675-9" `
+    -SerialEntel   "SCOM13032002" `
+    -AccessIdCVTR  "02-TESTPREPROD-DIR02803674-002" `
+    -SerialCVTR    "SCOM13022002"</pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Parámetro</th><th>Descripción</th><th>Ejemplo</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>-AccessIdEntel</code></td><td>ID de acceso para Entel. Cambiar los últimos dígitos en cada prueba.</td><td><code>03-TESTPREPROD-DIR02873675-9</code></td></tr>
+            <tr><td><code>-SerialEntel</code></td><td>Serial del equipo Entel.</td><td><code>SCOM13032002</code></td></tr>
+            <tr><td><code>-SpeedEntel</code></td><td>Plan de velocidad Entel. Opcional.</td><td><code>940/940</code></td></tr>
+            <tr><td><code>-AccessIdCVTR</code></td><td>ID de acceso para ClaroVTR.</td><td><code>02-TESTPREPROD-DIR02803674-002</code></td></tr>
+            <tr><td><code>-SerialCVTR</code></td><td>Serial del equipo ClaroVTR.</td><td><code>SCOM13022002</code></td></tr>
+            <tr><td><code>-SpeedCVTR</code></td><td>Plan de velocidad ClaroVTR. Opcional.</td><td><code>600/600</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.4 Qué pasa mientras ejecuta</h3>
+      <p>El script lanza Entel y ClaroVTR <strong>al mismo tiempo</strong> (en paralelo). Durante la ejecución el terminal muestra el progreso. El proceso dura aproximadamente <strong>60 a 90 segundos</strong>.</p>
+
+      <div class="callout info">
+        <span class="callout-i">ℹ</span>
+        Es normal que el terminal quede "en silencio" un momento — está esperando que ambas ejecuciones terminen. No cerrar la ventana.
+      </div>
+    </div>
+
+    <!-- 4. RESULTADOS -->
+    <div class="section">
+      <h2><span class="sec-n">4</span>Resultados — cómo ver los reportes</h2>
+      <p>Al terminar, el script genera dos archivos HTML dentro de la carpeta <code>Kommand</code>:</p>
+
+      <div class="result-cards">
+        <div class="rcard">
+          <div class="rcard-head">Entel (VNO 03)</div>
+          <div class="rcard-body">reporte_entel_extra.html</div>
+        </div>
+        <div class="rcard">
+          <div class="rcard-head">ClaroVTR (VNO 02)</div>
+          <div class="rcard-body">reporte_clarovtr_extra.html</div>
+        </div>
+      </div>
+
+      <p>Abrir cualquiera de los dos archivos con <strong>doble clic</strong> — se abre en el navegador (Chrome, Edge, etc.).</p>
+
+      <h3>Qué muestra el reporte</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sección</th><th>Qué muestra</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Summary</strong></td><td>Resumen total: cuántos tests pasaron, cuántos fallaron, tiempo total.</td></tr>
+            <tr><td><strong>Failed Tests</strong></td><td>Detalle de cada test que falló con el mensaje de error exacto.</td></tr>
+            <tr><td><strong>Request / Response</strong></td><td>El body completo de cada request enviado y su respuesta.</td></tr>
+            <tr><td><strong>Console Log</strong></td><td>Los logs internos con el resultado de cada operación: código de retorno, descripción, ID del acceso procesado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-i">⚠</span>
+        <strong>Fallas esperadas:</strong> Los requests 01 (DevMod SYNC) y 04 (Modification ASYNC SSAA) siempre fallan en el entorno PRE-PROD actual. Esto es un problema conocido del servidor, no del script ni de los datos de prueba.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span>Komands QA · Ejecución Local</span>
+    <span>Confidencial — Uso interno</span>
+  </div>
+
+</div>

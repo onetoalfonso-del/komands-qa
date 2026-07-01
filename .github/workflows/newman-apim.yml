@@ -1,0 +1,156 @@
+name: Newman APIM PRE — Entel & ClaroVTR
+
+on:
+  workflow_dispatch:
+    inputs:
+      accessId_entel:
+        description: "Access ID Entel  (ej: 03-TESTPREPROD-DIR02873675-9)"
+        required: true
+        default: "03-TESTPREPROD-DIR02873675-8"
+      serial_entel:
+        description: "Serial Entel  (ej: SCOM13032002)"
+        required: true
+        default: "SCOM13032001"
+      speedPlan_entel:
+        description: "Speed Plan Entel"
+        required: false
+        default: "940/940"
+      accessId_cvtr:
+        description: "Access ID ClaroVTR  (ej: 02-TESTPREPROD-DIR02803674-002)"
+        required: true
+        default: "02-TESTPREPROD-DIR02803674-001"
+      serial_cvtr:
+        description: "Serial ClaroVTR  (ej: SCOM13022002)"
+        required: true
+        default: "SCOM13022001"
+      speedPlan_cvtr:
+        description: "Speed Plan ClaroVTR"
+        required: false
+        default: "600/600"
+
+# Los dos jobs corren en paralelo (no tienen "needs:" entre ellos)
+jobs:
+
+  # ─────────────────────────────────────────
+  #  Entel  VNO 03
+  # ─────────────────────────────────────────
+  test-entel:
+    name: "Entel (VNO 03)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar Newman + htmlextra
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Generar archivo de ambiente Entel
+        env:
+          CONSUMER_KEY:    ${{ secrets.APIM_CONSUMER_KEY_VNO03 }}
+          CONSUMER_SECRET: ${{ secrets.APIM_CONSUMER_SECRET_VNO03 }}
+        run: |
+          python3 - << 'PYEOF'
+          import json, os
+          env = {
+            "name": "Entel PRE-PROD (CI)",
+            "values": [
+              {"key": "apimURL",        "value": "https://epreapi.onnetfibra.cl",   "enabled": True},
+              {"key": "consumerKey",    "value": os.environ["CONSUMER_KEY"],         "enabled": True},
+              {"key": "consumerSecret", "value": os.environ["CONSUMER_SECRET"],      "enabled": True},
+              {"key": "Token",          "value": "",                                 "enabled": True},
+              {"key": "authorization",  "value": "",                                 "enabled": True},
+              {"key": "idvno",          "value": "03",                               "enabled": True}
+            ]
+          }
+          with open("entel_env.json", "w") as f:
+              json.dump(env, f)
+          print("entel_env.json generado OK")
+          PYEOF
+
+      - name: Ejecutar Newman — Entel
+        continue-on-error: true
+        run: |
+          newman run "collection Blueplanet/Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json" \
+            -e entel_env.json \
+            --env-var "accessId=${{ inputs.accessId_entel }}" \
+            --env-var "serial=${{ inputs.serial_entel }}" \
+            --env-var "speedPlan=${{ inputs.speedPlan_entel }}" \
+            --insecure \
+            --reporters "cli,htmlextra" \
+            --reporter-htmlextra-export reporte_entel_extra.html
+
+      - name: Subir reporte Entel
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-entel-${{ github.run_number }}
+          path: reporte_entel_extra.html
+          retention-days: 30
+
+  # ─────────────────────────────────────────
+  #  ClaroVTR  VNO 02
+  # ─────────────────────────────────────────
+  test-cvtr:
+    name: "ClaroVTR (VNO 02)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar Newman + htmlextra
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Generar archivo de ambiente ClaroVTR
+        env:
+          CONSUMER_KEY:    ${{ secrets.APIM_CONSUMER_KEY_VNO02 }}
+          CONSUMER_SECRET: ${{ secrets.APIM_CONSUMER_SECRET_VNO02 }}
+        run: |
+          python3 - << 'PYEOF'
+          import json, os
+          env = {
+            "name": "ClaroVTR PRE-PROD (CI)",
+            "values": [
+              {"key": "apimURL",        "value": "https://epreapi.onnetfibra.cl",   "enabled": True},
+              {"key": "consumerKey",    "value": os.environ["CONSUMER_KEY"],         "enabled": True},
+              {"key": "consumerSecret", "value": os.environ["CONSUMER_SECRET"],      "enabled": True},
+              {"key": "Token",          "value": "",                                 "enabled": True},
+              {"key": "authorization",  "value": "",                                 "enabled": True},
+              {"key": "idvno",          "value": "02",                               "enabled": True}
+            ]
+          }
+          with open("cvtr_env.json", "w") as f:
+              json.dump(env, f)
+          print("cvtr_env.json generado OK")
+          PYEOF
+
+      - name: Ejecutar Newman — ClaroVTR
+        continue-on-error: true
+        run: |
+          newman run "collection Blueplanet/Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json" \
+            -e cvtr_env.json \
+            --env-var "accessId=${{ inputs.accessId_cvtr }}" \
+            --env-var "serial=${{ inputs.serial_cvtr }}" \
+            --env-var "speedPlan=${{ inputs.speedPlan_cvtr }}" \
+            --insecure \
+            --reporters "cli,htmlextra" \
+            --reporter-htmlextra-export reporte_clarovtr_extra.html
+
+      - name: Subir reporte ClaroVTR
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-clarovtr-${{ github.run_number }}
+          path: reporte_clarovtr_extra.html
+          retention-days: 30

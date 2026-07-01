@@ -25,7 +25,11 @@ from jose import jwt, JWTError
 
 JWT_SECRET = "test-secret-komands-qa"
 JWT_ALGORITHM = "HS256"
-VNOS = ["DTV", "CVTR", "VTR", "ENTEL", "TCH"]
+VNOS = ["DTV", "VTR", "Entel", "ENTEL", "TCH", "Claro", "Genérico", "GTD", "WOM", "CVTR"]
+# VNOs verificados en portal real (onf-komands.cl:9010) — 2026-06-17
+# Flujos activos: DTV, VTR, Entel, TCH, Claro, Genérico
+# GTD/WOM: VNO existe pero sin flujos GPON configurados aún
+# CVTR: alias legacy del spec original
 _HUAWEI_OLTS = {"OLT-SAN-002", "OLT-VAL-003"}
 
 _FIXED_UUID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
@@ -382,6 +386,74 @@ async def port_occupancy(request: Request):
     return {"max_onts": 128, "active_onts": 87, "available": 41}
 
 
+# ─── 10 Estado de operaciones asíncronas (openapi.json v2.2.3) ───────────────
+# GET /{operation}/{uuid} — presentes en spec real, ausentes en versiones anteriores.
+
+def _op_status(op_uuid: str, operation: str) -> dict:
+    return {
+        "txn_id": op_uuid,
+        "operation": operation,
+        "status": "COMPLETED",
+        "result": {
+            "u_uuid": op_uuid,
+            "u_return_code": "0",
+            "u_return_code_desc": "Operación completada",
+            "u_timestamp": _FIXED_TS,
+            "u_time": "0.001s",
+            "u_status": "COMPLETED",
+        },
+        "steps": [],
+    }
+
+
+@app.get("/api/Komands/v1/service-activation/{op_uuid}")
+async def get_activation_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "service-activation")
+
+
+@app.get("/api/Komands/v1/unsubscription/{op_uuid}")
+async def get_unsubscription_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "unsubscription")
+
+
+@app.get("/api/Komands/v1/device-modification/{op_uuid}")
+async def get_device_modification_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "device-modification")
+
+
+@app.get("/api/Komands/v1/service-modification/{op_uuid}")
+async def get_service_modification_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "service-modification")
+
+
+@app.get("/api/Komands/v1/fiber-change/{op_uuid}")
+async def get_fiber_change_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "fiber-change")
+
+
+@app.get("/api/Komands/v1/pon-transfer/{op_uuid}")
+async def get_pon_transfer_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "pon-transfer")
+
+
 # ─── Arranque ─────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -389,6 +461,6 @@ if __name__ == "__main__":
     print("  Komands Mock Server — Local QA  (spec v2.2.3)")
     print("  http://localhost:8000")
     print("  Token: GET http://localhost:8000/test/token")
-    print("  VNOs: DTV | CVTR | VTR | ENTEL | TCH")
+    print("  VNOs: DTV | VTR | Entel | ENTEL | TCH | Claro | Genérico | GTD | WOM | CVTR")
     print("=" * 60)
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")

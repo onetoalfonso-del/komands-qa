@@ -1,0 +1,367 @@
+{
+  "info": {
+    "name": "Komands — APIM PRE VNO 03 Entel (Auto-Token)",
+    "_postman_id": "komands-apim-pre-vno03-auto",
+    "description": "Suite de integración contra APIM PRE-PROD — VNO 03 (Entel).\n\nCARACTERÍSTICAS:\n  • Token OAuth2 automático con caché — no se necesita ejecutar ningún request de token manualmente.\n  • 5 flujos: DeviceModification sync/async, Modification sync/async, Baja de Acceso.\n  • Assertions por campo en cada respuesta.\n  • Console.log con return_code y descripción para debug rápido.\n\nVARIABLES DE ENTORNO REQUERIDAS (importar VnoB1_vnoid03 PRE.postman_environment.json):\n  apimURL       — URL base del APIM (ej: https://epreapi.onnetfibra.cl/...)\n  consumerKey   — Consumer Key Axway\n  consumerSecret — Consumer Secret Axway\n  idvno         — ID del VNO (ej: 03)\n  accessId      — Access ID de prueba (ej: 03-TESTPREPROD-DIR02803674-1)\n  serial        — Número de serie ONT (ej: SCOM13032001)\n  speedPlan     — Plan de velocidad (ej: 940/940)\n\nEJECUCIÓN:\n  • Postman: Collection Runner → seleccionar esta colección + environment → Run\n  • Newman:  newman run \"Postman_APIM_VNO03_auto.postman_collection.json\" \\\n               -e \"VnoB1_vnoid03 PRE.postman_environment.json\" \\\n               --insecure -r cli,html --reporter-html-export reporte_apim.html",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{Token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ── Token OAuth2 con caché de sesión ──────────────────────────────────",
+          "// Se ejecuta ANTES de cada request. Reutiliza el token si le quedan más",
+          "// de 60 segundos; si no, obtiene uno nuevo de forma transparente.",
+          "",
+          "const expiresAt = pm.environment.get('_tokenExpiresAt');",
+          "if (expiresAt && Date.now() < parseInt(expiresAt)) {",
+          "    const secsLeft = Math.round((parseInt(expiresAt) - Date.now()) / 1000);",
+          "    console.log('[Token] En caché — válido por ' + secsLeft + 's más');",
+          "    return;",
+          "}",
+          "",
+          "const apimURL = pm.environment.get('apimURL');",
+          "const cKey    = pm.environment.get('consumerKey');",
+          "const cSecret = pm.environment.get('consumerSecret');",
+          "",
+          "if (!apimURL || !cKey || !cSecret) {",
+          "    console.error('[Token] ERROR: faltan variables apimURL, consumerKey o consumerSecret en el environment');",
+          "    return;",
+          "}",
+          "",
+          "const creds = btoa(cKey + ':' + cSecret);",
+          "",
+          "pm.sendRequest({",
+          "    url: apimURL + '/token',",
+          "    method: 'POST',",
+          "    header: {",
+          "        'Authorization': 'Basic ' + creds,",
+          "        'Content-Type':  'application/x-www-form-urlencoded'",
+          "    },",
+          "    body: {",
+          "        mode: 'urlencoded',",
+          "        urlencoded: [{ key: 'grant_type', value: 'client_credentials' }]",
+          "    }",
+          "}, function(err, res) {",
+          "    if (err) {",
+          "        console.error('[Token] Error de red: ' + err);",
+          "        return;",
+          "    }",
+          "    if (res.code !== 200) {",
+          "        console.error('[Token] HTTP ' + res.code + ' — ' + res.text());",
+          "        return;",
+          "    }",
+          "    const json = res.json();",
+          "    const ttl  = json.expires_in || 3600;",
+          "    pm.environment.set('Token', json.access_token);",
+          "    pm.environment.set('_tokenExpiresAt', String(Date.now() + (ttl - 60) * 1000));",
+          "    console.log('[Token] Nuevo token obtenido — expira en ' + ttl + 's');",
+          "});"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ── Guards globales de autenticación ──────────────────────────────────",
+          "if (pm.response.code === 401) {",
+          "    pm.test('AUTH FALLIDA (401) — token inválido o expirado', () => pm.expect.fail('HTTP 401'));",
+          "}",
+          "if (pm.response.code === 403) {",
+          "    pm.test('ACCESO DENEGADO (403) — revisar permisos del consumer key', () => pm.expect.fail('HTTP 403'));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — DeviceModification Sincrónico",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200 o 202', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta tiene campo result', function () {",
+              "    pm.expect(body).to.have.property('result');",
+              "});",
+              "",
+              "if (body && body.result) {",
+              "    pm.test('result.u_return_code presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code');",
+              "    });",
+              "    pm.test('result.u_return_code_desc presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code_desc');",
+              "    });",
+              "    console.log('[DevMod SYNC] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{Token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Accept",       "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "vnoId",        "value": "{{idvno}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"u_id_vno\":        \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_serial_number\": \"{{serial}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+          "host": ["{{apimURL}}"],
+          "path": ["fullFillment-deviceModification", "v1", "deviceModification"]
+        },
+        "description": "Cambio de ONT sincrónico. Requiere que el accessId esté provisionado en BluePlanet PRE-PROD.\nSi retorna 500, ONFNet debe activar el AccessID en el sistema."
+      }
+    },
+    {
+      "name": "02 — DeviceModification Asincrónico",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200 o 202', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta tiene campo result', function () {",
+              "    pm.expect(body).to.have.property('result');",
+              "});",
+              "",
+              "if (body && body.result) {",
+              "    pm.test('result.u_return_code presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code');",
+              "    });",
+              "    pm.test('result.u_return_code_desc presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code_desc');",
+              "    });",
+              "    console.log('[DevMod ASYNC] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{Token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Accept",       "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "vnoId",        "value": "{{idvno}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"u_id_vno\":        \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_serial_number\": \"{{serial}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-deviceModificationAsync/v1/deviceModificationAsync",
+          "host": ["{{apimURL}}"],
+          "path": ["fullFillment-deviceModificationAsync", "v1", "deviceModificationAsync"]
+        },
+        "description": "Cambio de ONT asincrónico. Mismos requisitos que SYNC."
+      }
+    },
+    {
+      "name": "03 — Modification Sincrónica",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200 o 202', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta tiene campo result', function () {",
+              "    pm.expect(body).to.have.property('result');",
+              "});",
+              "",
+              "if (body && body.result) {",
+              "    pm.test('result.u_return_code presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code');",
+              "    });",
+              "    pm.test('result.u_return_code_desc presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code_desc');",
+              "    });",
+              "    console.log('[ModSSAA SYNC] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{Token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" },
+          { "key": "vnoId",        "value": "{{idvno}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"u_id_vno\":         \"{{idvno}}\",\n  \"u_access_id_vno\":  \"{{accessId}}\",\n  \"u_operation_type\": \"M\",\n  \"u_speed_plan\":     \"{{speedPlan}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+          "host": ["{{apimURL}}"],
+          "path": ["fullFillment-modification", "v1", "registrationModification"]
+        },
+        "description": "Cambio de plan de velocidad sincrónico.\nu_operation_type: 'M' (Modificación)\nu_speed_plan: plan en formato 'bajada/subida' — ej: 940/940"
+      }
+    },
+    {
+      "name": "04 — Modification Asincrónica (SSAA)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200 o 202', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta tiene campo result', function () {",
+              "    pm.expect(body).to.have.property('result');",
+              "});",
+              "",
+              "// El campo result puede venir como string JSON en este endpoint",
+              "const result = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+              "",
+              "if (result) {",
+              "    pm.test('result.u_return_code presente', function () {",
+              "        pm.expect(result).to.have.property('u_return_code');",
+              "    });",
+              "    pm.test('result.u_return_code_desc presente', function () {",
+              "        pm.expect(result).to.have.property('u_return_code_desc');",
+              "    });",
+              "    console.log('[ModSSAA ASYNC] rc=' + result.u_return_code + ' | ' + result.u_return_code_desc);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{Token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" },
+          { "key": "vnoId",        "value": "{{idvno}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"u_id_vno\":         \"{{idvno}}\",\n  \"u_access_id_vno\":  \"{{accessId}}\",\n  \"u_operation_type\": \"Modificacion\",\n  \"u_speed_plan\":     \"{{speedPlan}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-ModificationSSAA/v1/registrationModificationSSAA",
+          "host": ["{{apimURL}}"],
+          "path": ["fullFillment-ModificationSSAA", "v1", "registrationModificationSSAA"]
+        },
+        "description": "Cambio de plan asincrónico vía SSAA.\nu_operation_type: 'Modificacion' (con mayúscula, sin tilde — exactamente así).\nNota: el campo result puede venir serializado como string JSON en algunas versiones del APIM."
+      }
+    },
+    {
+      "name": "05 — Baja de Acceso",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200 o 202', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 202]);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "",
+              "pm.test('Respuesta tiene campo result', function () {",
+              "    pm.expect(body).to.have.property('result');",
+              "});",
+              "",
+              "if (body && body.result) {",
+              "    pm.test('result.u_return_code presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code');",
+              "    });",
+              "    pm.test('result.u_return_code_desc presente', function () {",
+              "        pm.expect(body.result).to.have.property('u_return_code_desc');",
+              "    });",
+              "    console.log('[Baja] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{Token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Accept",       "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "vnoId",        "value": "{{idvno}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"u_id_vno\":        \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_service_type\":  \"FTTH\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync",
+          "host": ["{{apimURL}}"],
+          "path": ["fullFillment-accessDeregistrationAsync", "v1", "accessDeregistrationAsync"]
+        },
+        "description": "Baja de acceso FTTH asincrónica.\nu_service_type: siempre 'FTTH' para fibra."
+      }
+    }
+  ]
+}

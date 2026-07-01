@@ -1,0 +1,1594 @@
+================================================================================
+DOCUMENT 2: docs/Diseño Desarrollo APIs PostVenta - v3 Alineado KOMANDs.docx
+================================================================================
+[000] DISEÑO TÉCNICO
+[001] Sunset BluePlanet
+[002] Desarrollo ServiceNow
+[003] Integración con KOMANDs API v1
+[004] Versión revisada — Mayo 2026
+[005] Alineamiento con KOMANDs API v1 v0.3.0 (Anexo H del LLD Sunset BP v2.1)
+[006] Equipo ServiceNow / MOS-iT
+[007] Clasificación: CONFIDENCIAL — ON·NET Fibra
+[008] Tabla de Contenidos
+[009] Para regenerar la tabla: clic derecho sobre la tabla → Update Field, o presionar F9.
+[010] Tabla de Contenidos1
+[011] Sunset BluePlanet - Desarrollo ServiceNow3
+[012] Control de Cambios3
+[013] Referencia Normativa al Contrato KOMANDs API v13
+[014] Tabla Maestra de Operaciones (Mapeo SN ↔ KOMANDs)4
+[015] Headers HTTP Obligatorios (referencia: KOMANDs Spec sec. 2.0)5
+[016] Códigos HTTP de Respuesta (referencia: KOMANDs Spec sec. 3.4.1)5
+[017] Códigos Funcionales u_return_code (referencia: KOMANDs Spec sec. 3.4.2 / 2.5 / 2.6)6
+[018] Política de Reintentos (resumen consolidado)7
+[019] Rate Limiting y SLAs (referencia: KOMANDs Spec sec. 3.2 y 3.3)8
+[020] URLs Base por Entorno (referencia: KOMANDs Spec sec. 3.5)9
+[021] Objetivo9
+[022] Enfoque de implementación9
+[023] Convención: acciones dedicadas para Komands10
+[024] Callback inbound (Komands → ServiceNow)11
+[025] Política de reintentos (Wait / consulta de estado de transacción)11
+[026] Nuevo componente: tabla u_komands_transaction12
+[027] Tablas v2 por API (nuevas)13
+[028] Outbound REST Messages (Komands)13
+[029] Subflujo reutilizable: Integration Control Komands (nuevo comportamiento)13
+[030] Baja de Acceso (Access Deregistration)16
+[031] Flujos / subflujos (se duplicarán para la versión sin Blue Planet)16
+[032] Cambios esperados dentro del flujo (alto nivel)17
+[033] API Access Deregistration (múltiples flujos)17
+[034] Paso a paso (alto nivel)17
+[035] 1) Flow: Access Deregistration API Flow - v1.018
+[036] 2) Flow: Access Deregistration API Flow - ACK - v1.026
+[037] 3) Flow: Access Deregistration SSAA API Flow v1.028
+[038] 4) Flow: Access Deregistration SSAA API Flow - ACK - v1.029
+[039] Device Modification31
+[040] Flujos / subflujos (se duplican para la versión sin Blue Planet)31
+[041] Impacto en input/output33
+[042] Modificación FTTH34
+[043] Tabla v234
+[044] Flujos / subflujos (v2 sin BluePlanet)34
+[045] Actions / REST Messages34
+[046] Patrón asíncrono (TO-BE)35
+[047] 1) Flow: Registration Modification API Flow v3.035
+[048] Propuesta inicial Feature Flags42
+[049] Evaluación de activación por transacción43
+[050] Kill switch global43
+[051] Consideraciones de diseño43
+[052] Anexo A — Schemas de Request / Response por Operación43
+[053] A.1  Baja de Acceso (Unsubscription)44
+[054] A.2  Estado de Transacción de Baja45
+[055] A.3  Consulta de Acceso45
+[056] A.4  Cambio de Equipo (Device Change)46
+[057] A.5  Estado de Transacción de Cambio de Equipo47
+[058] A.6  Modificación de Servicio48
+[059] A.7  Estado de Transacción de Modificación de Servicio49
+[060] A.8  Cambio de Pelo (Hair Change)50
+[061] A.9  Estado de Transacción de Cambio de Pelo51
+[062] A.10  Activación de Servicio52
+[063] A.11  Estado de Transacción de Activación53
+[064] Sunset BluePlanet - Desarrollo ServiceNow
+[065] Control de Cambios
+[066] Versión revisada (Mayo 2026) — Alineamiento con KOMANDs API v1 v0.3.0 (Anexo H del LLD Sunset BP v2.1). Cambios principales aplicados:
+[067] Endpoints homologados al patrón canónico /api/Komands/v1/<recurso> (se eliminaron variantes /apiKomands/v1/, /api/v1/modification y el endpoint inexistente /api/v1/transaction/{uuid}).
+[068] Nomenclatura de campos JSON alineada con el contrato KOMANDs (prefijo u_): u_olt, u_slot, u_pon, u_ontid, u_serialnumber, u_slid, u_uuid, etc. Campo de VNO renombrado a id_vno (enum: DTV, CVTR, ENTEL, TCH).
+[069] Política de reintentos formalizada con 5 system properties (kill switch, callback timeout, max attempts, backoff intervals, retryable codes). Los intervalos 0/5/15/45/120s pasan a ser configurables.
+[070] Lógica de retry migrada de categorías simbólicas (RATE_LIMIT/SSH_ERROR/CLI_TIMEOUT) a códigos funcionales numéricos de KOMANDs (u_return_code 40, 50) y códigos HTTP (429, 502, 503).
+[071] Header Authorization: Bearer <jwt> declarado explícitamente como obligatorio en Outbound REST Messages, inyectado dinámicamente vía global.AxWayUtils.getToken().
+[072] Renombrado de identificador de transacción: txn_id → u_uuid (alineado con el campo emitido por KOMANDs en el ACK 202 y en el header X-Transaction-ID).
+[073] Corrección de typos ("maxma" → "máxima", "Kommands" → "Komands").
+[074] Referencia Normativa al Contrato KOMANDs API v1
+[075] Este documento describe la implementación en ServiceNow para consumir las APIs publicadas por la plataforma KOMANDs. La especificación contractual de las APIs (paths, métodos, schemas, headers obligatorios, códigos de error, políticas de rate limiting y SLOs) es normativa en el documento "KOMANDs API v1 — Diseño Técnico v0.3.0" (en adelante "KOMANDs Spec").
+[076] Regla de precedencia: ante cualquier conflicto entre este documento y KOMANDs Spec, prevalece KOMANDs Spec. Toda divergencia detectada debe registrarse como hallazgo y resolverse antes de la implementación, con aprobación cruzada de los equipos MOS-iT (KOMANDs), ServiceNow y ON·NET (Axway).
+[077] Las subsecciones siguientes embeben las definiciones contractuales clave de KOMANDs Spec con la referencia a la sección original. Esta duplicación es intencional para que un desarrollador de ServiceNow tenga toda la información operativa en un único documento.
+[078] Tabla Maestra de Operaciones (Mapeo SN ↔ KOMANDs)
+[079] Cada fila representa una operación funcional que ServiceNow consume desde KOMANDs. Las columnas establecen la trazabilidad entre el endpoint de KOMANDs y los componentes de ServiceNow que lo invocan.
+[080] #
+[081] Operación
+[082] Método + Endpoint KOMANDs
+[083] Sec.
+[084] Tabla SN v2
+[085] Action SN
+[086] Flow / Subflow SN
+[087] 1
+[088] Baja de Acceso
+[089] POST /api/Komands/v1/unsubscription
+[090] 2.1
+[091] u_access_deregistration_v2
+[092] Access Deregistration - Komands
+[093] Access Deregistration API Flow v1.0
+[094] 2
+[095] Estado Baja
+[096] GET /api/Komands/v1/unsubscription/{u_uuid}
+[097] 2.2
+[098] u_komands_transaction
+[099] Get Access Deregistration Status - Komands
+[100] Integration Control Komands
+[101] 3
+[102] Consulta Acceso
+[103] GET /api/Komands/v1/query-access/{u_id}
+[104] 2.3
+[105] u_retrieve_access_v2
+[106] Query Access - Komands
+[107] Retrieve Access (subflow)
+[108] 4
+[109] Cambio de Equipo
+[110] POST /api/Komands/v1/device-change
+[111] 2.4
+[112] u_device_modification_v2
+[113] Device Modification - Komands
+[114] Device Modification API Flow v2.0
+[115] 5
+[116] Estado Cambio Equipo
+[117] GET /api/Komands/v1/device-change/{u_uuid}
+[118] 2.4
+[119] u_komands_transaction
+[120] Get Device Modification Status - Komands
+[121] Integration Control Komands
+[122] 6
+[123] Modificación Servicio
+[124] POST /api/Komands/v1/service-modification
+[125] 2.5
+[126] u_registration_modification_v2
+[127] Speed Change / Block-Unblock / Add-Remove Service - Komands
+[128] Registration Modification API Flow v3.0
+[129] 7
+[130] Estado Modificación
+[131] GET /api/Komands/v1/service-modification/{u_uuid}
+[132] 2.5
+[133] u_komands_transaction
+[134] Get Status - Komands
+[135] Integration Control Komands
+[136] 8
+[137] Cambio de Pelo
+[138] POST /api/Komands/v1/hair-change
+[139] 2.6
+[140] (TBD)
+[141] Hair Change - Komands
+[142] (TBD - nuevo flujo)
+[143] 9
+[144] Estado Cambio Pelo
+[145] GET /api/Komands/v1/hair-change/{u_uuid}
+[146] 2.6
+[147] u_komands_transaction
+[148] Get Hair Change Status - Komands
+[149] Integration Control Komands
+[150] 10
+[151] Activación Servicio
+[152] POST /api/Komands/v1/service-activation
+[153] 2.7
+[154] (TBD)
+[155] Service Activation - Komands
+[156] Registration Modification - Service Activation Request
+[157] 11
+[158] Estado Activación
+[159] GET /api/Komands/v1/service-activation/{u_uuid}
+[160] 2.7
+[161] u_komands_transaction
+[162] Get Service Activation Status - Komands
+[163] Integration Control Komands
+[164] Headers HTTP Obligatorios (referencia: KOMANDs Spec sec. 2.0)
+[165] Todos los Outbound REST Messages hacia KOMANDs deben incluir los siguientes headers. Requests sin headers obligatorios son rechazados con HTTP 400 Bad Request.
+[166] Header
+[167] Oblig.
+[168] Tipo
+[169] Descripción
+[170] Valor a usar en ServiceNow
+[171] Authorization
+[172] Sí
+[173] String
+[174] Bearer <jwt> emitido por Axway APIM (OAuth 2.0 client_credentials, RS256)
+[175] "Bearer " + global.AxWayUtils.getToken()
+[176] X-Source-System
+[177] Sí
+[178] String
+[179] Identificador del sistema llamante. Enum: SN_PROVISION | SN_QUERY
+[180] "SN_PROVISION" para POST; "SN_QUERY" para GET de consulta de estado
+[181] X-Correlation-ID
+[182] Sí
+[183] UUID v4
+[184] UUID único por cada invocación HTTP individual. Se retorna en ACK y callback
+[185] gs.generate_uuid() — guardar en u_komands_transaction.correlation_id
+[186] X-Source-System-ID
+[187] Sí
+[188] String
+[189] sys_id del registro ServiceNow que origina la operación (auditoría Komands)
+[190] current.getValue('sys_id') del record de origen
+[191] Content-Type
+[192] Sí (POST)
+[193] String
+[194] application/json — obligatorio en POST; opcional en GET sin body
+[195] "application/json"
+[196] Códigos HTTP de Respuesta (referencia: KOMANDs Spec sec. 3.4.1)
+[197] Mapeo de códigos HTTP retornados por KOMANDs y la acción esperada en el flujo ServiceNow. Los códigos marcados como retryable se gestionan en el subflujo Integration Control Komands según la política de reintentos.La columna “Acción esperada en ServiceNow” y “Retry” aplican exclusivamente a la invocación del endpoint de consulta de estado (GET /{operation}/{u_uuid}) dentro del mecanismo de polling.
+[198] La invocación inicial (POST) no se reintenta como parte de la lógica de negocio.
+[199] Código
+[200] Nombre
+[201] Acción esperada en ServiceNow
+[202] Retry
+[203] 200
+[204] OK
+[205] Procesar body de respuesta. Actualizar records de negocio.
+[206] —
+[207] 202
+[208] Accepted
+[209] Interpretar como estado no terminal (PENDING / IN_PROGRESS). Continuar polling 
+[210] Si
+[211] 400
+[212] Bad Request
+[213] Marcar la consulta de estado como fallida. Evaluar consistencia de datos (u_uuid inválido o request incorrecto). Terminar polling.
+[214] No
+[215] 401
+[216] Unauthorized
+[217] Refrescar token (global.AxWayUtils.getToken(force=true)) y reintentar UNA vez.
+[218] Sí (1x)
+[219] 403
+[220] Forbidden
+[221] Marcar la consulta de estado como fallida. Evaluar consistencia de datos (u_uuid inválido o request incorrecto). Terminar polling.
+[222] No
+[223] 404
+[224] Not Found
+[225] Marcar la consulta de estado como fallida. Evaluar consistencia de datos (u_uuid inválido o request incorrecto). Terminar polling.
+[226] No
+[227] 409
+[228] Conflict
+[229] Evaluar respuesta como no terminal. Continuar polling.
+[230] Si
+[231] 422
+[232] Unprocessable Entity
+[233] Marcar la consulta de estado como fallida. Evaluar consistencia de datos (u_uuid inválido o request incorrecto). Terminar polling.
+[234] No
+[235] 429
+[236] Too Many Requests
+[237] Reintentar la llamada GET de estado
+[238] Sí 
+[239] 500
+[240] Internal Server Error
+[241] Marcar error temporal en consulta de estado. Evaluar retry según política de polling.
+[242] Si
+[243] 502
+[244] Bad Gateway
+[245] Reintentar la llamada GET de estado
+[246] Sí 
+[247] 503
+[248] Service Unavailable
+[249] Reintentar la llamada GET de estado
+[250] Sí 
+[251] Códigos Funcionales u_return_code (referencia: KOMANDs Spec sec. 3.4.2 / 2.5 / 2.6)
+[252] Códigos retornados dentro del body JSON en el campo u_return_code. La lógica del subflujo Integration Control Komands consulta x_komands.retry.retryable_return_codes para decidir si la transacción es reintentable.Nota de alcance:La columna “Retry” indica si se debe continuar el polling (GET de estado).No implica reintento de la invocación original (POST).
+[253] Código
+[254] Descripción
+[255] Aplica a
+[256] Retry
+[257] Acción en ServiceNow
+[258] 0
+[259] Éxito
+[260] Todas
+[261] —
+[262] Marcar transacción COMPLETED. Actualizar records de negocio.
+[263] 10
+[264] Ruta no encontrada (OLT/slot/PON/ONT)
+[265] Todas
+[266] No
+[267] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[268] 11
+[269] Par identificador incompleto
+[270] Cambio Equipo / Cambio Pelo
+[271] No
+[272] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[273] 20
+[274] Serial Number no asociado a la ruta
+[275] Todas
+[276] No
+[277] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[278] 30
+[279] SL ID no asociado a la ruta
+[280] Todas
+[281] No
+[282] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[283] 40
+[284] OLT con problemas de acceso (SSH/CLI)
+[285] Todas
+[286] Sí
+[287] Estado no terminal o transitorio. Continuar polling hasta obtener estado terminal o alcanzar máximo de intentos.
+[288] 50
+[289] TimeOut CLI
+[290] Todas
+[291] Sí
+[292] Estado no terminal o transitorio. Continuar polling hasta obtener estado terminal o alcanzar máximo de intentos.
+[293] 60
+[294] Credenciales SSH inválidas/expiradas
+[295] Todas
+[296] No
+[297] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[298] 70
+[299] Servicio ya activo / no aplicable
+[300] Modificación Servicio
+[301] No
+[302] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[303] 80
+[304] Servicio no encontrado
+[305] Modificación Servicio
+[306] No
+[307] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[308] 90
+[309] Otros errores 
+[310] Todas
+[311] Si
+[312] Estado no terminal o transitorio. Continuar polling hasta obtener estado terminal o alcanzar máximo de intentos.
+[313] 100
+[314] Tecnología no reconocida (FTTH/SSAA)
+[315] Cambio Pelo / Activación
+[316] No
+[317] Estado terminal con error. Finalizar polling y registrar error en records de negocio.
+[318] 110
+[319] Fallo en la baja, rollback ejecutado
+[320] Cambio de Pelo
+[321] No
+[322] Estado terminal con rollback exitoso. Finalizar polling. Evaluar nueva ejecución a nivel de negocio (fuera del subflujo automático).
+[323] 120
+[324] ESTADO INCONSISTENTE (no retryable)
+[325] Cambio de Pelo
+[326] NO
+[327] CRÍTICO: ONT origen fuera de servicio y destino no provisionada. Crear incidente urgente con u_uuid. Escalar a MOS-iT inmediatamente. Finalizar Polling
+[328] Política de Reintentos (resumen consolidado)
+[329] El mecanismo de reintentos se limita exclusivamente a la consulta de estado (polling).La invocación inicial (POST) no se reintenta para evitar duplicidad de transacciones en Komands.
+[330] El subflujo reutilizable Integration Control Komands implementa una política de pollig o reintentos alineada con KOMANDs Spec sec. 3.4.2. Todos los valores son parametrizables vía System Properties (ver subsección "Crear system properties" en este documento).
+[331] System Property
+[332] Tipo
+[333] Default
+[334] Propósito
+[335] x_komands.kill_switch.enabled
+[336] Boolean
+[337] false
+[338] Si está en true, todo el tráfico se enruta a BluePlanet (legacy). Permite rollback inmediato sin redeploy.
+[339] x_komands.wait.callback_timeout_seconds
+[340] Integer
+[341] 120
+[342] Tiempo máximo de espera del Wait for Callback en el subflujo Integration Control Komands.
+[343] x_komands.retry.max_attempts
+[344] Integer
+[345] 5
+[346] Máximo número de reintentos al consultar el endpoint GET de estado de transacción.
+[347] x_komands.retry.interval_seconds
+[348] Integer
+[349] 10
+[350] Intervalos de espera (en segundos) entre reintentos sucesivos. 
+[351] x_komands.retry.retryable_return_codes
+[352] String CSV
+[353] "40,50"
+[354] Códigos funcionales (u_return_code) que disparan reintento. No listados = terminales.
+[355] x_komands.retry.retryable_http_codes
+[356] String CSV
+[357] "429,502,503"
+[358] Códigos HTTP que disparan reintento (rate limit y errores transitorios). 
+[359] Rate Limiting y SLAs (referencia: KOMANDs Spec sec. 3.2 y 3.3)
+[360] Rate limits aplicados por capa:
+[361] Capa
+[362] Límite
+[363] Descripción
+[364] Axway APIM (global)
+[365] 20.000 tx/hora
+[366] Rate limit global por consumidor (client_id de ServiceNow). Burst hasta 20 req/seg.
+[367] Axway APIM (concurrencia)
+[368] 50 concurrentes
+[369] Máximo de requests simultáneos por consumidor.
+[370] Komands (por VNO)
+[371] 5.000 tx/hora
+[372] Rate limit interno por VNO (DTV/CVTR/ENTEL/TCH). Configurable vía system_config en Komands.
+[373] SLOs E2E (P95) por operación:
+[374] Operación
+[375] Patrón
+[376] SLO P95 E2E
+[377] Ref. RNF
+[378] Baja de acceso FTTH
+[379] Async 202 + callback
+[380] < 60 segundos
+[381] RNF-09
+[382] Baja de acceso SSAA
+[383] Async 202 + callback
+[384] < 180 segundos
+[385] RNF-09
+[386] ACK (respuesta inicial)
+[387] Síncrono
+[388] < 500 ms
+[389] RNF-02
+[390] Consulta de acceso (cache)
+[391] Síncrono
+[392] < 100 ms
+[393] RNF-09
+[394] Consulta de acceso (live SSH)
+[395] Síncrono
+[396] < 10 segundos
+[397] RNF-09
+[398] Estado de transacción
+[399] Síncrono BD
+[400] < 500 ms
+[401] RNF-09
+[402] Implicación operativa para ServiceNow: el x_komands.wait.callback_timeout_seconds (default 120s) debe ajustarse considerando el SLO E2E de la operación más lenta esperada (Baja SSAA: 180s). Para SSAA se recomienda configurar la propiedad en 240s para dejar margen sobre el P95.
+[403] URLs Base por Entorno (referencia: KOMANDs Spec sec. 3.5)
+[404] Entorno
+[405] Estado
+[406] Base URL (Axway APIM)
+[407] Disponibilidad
+[408] DEV
+[409] Activo
+[410] https://edevapi.onnetfibra.cl/komands
+[411] Semana 3 del proyecto
+[412] QA
+[413] Por definir
+[414] https://eqapi.onnetfibra.cl/komands
+[415] Semana 10 del proyecto
+[416] PROD
+[417] No aplica
+[418] https://api.onnetfibra.cl/komands
+[419] Semana 26 del proyecto
+[420] Estas URLs deben configurarse como Connection & Credential Aliases en ServiceNow y referenciarse desde los Outbound REST Messages, NUNCA hardcodearse en Actions o Scripts.
+[421] Fin de Referencia Normativa al Contrato KOMANDs API v1. Las siguientes secciones del documento describen la implementación específica en ServiceNow.
+[422] Objetivo
+[423] Eliminar las dependencias de Blue Planet en los flujos actuales y migrar la integración a:
+[424] CMDB (ServiceNow) como fuente de datos, cuando antes se consultaba Blue Planet para obtener información.
+[425] Komands como sistema destino para ejecutar bajas y modificaciones, cuando antes se enviaban solicitudes a Blue Planet.
+[426] Enfoque de implementación
+[427] Implementación de flujos paralelos v2 para el desacoplamiento total de los módulos BPI / BPO (eliminando dependencia con Blue Planet).
+[428] Duplicar las tablas de core use case, por ejemplo, u_assignment con u_assignment_v2 o crear las tablas necesarias para soportar la nueva integración como u_komands_transaction .
+[429] Eliminar el uso de la tabla u_control_integration .
+[430] Al existir versiones sincronas y asincronas y versiones tanto para FFTH como para SSAA por separados, se crearán nuevas versiones para el uso de Komands de igual forma.
+[431] Agregar una validación a los endpoints de las API para los feature flags. Dependiendo del resultado se crea el registro en la tabla original (con BluePlanet) o la nueva tabla relacionada a los flujos Komands (v2).
+[432] En cada flujo duplicado, clasificar cada dependencia de Blue Planet en uno de estos dos tipos y reemplazarla:
+[433] Tipo A — Peticiones operacionales (baja/modificación/deconfiguración): 
+[434] Reemplazar las llamadas a Blue Planet por llamadas a Komands.
+[435] Tipo B — Obtención de datos (lookups/queries): 
+[436] Reemplazar las llamadas a Blue Planet por queries a CMDB (tablas y relaciones existentes en ServiceNow).
+[437] Estandarizar el patrón asíncrono:
+[438] el flujo realiza un Wait for Callback hasta que exista una respuesta final en u_komands_transaction,
+[439] luego delega la espera, manejo de timeouts y errores a un subflujo reutilizable: Integration Control Komands
+[440] Convención: acciones dedicadas para Komands
+[441] Cada request a Komands debe implementarse como una Action propia (reutilizable) para evitar lógica duplicada en los flujos.
+[442] Formato de nombre (estándar) 
+[443] <API o Proceso> - Komands
+[444] Ejemplos
+[445] Access Deregistration - Komands
+[446] Device Modification - Komands
+[447] Qué incluye la Action
+[448] Mapeo de datos y construcción del esquema JSON conforme a la especificación de la API.
+[449] Llamada HTTP/REST a Komands.
+[450] Manejo de respuesta inmediata (ACK) y extracción de correlation_id.
+[451] Salida estandarizada para el flujo (komands_transaction record).
+[452] Qué NO incluye la Action
+[453] El Wait for Callback notification por respuesta final en u_komands_transaction (esto queda en el subflujo Integration Control Komands).
+[454] El parseo/interpretación de la respuesta final y las actualizaciones de records de negocio (esto queda en el subflujo Integration Control Komands).
+[455] Callback inbound (Komands → ServiceNow)
+[456] Para registrar la respuesta final de operaciones asíncronas, se creará un Scripted REST API inbound (webhook) con nombre Komands Callback API
+[457] /api/insp9/komands_callback
+[458] Comportamiento esperado
+[459] Komands invoca el endpoint de callback cuando la transacción finaliza.
+[460] ServiceNow actualiza u_komands_transaction usando solo u_txn_id como llave de correlación.
+[461] El id de transacción se obtiene desde el ACK de la primera llamada a Komands y queda guardado en el flujo/registro.
+[462] Política de reintentos (Wait / consulta de estado de transacción)
+[463] La política de reintentos de Komands se basa en backoff exponencial alineado con KOMANDs API v1 sec. 3.4.2. Los valores son parámetros configurables vía System Properties (no hardcoded) — ver subsección "Crear system properties". Los valores por defecto son los siguientes:
+[464] Reintento 1: inmediato
+[465] Reintento 2: 5s
+[466] Reintento 3: 15s
+[467] Reintento 4: 45s
+[468] Reintento 5 (último): 120s
+[469] Nota
+[470] ServiceNow puede consultar el estado vía GET /api/Komands/v1/{operation}/{u_uuid} como mecanismo de reconciliación. Para ello se deberá crear una Action  (Get Transaction Status - Komands) y utilizarla pasado los 120s.
+[471] Nuevo componente: tabla u_komands_transaction
+[472] Se creará una nueva tabla para registrar transacciones asíncronas con Komands.
+[473] Tabla: u_komands_transaction
+[474] U_ack_status_code (Integer): código de estado del ACK
+[475] U_process_name (String): nombre del proceso o flujo que originó la transacción (por ejemplo, access_deregistration, device_modification)
+[476] U_status (String): Estado de la respuesta de Komands
+[477] U_operation_type (String): Tipo de operación
+[478]  (String): Código del VNO
+[479] U_olt(String): Nombre OLT
+[480] U_started_at (DateTime): Timestamp del comienzo de la transacción
+[481] U_completed_at (DateTime): Timestamp de la finalización de la transacción
+[482] U_duration_ms (Integer): Duración 
+[483] U_steps (List): Lista con los pasos
+[484] U_return_code (String): Código funcional de retorno de Komands.
+[485] U_return_code_desc (String): Descripción funcional asociada al código de retorno.
+[486] U_error_code (Integer): Código de error
+[487] U_error_message (String): Descripción del error
+[488] U_response_origin (String): Especifica si la respuesta viene de callback o get status
+[489] U_uuid (String): UUID de transacción devuelto por Komands (vía ACK) para correlacionar la respuesta final
+[490] Tablas v2 por API (nuevas)
+[491] Además de u_komands_transaction, se crearán tablas “v2” para desacoplar la nueva API (sin Blue Planet) de las tablas legacy:
+[492] Baja de Acceso: u_access_deregistration_v2
+[493] Consulta de Acceso: u_retrieve_access_v2
+[494] Device Modification: u_device_modification_v2
+[495] Modificación de Servicio: u_registration_modification_v2
+[496] Outbound REST Messages (Komands)
+[497] Cada Action que llame a Komands debe hacerlo a través de un Outbound REST Message dedicado (“Komands”)
+[498] Gestión de token (Axway APIM)
+[499] El token/credenciales para consumir Axway APIM se gestionarán en ServiceNow mediante Application Registry: Komands (Centraliza la obtención/rotación del token y evita hardcodear secretos en Actions o Flows).
+[500] Subflujo reutilizable: Integration Control Komands (nuevo comportamiento)
+[501] Subflujo reutilizable para estandarizar el patrón asíncrono con Komands.
+[502] Objetivo
+[503] Recibir una transacción (u_komands_transaction) y ejecutar el Wait for Callback dentro del subflujo.
+[504] Manejar timeouts y errores de callback dentro del subflujo.
+[505] Devolver al flujo principal el resultado de la transacción para que el flujo principal ejecute las actualizaciones de records.
+[506] Input
+[507] Komands Transaction (Registro de u_komands_transaction)
+[508] Use Case Record
+[509] Customer Order
+[510] Expected Status
+[511] Comportamiento
+[512] Espera la respuesta final en u_komands_transaction.response mediante Wait for Callback. Se configura tiempo de espera en la propiedad de Sistema: x_komands.wait.callback_timeout_seconds.
+[513] En caso de que status no sea completed, se actualiza Core Use Case y Customer Order con los errores correspondientes
+[514] Si corresponde, ejecuta reconciliación mediante Get Transaction Status - Komands
+[515] Status (successful o error), status_code, http_status_code, response_message
+[516] Cuando el u_return_code de KOMANDs sea 40 (OLT con problemas de acceso - SSH/CLI) o 50 (TimeOut CLI), o el HTTP status sea 429 (Too Many Requests), 502 (Bad Gateway) o 503 (Service Unavailable), se puede reintentar la request. (Ver KOMANDs API v1 sec. 3.4.1 y 3.4.2 para el listado completo de códigos retryables.)
+[517] Reintento: el subflujo ejecuta un ciclo de consulta de estado llamando de forma iterativa a la API Estado de Transacción - Komands (por ejemplo GET /api/Komands/v1/{operation}/{u_uuid}) usando el u_uuid como correlación, hasta obtener un estado final (Éxito o Error) o hasta alcanzar un máximo de reintentos configurable (con espera entre intentos según definido en la system property x_komands.retry.interval_seconds). Se configura la cantidad máxima de reintentos en la system property x_komands.retry.max_attempts.
+[518] Que no hace:
+[519] No actualiza records de negocio (orders/service orders/tasks/etc.) en caso de éxito. Esas actualizaciones quedan en el flujo principal.
+[520] Baja de Acceso (Access Deregistration)
+[521] Endpoint: /api/Komands/v1/unsubscription
+[522] Flujos afectados:
+[523] Flow: Access Deregistration API Flow v1.0 (no se utiliza)
+[524] Flow: Access Deregistration API Flow ACK - v1.0 (no se utiliza)
+[525] Flow: Access Deregistration SSAA API Flow v1.0 (no se utiliza)
+[526] Flow: Access Deregistration SSAA API Flow ACK - v1.0 (no se utiliza)
+[527] Subflow reutilizable: Integration Control Komands (nuevo/actualizado, común para varios procesos)
+[528] Cambios esperados dentro del flujo (alto nivel)
+[529] Lookups de datos
+[530] Donde hoy se consulta BP para datos de acceso/servicio: cambiar a CMDB (ServiceNow).
+[531] Requests operacionales
+[532] Donde hoy se solicita baja/deconfig/modificación a BP: cambiar a Komands.
+[533] Patrón asíncrono
+[534] Tras enviar la solicitud a Komands:
+[535] Guardar u_uuid y process_name (ACK) en u_komands_transaction
+[536] Wait dentro del nuevo subflujo (integration control Komands) hasta que u_komands_transaction.status tenga la respuesta final
+[537] Disminución de la cantidad de flujos al centralizar los 4 flujos originales en uno solo.
+[538] API Access Deregistration
+[539] Cambios en las APIs:
+[540] Se agrega una validación que determina si se crea un registro en la nueva tabla de Komands (u_access_deregistration_v2) o en la original.
+[541] En la API asíncrona se sigue utilizando la lógica para validar reintentos. Para poder mantener esto se duplicaron los métodos validateReintento de PerformanceInventoryRestAPIHelper y u_access_deregistration_ReturnBody de InventoryRestApiLibrary que utilizaban lógica con nombre de las tablas.
+[542] Se edita el Script Includes KomandsIntegrationUtils para que al crear los registros, tanto los que sean síncronos como asíncronos, tengan Flow State = “Request Accepted”.
+[543] Qué cambia:
+[544] En vez de utilizar la action Retrieve Access PINT que obtenía distintos datos desde BP, utilizaremos la action Get OSP Circuit ID para obtener el único dato que no esta disponible en CMDB.
+[545] Obtenemos OLT, SLOT, PON, PON Lógico, SL ID, Techonology y Serial Number de u_cmdb_ci_id_access 
+[546] Se duplican las actions API Manager Error Response y Access Deregistration – API Manager response (porque se utilizan tablas nuevas, y el script depende del nombre de las tablas)
+[547] Se edita la action Brownfield TCH CMDB Integration para que también funcione con Komands y se renombra a Brownfield – Komands CMDB Integration.
+[548] Se elimina la creación de Order Tasks y Service Orders por cada paso, simplificando el flujo y eliminando la necesidad de subflujos.
+[549] Nueva action: Access Deregistration - Komands
+[550] Input: 
+[551] PON Logico
+[552] PON
+[553] Slot
+[554] OLT
+[555] VNO Code
+[556] SL ID
+[557] Core Use Case ID
+[558] Technology
+[559] Serial Number
+[560] Product
+[561] Output:
+[562] Transaction Record
+[563] Status
+[564] Error
+[565] Response
+[566] 1) Flow: Access Deregistration API Flow Komands
+[567] Cuándo se ejecuta:
+[568] Se activa cuando se crea un registro en la tabla access deregistration v2, con async igual a false y el servicio no es SSAA.
+[569] Device Modification
+[570] Flujos / subflujos (se duplican para la versión sin Blue Planet)
+[571] Flow/Subflow: Device Modification API Flow – Komands (duplicado; versión sin BP) 
+[572] Action: Device Modification – Komands (nueva)
+[573] Subflow reutilizable: Komands Integration Control (el mismo subflujo, reutilizado; sin cambio de firma)
+[574] RetrieveAccess API Invocation sera cambiada por una query a CMDB: obtenemos OLT, SLOT, PON y PON Logico de u_cmdb_ci_id_access 
+[575] Para obtener el tipo de servicio (si es que es SSAA) podemos revisar la service order en sn_ind_tmt_orm_service_order
+[576] Nueva action Device Modification - Komands
+[577] Inputs: 
+[578] VNO Code 
+[579] OLT
+[580] SLOT
+[581] ONT
+[582] PON
+[583] SL ID
+[584] Core Use Case ID
+[585] Technology
+[586] Serial Number
+[587] Product
+[588] New Serial Number
+[589] Outputs:
+[590] Transaction Record
+[591] Response
+[592] Status
+[593] Success
+[594] Error_message
+[595] Método: POST
+[596] Endpoint: /api/Komands/v1/device-modification
+[597] Authentication: No authentication a nivel de Outbound REST Message. El header Authorization: Bearer <jwt> (obligatorio según KOMANDs sec. 2.0) se inyecta dinámicamente en la Action mediante global.AxWayUtils.getToken(). 
+[598] Nuevo Outbound REST Message: Device Modification – Komands
+[599] El Header se construye aparte, por Script Include.
+[600] Basado en diseño técnico de Komands, Body queda así:
+[601] // Body
+[602] var body = {
+[603] u_callback_url: callbackEndpoint,
+[604] u_routing: {
+[605] u_id_vno: inputs.vno_code,
+[606] u_olt: inputs.olt,
+[607] u_slot: inputs.slot,
+[608] u_pon: inputs.pon,
+[609] u_ontid: inputs.ont,
+[610] u_product: inputs.product,
+[611] u_technology: inputs.technology,
+[612] },
+[613] u_identification: {
+[614] u_slid: inputs.slid,
+[615] u_serialnumber: inputs.serial_number,
+[616] u_new_serialnumber : inputs.new_serial_number,
+[617] } 
+[618] };
+[619] Nuevo Outbound REST Message Get Device Modification Status – Komands
+[620] /api/Komands/v1/device-modification/{u_uuid}
+[621] Action reutilizable: Get Transaction Status – Komands
+[622] Se encarga de invocar al outbound REST message en caso de que no haya callback u ocurra algun error durante ese proceso.
+[623] Impacto en input/output
+[624] Inputs: sin cambios (el flujo sigue recibiendo los mismos parámetros/records; cambia el origen de datos internos: BP → CMDB). 
+[625] Outputs: sin cambios (se mantiene la respuesta hacia el llamador/API; se estandariza OK/NOK vía Integration Control).
+[626] Diseño Final del Flujo
+[627] Modificación FTTH
+[628] Antecedentes para el diseño
+[629] Endpoint Komands: /api/Komands/v1/service-modification
+[630] API: /api/insp9/inventoryrestapi/registrationModificationKomands
+[631] Tabla: Registration Modification [u_registration_modification]
+[632] Flujos / subflujos actuales
+[633] Flow: Registration Modification API Flow v3.0 
+[634] Subflow(s): Registration Modification - Modification Type
+[635] Subflow(s): Registration Modification - Speed Plan Change
+[636] Subflow(s): Registration Modification - Service Activation Request
+[637] Subflow(s): Registration Modification - Services Deconfiguration Request
+[638] Script Includes usados actualmente
+[639] inventoryRestAPILibrary().asyncACKResponse > Se llama desde API inventoryrestapi/registrationModification
+[640] inventoryRestAPILibrary().modificationValidation > Se llama desde el método asyncACKResponse
+[641] inventoryRestAPILibrary().createRecord > Se llama desde  modificationValidation.
+[642] inventoryRestAPILibrary().returnErrorBody> Se llama desde modificationValidation.
+[643] InventoryRestAPILibrary.u_registration_modification_ReturnBody > Se llama desde modificationValidation.
+[644] inventoryRestAPILibrary().u_registration_modification_ListenerReturnBody > Se llama desde Action: Registration Modification - API Manager Response
+[645] Diseño
+[646] Nueva tabla: Registration Modification v2 [u_registration_modification_v2]
+[647] Nuevo Método en API: /inventoryrestapi/registrationModificationKomands
+[648] Nuevos Métodos en el Outbound REST Message ‘Komands’: 
+[649] service_modification POST  /api/Komands/v1/service-modification
+[650] service_modification status GET /api/Komands/v1/service-modification/${uuid}
+[651] Nuevos Scripts
+[652] RegistrationModificationKomandsUtils() contiene los siguientes métodos:
+[653] formatListenerResponse: Utilizado en action ‘Komands Service Modification – API Manager Response’. Basado en u_registration_modification_ListenerReturnBody
+[654] getReturnBody() basado en u_registration_modification_ReturnBody.
+[655] Método modificationValidation.
+[656] Métodos para la construcción de Service Ports: getListServicePorts, getGemports y getServicesPorts.
+[657] Nuevos métodos en KomandsIntegrationUtils(): 
+[658] asyncACKResponse. Según el caso, llama a la validación correspondiente.
+[659] getInfoProfile: Obtiene u_line_profile y u_srv_profile.
+[660] Se agrega validación “esKomands” en registrationModificationKomands API.
+[661] Nuevos Flujos/Actions
+[662] Flow: Service Modification API Flow – Komands
+[663] Action: Komands Service Modification – API Manager Response.
+[664] Action: Service Modification – Komands (comunicación con Komands).
+[665] Subflow reutilizable: Integration Control Komands
+[666] Action: Service Modification – Komands
+[667] Construcción del Body para Komands:
+[668] // Body
+[669] var body = {
+[670] u_callback_url: callbackEndpoint,
+[671] u_routing: {
+[672] u_id_vno: account.assumed_name,
+[673] u_olt: inputs.olt.name != null ? inputs.olt.name : "",
+[674] u_slot: inputs.slot != null ? inputs.slot : "",
+[675] u_pon: inputs.pon != null ? inputs.pon : "",
+[676] u_ontid: inputs.ont != null ? inputs.ont : "",
+[677] u_product: product,
+[678] u_technology: technology
+[679] },
+[680] u_identification: {
+[681] u_slid: inputs.core_use_case.u_sl_id,
+[682] u_serialnumber: inputs.core_use_case.u_serial_number,
+[683] u_customer_id: inputs.core_use_case.u_customer_order,
+[684] u_access_id: inputs.core_use_case.u_access_id_vno
+[685] },
+[686] u_action: {
+[687] u_action: inputs.action,
+[688] u_iptv: inputs.iptv,
+[689] u_voz: inputs.voip,
+[690] u_gestion: inputs.gestion,
+[691] u_description: inputs.action_desc
+[692] }
+[693] };
+[694] //Si Action = M significa que se trata de un Bloqueo, Desbloqueo, Cambio de Velocidad
+[695] if (inputs.action === 'M') {
+[696] body.u_product = {
+[697] u_srv_profile: u_srv_profile,
+[698] u_line_profile: u_line_profile,
+[699] u_speed_plan: inputs.speed_plan,
+[700] u_download_speed_plan: inputs.download_speed_plan,
+[701] u_upload_speed_plan: inputs.upload_speed_plan
+[702] };
+[703] body.u_hardware = {
+[704] u_olt_type: inputs.olt.model_number != null ? inputs.olt.model_number : "",
+[705] u_ont_type: inputs.ont_type
+[706] };
+[707] }
+[708] Construcción del flujo
+[709] Flow: Registration Modification API Flow v3.0 -> Service Modification API Flow – Komands 
+[710] Este flujo se duplica y recibe el nombre de ‘Service Modification API Flow – Komands'
+[711] Cualquier referencia a tabla se cambia por ‘u_registration_modification_v2’ (nueva tabla para Komands).
+[712] Se reemplaza la siguiente action: ‘Registration Modification – API Manager Response’ por ‘Komands Service Modification – API Manager Response’.
+[713] Se agrega el action ‘Komands API Manager Error Response’ para manejar el error de Step 17.
+[714] Se realiza ‘Look Up Record’ a u_cmdb_ci_id_access para obtener OLT, Slot, PON, PON Logico, Service Technology y Service Type.
+[715] Se realiza ‘Look Up Record’ a customer_account. Este Record será utilizado en ‘Service Modification – Komands’ para obtener datos como assumed_name, u_srv_profile y u_line_profile.
+[716] Se crean variables de flujo: IPTV Flag, VOIP Flag, Gestion Flag y Action.
+[717] Se realiza ‘Look Up Record’ a Customer Order.
+[718] Se reemplaza Subflow Registration Modification – Modification Type por nueva lógica condicional.
+[719] Sección Cambio de Velocidad, Bloqueo, Desbloqueo:
+[720] Sección Alta y Baja de Servicio: Se sigue la lógica de Registration Modification de Brown Field.
+[721] La principal diferencia es que en Brownfield sólo se consideran servicios de VOIP e IPTV y en Komands, además, se considera Gestión.
+[722] Resumen de Modificaciones en Workflow Studio.
+[723] Tabla resumen: Flujos y Subflujos
+[724] Flujo / Subflujo
+[725] Definición
+[726] Modificación Komands
+[727] Registration Modification API Flow v3.0
+[728] Flujo principal de Registration Modification FTTH
+[729] Reemplazado por: ‘Service Modification API Flow – Komands'
+[730] Registration Modification – Modification Type
+[731] Subflujo que activa otros subflujos dependiendo del tipo de modificación a realizar.
+[732] Se elimina. Todas las validaciones quedan en el flujo principal
+[733] Registration Modification - Speed Plan Change
+[734] Subflujo que se encarga del cambio de velocidad, bloqueo y desbloqueo.
+[735] Se elimina. Todos los cambios se realizan en el flujo principal.
+[736] Registration Modification - Service Activation Request
+[737] Flujo que se encarga de dar de Alta uno o varios servicios.
+[738] Se elimina. Todos los cambios se realizan en el flujo principal.
+[739] Registration Modification - Services Deconfiguration Request
+[740] Flujo que se encarga de dar de Baja uno o varios servicios.
+[741] Se elimina. Todos los cambios se realizan en el flujo principal.
+[742] Tabla resumen: Flujo Registration Modification API Flow v3.0
+[743] Action / Validación
+[744] Definición
+[745] Modificación Komands
+[746] Attach Flow Execution
+[747] -
+[748] Se mantiene.
+[749] Use Case Validations
+[750] Revisa si el tipo de operación y los datos ingresados son válidos.
+[751] Se reemplaza por variante de Komands: ‘Use Case Validations Komands’
+[752] Condición ‘If Validation es True’
+[753] Si la validación es correcta, continúa el flujo.
+[754] Condición se mantiene.
+[755] FTTH Customer Order Creation (TMF-622)
+[756] Crea Customer Order, Services Orders, entre otros.
+[757] Se elimina. La Customer Order y las Service Orders se buscan en tabla con action ‘Look up record’
+[758] Create Order Task Record
+[759] Create customer order update task
+[760] Se elimina.
+[761] Update Customer Order Record
+[762] Update Customer Order State to "Finalized"
+[763] Se mantiene (Step 111).
+[764] Update Customer Order Childs
+[765] Actualiza Order Line Item, Service Orders, etc
+[766] Se reemplaza por ‘Update Record’ para cada caso.
+[767] Update Order Task Record
+[768] Update customer state task to Closed
+[769] Se elimina.
+[770] Registration Modification – API Manager Response
+[771] -
+[772] Se reemplaza por ‘Komands Service Modification – API Manager Response’
+[773] Condición ‘If Validation es False’ (else)
+[774] Se hace un ‘Update Registration modification Record’ con Flow State: Request Rejected
+[775] Se mantiene. Además se agrega el action ‘Komands API Manager Error Response’
+[776] Tabla resumen: Subflujo ‘Registration Modification – Modification Type’
+[777] Action / Validación
+[778] Definición
+[779] Modificación Komands
+[780] Retrieve Access PINT
+[781] Busca valores mediante llamada a API ‘retrieveAccess’.
+[782] Se elimina. Todos los valores necesarios se obtienen desde CMDB. Se agrega un ‘Look Up Record’ para u_cmdb_ci_id_access, otro para customer_account y otro para sn_ind_tmt_orm_order
+[783] -
+[784] -
+[785] Se agrega una validación: If Customer Order is Finalized then: ‘Komands API Manager Error Response’
+[786] Condición ‘If Check Access’
+[787] Valida Retrieve Access PINT
+[788] Se elimina. Ya no se necesita.
+[789] Condición ‘If speed profile changes’
+[790] Condición que inicia el Subflujo: Registration Modification - Speed Plan Change.
+[791] Se reemplaza por Condición: ‘If Modification Speed Plan, Bloqueo o Desbloqueo’
+[792] Condición ‘Else If service block is requested’
+[793] Condición que inicia el Subflujo: Registration Modification - Speed Plan Change. Esta vez para Bloqueo/Desbloqueo.
+[794] Se elimina. Todo se valida a raíz de la condición anterior.
+[795] Condición ‘Else If service registration is requested’
+[796] Condición que inicia el Subflujo: Registration Modification - Service Activation Request.
+[797] Se reemplaza por Condición: ‘Else If Alta o Baja’
+[798] Condición ‘Else If service deregistration is requested’
+[799] Condición que inicia el Subflujo: Registration Modification - Service Deconfiguration Request
+[800] Se elimina. Todo se valida a raíz de la condición anterior.
+[801] Tabla resumen: Subflujo ‘Registration Modification – Speed Plan Change’
+[802] Action / Validación
+[803] Definición
+[804] Modificación Komands
+[805] Speed Plan Validation
+[806] Compares specified Speed Plan with plan under VNO.
+[807] Se mantiene validación.
+[808] Condición ‘If speed plan validation fails’
+[809] Si la validación es NoK se actualiza el Registration Modification Record.
+[810] Se mantiene. Además, se agrega ‘Komands API Manager Error Response’
+[811] BPI PINT Availability (TMF-639)
+[812] Devuelve PON Technology.
+[813] Se elimina. PON Technology se obtiene desde CMDB.
+[814] Technology Speed Plan Validation
+[815] Verifica si OLT soporta el plan de velocidad.
+[816] Se mantiene verificación.
+[817] Condición ‘If technology does not support speed’
+[818] Checks if returned speed is supported by technology. Si OLT no soporta plan se actualiza Registration Modification Record.
+[819] Se mantiene. Además, se agrega ‘Komands API Manager Error Response’
+[820] Speed Plan Change
+[821] Action hace llamada a BPO.
+[822] Se elimina.
+[823] Step 2: Get Info Profile
+[824] Esta información se obtiene mediante Script Include: KomandsIntegrationUtils(). getInfoProfile
+[825] Step 3: Script step
+[826] Las validaciones hechas con tabla ‘sn_ind_tmt_orm_order_characteristic_value’ para definir ‘Speed Plan’ como ‘SUSPENDIDO’ ante un bloqueo se realizan con ‘Look Up Record’ 
+[827] Condición ‘If Speed Plan Change > error = False y Modification Type = Speed Change’ 
+[828] Condición final de Cambio de Velocidad.
+[829] Se reemplaza por Condición ‘If Modification Type is Speed Plan’ y se valida luego de que la comunicación con Komands fue exitosa.
+[830] Look Up ID Access Record
+[831] Busca ID Access para actualizar el Speed Plan en CMDB.
+[832] Este ‘Look Up Record’ se realizó en el Step 4 del Flujo Principal.
+[833] Update ID Access Record
+[834] Actualiza Speed Plan y Service Technology (que viene desde action ‘Technology Speed Plan Validation
+[835] ‘)
+[836] Se mantiene.
+[837] Tabla resumen: Subflujos ‘Registration Modification – Service Activation Request’ y ‘Registration Modification - Services Deconfiguration Request’
+[838] Action / Validación
+[839] Definición
+[840] Modificación Komands
+[841] Retrieve Assigned Service ID
+[842] Busca las Service Orders.
+[843] Se elimina. 
+[844] Retrieve Service Order States
+[845] Busca el estado de las Service Orders según código numérico.
+[846] Se elimina.
+[847] Condición ‘If there is an ‘servicio’ service request’
+[848] ‘servicio’ = IPTV, VOIP o Management. Esta condición se repite para cada servicio.
+[849] Se elimina.
+[850] Condición ‘If service has been activated already’
+[851] Verifica si Service Order Status es ‘Active’ o ‘Finalized’.
+[852] Se elimina.
+[853] Create Order Task Record
+[854] Crea solicitud para activar/dar de baja un servicio.
+[855] Se elimina.
+[856] Activation of Services (TMF-640) 
+[857] Comunicación con BPO.
+[858] Se reemplaza por : ‘Service Modification - Komands’ + 
+[859] Service Deconfiguration (TMF-640)
+[860] Integration Control SN x BP
+[861] Se reemplaza por: ‘Integration Control Komands’
+[862] Update Order Task Record
+[863] Update to Closed complete
+[864] Se elimina.
+[865] Update Service Order Record
+[866] Update State to Activated/Finalized
+[867] Se mantiene.
+[868] Assignment of Services (TMF-640) (para Deconfiguration)
+[869] Comunicación con BPO.
+[870] Se elimina.
+[871] Consideraciones adicionales 04/06/26
+[872] Se modifica el payload según instrucciones en documento ‘implementacion_modificacion_servicio-fundamental.pdf’ recibido vía email.
+[873] Modificación del Action ‘Service Modification – Komands’:
+[874] La construcción del body depende del ‘manufacturer’. Si es Huawei, se necesitan datos adicionales.
+[875] Se dejan los siguientes datos como mínimos obligatorios dentro de la construcción del body:
+[876] Nuevos Scripts
+[877] RegistrationModificationKomandsUtils() con nuevas funciones para la construcción del payload y de Service Ports:
+[878] buildModificationPayload: Esta función deriva a otro Script, dependiendo si el ‘inputs.action’ es ‘A’, ‘B’ o ‘M’.
+[879] _buildAddServicePayload: Esta función genera el payload de una Alta de Servicio. Construye el grupo u_action, y si variable ‘inputs.is_Huawei es True’, construye los grupos u_vlan y u_services_port. Esto se hace para cada servicio (IPTV, VOIP, GESTIÓN).
+[880] Utiliza los registros de la tabla VLAN para enviar en el payload los datos de svlan y multicast vlan. 
+[881] Utiliza los registros de la tabla VLAN para construir los services ports con ayuda del método ‘getServicesPorts’.
+[882] _buildDeleteServicePayload: Esta función genera el payload de una Baja de Servicio. Construye el grupo u_action, y si variable ‘inputs.is_Huawei es True’, construye el grupo u_services_port. Esto se hace para cada servicio (IPTV, VOIP, GESTIÓN).
+[883] Utiliza los registros de la tabla VLAN para construir los services ports con ayuda del método ‘getServicesPorts’.
+[884] _buildModifySpeedPayload: Esta función genera el payload de un Cambio de Velocidad. Construye el grupo u_product, y si variable ‘inputs.is_Huawei es True’, construye los grupos u_vlan y u_services_port.
+[885] u_vlan se construye con el dato inputs.inet_vlan.u_svlan 
+[886] u_services_port se construye con el dato inputs.inet_vlan (es un registro de VLAN para BA)
+[887] getListServicePorts. **
+[888] getGemports. **
+[889] getServicesPorts . **
+[890] ** La construcción de estas funciones se verá a continuación.
+[891] Construcción de Service Port:
+[892] Recopilación de información:
+[893] Se analizó el Script Include ‘TMF640LibraryUtils’ desde dónde se consumen algunas funciones como ‘terminateAssignedService()’, ‘terminateActiveService()’ o ’infoSpeedPlan()’.  
+[894] Nota: Ninguno de los scripts que se mencionan a continuación son utilizados en el flujo de modificación de servicio FTTH.
+[895] Hallazgos (posiblemente útiles):
+[896] Dentro del Script Include se encontró la función getListServicePorts:
+[897] En este Script se construye el serviceport con ayuda de la función llamada getGemports:
+[898] En getGemports se utilizan los datos:
+[899] u_svlan, u_user_vlan, u_cvlan
+[900] u_svlan_b, u_user_vlan_b, u_cvlan_b
+[901] No obstante, en la tabla VLAN [u_cvlan] existe un grupo ‘C’. Este grupo será considerado para nuestra función constructora de los gemports.
+[902] ¿Dónde se utiliza? La función getListServicePorts se utiliza en el método postServiciosAvanzadosCreation. Este Script es consumido por el Action: Assignment of Service SSAA (TMF-640). Por lo que, no tiene relación directa con la modificación de servicio.
+[903] Dentro del Script Include se encontró la función createListServicesPorts:
+[904] En la construcción del GemPort no utiliza u_user_vlan, u_cvlan, u_user_vlan_b, u_cvlan_b. En cambio utiliza tkipDatopCvlan y inetCvlan. 
+[905] En este Script se construye el serviceport con ayuda de la función llamada getCvlanSvlans:
+[906] Desde este script se obtiene el valor de u_svlan y u_svlan_b. 
+[907] ¿Dónde se utiliza? La función createListServicesPorts se utiliza en el método activateServicesSSAA. Este Script es consumido por el Action: Activation of Services (TMF-640) SSAA. Por lo que, no tiene relación directa con la modificación de servicio.
+[908] En todos los casos se considera el perfil de velocidad u_perfil_ssaa. Es decir, la construcción de services port aplica a SSAA. 
+[909] Construcción:
+[910] Se crean las siguientes funciones en Script Include RegistrationModificationKomandsUtils():
+[911] getListServicePorts: Construcción de Services Ports para SSAA
+[912] getGemports: Construcción de Gemports para cada svlan. Se usa en getListServicePorts.
+[913] getServicesPorts: Construcción de service ports para payload FTTH. Se modifican scripts de SSAA. Se usa directamente el registro de la tabla VLAN [u_cvlan] recibido como input en el Action: ‘Service Modification – Komands’
+[914] Con estas modificaciones se obtiene como resultado un payload condicional, que depende directamente de lo que se encuentra estipulado en la siguiente tabla:
+[915] Cambio de Fibra
+[916] Los cambios realizados afectan al flujo Fiber Change API Flow v.1 y a las SRA de inventoryRestApi: fiberChange y fiberChangeAsync.
+[917] Se crea la nueva tabla fiber_change_v2, duplicada desde la tabla original fiber_change.
+[918] Cambios en APIs
+[919] API Sync
+[920] Se elimina la validación validateReintento().
+[921] Se agrega la validación esKomands().
+[922] API Async
+[923] Se agrega la validación esKomands().
+[924] Nuevos ORM en Komands
+[925] fiber_change
+[926] fiber_change_status
+[927] Nuevos Script Includes
+[928] KomandsAssuredInterventionEstadoVecinoUtils
+[929] Se duplican el original, ya que la versión anterior fue diseñada para tablas V1.
+[930] FiberChangeKomandsUtils
+[931] Se duplican el original, ya que la versión anterior fue diseñada para tablas V1.
+[932] Nuevas Actions
+[933] Use Case Validation Komands
+[934] Se crea una nueva Action duplicando la original, ya que la versión anterior fue diseñada para tablas V1 y Komands utiliza nuevas tablas (fiber_change_v2).
+[935] Komands Fiber Change - API Manager Response
+[936] Se crea una nueva Action duplicando la original, ya que la versión anterior fue diseñada para tablas V1.
+[937] Fiber Change - Configuring new from local CMDB
+[938] Se crea una nueva Action duplicando la original, ya que la versión anterior fue diseñada para tablas V1.
+[939] Fiber Change - Komands
+[940] Nueva Action encargada de ejecutar el cambio de fibra.
+[941] Inputs:
+[942] PON Lógico
+[943] PON
+[944] Slot
+[945] OLT
+[946] VNO Code
+[947] SL ID
+[948] Core Use Case ID
+[949] Technology
+[950] Serial Number
+[951] Product
+[952] New VLAN
+[953] QoS
+[954] VLAN
+[955] Hardware
+[956] Services Port
+[957] Outputs:
+[958] Transaction Record
+[959] Status
+[960] Error
+[961] Response
+[962] Nuevo Flujo
+[963] Se crea el flujo Fiber Change API Flow Komands, basado en Fiber Change API Flow v.1. El flujo mantiene el comportamiento y lógica original, con excepción de la eliminación de las llamadas a BluePlanet:
+[964] BPI PINT Availability (TMF-639)
+[965] Check Logical PON Availability (TMF-639)
+[966] Eliminación de Fiber Change Fulfillment
+[967] Se elimina el subflujo Fiber change Fulfillment, el cual anteriormente realizaba:
+[968] Asignación de servicios
+[969] Activación de servicios
+[970] Desactivación de servicios
+[971] Eliminación de servicios
+[972] Cambio de equipo (ONT)
+[973] Polling
+[974] Actualmente, todo el proceso de cambio de fibra se realiza mediante una única llamada a Komands. Debido a esto, la integración con Komands, el manejo de errores y las actualizaciones de CMDB quedan centralizadas directamente en el flujo principal.
+[975] Eliminación de lógica *validar
+[976] Eliminar for each tras buscar CTO. Primero se valida que el count del resultado de la búsqueda sea 1, por lo que el for each es innecesario.
+[977] EY - Update Record: Actualmente, no esta actualizando ningun registro porque solo recibe un input. A menos que se gatille alguna Business Rule, esta action no es necesaria.
+[978] Si accessID VNO = -1 se ejecuta la action Update Services for Activation or Assignment. Es necesario aún con la nueva lógica de Komands?
+[979] Propuesta inicial Feature Flags
+[980] El mecanismo de enrutamiento hacia Komands se basa en una tabla de configuración u_komands_activation, que define por combinación de VNO, producto, tecnología y operación si una transacción debe ser procesada por Komands o por BluePlanet.
+[981] Evaluación de activación por transacción
+[982] Cada vez que una API recibe una solicitud, consulta u_komands_activation mediante un Script Include.
+[983] Si existe un registro activo para la combinación consultada (u_is_active = true), la transacción se dirige a Komands (por ejemplo, insertando en u_assignment_v2).
+[984] Si no existe un registro activo, la transacción se procesa por la ruta tradicional en BluePlanet (por ejemplo, insertando en u_assignment).
+[985] Kill switch global
+[986] Existe un kill switch global u.komands.enabled que permite desactivar completamente el uso de Komands en cualquier momento, forzando que todo el tráfico vuelva a BluePlanet sin necesidad de despliegues ni cambios de código.
+[987] Consideraciones de diseño
+[988] Este mecanismo está pensado como una solución temporal para habilitar una migración progresiva, por lo que no se prioriza un diseño altamente escalable. En un escenario permanente, sería recomendable modelar la activación de cada dimensión (VNO, producto, tecnología, operación) en estructuras separadas o más normalizadas, permitiendo evaluaciones más eficientes y flexibles. El enfoque actual favorece la simplicidad operativa y la capacidad de rollback inmediato.
+[989] Anexo A — Schemas de Request / Response por Operación
+[990] Este anexo embebe los schemas contractuales de cada operación de KOMANDs API v1 para uso directo en la construcción de Outbound REST Messages, Actions y mappings en ServiceNow. Cada subsección referencia la sección normativa de KOMANDs Spec donde se documenta el detalle completo (incluyendo ejemplos request/response JSON, headers específicos y notas de validación).
+[991] Convención de campos: todos los campos llevan prefijo "u_" salvo id_vno (enum: DTV | CVTR | ENTEL | TCH). Headers comunes obligatorios: ver subsección "Headers HTTP Obligatorios" en la sección Referencia Normativa.
+[992] A.1  Baja de Acceso (Unsubscription)
+[993] POST /api/Komands/v1/unsubscription  —  Referencia normativa: KOMANDs Spec sec. 2.1
+[994] Registra solicitud asíncrona de baja de acceso en OLT. Komands responde inmediatamente con HTTP 202 + u_uuid. El procesamiento real (ejecución CLI en la OLT) ocurre en background y el resultado final se entrega vía callback HTTP POST a ServiceNow.
+[995] Request Body (JSON):
+[996] Campo
+[997] Tipo
+[998] Oblig.
+[999] Descripción / Valor
+[1000] u_slid
+[1001] String
+[1002] Sí*
+[1003] SL ID del acceso en ServiceNow/OSP. (*) Obligatorio si NO se envía u_serialnumber. Mutuamente excluyente.
+[1004] u_serialnumber
+[1005] String XXXX-YYYYYYY
+[1006] Sí*
+[1007] Número de serie de la ONT. (*) Obligatorio si NO se envía u_slid. Mutuamente excluyente.
+[1008] u_olt
+[1009] String
+[1010] Sí
+[1011] Nombre canónico de la OLT destino. Komands resuelve vendor (Nokia/Huawei) internamente.
+[1012] u_slot
+[1013] String (entero)
+[1014] Sí
+[1015] Número de slot/tarjeta de la OLT.
+[1016] u_pon
+[1017] String (entero)
+[1018] Sí
+[1019] Puerto PON físico.
+[1020] u_ontid
+[1021] String (0..127)
+[1022] Sí
+[1023] Identificador lógico de la ONT en el puerto PON.
+[1024] id_vno
+[1025] String enum
+[1026] Sí
+[1027] Identificador del VNO. Valores: DTV | CVTR | ENTEL | TCH.
+[1028] Response — ACK 202 Accepted (body JSON):
+[1029] Campo
+[1030] Tipo
+[1031] Oblig.
+[1032] Descripción / Valor
+[1033] u_uuid
+[1034] String UUID
+[1035] Sí
+[1036] Identificador único de la transacción generado por Komands. Persistir en u_komands_transaction.u_uuid. Usar en GET de estado y como llave en callback.
+[1037] u_return_code
+[1038] String
+[1039] Sí
+[1040] Código funcional. "0" = solicitud aceptada para procesamiento.
+[1041] u_return_code_desc
+[1042] String
+[1043] Sí
+[1044] Descripción textual del resultado del ACK.
+[1045] u_timestamp
+[1046] String ISO 8601 UTC
+[1047] Sí
+[1048] Fecha/hora de la respuesta. Formato: 2026-04-23T10:30:00Z.
+[1049] u_time
+[1050] String
+[1051] Sí
+[1052] Duración del procesamiento del ACK. Ej: 0.045s.
+[1053] Callback inbound a ServiceNow — Body (JSON) recibido en api/v1/komands/callback:
+[1054] Campo
+[1055] Tipo
+[1056] Oblig.
+[1057] Descripción / Valor
+[1058] u_uuid
+[1059] String UUID
+[1060] Sí
+[1061] UUID de la transacción. Llave de correlación en u_komands_transaction.
+[1062] u_return_code
+[1063] String
+[1064] Sí
+[1065] Código funcional final. Ver tabla "Códigos Funcionales u_return_code".
+[1066] u_return_code_desc
+[1067] String
+[1068] Sí
+[1069] Descripción textual del resultado final.
+[1070] u_status
+[1071] String
+[1072] Sí
+[1073] Estado de la transacción: COMPLETED | FAILED | ROLLED_BACK | INCONSISTENT.
+[1074] u_timestamp
+[1075] String ISO 8601 UTC
+[1076] Sí
+[1077] Fecha/hora de finalización.
+[1078] ⚠ Regla OR de identificación: enviar EXACTAMENTE UNO de u_slid o u_serialnumber. Enviar ambos o ninguno → HTTP 422.
+[1079] A.2  Estado de Transacción de Baja
+[1080] GET /api/Komands/v1/unsubscription/{u_uuid}  —  Referencia normativa: KOMANDs Spec sec. 2.2
+[1081] Consulta síncrona del estado actual de una transacción de baja previamente creada. ServiceNow lo invoca como mecanismo de reconciliación cuando expira el callback timeout (x_komands.wait.callback_timeout_seconds).
+[1082] Response — ACK 202 Accepted (body JSON):
+[1083] Campo
+[1084] Tipo
+[1085] Oblig.
+[1086] Descripción / Valor
+[1087] u_uuid
+[1088] String UUID
+[1089] Sí
+[1090] Eco del UUID consultado.
+[1091] u_status
+[1092] String
+[1093] Sí
+[1094] PENDING | IN_PROGRESS | COMPLETED | FAILED | ROLLED_BACK.
+[1095] u_return_code
+[1096] String
+[1097] Sí
+[1098] Código funcional final (si u_status terminal).
+[1099] u_return_code_desc
+[1100] String
+[1101] Sí
+[1102] Descripción del estado actual.
+[1103] u_started_at
+[1104] String ISO 8601
+[1105] Sí
+[1106] Timestamp de inicio del procesamiento.
+[1107] u_completed_at
+[1108] String ISO 8601
+[1109] No
+[1110] Timestamp de finalización (sólo si u_status es terminal).
+[1111] A.3  Consulta de Acceso
+[1112] GET /api/Komands/v1/query-access/{u_id}  —  Referencia normativa: KOMANDs Spec sec. 2.3
+[1113] Consulta síncrona del estado actual de un acceso en la OLT. {u_id} es la concatenación canónica OLT_slot_pon_ontid (ej: OLT-Santiago-01_1_3_10). Usado por la action Query Access - Komands para reemplazar Retrieve Access PINT (BluePlanet).
+[1114] Response — ACK 202 Accepted (body JSON):
+[1115] Campo
+[1116] Tipo
+[1117] Oblig.
+[1118] Descripción / Valor
+[1119] u_olt
+[1120] String
+[1121] Sí
+[1122] Eco del nombre canónico de la OLT.
+[1123] u_slot
+[1124] Integer
+[1125] Sí
+[1126] Slot consultado.
+[1127] u_pon
+[1128] Integer
+[1129] Sí
+[1130] Puerto PON consultado.
+[1131] u_ontid
+[1132] Integer
+[1133] Sí
+[1134] ONT ID consultado.
+[1135] u_status
+[1136] String
+[1137] Sí
+[1138] Estado del acceso: ACTIVE | INACTIVE | NOT_FOUND.
+[1139] u_serialnumber
+[1140] String
+[1141] No
+[1142] Serial Number registrado en esa posición.
+[1143] u_services
+[1144] Array<String>
+[1145] No
+[1146] Lista de servicios activos: IPTV | VOIP | INTERNET | GESTION.
+[1147] u_timestamp
+[1148] String ISO 8601
+[1149] Sí
+[1150] Timestamp de la consulta.
+[1151] ⚠ Esta operación es síncrona pura (sin callback). Cache: SLO < 100ms. Live SSH: SLO < 10s.
+[1152] A.4  Cambio de Equipo (Device Change)
+[1153] POST /api/Komands/v1/device-change  —  Referencia normativa: KOMANDs Spec sec. 2.4
+[1154] Registra solicitud asíncrona de cambio de equipo ONT. Reemplaza una ONT existente por una nueva manteniendo configuración de servicios.
+[1155] Request Body (JSON):
+[1156] Campo
+[1157] Tipo
+[1158] Oblig.
+[1159] Descripción / Valor
+[1160] u_slid / u_new_slid
+[1161] String
+[1162] Sí*
+[1163] Par SL ID origen y destino. Mutuamente excluyente con u_serialnumber/u_new_serialnumber.
+[1164] u_serialnumber / u_new_serialnumber
+[1165] String
+[1166] Sí*
+[1167] Par Serial Number origen y destino. Mutuamente excluyente con u_slid/u_new_slid.
+[1168] u_olt
+[1169] String
+[1170] Sí
+[1171] OLT destino.
+[1172] u_slot, u_pon, u_ontid
+[1173] String/Integer
+[1174] Sí
+[1175] Coordenadas de la ONT a reemplazar.
+[1176] id_vno
+[1177] String enum
+[1178] Sí
+[1179] VNO.
+[1180] Response — ACK 202 Accepted (body JSON):
+[1181] Campo
+[1182] Tipo
+[1183] Oblig.
+[1184] Descripción / Valor
+[1185] u_uuid
+[1186] String UUID
+[1187] Sí
+[1188] Identificador único de la transacción generado por Komands. Persistir en u_komands_transaction.u_uuid. Usar en GET de estado y como llave en callback.
+[1189] u_return_code
+[1190] String
+[1191] Sí
+[1192] Código funcional. "0" = solicitud aceptada para procesamiento.
+[1193] u_return_code_desc
+[1194] String
+[1195] Sí
+[1196] Descripción textual del resultado del ACK.
+[1197] u_timestamp
+[1198] String ISO 8601 UTC
+[1199] Sí
+[1200] Fecha/hora de la respuesta. Formato: 2026-04-23T10:30:00Z.
+[1201] u_time
+[1202] String
+[1203] Sí
+[1204] Duración del procesamiento del ACK. Ej: 0.045s.
+[1205] Callback inbound a ServiceNow — Body (JSON) recibido en api/v1/komands/callback:
+[1206] Campo
+[1207] Tipo
+[1208] Oblig.
+[1209] Descripción / Valor
+[1210] u_uuid
+[1211] String UUID
+[1212] Sí
+[1213] UUID de la transacción. Llave de correlación en u_komands_transaction.
+[1214] u_return_code
+[1215] String
+[1216] Sí
+[1217] Código funcional final. Ver tabla "Códigos Funcionales u_return_code".
+[1218] u_return_code_desc
+[1219] String
+[1220] Sí
+[1221] Descripción textual del resultado final.
+[1222] u_status
+[1223] String
+[1224] Sí
+[1225] Estado de la transacción: COMPLETED | FAILED | ROLLED_BACK | INCONSISTENT.
+[1226] u_timestamp
+[1227] String ISO 8601 UTC
+[1228] Sí
+[1229] Fecha/hora de finalización.
+[1230] ⚠ Regla OR de pares: enviar pares completos. Mezclar (u_slid + u_new_serialnumber) → código 11 (Par incompleto).
+[1231] ⚠ Códigos funcionales aplicables: 0, 10, 11, 20, 30, 40, 50, 60.
+[1232] A.5  Estado de Transacción de Cambio de Equipo
+[1233] GET /api/Komands/v1/device-change/{u_uuid}  —  Referencia normativa: KOMANDs Spec sec. 2.4
+[1234] Consulta síncrona del estado de una transacción de cambio de equipo. Misma estructura que A.2.
+[1235] Response — ACK 202 Accepted (body JSON):
+[1236] Campo
+[1237] Tipo
+[1238] Oblig.
+[1239] Descripción / Valor
+[1240] u_uuid
+[1241] String UUID
+[1242] Sí
+[1243] Eco del UUID consultado.
+[1244] u_status
+[1245] String
+[1246] Sí
+[1247] PENDING | IN_PROGRESS | COMPLETED | FAILED | ROLLED_BACK.
+[1248] u_return_code
+[1249] String
+[1250] Sí
+[1251] Código funcional final.
+[1252] u_return_code_desc
+[1253] String
+[1254] Sí
+[1255] Descripción del estado.
+[1256] A.6  Modificación de Servicio
+[1257] POST /api/Komands/v1/service-modification  —  Referencia normativa: KOMANDs Spec sec. 2.5
+[1258] Registra solicitud asíncrona de modificación de servicio en ONT (IPTV/VOZ/GESTIÓN). Engloba sub-operaciones: speed_change, block, unblock, add_service, remove_service, migrate_ftth_ssaa.
+[1259] Request Body (JSON):
+[1260] Campo
+[1261] Tipo
+[1262] Oblig.
+[1263] Descripción / Valor
+[1264] u_slid / u_serialnumber
+[1265] String
+[1266] Sí*
+[1267] Identificador del acceso (regla OR).
+[1268] u_olt, u_slot, u_pon, u_ontid
+[1269] Mixed
+[1270] Sí
+[1271] Coordenadas del acceso.
+[1272] id_vno
+[1273] String enum
+[1274] Sí
+[1275] VNO.
+[1276] u_modification_type
+[1277] String enum
+[1278] Sí
+[1279] speed_change | block | unblock | add_service | remove_service | migrate_ftth_ssaa.
+[1280] u_new_speed_profile
+[1281] String
+[1282] No*
+[1283] Obligatorio si u_modification_type=speed_change. Ej: "600M_SIMETRICO", "900M_SIMETRICO".
+[1284] u_service_type
+[1285] String enum
+[1286] No*
+[1287] Obligatorio si add_service/remove_service. IPTV | VOIP | GESTION.
+[1288] u_svlan_inet, u_cvlan_inet, u_svlan_voip
+[1289] Integer
+[1290] No*
+[1291] VLANs (obligatorio en add_service según u_service_type).
+[1292] Response — ACK 202 Accepted (body JSON):
+[1293] Campo
+[1294] Tipo
+[1295] Oblig.
+[1296] Descripción / Valor
+[1297] u_uuid
+[1298] String UUID
+[1299] Sí
+[1300] Identificador único de la transacción generado por Komands. Persistir en u_komands_transaction.u_uuid. Usar en GET de estado y como llave en callback.
+[1301] u_return_code
+[1302] String
+[1303] Sí
+[1304] Código funcional. "0" = solicitud aceptada para procesamiento.
+[1305] u_return_code_desc
+[1306] String
+[1307] Sí
+[1308] Descripción textual del resultado del ACK.
+[1309] u_timestamp
+[1310] String ISO 8601 UTC
+[1311] Sí
+[1312] Fecha/hora de la respuesta. Formato: 2026-04-23T10:30:00Z.
+[1313] u_time
+[1314] String
+[1315] Sí
+[1316] Duración del procesamiento del ACK. Ej: 0.045s.
+[1317] Callback inbound a ServiceNow — Body (JSON) recibido en api/v1/komands/callback:
+[1318] Campo
+[1319] Tipo
+[1320] Oblig.
+[1321] Descripción / Valor
+[1322] u_uuid
+[1323] String UUID
+[1324] Sí
+[1325] UUID de la transacción. Llave de correlación en u_komands_transaction.
+[1326] u_return_code
+[1327] String
+[1328] Sí
+[1329] Código funcional final. Ver tabla "Códigos Funcionales u_return_code".
+[1330] u_return_code_desc
+[1331] String
+[1332] Sí
+[1333] Descripción textual del resultado final.
+[1334] u_status
+[1335] String
+[1336] Sí
+[1337] Estado de la transacción: COMPLETED | FAILED | ROLLED_BACK | INCONSISTENT.
+[1338] u_timestamp
+[1339] String ISO 8601 UTC
+[1340] Sí
+[1341] Fecha/hora de finalización.
+[1342] ⚠ Códigos funcionales adicionales: 70 (servicio ya activo), 80 (servicio no encontrado), 90 (otros).
+[1343] A.7  Estado de Transacción de Modificación de Servicio
+[1344] GET /api/Komands/v1/service-modification/{u_uuid}  —  Referencia normativa: KOMANDs Spec sec. 2.5
+[1345] Consulta síncrona del estado de una transacción de modificación. Misma estructura que A.2/A.5.
+[1346] Response — ACK 202 Accepted (body JSON):
+[1347] Campo
+[1348] Tipo
+[1349] Oblig.
+[1350] Descripción / Valor
+[1351] u_uuid
+[1352] String UUID
+[1353] Sí
+[1354] Eco del UUID.
+[1355] u_status
+[1356] String
+[1357] Sí
+[1358] PENDING | IN_PROGRESS | COMPLETED | FAILED | ROLLED_BACK.
+[1359] u_return_code
+[1360] String
+[1361] Sí
+[1362] Código funcional final.
+[1363] u_modification_type
+[1364] String enum
+[1365] Sí
+[1366] Eco del tipo de modificación ejecutada.
+[1367] A.8  Cambio de Pelo (Hair Change)
+[1368] POST /api/Komands/v1/hair-change  —  Referencia normativa: KOMANDs Spec sec. 2.6
+[1369] Registra solicitud asíncrona de migración de acceso entre ONTs (cambio de pelo). Operación crítica que ejecuta baja en ONT origen y alta en ONT destino. Soporta tecnologías FTTH y SSAA.
+[1370] Request Body (JSON):
+[1371] Campo
+[1372] Tipo
+[1373] Oblig.
+[1374] Descripción / Valor
+[1375] u_technology
+[1376] String enum
+[1377] Sí
+[1378] FTTH | SSAA.
+[1379] u_slid / u_new_slid
+[1380] String
+[1381] Sí*
+[1382] Par origen-destino (regla OR par).
+[1383] u_serialnumber / u_new_serialnumber
+[1384] String
+[1385] Sí*
+[1386] Par origen-destino (regla OR par).
+[1387] u_olt, u_slot, u_pon, u_ontid
+[1388] Mixed
+[1389] Sí
+[1390] Coordenadas ONT origen.
+[1391] u_new_olt, u_new_slot, u_new_pon, u_new_ontid
+[1392] Mixed
+[1393] Sí
+[1394] Coordenadas ONT destino.
+[1395] id_vno
+[1396] String enum
+[1397] Sí
+[1398] VNO.
+[1399] Response — ACK 202 Accepted (body JSON):
+[1400] Campo
+[1401] Tipo
+[1402] Oblig.
+[1403] Descripción / Valor
+[1404] u_uuid
+[1405] String UUID
+[1406] Sí
+[1407] Identificador único de la transacción generado por Komands. Persistir en u_komands_transaction.u_uuid. Usar en GET de estado y como llave en callback.
+[1408] u_return_code
+[1409] String
+[1410] Sí
+[1411] Código funcional. "0" = solicitud aceptada para procesamiento.
+[1412] u_return_code_desc
+[1413] String
+[1414] Sí
+[1415] Descripción textual del resultado del ACK.
+[1416] u_timestamp
+[1417] String ISO 8601 UTC
+[1418] Sí
+[1419] Fecha/hora de la respuesta. Formato: 2026-04-23T10:30:00Z.
+[1420] u_time
+[1421] String
+[1422] Sí
+[1423] Duración del procesamiento del ACK. Ej: 0.045s.
+[1424] Callback inbound a ServiceNow — Body (JSON) recibido en api/v1/komands/callback:
+[1425] Campo
+[1426] Tipo
+[1427] Oblig.
+[1428] Descripción / Valor
+[1429] u_uuid
+[1430] String UUID
+[1431] Sí
+[1432] UUID de la transacción. Llave de correlación en u_komands_transaction.
+[1433] u_return_code
+[1434] String
+[1435] Sí
+[1436] Código funcional final. Ver tabla "Códigos Funcionales u_return_code".
+[1437] u_return_code_desc
+[1438] String
+[1439] Sí
+[1440] Descripción textual del resultado final.
+[1441] u_status
+[1442] String
+[1443] Sí
+[1444] Estado de la transacción: COMPLETED | FAILED | ROLLED_BACK | INCONSISTENT.
+[1445] u_timestamp
+[1446] String ISO 8601 UTC
+[1447] Sí
+[1448] Fecha/hora de finalización.
+[1449] ⚠ ATENCIÓN — Operación con riesgo de estado inconsistente. Códigos específicos: 100 (tecnología no reconocida), 110 (rollback OK, retryable), 120 (ESTADO INCONSISTENTE — escalar a MOS-iT, NO reintentar).
+[1450] ⚠ Código 120 requiere creación automática de incidente con prioridad P1 en ServiceNow.
+[1451] A.9  Estado de Transacción de Cambio de Pelo
+[1452] GET /api/Komands/v1/hair-change/{u_uuid}  —  Referencia normativa: KOMANDs Spec sec. 2.6
+[1453] Consulta síncrona del estado de una transacción de cambio de pelo.
+[1454] Response — ACK 202 Accepted (body JSON):
+[1455] Campo
+[1456] Tipo
+[1457] Oblig.
+[1458] Descripción / Valor
+[1459] u_uuid
+[1460] String UUID
+[1461] Sí
+[1462] Eco del UUID.
+[1463] u_status
+[1464] String
+[1465] Sí
+[1466] PENDING | IN_PROGRESS | COMPLETED | FAILED | ROLLED_BACK | INCONSISTENT.
+[1467] u_return_code
+[1468] String
+[1469] Sí
+[1470] Código funcional final.
+[1471] u_phase
+[1472] String
+[1473] Sí
+[1474] Fase actual: DEREGISTERING | REGISTERING | COMMITTED.
+[1475] A.10  Activación de Servicio
+[1476] POST /api/Komands/v1/service-activation  —  Referencia normativa: KOMANDs Spec sec. 2.7
+[1477] Registra solicitud asíncrona de activación de servicio en una ONT. FTTH: combinaciones de IPTV/VOZ/GESTIÓN. SSAA: INTERNET + TRUNKIP.
+[1478] Request Body (JSON):
+[1479] Campo
+[1480] Tipo
+[1481] Oblig.
+[1482] Descripción / Valor
+[1483] u_technology
+[1484] String enum
+[1485] Sí
+[1486] FTTH | SSAA.
+[1487] u_slid / u_serialnumber
+[1488] String
+[1489] Sí*
+[1490] Identificador del acceso (regla OR).
+[1491] u_olt, u_slot, u_pon, u_ontid
+[1492] Mixed
+[1493] Sí
+[1494] Coordenadas del acceso.
+[1495] id_vno
+[1496] String enum
+[1497] Sí
+[1498] VNO.
+[1499] u_speed_profile
+[1500] String
+[1501] Sí
+[1502] Perfil de velocidad. Ej: "600M_SIMETRICO".
+[1503] u_internet, u_voip, u_iptv
+[1504] Boolean
+[1505] Sí (FTTH)
+[1506] Servicios FTTH a activar.
+[1507] u_svlan_inet, u_cvlan_inet, u_svlan_voip
+[1508] Integer
+[1509] Sí*
+[1510] VLANs (obligatorio según servicios activados).
+[1511] u_trunkip_config
+[1512] Object
+[1513] Sí (SSAA)
+[1514] Configuración TRUNKIP para SSAA.
+[1515] Response — ACK 202 Accepted (body JSON):
+[1516] Campo
+[1517] Tipo
+[1518] Oblig.
+[1519] Descripción / Valor
+[1520] u_uuid
+[1521] String UUID
+[1522] Sí
+[1523] Identificador único de la transacción generado por Komands. Persistir en u_komands_transaction.u_uuid. Usar en GET de estado y como llave en callback.
+[1524] u_return_code
+[1525] String
+[1526] Sí
+[1527] Código funcional. "0" = solicitud aceptada para procesamiento.
+[1528] u_return_code_desc
+[1529] String
+[1530] Sí
+[1531] Descripción textual del resultado del ACK.
+[1532] u_timestamp
+[1533] String ISO 8601 UTC
+[1534] Sí
+[1535] Fecha/hora de la respuesta. Formato: 2026-04-23T10:30:00Z.
+[1536] u_time
+[1537] String
+[1538] Sí
+[1539] Duración del procesamiento del ACK. Ej: 0.045s.
+[1540] Callback inbound a ServiceNow — Body (JSON) recibido en api/v1/komands/callback:
+[1541] Campo
+[1542] Tipo
+[1543] Oblig.
+[1544] Descripción / Valor
+[1545] u_uuid
+[1546] String UUID
+[1547] Sí
+[1548] UUID de la transacción. Llave de correlación en u_komands_transaction.
+[1549] u_return_code
+[1550] String
+[1551] Sí
+[1552] Código funcional final. Ver tabla "Códigos Funcionales u_return_code".
+[1553] u_return_code_desc
+[1554] String
+[1555] Sí
+[1556] Descripción textual del resultado final.
+[1557] u_status
+[1558] String
+[1559] Sí
+[1560] Estado de la transacción: COMPLETED | FAILED | ROLLED_BACK | INCONSISTENT.
+[1561] u_timestamp
+[1562] String ISO 8601 UTC
+[1563] Sí
+[1564] Fecha/hora de finalización.
+[1565] ⚠ Código funcional 100 (Tecnología no reconocida) si u_technology no es FTTH ni SSAA.
+[1566] A.11  Estado de Transacción de Activación
+[1567] GET /api/Komands/v1/service-activation/{u_uuid}  —  Referencia normativa: KOMANDs Spec sec. 2.7
+[1568] Consulta síncrona del estado de una transacción de activación de servicio.
+[1569] Response — ACK 202 Accepted (body JSON):
+[1570] Campo
+[1571] Tipo
+[1572] Oblig.
+[1573] Descripción / Valor
+[1574] u_uuid
+[1575] String UUID
+[1576] Sí
+[1577] Eco del UUID.
+[1578] u_status
+[1579] String
+[1580] Sí
+[1581] PENDING | IN_PROGRESS | COMPLETED | FAILED | ROLLED_BACK.
+[1582] u_return_code
+[1583] String
+[1584] Sí
+[1585] Código funcional final.
+[1586] u_technology
+[1587] String enum
+[1588] Sí
+[1589] Eco de la tecnología procesada.
+[1590] Fin del Anexo A. Para detalles adicionales (ejemplos JSON completos, headers de respuesta como X-Transaction-ID y X-RateLimit-Remaining, schemas de error 4xx/5xx, notas de validación), consultar las secciones referenciadas de KOMANDs Spec.

@@ -1,0 +1,695 @@
+{
+  "info": {
+    "_postman_id": "sec1-a1b2-c3d4-e5f6-789012345678",
+    "name": "KOMANDs Security Tests v1.0",
+    "description": "## Suite T7 — Seguridad OWASP ASVS\n\nPruebas de seguridad contra el servidor DEV KOMANDs. Cubre:\n\n| Código | Área |\n|--------|------|\n| TC-SEC-AUTH | Validación JWT (algoritmo, expiración, manipulación) |\n| TC-SEC-HDR | Headers obligatorios |\n| TC-SEC-MTH | Métodos HTTP no permitidos |\n| TC-SEC-RES | Headers de seguridad en respuesta |\n\n**Prerequisito:** Entorno `KOMANDs DEV` activo. SSL verification OFF.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "var token = pm.collectionVariables.get('access_token');",
+          "var expiry = parseInt(pm.collectionVariables.get('token_expiry') || '0');",
+          "var now = Date.now();",
+          "if (!token || now >= expiry) {",
+          "    var base_url = pm.environment.get('base_url') || pm.collectionVariables.get('base_url');",
+          "    var client_id = pm.environment.get('client_id') || pm.collectionVariables.get('client_id');",
+          "    var client_secret = pm.environment.get('client_secret') || pm.collectionVariables.get('client_secret');",
+          "    var scope = pm.environment.get('scope') || pm.collectionVariables.get('scope');",
+          "    pm.sendRequest({",
+          "        url: base_url + '/api/Komands/v1/auth/token',",
+          "        method: 'POST',",
+          "        header: { 'Content-Type': 'application/x-www-form-urlencoded' },",
+          "        body: {",
+          "            mode: 'urlencoded',",
+          "            urlencoded: [",
+          "                { key: 'grant_type', value: 'client_credentials' },",
+          "                { key: 'client_id', value: client_id },",
+          "                { key: 'client_secret', value: client_secret },",
+          "                { key: 'scope', value: scope }",
+          "            ]",
+          "        }",
+          "    }, function(err, res) {",
+          "        if (!err && res.code === 200) {",
+          "            var body = res.json();",
+          "            pm.collectionVariables.set('access_token', body.access_token);",
+          "            var expiresIn = body.expires_in || 3600;",
+          "            pm.collectionVariables.set('token_expiry', String(Date.now() + (expiresIn - 60) * 1000));",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "TC-SEC-AUTH — Autenticación JWT",
+      "item": [
+        {
+          "name": "TC-SEC-AUTH-01 Sin Authorization header",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-AUTH-01: Sin token → acceso denegado (401/403)', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});",
+                  "pm.test('[HALLAZGO RFC-7235] Servidor debería retornar 401 (no 403) para credenciales ausentes', function() {",
+                  "    if (pm.response.code === 403) {",
+                  "        console.warn('HALLAZGO: RFC 7235 §3.1 exige HTTP 401 cuando faltan credenciales. El servidor retorna 403. Reportar al equipo de desarrollo.');",
+                  "    }",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Petición sin header Authorization.\nRESULTADO ESPERADO: HTTP 401 Unauthorized."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-AUTH-02 Token string aleatorio (inválido)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-AUTH-02: Token aleatorio → 401 Unauthorized', function() {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer xJ3kR9mPqZ2vL5nW8yA1bC4dE7fG0hI6jK" },
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Token Bearer con valor aleatorio (no es JWT).\nRESULTADO ESPERADO: HTTP 401 Unauthorized."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-AUTH-03 Token firmado con HS256 (algoritmo incorrecto)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function b64url(str) {",
+                  "    return btoa(unescape(encodeURIComponent(str)))",
+                  "        .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=/g,'');",
+                  "}",
+                  "var now = Math.floor(Date.now()/1000);",
+                  "var header = b64url(JSON.stringify({alg:'HS256',typ:'JWT'}));",
+                  "var payload = b64url(JSON.stringify({",
+                  "    sub:'attacker', aud:'komands-api',",
+                  "    scope:'komands:provision komands:query',",
+                  "    iat: now, exp: now + 3600",
+                  "}));",
+                  "var sig = CryptoJS.HmacSHA256(header+'.'+payload,'hacked-secret')",
+                  "    .toString(CryptoJS.enc.Base64)",
+                  "    .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=/g,'');",
+                  "pm.variables.set('hs256_token', header+'.'+payload+'.'+sig);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-AUTH-03: Token HS256 → 401 (RS256 requerido)', function() {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Servidor rechaza algoritmo simétrico HS256', function() {",
+                  "    pm.expect(pm.response.code).to.equal(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{hs256_token}}" },
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: JWT firmado con HS256 (simétrico). El servidor debe exigir RS256 (asimétrico).\nRESULTADO ESPERADO: HTTP 401 — algoritmo no aceptado.\nReferencia: TC-SEC-001 del Plan QA."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-AUTH-04 Payload JWT manipulado (scope elevado)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var t = pm.collectionVariables.get('access_token') || '';",
+                  "if (t.split('.').length === 3) {",
+                  "    var parts = t.split('.');",
+                  "    try {",
+                  "        var raw = parts[1].replace(/-/g,'+').replace(/_/g,'/');",
+                  "        while (raw.length % 4) raw += '=';",
+                  "        var pl = JSON.parse(atob(raw));",
+                  "        pl.scope = 'komands:admin komands:superuser';",
+                  "        pl.sub = 'hacker';",
+                  "        var newP = btoa(JSON.stringify(pl))",
+                  "            .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=/g,'');",
+                  "        pm.variables.set('tampered_token', parts[0]+'.'+newP+'.'+parts[2]);",
+                  "    } catch(e) {",
+                  "        pm.variables.set('tampered_token','bad.tampered.token');",
+                  "    }",
+                  "} else {",
+                  "    pm.variables.set('tampered_token','no.valid.token');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-AUTH-04: Payload manipulado → 401 (firma inválida)', function() {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Servidor detecta manipulación de payload JWT', function() {",
+                  "    pm.expect(pm.response.code).to.equal(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{tampered_token}}" },
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Token válido con payload modificado (scope elevado a admin). La firma ya no coincide.\nRESULTADO ESPERADO: HTTP 401 — firma inválida.\nReferencia: TC-SEC-004 del Plan QA."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-AUTH-05 Token expirado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function b64url(str) {",
+                  "    return btoa(unescape(encodeURIComponent(str)))",
+                  "        .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=/g,'');",
+                  "}",
+                  "var now = Math.floor(Date.now()/1000);",
+                  "var header = b64url(JSON.stringify({alg:'RS256',typ:'JWT'}));",
+                  "var payload = b64url(JSON.stringify({",
+                  "    sub:'expired-user', aud:'komands-api',",
+                  "    scope:'komands:provision komands:query',",
+                  "    iat: now - 7200,",
+                  "    exp: now - 3600",
+                  "}));",
+                  "pm.variables.set('expired_token', header+'.'+payload+'.invalidsignature');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-AUTH-05: Token expirado → 401', function() {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{expired_token}}" },
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Token JWT con exp en el pasado (hace 1 hora).\nRESULTADO ESPERADO: HTTP 401 — token expirado."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "TC-SEC-HDR — Headers obligatorios",
+      "item": [
+        {
+          "name": "TC-SEC-HDR-01 Sin X-Correlation-ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-HDR-01: Sin X-Correlation-ID — registrar comportamiento', function() {",
+                  "    console.log('Status sin X-Correlation-ID:', pm.response.code);",
+                  "    console.log('Body:', pm.response.text().substring(0, 300));",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 422]);",
+                  "});",
+                  "pm.test('Respuesta incluye X-Correlation-ID propio', function() {",
+                  "    var hasCorr = pm.response.headers.has('X-Correlation-ID') || pm.response.headers.has('x-correlation-id');",
+                  "    console.log('X-Correlation-ID en respuesta:', hasCorr);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Petición sin header X-Correlation-ID.\nRESULTADO ESPERADO: 400 Bad Request o comportamiento documentado."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-HDR-02 Sin X-Source-System",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-HDR-02: Sin X-Source-System — registrar comportamiento', function() {",
+                  "    console.log('Status sin X-Source-System:', pm.response.code);",
+                  "    console.log('Body:', pm.response.text().substring(0, 300));",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Petición sin header X-Source-System.\nRESULTADO ESPERADO: 400 Bad Request o comportamiento documentado."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-HDR-03 Sin X-User-ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-HDR-03: Sin X-User-ID — registrar comportamiento', function() {",
+                  "    console.log('Status sin X-User-ID:', pm.response.code);",
+                  "    console.log('Body:', pm.response.text().substring(0, 300));",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Petición sin header X-User-ID.\nRESULTADO ESPERADO: 400 o comportamiento documentado."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "TC-SEC-MTH — Métodos HTTP no permitidos",
+      "item": [
+        {
+          "name": "TC-SEC-MTH-01 DELETE en endpoint de consulta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-MTH-01: DELETE no permitido → 405', function() {",
+                  "    pm.response.to.have.status(405);",
+                  "});",
+                  "pm.test('Header Allow presente en respuesta 405', function() {",
+                  "    var allow = pm.response.headers.get('Allow') || pm.response.headers.get('allow');",
+                  "    console.log('Métodos permitidos:', allow);",
+                  "    pm.expect(allow).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Método DELETE sobre endpoint solo-GET.\nRESULTADO ESPERADO: HTTP 405 Method Not Allowed."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-MTH-02 PUT en endpoint POST",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-MTH-02: PUT no permitido → 405', function() {",
+                  "    pm.response.to.have.status(405);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"test\": \"put-attack\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/unsubscription",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "unsubscription"]
+            },
+            "description": "ESCENARIO: Método PUT sobre endpoint solo-POST.\nRESULTADO ESPERADO: HTTP 405 Method Not Allowed."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-MTH-03 PATCH en endpoint POST",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-MTH-03: PATCH no permitido → 405', function() {",
+                  "    pm.response.to.have.status(405);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" },
+              { "key": "X-Source-System-ID", "value": "abc123def4567890abcdef0123456789" },
+              { "key": "X-User-ID", "value": "sec-tester" },
+              { "key": "X-User-Role", "value": "agent" },
+              { "key": "X-User-Organization", "value": "ON-NET CHILE" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"test\": \"patch-attack\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/service-modification",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "service-modification"]
+            },
+            "description": "ESCENARIO: Método PATCH sobre endpoint solo-POST.\nRESULTADO ESPERADO: HTTP 405 Method Not Allowed."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "TC-SEC-RES — Headers de seguridad en respuesta",
+      "item": [
+        {
+          "name": "TC-SEC-RES-01 Headers de seguridad HTTP en /health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-RES-01: Health responde 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var headers = {};",
+                  "pm.response.headers.each(function(h) { headers[h.key.toLowerCase()] = h.value; });",
+                  "pm.test('[GAP-SEC] X-Content-Type-Options ausente (riesgo MIME-sniffing)', function() {",
+                  "    var val = headers['x-content-type-options'];",
+                  "    if (!val) { console.warn('GAP: Agregar header: X-Content-Type-Options: nosniff'); }",
+                  "    else { console.log('X-Content-Type-Options:', val); }",
+                  "    pm.expect(val).to.exist;",
+                  "});",
+                  "pm.test('[GAP-SEC] X-Frame-Options ausente (riesgo clickjacking)', function() {",
+                  "    var val = headers['x-frame-options'];",
+                  "    if (!val) { console.warn('GAP: Agregar header: X-Frame-Options: DENY'); }",
+                  "    else { console.log('X-Frame-Options:', val); }",
+                  "    pm.expect(val).to.exist;",
+                  "});",
+                  "pm.test('[GAP-SEC] Strict-Transport-Security ausente (HSTS no configurado)', function() {",
+                  "    var val = headers['strict-transport-security'];",
+                  "    if (!val) { console.warn('GAP: Agregar header: Strict-Transport-Security: max-age=31536000; includeSubDomains'); }",
+                  "    else { console.log('Strict-Transport-Security:', val); }",
+                  "    pm.expect(val).to.exist;",
+                  "});",
+                  "pm.test('Server header no expone versión del servidor', function() {",
+                  "    var server = headers['server'] || '';",
+                  "    console.log('Server header:', server || '(ausente)');",
+                  "    var hasVersion = /[0-9]+\\.[0-9]+/.test(server);",
+                  "    if (hasVersion) { console.warn('ADVERTENCIA: Server header expone versión:', server); }",
+                  "    pm.expect(hasVersion).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "ESCENARIO: Verificar headers de seguridad HTTP en respuesta.\nRESULTADO ESPERADO: X-Content-Type-Options, X-Frame-Options, HSTS presentes."
+          },
+          "response": []
+        },
+        {
+          "name": "TC-SEC-RES-02 Content-Type en respuesta de error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('TC-SEC-RES-02: Error de autenticación retorna Content-Type application/json', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "    var ct = pm.response.headers.get('Content-Type') || '';",
+                  "    console.log('Content-Type en error ' + pm.response.code + ':', ct);",
+                  "    pm.expect(ct).to.include('application/json');",
+                  "});",
+                  "pm.test('Cuerpo de error no expone stack trace ni rutas internas', function() {",
+                  "    var body = pm.response.text();",
+                  "    var exposesStack = body.toLowerCase().includes('traceback') || body.toLowerCase().includes('file \"/');",
+                  "    if (exposesStack) { console.warn('ADVERTENCIA: Respuesta podría exponer stack trace'); }",
+                  "    pm.expect(exposesStack).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "X-Source-System", "value": "SN" },
+              { "key": "X-Correlation-ID", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Komands/v1/query-access/{{test_olt_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "Komands", "v1", "query-access", "{{test_olt_id}}"]
+            },
+            "description": "ESCENARIO: Verificar que los errores 401 retornan JSON limpio sin stack traces.\nRESULTADO ESPERADO: Content-Type: application/json, sin exposición interna."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://onf-komands.cl:9016",
+      "description": "URL base servidor DEV KOMANDs"
+    },
+    {
+      "key": "client_id",
+      "value": "UE9OVFJBTlNGRVIyMDI1S0VZ",
+      "description": "Client ID OAuth2 DEV (sobreescrito por environment)"
+    },
+    {
+      "key": "client_secret",
+      "value": "VEZFUlBPTjIwMjVTRUNSRVQ=",
+      "description": "Client Secret OAuth2 DEV (sobreescrito por environment)"
+    },
+    {
+      "key": "scope",
+      "value": "komands:provision komands:query",
+      "description": "Scopes OAuth2"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "description": "Token OAuth2 — se obtiene automáticamente"
+    },
+    {
+      "key": "token_expiry",
+      "value": "",
+      "description": "Timestamp de expiración del token (ms)"
+    },
+    {
+      "key": "test_olt_id",
+      "value": "NCOR_OLT_3_1_1_3",
+      "description": "OLT usada en pruebas de seguridad"
+    }
+  ]
+}

@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Komands QA — Arquitectura Visual</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+header {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-bottom: 1px solid #334155;
+  padding: 18px 32px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+header h1 { font-size: 1.2rem; font-weight: 800; color: #f1f5f9; }
+.hbadge { font-size: 0.7rem; color: #94a3b8; background: #1e293b; border: 1px solid #334155; padding: 3px 10px; border-radius: 20px; }
+.hbadge.ok { color: #4ade80; border-color: #166534; }
+.hbadge.warn { color: #fbbf24; border-color: #92400e; }
+
+/* TABS */
+.tabs { display: flex; background: #0f172a; border-bottom: 1px solid #1e293b; padding: 0 32px; overflow-x: auto; }
+.tab { padding: 13px 22px; font-size: 0.78rem; font-weight: 600; color: #475569; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s; }
+.tab:hover { color: #94a3b8; }
+.tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ═══ TAB 1: ARQUITECTURA ═══ */
+.canvas { padding: 32px; display: flex; flex-direction: column; gap: 32px; }
+.flow-row { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: nowrap; }
+.node { position: relative; border-radius: 12px; padding: 16px 18px; cursor: pointer; transition: transform .15s, box-shadow .15s; min-width: 150px; text-align: center; border: 2px solid transparent; user-select: none; }
+.node:hover { transform: translateY(-5px); box-shadow: 0 14px 36px rgba(0,0,0,.5); }
+.node-icon { font-size: 1.9rem; margin-bottom: 5px; }
+.node-title { font-size: 0.83rem; font-weight: 700; }
+.node-sub { font-size: 0.67rem; opacity: 0.7; margin-top: 3px; }
+.nbadge { position: absolute; top: -8px; right: -8px; background: #22c55e; color: #052e16; font-size: 0.58rem; font-weight: 800; padding: 2px 6px; border-radius: 10px; text-transform: uppercase; }
+.nbadge.warn { background: #f59e0b; color: #1c0a00; }
+.sn    { background: #1e3a5f; border-color: #3b82f6; }
+.axway { background: #3b1f5f; border-color: #a855f7; }
+.api   { background: #1a3a2a; border-color: #22c55e; }
+.mock  { background: #3a2a1a; border-color: #f59e0b; }
+.olt-n { background: #1a2a3a; border-color: #38bdf8; }
+.olt-h { background: #2a1a1a; border-color: #f87171; }
+.qa    { background: #1e1a2e; border-color: #818cf8; }
+.ci    { background: #1a2e1a; border-color: #4ade80; }
+.sonar { background: #2e1a1a; border-color: #fb923c; }
+.arrow { display: flex; align-items: center; padding: 0 4px; flex-shrink: 0; }
+.arrow-line { width: 42px; height: 2px; background: linear-gradient(90deg,#334155,#64748b); position: relative; }
+.arrow-line::after { content:''; position:absolute; right:-6px; top:-5px; border:6px solid transparent; border-left-color:#64748b; }
+.arrow-label { position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:.58rem; color:#64748b; white-space:nowrap; }
+.section-label { text-align:center; font-size:.67rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#475569; margin-bottom:-20px; }
+.qa-row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+.vno-strip { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.vno-pill { background:#1e293b; border:1px solid #334155; border-radius:20px; padding:4px 13px; font-size:.7rem; font-weight:700; color:#94a3b8; }
+
+/* ═══ TAB 2: QUÉ SE HIZO ═══ */
+.sprint-wrap { padding: 32px; display: flex; flex-direction: column; gap: 40px; }
+
+/* Phase header */
+.phase-header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.phase-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 800; flex-shrink: 0; }
+.phase-title { font-size: 1rem; font-weight: 800; color: #f1f5f9; }
+.phase-sub { font-size: .73rem; color: #64748b; margin-top: 2px; }
+
+/* Work card grid */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+/* Work card */
+.wcard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.wcard-head {
+  padding: 14px 16px 12px;
+  display: flex; align-items: flex-start; gap: 11px;
+  border-bottom: 1px solid #0f172a;
+}
+.wcard-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 1px; }
+.wcard-title { font-size: .85rem; font-weight: 700; color: #f1f5f9; line-height: 1.3; }
+.wcard-file { font-size: .68rem; font-family: Consolas, monospace; color: #fbbf24; margin-top: 3px; }
+
+.wcard-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+
+.wcard-row { display: flex; flex-direction: column; gap: 4px; }
+.wcard-row-label {
+  font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  display: flex; align-items: center; gap: 5px;
+}
+.wcard-row-text { font-size: .74rem; color: #94a3b8; line-height: 1.6; padding-left: 18px; }
+
+.label-why    { color: #818cf8; }
+.label-what   { color: #38bdf8; }
+.label-before { color: #f87171; }
+.label-after  { color: #4ade80; }
+.label-result { color: #fbbf24; }
+
+.result-row { display: flex; gap: 8px; }
+.result-box { flex: 1; border-radius: 8px; padding: 8px 10px; }
+.result-box.expected { background: #0c1a2e; border: 1px solid #1d4ed8; }
+.result-box.obtained { background: #052e16; border: 1px solid #166534; }
+.result-box h5 { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+.result-box.expected h5 { color: #60a5fa; }
+.result-box.obtained h5 { color: #4ade80; }
+.result-box p { font-size: .71rem; color: #cbd5e1; line-height: 1.5; }
+
+/* Divider */
+.phase-divider { height: 1px; background: linear-gradient(90deg, transparent, #334155 30%, #334155 70%, transparent); }
+
+/* ═══ TAB 3: PENDIENTE ═══ */
+.gap-wrap { padding: 32px; display: flex; flex-direction: column; gap: 32px; }
+
+.gap-banner {
+  background: linear-gradient(135deg, #2e1a00, #1a0e00);
+  border: 1px solid #92400e;
+  border-radius: 14px;
+  padding: 20px 24px;
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.gap-banner-icon { font-size: 2.2rem; flex-shrink: 0; }
+.gap-banner h2 { font-size: 1rem; font-weight: 800; color: #fbbf24; margin-bottom: 4px; }
+.gap-banner p { font-size: .78rem; color: #d97706; line-height: 1.7; }
+
+.gap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.gap-card {
+  background: #1e293b; border: 1px solid #334155; border-radius: 14px; overflow: hidden;
+}
+.gap-card-head { padding: 13px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #0f172a; }
+.gap-card-icon { font-size: 1.4rem; }
+.gap-card-title { font-size: .85rem; font-weight: 700; }
+.gap-card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.gap-item { display: flex; align-items: flex-start; gap: 9px; font-size: .74rem; color: #94a3b8; line-height: 1.5; }
+.gap-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.dot-red    { background: #f87171; }
+.dot-amber  { background: #fbbf24; }
+.dot-blue   { background: #60a5fa; }
+.dot-purple { background: #c084fc; }
+.gap-item b { color: #e2e8f0; font-weight: 600; }
+
+.checklist { display: flex; flex-direction: column; gap: 6px; }
+.check-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 9px 12px;
+  font-size: .76rem;
+}
+.check-box {
+  width: 20px; height: 20px; border-radius: 5px; border: 2px solid #334155;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .75rem;
+}
+.check-box.done { background: #052e16; border-color: #166534; }
+.check-box.pending { background: #2e1a00; border-color: #92400e; }
+.check-box.blocked { background: #2e0a0a; border-color: #991b1b; }
+.check-text { flex: 1; color: #cbd5e1; }
+.check-text.done-text { color: #4ade80; }
+.check-text.pending-text { color: #fbbf24; }
+.check-text.blocked-text { color: #f87171; }
+.check-who { font-size: .65rem; color: #475569; flex-shrink: 0; }
+
+.flow-steps {
+  display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 4px 0;
+}
+.flow-step {
+  background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+  padding: 10px 14px; text-align: center; min-width: 120px; flex-shrink: 0;
+}
+.flow-step.done { border-color: #166534; background: #052e16; }
+.flow-step.pending { border-color: #92400e; background: #2e1a00; }
+.flow-step.blocked { border-color: #991b1b; background: #2e0a0a; }
+.flow-step-icon { font-size: 1.3rem; margin-bottom: 3px; }
+.flow-step-title { font-size: .7rem; font-weight: 700; }
+.flow-step-sub { font-size: .62rem; color: #64748b; margin-top: 2px; }
+.flow-step.done .flow-step-title { color: #4ade80; }
+.flow-step.pending .flow-step-title { color: #fbbf24; }
+.flow-step.blocked .flow-step-title { color: #f87171; }
+.flow-arrow { width: 28px; height: 2px; background: #334155; flex-shrink: 0; position: relative; }
+.flow-arrow::after { content:''; position:absolute; right:-5px; top:-4px; border:5px solid transparent; border-left-color:#334155; }
+
+/* MODAL */
+.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100; backdrop-filter:blur(4px); }
+.overlay.open { display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal { background:#1e293b; border:1px solid #334155; border-radius:16px; width:700px; max-width:100%; max-height:88vh; overflow-y:auto; padding:28px; position:relative; animation:pop .2s ease; }
+@keyframes pop { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+.modal-close { position:sticky; top:0; float:right; background:#334155; border:none; color:#94a3b8; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; z-index:10; margin-left:12px; }
+.modal-close:hover { background:#475569; color:#f1f5f9; }
+.modal h2 { font-size:1.1rem; font-weight:800; margin-bottom:3px; }
+.modal-sub-text { font-size:.72rem; color:#64748b; margin-bottom:18px; }
+.msec { margin-bottom:18px; }
+.msec h3 { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#64748b; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #1e293b; }
+.tag-list { display:flex; flex-wrap:wrap; gap:6px; }
+.tag { font-size:.7rem; padding:3px 10px; border-radius:6px; font-weight:600; font-family:Consolas,monospace; }
+.tg { background:#052e16; color:#4ade80; border:1px solid #166534; }
+.tb { background:#0c1a2e; color:#60a5fa; border:1px solid #1d4ed8; }
+.tp { background:#1a0a2e; color:#c084fc; border:1px solid #6d28d9; }
+.ta { background:#2e1a00; color:#fbbf24; border:1px solid #92400e; }
+.tr { background:#2e0a0a; color:#f87171; border:1px solid #991b1b; }
+.ts { background:#0f172a; color:#94a3b8; border:1px solid #334155; }
+.endpoint-list { display:flex; flex-direction:column; gap:5px; }
+.endpoint { display:flex; align-items:center; gap:10px; background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:7px 11px; font-family:Consolas,monospace; font-size:.71rem; }
+.method { font-weight:800; font-size:.62rem; padding:2px 7px; border-radius:4px; min-width:34px; text-align:center; }
+.post { background:#1a2e1a; color:#4ade80; }
+.get  { background:#0c1a2e; color:#60a5fa; }
+.path { color:#e2e8f0; flex:1; }
+.edesc { color:#64748b; font-size:.65rem; font-family:'Segoe UI',sans-serif; }
+.code-block { background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:11px 13px; font-family:Consolas,monospace; font-size:.71rem; line-height:1.8; overflow-x:auto; white-space:pre; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Komands QA — Sprint 01</h1>
+  <span class="hbadge">spec v2.2.3</span>
+  <span class="hbadge">351 tests</span>
+  <span class="hbadge ok">● CI PASS</span>
+  <span class="hbadge ok">● SonarCloud PASS</span>
+  <span class="hbadge warn">⚠ Sin conexión a Dev/QA aún</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active"    onclick="switchTab('arq',this)">🏗 Arquitectura</div>
+  <div class="tab"           onclick="switchTab('sprint',this)">📋 Qué se hizo y por qué</div>
+  <div class="tab"           onclick="switchTab('gaps',this)">⚠ Qué falta para Dev/QA</div>
+</div>
+
+<!-- ═══════════ TAB 1: ARQUITECTURA ═══════════ -->
+<div id="tab-arq" class="tab-content active">
+  <div class="canvas">
+    <div class="vno-strip">
+      <div class="vno-pill">DTV</div><div class="vno-pill">VTR</div>
+      <div class="vno-pill">ENTEL</div><div class="vno-pill">TCH</div>
+      <div class="vno-pill" style="background:#052e16;border-color:#166534;color:#4ade80;">GTD ✓ real</div>
+      <div class="vno-pill" style="background:#052e16;border-color:#166534;color:#4ade80;">WOM ✓ real</div>
+      <div class="vno-pill">Claro</div><div class="vno-pill">Genérico</div>
+      <div class="vno-pill" style="color:#64748b;">FTTH | SSAA · GPON</div>
+    </div>
+    <div class="section-label">Flujo de provisión — haz clic en cualquier componente</div>
+    <div class="flow-row">
+      <div class="node sn" onclick="openModal('sn')">
+        <div class="nbadge">TO-BE</div>
+        <div class="node-icon">🎫</div><div class="node-title">ServiceNow</div><div class="node-sub">Origen órdenes</div>
+      </div>
+      <div class="arrow"><div class="arrow-line" style="position:relative;"><span class="arrow-label">Bearer JWT</span></div></div>
+      <div class="node axway" onclick="openModal('axway')">
+        <div class="node-icon">🔐</div><div class="node-title">Axway APIM</div><div class="node-sub">API Gateway OAuth2</div>
+      </div>
+      <div class="arrow"><div class="arrow-line" style="position:relative;"><span class="arrow-label">komands:provision</span></div></div>
+      <div class="node api" onclick="openModal('api')">
+        <div class="nbadge">SPEC ✓</div>
+        <div class="node-icon">⚡</div><div class="node-title">Komands API</div><div class="node-sub">v2.2.3 · 11 endpoints</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin:0 4px;">
+        <div style="display:flex;align-items:center;">
+          <div class="arrow"><div class="arrow-line"></div></div>
+          <div class="node olt-n" onclick="openModal('nokia')" style="min-width:122px;">
+            <div class="node-icon">📡</div><div class="node-title">Nokia OLTs</div><div class="node-sub">ISAM 7360</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;">
+          <div class="arrow"><div class="arrow-line"></div></div>
+          <div class="node olt-h" onclick="openModal('huawei')" style="min-width:122px;">
+            <div class="node-icon">📻</div><div class="node-title">Huawei OLTs</div><div class="node-sub">MA5800/MA5600T</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section-label">Capa QA construida en este sprint</div>
+    <div class="qa-row">
+      <div class="node mock" onclick="openModal('mock')">
+        <div class="node-icon">🖥️</div><div class="node-title">Mock Server</div><div class="node-sub">mock_server.py</div>
+      </div>
+      <div class="node qa" onclick="openModal('collection')">
+        <div class="nbadge">NEW</div>
+        <div class="node-icon">📬</div><div class="node-title">Postman Collection</div><div class="node-sub">10 carpetas · 30+ req</div>
+      </div>
+      <div class="node qa" onclick="openModal('pytest')">
+        <div class="node-icon">🧪</div><div class="node-title">pytest Suite</div><div class="node-sub">351 tests · 100% pass</div>
+      </div>
+      <div class="node ci" onclick="openModal('ci')">
+        <div class="nbadge">PASS</div>
+        <div class="node-icon">⚙️</div><div class="node-title">GitHub Actions</div><div class="node-sub">CI pipeline</div>
+      </div>
+      <div class="node sonar" onclick="openModal('sonar')">
+        <div class="nbadge" style="background:#fb923c;color:#1a0800;">PASS</div>
+        <div class="node-icon">🔍</div><div class="node-title">SonarCloud</div><div class="node-sub">SAST · Quality Gate A</div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:.7rem;color:#334155;padding-bottom:4px;">Cambia a la pestaña "Qué se hizo y por qué" para el detalle del sprint · "Qué falta" para ver los gaps al ambiente real</p>
+  </div>
+</div>
+
+<!-- ═══════════ TAB 2: QUÉ SE HIZO ═══════════ -->
+<div id="tab-sprint" class="tab-content">
+  <div class="sprint-wrap">
+
+    <!-- RESUMEN EJECUTIVO EN PALABRAS SIMPLES -->
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #334155;border-radius:16px;padding:24px 28px;">
+      <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#475569;margin-bottom:12px;">🗣 En palabras simples — ¿qué se construyó aquí?</div>
+      <div style="font-size:.88rem;color:#e2e8f0;line-height:1.8;margin-bottom:16px;">
+        <b style="color:#38bdf8;">Komands</b> es una API que ServiceNow le manda a ON·NET para hacer operaciones sobre la red de fibra óptica: dar de baja un cliente, activar un acceso nuevo, hacer reset de un equipo ONT, etc. Esas órdenes van a través de un gateway (<b style="color:#a855f7;">Axway APIM</b>) y terminan en servidores Nokia o Huawei reales.<br><br>
+        El problema era que <b style="color:#f87171;">no había una suite de QA confiable</b>: la colección de Postman que existía mandaba los datos en un formato incorrecto, los tests de seguridad usaban nombres de permisos que ya no existían, y el pipeline de CI no corría bien. En la práctica, las pruebas "pasaban" pero no estaban probando el sistema real.<br><br>
+        Lo que se hizo en este sprint fue <b style="color:#4ade80;">construir toda esa infraestructura de QA desde cero</b>: un servidor local que simula Komands, 351 tests automáticos, una colección Postman completa con reportes detallados, y un pipeline en GitHub que corre todo automáticamente cada vez que se sube código.
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="background:#052e16;border:1px solid #166534;border-radius:8px;padding:7px 14px;font-size:.73rem;color:#4ade80;font-weight:600;">✅ 351 tests automáticos</div>
+        <div style="background:#052e16;border:1px solid #166534;border-radius:8px;padding:7px 14px;font-size:.73rem;color:#4ade80;font-weight:600;">✅ Colección Postman con 10 carpetas</div>
+        <div style="background:#052e16;border:1px solid #166534;border-radius:8px;padding:7px 14px;font-size:.73rem;color:#4ade80;font-weight:600;">✅ CI GitHub Actions verde</div>
+        <div style="background:#052e16;border:1px solid #166534;border-radius:8px;padding:7px 14px;font-size:.73rem;color:#4ade80;font-weight:600;">✅ SonarCloud Quality Gate A</div>
+        <div style="background:#1e293b;border:1px solid #92400e;border-radius:8px;padding:7px 14px;font-size:.73rem;color:#fbbf24;font-weight:600;">⏳ Pendiente: conectar a Dev/QA real</div>
+      </div>
+    </div>
+
+    <!-- INVENTARIO DE ARCHIVOS -->
+    <div>
+      <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#475569;margin-bottom:14px;">📁 Archivos creados y modificados en el sprint</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+
+        <!-- openapi.json -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#052e16;border:1px solid #166534;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#4ade80;flex-shrink:0;white-space:nowrap;margin-top:2px;">CREADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">docs/openapi.json</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">La especificación oficial del API Komands v2.2.3 (97 KB). Define exactamente qué endpoints existen, qué campos envía ServiceNow y qué responde Komands. <b style="color:#e2e8f0;">Es la fuente de verdad</b> — todo lo demás se escribió mirando este archivo.</div>
+          </div>
+        </div>
+
+        <!-- mock_server.py -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#052e16;border:1px solid #166534;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#4ade80;flex-shrink:0;white-space:nowrap;margin-top:2px;">CREADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">mock_server.py</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">Un servidor web local (FastAPI) que <b style="color:#e2e8f0;">imita el comportamiento de Komands</b>. Responde en localhost:8000 con el mismo formato que el servidor real. Lo necesitamos porque todavía no tenemos acceso al servidor real — sin este archivo los tests no tendrían contra quién correr. Tiene 11 endpoints, valida tokens JWT, distingue OLTs Nokia vs Huawei, y simula 9 escenarios de error.</div>
+          </div>
+        </div>
+
+        <!-- tests/conftest.py -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#0c1a2e;border:1px solid #1d4ed8;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#60a5fa;flex-shrink:0;white-space:nowrap;margin-top:2px;">MODIFICADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">tests/conftest.py</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">El archivo de configuración base que todos los tests importan. Contiene los "moldes" de datos (fixtures) que se usan en cada prueba — el formato de un request de baja, de activación, el token JWT de prueba, etc. Estaba usando <b style="color:#f87171;">formato incorrecto</b> (campos planos en vez de family-format) y scopes viejos — se corrigió todo para alinearlo con el spec.</div>
+          </div>
+        </div>
+
+        <!-- tests/mocks/payloads.py -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#052e16;border:1px solid #166534;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#4ade80;flex-shrink:0;white-space:nowrap;margin-top:2px;">CREADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">tests/mocks/payloads.py</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">Librería de "datos de prueba malos" — payloads diseñados específicamente para provocar errores. Por ejemplo, si mandas ONT ID 8888 el mock responde "ONT no encontrado", si mandas serial FAIL00000000 simula un rollback. <b style="color:#e2e8f0;">Sin esto, los tests solo verifican el caso exitoso</b> y nunca saben si el sistema maneja bien los errores.</div>
+          </div>
+        </div>
+
+        <!-- tests/security/test_feature_flags.py -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#0c1a2e;border:1px solid #1d4ed8;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#60a5fa;flex-shrink:0;white-space:nowrap;margin-top:2px;">MODIFICADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">tests/security/test_feature_flags.py</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">Tests que verifican que la seguridad funciona bien: que alguien sin token no pueda hacer nada, que un token de solo-lectura no pueda crear órdenes, que un VNO no autorizado sea rechazado. Estaban usando el nombre de permiso <code style="color:#f87171;">komands:read</code> que ya no existe — con ese nombre los tests pasaban por razones equivocadas. Se corrigió a <code style="color:#4ade80;">komands:query</code>.</div>
+          </div>
+        </div>
+
+        <!-- collection SN a Kommand -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#1a0a2e;border:1px solid #6d28d9;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#c084fc;flex-shrink:0;white-space:nowrap;margin-top:2px;">REESCRITO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">collection Kommand/SN a Kommand.postman_collection.json</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">La colección de Postman que el equipo usa para probar el API manualmente o con newman (CLI). Se reescribió completa: de <b style="color:#f87171;">formato incorrecto con requests que habrían fallado en producción</b> a <b style="color:#4ade80;">10 carpetas, 30+ requests, family-format correcto, 7+ verificaciones por request y logs detallados</b> en el reporte HTML. Es el entregable principal de QA para mostrar al equipo.</div>
+          </div>
+        </div>
+
+        <!-- newman-environment-local.json -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#052e16;border:1px solid #166534;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#4ade80;flex-shrink:0;white-space:nowrap;margin-top:2px;">CREADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">collection Kommand/newman-environment-local.json</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">El archivo de variables de entorno para Postman/newman cuando se corre contra el mock local. Define <code style="color:#fbbf24;">baseURL=http://localhost:8000</code>, el token de prueba, y variables que se comparten entre requests del flujo E2E. Cuando en el futuro se conecte a Dev/QA, solo habrá que crear un archivo equivalente con la URL real.</div>
+          </div>
+        </div>
+
+        <!-- ci.yml -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#0c1a2e;border:1px solid #1d4ed8;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#60a5fa;flex-shrink:0;white-space:nowrap;margin-top:2px;">MODIFICADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">.github/workflows/ci.yml</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">El pipeline de integración continua que GitHub ejecuta automáticamente cada vez que se sube código. Corre los 351 tests, genera el reporte de cobertura, y manda el resultado a SonarCloud. Tuvo 4 fallos distintos durante el sprint: acción deprecada, coverage en 0%, análisis duplicado, y el hotspot de seguridad. Se corrigieron todos — ahora está verde y estable.</div>
+          </div>
+        </div>
+
+        <!-- diagrama HTML -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 16px;display:flex;align-items:flex-start;gap:14px;">
+          <div style="background:#052e16;border:1px solid #166534;border-radius:6px;padding:3px 9px;font-size:.62rem;font-weight:800;color:#4ade80;flex-shrink:0;white-space:nowrap;margin-top:2px;">CREADO</div>
+          <div style="flex:1;">
+            <div style="font-family:Consolas,monospace;font-size:.78rem;color:#fbbf24;font-weight:600;">docs/diagrama-arquitectura-qa.html</div>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:3px;line-height:1.6;">Este mismo archivo que estás leyendo. Diagrama interactivo para que cualquier persona del equipo — técnica o no — pueda entender qué se construyó, por qué, y qué falta. Sin necesidad de abrir código ni leer documentación técnica.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 0: DIAGNÓSTICO -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#2e0a0a;color:#f87171;border:2px solid #991b1b;">0</div>
+        <div><div class="phase-title">Diagnóstico — ¿Qué estaba mal?</div><div class="phase-sub">Comparación colección AS-IS vs openapi.json v2.2.3 oficial</div></div>
+      </div>
+      <div class="card-grid">
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🔎</div>
+            <div><div class="wcard-title">Colección Postman desalineada del spec real</div><div class="wcard-file">collection Kommand/SN a Kommand.postman_collection.json</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué era un problema</div>
+              <div class="wcard-row-text">Los tests de Postman enviaban el body en formato plano (ont_id, olt_name) cuando el API real espera family-format (u_routing, u_identification). Esto significa que las pruebas "pasaban" en el mock viejo pero habrían fallado contra el servidor real.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>❌ Estado inicial</h5><p>Body plano · scopes incorrectos · VNO VTR faltante · sin carpeta PON Transfer</p></div>
+              <div class="result-box obtained"><h5>✅ Problema identificado</h5><p>7 gaps documentados vs openapi.json v2.2.3</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🔑</div>
+            <div><div class="wcard-title">Scopes OAuth2 incorrectos en toda la suite</div><div class="wcard-file">tests/ · collection/</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué era un problema</div>
+              <div class="wcard-row-text">Los tests de seguridad validaban que "komands:read" no puede escribir. Pero ese scope ya no existe — fue renombrado. Tests daban falso positivo: pasaban, pero no probaban el sistema real.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>❌ Estado inicial</h5><p>komands:write / komands:read (nombres viejos)</p></div>
+              <div class="result-box obtained"><h5>✅ Correcto</h5><p>komands:provision / komands:query (spec v2.2.3)</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 1: SPEC AL REPO -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#052e16;color:#4ade80;border:2px solid #166534;">1</div>
+        <div><div class="phase-title">Paso 1 — Fijar el contrato en el repositorio</div><div class="phase-sub">Sin un spec versionado, cada uno trabaja con su propia versión del contrato</div></div>
+      </div>
+      <div class="card-grid">
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">📄</div>
+            <div><div class="wcard-title">Agregar openapi.json v2.2.3 al repo</div><div class="wcard-file">docs/openapi.json (97 KB)</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-what">🔷 Qué se tocó</div>
+              <div class="wcard-row-text">Se subió el archivo de especificación oficial al directorio docs/ del repositorio.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué</div>
+              <div class="wcard-row-text">Sin este archivo, cada developer tenía que pedir el spec por correo o buscarlo en documentos externos. Al versionarlo junto al código, cualquiera que clone el repo tiene acceso inmediato al contrato.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-result">⚡ Para qué sirve</div>
+              <div class="wcard-row-text">Es la fuente de verdad. Todo el código de mock, tests y colección fue escrito contra este archivo.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Spec accesible a todo el equipo sin dependencias externas</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>docs/openapi.json + Swagger UI HTML versionados en main</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 2: MOCK SERVER -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#2e1a00;color:#fbbf24;border:2px solid #92400e;">2</div>
+        <div><div class="phase-title">Paso 2 — Reescribir el servidor mock</div><div class="phase-sub">El mock es el corazón de la suite — si miente, los tests no tienen valor</div></div>
+      </div>
+      <div class="card-grid">
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🐍</div>
+            <div><div class="wcard-title">mock_server.py — reescritura completa</div><div class="wcard-file">mock_server.py</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-what">🔷 Qué se tocó</div>
+              <div class="wcard-row-text">Servidor FastAPI standalone que levanta en localhost:8000 y simula el comportamiento del API Komands real para que Newman y Postman puedan correr sin necesitar el servidor real.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué</div>
+              <div class="wcard-row-text">Newman corre como proceso independiente y necesita un servidor HTTP escuchando. No tenemos acceso al servidor Komands real aún — el mock nos permite desarrollar y probar la suite completa de forma independiente.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-before">❌ Antes</div>
+              <div class="wcard-row-text">VNOs sin VTR · scopes komands:write/read · body plano · respuesta sin envelope result · host 0.0.0.0 (security issue)</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Ahora</div>
+              <div class="wcard-row-text">VTR agregado · scopes provision/query · family-format · StandardResponse · host 127.0.0.1 · /pon-transfer y /cancel-order nuevos · 8 ONT IDs de error + 3 seriales de error programados</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Mock que se comporte idéntico al servidor real</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>11 endpoints funcionando · lógica Nokia vs Huawei · SonarCloud PASS</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🔒</div>
+            <div><div class="wcard-title">Fix seguridad: host 0.0.0.0 → 127.0.0.1</div><div class="wcard-file">mock_server.py · línea uvicorn.run()</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué</div>
+              <div class="wcard-row-text">SonarCloud detectó que binding a 0.0.0.0 expone el servidor a toda la red (regla S8392). Aunque es un mock local, el CI no pasaba con ese hotspot abierto.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-result">⚡ Para qué sirve</div>
+              <div class="wcard-row-text">127.0.0.1 solo acepta conexiones desde la misma máquina. Elimina el riesgo de que alguien externo llegue al mock accidentalmente.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>SonarCloud Quality Gate PASS</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>Security hotspot cerrado · Gate A</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 3: TESTS PYTEST -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#0c1a2e;color:#60a5fa;border:2px solid #1d4ed8;">3</div>
+        <div><div class="phase-title">Paso 3 — Actualizar la suite de tests Python</div><div class="phase-sub">Tests que mandan el body equivocado no prueban nada real</div></div>
+      </div>
+      <div class="card-grid">
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🔧</div>
+            <div><div class="wcard-title">tests/conftest.py — fixtures actualizadas</div><div class="wcard-file">tests/conftest.py</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-what">🔷 Qué se tocó</div>
+              <div class="wcard-row-text">Fixtures de pytest: payloads base, tokens JWT, configuración del TestClient. Es el archivo que todos los tests importan — si está mal, todos los tests están mal.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-before">❌ Antes</div>
+              <div class="wcard-row-text">Fixtures enviaban <code style="color:#fbbf24">&#123;ont_id: 45&#125;</code> · scope komands:write · sin fixture VTR · sin fixture fiber_change</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Ahora</div>
+              <div class="wcard-row-text">Family-format <code style="color:#fbbf24">u_routing/u_identification/u_action</code> · scope provision/query · fixtures nokia, huawei, vtr, fiber_change, pon_transfer</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Tests que envían exactamente lo que el spec define</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>351 tests pasando · 0 failures</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">📦</div>
+            <div><div class="wcard-title">tests/mocks/payloads.py — payloads de error</div><div class="wcard-file">tests/mocks/payloads.py</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-what">🔷 Qué se tocó</div>
+              <div class="wcard-row-text">Payloads específicos para provocar cada código de error KMD. Necesarios para los tests negativos (que verifican que los errores se manejan bien).</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Ahora incluye</div>
+              <div class="wcard-row-text">ONT 8888 → KMD-2002 · ONT 7777 → timeout · Serial FAIL → rollback swap · Serial VLAN → conflict · Serial DUPL → duplicado</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Poder testear cada código de error KMD</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>9 escenarios de error cubiertos</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🛡️</div>
+            <div><div class="wcard-title">test_feature_flags.py — scopes corregidos</div><div class="wcard-file">tests/security/test_feature_flags.py</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué era crítico</div>
+              <div class="wcard-row-text">Los tests de seguridad son los más importantes del sprint. Si usan scopes incorrectos, pueden dar PASS cuando el sistema real los rechazaría. Falso negativo en seguridad = agujero no detectado.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-before">❌ Antes</div>
+              <div class="wcard-row-text">Scope "komands:read" (no existe en v2.2.3)</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Ahora</div>
+              <div class="wcard-row-text">Scope "komands:query" — alineado con spec real</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Tests de seguridad que realmente validan el sistema real</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>Todos los tests seguridad PASS con scopes correctos</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 4: COLECCIÓN -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#1a0a2e;color:#c084fc;border:2px solid #6d28d9;">4</div>
+        <div><div class="phase-title">Paso 4 — Reescribir la colección Postman (PR #1)</div><div class="phase-sub">La colección es el instrumento de prueba que usará el equipo en Postman / newman</div></div>
+      </div>
+      <div class="card-grid">
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">📬</div>
+            <div><div class="wcard-title">10 carpetas con todos los endpoints</div><div class="wcard-file">collection Kommand/SN a Kommand.postman_collection.json</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-what">🔷 Qué se tocó</div>
+              <div class="wcard-row-text">Colección Postman reescrita desde cero con family-format, nuevos endpoints, VNO VTR, carpeta PON Transfer y carpeta de errores de autenticación.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-result">⚡ Para qué sirve</div>
+              <div class="wcard-row-text">Permite al equipo ejecutar pruebas funcionales completas desde Postman UI o newman CLI. Es el entregable principal de QA para mostrar a Pablo y al equipo.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Carpetas nuevas</div>
+              <div class="wcard-row-text">07 — Traspaso PON · 09 — Auth Errores (401/403) · 10 — Flujo E2E 6 pasos</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Colección ejecutable contra el mock y el servidor real</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>30+ requests · CI PASS · PR #1 mergeado</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">📊</div>
+            <div><div class="wcard-title">Instalar newman-reporter-htmlextra</div><div class="wcard-file">npm install -g newman-reporter-htmlextra</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué</div>
+              <div class="wcard-row-text">El reporter HTML estándar de newman solo muestra "5/5 passed" en un cuadro. htmlextra genera un reporte profesional con cada assertion individualmente, request/response bodies, console.log y tiempos — exactamente lo que necesita un reporte de QA formal.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-result">⚡ Para qué sirve</div>
+              <div class="wcard-row-text">El archivo reporte.html resultante puede enviarse a Pablo, al equipo de ON·NET, o usarse como evidencia de que las pruebas corrieron correctamente.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Reporte HTML que muestre cada test case con ✅/❌</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>htmlextra instalado · reporte con assertions individuales</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 5: CI -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#052e16;color:#4ade80;border:2px solid #166534;">5</div>
+        <div><div class="phase-title">Paso 5 — Corregir el pipeline CI / SonarCloud</div><div class="phase-sub">Cuatro fallos distintos antes de que el CI quedara verde</div></div>
+      </div>
+      <div class="card-grid">
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">⚙️</div>
+            <div><div class="wcard-title">Migrar acción SonarCloud deprecada</div><div class="wcard-file">.github/workflows/ci.yml</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-before">❌ Antes</div>
+              <div class="wcard-row-text">sonarcloud-github-action@v2 — mostraba warning de deprecación y fallaba silenciosamente</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Después</div>
+              <div class="wcard-row-text">sonarqube-scan-action@v5 — acción activa recomendada por SonarSource</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>CI corre SonarCloud sin warnings</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>SonarCloud analysis SUCCESS en PR #1</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">📁</div>
+            <div><div class="wcard-title">Coverage path explícito para SonarCloud</div><div class="wcard-file">.github/workflows/ci.yml · sonar args</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-before">❌ Antes</div>
+              <div class="wcard-row-text">SonarCloud no encontraba coverage.xml · coverage reportada como 0%</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Después</div>
+              <div class="wcard-row-text">-Dsonar.python.coverage.reportPaths=coverage.xml en los args del scanner</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>SonarCloud ve el coverage real de la suite</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>Coverage correctamente importada</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🔄</div>
+            <div><div class="wcard-title">Desactivar Automatic Analysis en SonarCloud</div><div class="wcard-file">Configuración SonarCloud UI</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-before">❌ Antes</div>
+              <div class="wcard-row-text">Automatic Analysis activado + CI analysis = dos análisis simultáneos que se pisaban y causaban errores intermitentes</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Después</div>
+              <div class="wcard-row-text">Solo corre el análisis manual del CI — un único análisis por PR, resultado determinista</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Un análisis por PR, resultado estable</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>CI estable · PR #1 y #2 SUCCESS</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="phase-divider"></div>
+
+    <!-- FASE 6: PR2 ASSERTIONS -->
+    <div>
+      <div class="phase-header">
+        <div class="phase-num" style="background:#1a0a2e;color:#c084fc;border:2px solid #6d28d9;">6</div>
+        <div><div class="phase-title">Paso 6 — Assertions detalladas + console.log (PR #2)</div><div class="phase-sub">Para que el reporte htmlextra muestre cada caso con ✅/❌ individual</div></div>
+      </div>
+      <div class="card-grid">
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">✨</div>
+            <div><div class="wcard-title">7+ assertions individuales por request</div><div class="wcard-file">collection Kommand/SN a Kommand.postman_collection.json</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-why">🤔 Por qué</div>
+              <div class="wcard-row-text">Con el PR #1 el reporte mostraba "1 assertion passed" por request. Con PR #2 cada campo de la respuesta tiene su propia línea en el reporte, con nombre descriptivo, lo que permite ver exactamente qué falló si algo falla en el real.</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Assertions por request</div>
+              <div class="wcard-row-text">HTTP status · result.u_uuid (regex UUID) · u_return_code='0' · u_return_code_desc presente · u_timestamp · u_time · SLA tiempo respuesta</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label label-result">⚡ console.log en htmlextra</div>
+              <div class="wcard-row-text">Cada request loguea: VNO enviado, OLT, ONT ID, serial — y la respuesta completa recibida. Visible en la pestaña Console del reporte HTML.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado</h5><p>Reporte HTML que muestre cada campo validado</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>PR #2 mergeado · CI PASS · SonarCloud PASS</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wcard">
+          <div class="wcard-head">
+            <div class="wcard-icon">🏁</div>
+            <div><div class="wcard-title">Sprint 01 — Estado final</div><div class="wcard-file">Commit 693eefe en main</div></div>
+          </div>
+          <div class="wcard-body">
+            <div class="wcard-row">
+              <div class="wcard-row-label label-after">✅ Entregables completados</div>
+              <div class="wcard-row-text">mock_server.py alineado · pytest 351/351 · Postman collection 10 carpetas · CI automático · SonarCloud Quality Gate A · htmlextra instalado · openapi.json en repo</div>
+            </div>
+            <div class="wcard-row">
+              <div class="wcard-row-label" style="color:#f87171;">⚠ Pendiente</div>
+              <div class="wcard-row-text">No se ha conectado a Dev ni QA. Todo lo anterior corre 100% local contra el mock. Ver pestaña "Qué falta para Dev/QA" para el detalle.</div>
+            </div>
+            <div class="result-row">
+              <div class="result-box expected"><h5>🎯 Esperado al inicio</h5><p>Suite QA funcional alineada a spec v2.2.3</p></div>
+              <div class="result-box obtained"><h5>✅ Obtenido</h5><p>Suite completa · 2 PRs mergeados · CI verde</p></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ TAB 3: QUÉ FALTA ═══════════ -->
+<div id="tab-gaps" class="tab-content">
+  <div class="gap-wrap">
+
+    <!-- BANNER -->
+    <div class="gap-banner">
+      <div class="gap-banner-icon">⚠️</div>
+      <div>
+        <h2>Aún no estamos conectados a Dev / QA</h2>
+        <p>
+          Todo lo construido en el Sprint 01 corre <b>100% local</b> contra el mock server.
+          Las pruebas pasan porque el mock replica el comportamiento del spec —
+          <b>pero no hemos ejecutado ni una sola request contra el servidor Komands real ni contra una OLT real.</b><br><br>
+          El paso siguiente es conectar al ambiente Dev o QA. Para eso necesitamos
+          que <b>Pablo Álvarez</b> nos entregue las credenciales y datos de acceso detallados abajo.
+        </p>
+      </div>
+    </div>
+
+    <!-- BARRA DE PROGRESO VISUAL -->
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:24px 28px;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#475569;margin-bottom:20px;">
+        📍 Dónde estamos ahora mismo en el proyecto
+      </div>
+
+      <!-- Steps con línea -->
+      <div style="display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:8px;">
+
+        <!-- PASO 1 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#052e16;border:3px solid #4ade80;display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 0 12px rgba(74,222,128,.3);">✅</div>
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-top:8px;text-align:center;">Spec</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">openapi.json<br>en repo</div>
+        </div>
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#4ade80,#4ade80);margin-top:21px;min-width:20px;border-radius:2px;"></div>
+
+        <!-- PASO 2 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#052e16;border:3px solid #4ade80;display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 0 12px rgba(74,222,128,.3);">✅</div>
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-top:8px;text-align:center;">Mock + Tests</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">351/351<br>local</div>
+        </div>
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#4ade80,#4ade80);margin-top:21px;min-width:20px;border-radius:2px;"></div>
+
+        <!-- PASO 3 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#052e16;border:3px solid #4ade80;display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 0 12px rgba(74,222,128,.3);">✅</div>
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-top:8px;text-align:center;">Colección</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">newman<br>htmlextra</div>
+        </div>
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#4ade80,#4ade80);margin-top:21px;min-width:20px;border-radius:2px;"></div>
+
+        <!-- PASO 4 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#052e16;border:3px solid #4ade80;display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 0 12px rgba(74,222,128,.3);">✅</div>
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-top:8px;text-align:center;">CI / Sonar</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">GitHub<br>PASS</div>
+        </div>
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#4ade80,#f59e0b);margin-top:21px;min-width:20px;border-radius:2px;"></div>
+
+        <!-- PASO 5 — ESTAMOS AQUÍ -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:130px;">
+          <div style="background:#f59e0b;color:#1c0a00;font-size:.6rem;font-weight:800;padding:3px 10px;border-radius:10px;white-space:nowrap;margin-bottom:8px;letter-spacing:.05em;">📍 ESTAMOS AQUÍ</div>
+          <div style="width:52px;height:52px;border-radius:50%;background:#2e1a00;border:3px solid #f59e0b;display:flex;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:0 0 20px rgba(245,158,11,.6);animation:pulse 2s infinite;">⏳</div>
+          <div style="font-size:.7rem;font-weight:800;color:#f59e0b;margin-top:10px;text-align:center;">Credenciales</div>
+          <div style="font-size:.62rem;color:#94a3b8;text-align:center;margin-top:3px;">Pedir a<br>Pablo Álvarez</div>
+        </div>
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#f59e0b33,#f8717133);margin-top:21px;min-width:20px;border-radius:2px;border-top:1px dashed #334155;background:none;"></div>
+
+        <!-- PASO 6 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;opacity:.5;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#2e0a0a;border:3px solid #991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🔐</div>
+          <div style="font-size:.7rem;font-weight:700;color:#f87171;margin-top:8px;text-align:center;">Axway APIM</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">Dev/QA<br>sin acceso</div>
+        </div>
+        <div style="flex:1;height:3px;background:#1e293b;margin-top:21px;min-width:20px;border-radius:2px;border-top:1px dashed #334155;background:none;"></div>
+
+        <!-- PASO 7 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;opacity:.5;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#2e0a0a;border:3px solid #991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">⚡</div>
+          <div style="font-size:.7rem;font-weight:700;color:#f87171;margin-top:8px;text-align:center;">Komands real</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">servidor<br>Dev/QA</div>
+        </div>
+        <div style="flex:1;height:3px;background:none;margin-top:21px;min-width:20px;border-radius:2px;border-top:1px dashed #334155;"></div>
+
+        <!-- PASO 8 -->
+        <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;opacity:.5;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#2e0a0a;border:3px solid #991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📡</div>
+          <div style="font-size:.7rem;font-weight:700;color:#f87171;margin-top:8px;text-align:center;">OLT real</div>
+          <div style="font-size:.62rem;color:#475569;text-align:center;margin-top:2px;">Nokia /<br>Huawei</div>
+        </div>
+
+      </div>
+
+      <style>@keyframes pulse { 0%,100%{box-shadow:0 0 18px rgba(245,158,11,.5)} 50%{box-shadow:0 0 28px rgba(245,158,11,.9)} }</style>
+
+      <div style="display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:#4ade80;"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80;"></div>Completado en Sprint 01</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:#f59e0b;"><div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></div>Bloqueado — esperando a Pablo Álvarez</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:#f87171;"><div style="width:10px;height:10px;border-radius:50%;background:#f87171;"></div>Sin desbloquear aún</div>
+      </div>
+    </div>
+
+    <!-- LO QUE HAY QUE PEDIR A PABLO -->
+    <div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:#1e3a5f;border:2px solid #3b82f6;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">👤</div>
+        <div>
+          <div style="font-size:1rem;font-weight:800;color:#f1f5f9;">Qué pedirle a Pablo Álvarez</div>
+          <div style="font-size:.73rem;color:#64748b;margin-top:2px;">Todo lo que sigue está bloqueado hasta recibir esta información</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;">
+
+        <!-- CARD 1: Acceso Axway -->
+        <div style="background:#1e293b;border:1px solid #92400e;border-radius:14px;overflow:hidden;">
+          <div style="background:#2e1a00;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">🔐</span>
+            <div>
+              <div style="font-size:.83rem;font-weight:800;color:#fbbf24;">Acceso a Axway APIM</div>
+              <div style="font-size:.65rem;color:#92400e;margin-top:2px;">Crítico — sin esto no podemos autenticarnos</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">📌 URL base del ambiente Dev/QA de Axway</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">Es el host al que apuntará la colección Postman en lugar de <code style="color:#60a5fa">localhost:8000</code>. Sin esto, todos los requests van al mock local y no al ambiente real.</div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">📌 Endpoint OAuth2 para pedir tokens</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">La URL del <code style="color:#60a5fa">/token</code> de Axway. Actualmente el equipo la llama manualmente para obtener JWTs de 1 hora. Necesitamos configurarla en la colección para que sea automática.</div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">📌 consumer_key y consumer_secret (Dev/QA)</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">Las credenciales del cliente OAuth2 para el equipo QA. Deben ser propias de Dev/QA — distintas a las de producción para no afectar servicios reales.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: Datos de prueba OLT -->
+        <div style="background:#1e293b;border:1px solid #1d4ed8;border-radius:14px;overflow:hidden;">
+          <div style="background:#0c1a2e;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">📡</span>
+            <div>
+              <div style="font-size:.83rem;font-weight:800;color:#60a5fa;">Datos de OLTs en Dev/QA</div>
+              <div style="font-size:.65rem;color:#1d4ed8;margin-top:2px;">Necesarios para que los requests lleguen a OLTs reales</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#60a5fa;margin-bottom:4px;">📌 Lista de OLTs disponibles en Dev/QA</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">Necesitamos los <code style="color:#fbbf24">olt_name</code> reales para reemplazar <code style="color:#60a5fa">OLT-SAN-001</code> en la colección. Si la OLT no existe en el ambiente, el request fallará aunque la autenticación esté bien.</div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#60a5fa;margin-bottom:4px;">📌 Un acceso activo de prueba (ONT ID)</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">Un ONT real en el ambiente Dev con un acceso activo para poder probar baja, modificación y reset sin riesgo de afectar a clientes de producción.</div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#60a5fa;margin-bottom:4px;">📌 VNOs activos en Dev/QA</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">Confirmar cuáles de los 8 VNOs reales (DTV, VTR, ENTEL, TCH, Claro, GTD, WOM, Genérico) tienen OLTs configuradas en el ambiente de prueba. GTD y WOM descubiertos en portal real — no estaban en spec original.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 3: Config JWT -->
+        <div style="background:#1e293b;border:1px solid #6d28d9;border-radius:14px;overflow:hidden;">
+          <div style="background:#1a0a2e;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">🔑</span>
+            <div>
+              <div style="font-size:.83rem;font-weight:800;color:#c084fc;">Configuración del Token JWT</div>
+              <div style="font-size:.65rem;color:#6d28d9;margin-top:2px;">Para que la autenticación funcione correctamente</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#c084fc;margin-bottom:4px;">📌 Confirmar el issuer del token (iss)</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">¿El token que emite Axway lleva <code style="color:#fbbf24">iss: "https://api.onnetfibra.cl/api/Komands"</code>? El mock usa este valor — si el real es distinto los tests de validación JWT fallarán.</div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#c084fc;margin-bottom:4px;">📌 ¿El claim vno_id viene en el JWT?</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">El mock verifica que el token tenga el campo <code style="color:#fbbf24">vno_id</code>. Necesitamos confirmar que Axway inyecta ese campo en el JWT real, o si viene de otra forma.</div>
+            </div>
+            <div style="background:#0f172a;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:.68rem;font-weight:700;color:#c084fc;margin-bottom:4px;">📌 Rate limit en Dev/QA</div>
+              <div style="font-size:.72rem;color:#94a3b8;line-height:1.6;">Si Axway tiene throttling bajo en Dev, puede que newman falle por demasiados requests seguidos. Saber el límite nos permite ajustar los delays.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 4: Lo que ya tenemos -->
+        <div style="background:#1e293b;border:1px solid #166534;border-radius:14px;overflow:hidden;">
+          <div style="background:#052e16;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">✅</span>
+            <div>
+              <div style="font-size:.83rem;font-weight:800;color:#4ade80;">Lo que ya está listo de nuestra parte</div>
+              <div style="font-size:.65rem;color:#166534;margin-top:2px;">Solo falta enchufarlo al ambiente real</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:.73rem;color:#94a3b8;line-height:1.5;">
+              <span style="color:#4ade80;flex-shrink:0;">✓</span><div><b style="color:#e2e8f0;">Colección Postman lista</b> — cambiar solo la variable <code style="color:#fbbf24">baseURL</code></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:.73rem;color:#94a3b8;line-height:1.5;">
+              <span style="color:#4ade80;flex-shrink:0;">✓</span><div><b style="color:#e2e8f0;">351 tests pytest</b> — listos para correr con credenciales reales</div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:.73rem;color:#94a3b8;line-height:1.5;">
+              <span style="color:#4ade80;flex-shrink:0;">✓</span><div><b style="color:#e2e8f0;">Formato requests correcto</b> — family-format alineado a spec v2.2.3</div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:.73rem;color:#94a3b8;line-height:1.5;">
+              <span style="color:#4ade80;flex-shrink:0;">✓</span><div><b style="color:#e2e8f0;">Errores KMD mapeados</b> — sabemos qué esperar para cada código de error</div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:.73rem;color:#94a3b8;line-height:1.5;">
+              <span style="color:#4ade80;flex-shrink:0;">✓</span><div><b style="color:#e2e8f0;">htmlextra instalado</b> — reporte HTML profesional listo para generar</div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:.73rem;color:#94a3b8;line-height:1.5;">
+              <span style="color:#4ade80;flex-shrink:0;">✓</span><div><b style="color:#e2e8f0;">CI / SonarCloud verdes</b> — pipeline automático activo en GitHub</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:#0c1a2e;border:2px solid #1d4ed8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
+        <div>
+          <div style="font-size:1rem;font-weight:800;color:#f1f5f9;">Checklist para conectar al ambiente real</div>
+          <div style="font-size:.73rem;color:#64748b;margin-top:2px;">Los pasos verdes ya están hechos. Los amarillos esperan a Pablo Álvarez. Los rojos se desbloquean solos una vez que lleguen las credenciales.</div>
+        </div>
+      </div>
+      <div class="checklist">
+        <div class="check-item">
+          <div class="check-box done">✓</div>
+          <div class="check-text done-text">Spec v2.2.3 versionada en el repositorio GitHub</div>
+          <div class="check-who" style="color:#4ade80;">✅ Hecho</div>
+        </div>
+        <div class="check-item">
+          <div class="check-box done">✓</div>
+          <div class="check-text done-text">Suite pytest 351/351 pasando — mock alineado a spec</div>
+          <div class="check-who" style="color:#4ade80;">✅ Hecho</div>
+        </div>
+        <div class="check-item">
+          <div class="check-box done">✓</div>
+          <div class="check-text done-text">Colección Postman con 10 carpetas y assertions detalladas</div>
+          <div class="check-who" style="color:#4ade80;">✅ Hecho</div>
+        </div>
+        <div class="check-item">
+          <div class="check-box done">✓</div>
+          <div class="check-text done-text">CI GitHub Actions + SonarCloud Quality Gate A en main</div>
+          <div class="check-who" style="color:#4ade80;">✅ Hecho</div>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);margin:4px 0;"></div>
+        <div class="check-item" style="border-color:#92400e;">
+          <div class="check-box pending">→</div>
+          <div class="check-text pending-text">Pablo Álvarez entrega URL Axway Dev/QA + endpoint /token</div>
+          <div class="check-who" style="color:#fbbf24;">⏳ Pablo Álvarez</div>
+        </div>
+        <div class="check-item" style="border-color:#92400e;">
+          <div class="check-box pending">→</div>
+          <div class="check-text pending-text">Pablo Álvarez entrega consumer_key y consumer_secret Dev/QA</div>
+          <div class="check-who" style="color:#fbbf24;">⏳ Pablo Álvarez</div>
+        </div>
+        <div class="check-item" style="border-color:#92400e;">
+          <div class="check-box pending">→</div>
+          <div class="check-text pending-text">Pablo Álvarez entrega lista de OLTs + ONT de prueba en Dev/QA</div>
+          <div class="check-who" style="color:#fbbf24;">⏳ Pablo Álvarez</div>
+        </div>
+        <div class="check-item" style="border-color:#92400e;">
+          <div class="check-box pending">→</div>
+          <div class="check-text pending-text">Pablo Álvarez confirma VNOs activos en el ambiente Dev/QA</div>
+          <div class="check-who" style="color:#fbbf24;">⏳ Pablo Álvarez</div>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);margin:4px 0;"></div>
+        <div class="check-item" style="border-color:#334155;opacity:.6;">
+          <div class="check-box blocked">✕</div>
+          <div class="check-text blocked-text">Crear newman-environment-dev.json con datos reales</div>
+          <div class="check-who" style="color:#475569;">🔒 Depende de credenciales</div>
+        </div>
+        <div class="check-item" style="border-color:#334155;opacity:.6;">
+          <div class="check-box blocked">✕</div>
+          <div class="check-text blocked-text">Configurar pre-request OAuth2 automático con Axway real en la colección</div>
+          <div class="check-who" style="color:#475569;">🔒 Depende de credenciales</div>
+        </div>
+        <div class="check-item" style="border-color:#334155;opacity:.6;">
+          <div class="check-box blocked">✕</div>
+          <div class="check-text blocked-text">Ejecutar colección newman contra Axway Dev/QA · generar reporte HTML</div>
+          <div class="check-who" style="color:#475569;">🔒 Requiere todos los anteriores</div>
+        </div>
+        <div class="check-item" style="border-color:#334155;opacity:.6;">
+          <div class="check-box blocked">✕</div>
+          <div class="check-text blocked-text">Validar que 351 pytest pasen contra el servidor Komands real</div>
+          <div class="check-who" style="color:#475569;">🔒 Requiere acceso al servidor real</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  </div>
+</div>
+
+<!-- ═══ MODALS ARQUITECTURA ═══ -->
+
+<!-- MODAL: ServiceNow -->
+<div class="overlay" id="modal-sn" onclick="closeOut(event,'sn')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('sn')">✕</button>
+    <h2>🎫 ServiceNow</h2>
+    <div class="modal-sub-text">Sistema de origen de órdenes — integración TO-BE</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">ServiceNow es la plataforma que usan los operadores para gestionar órdenes de trabajo. Cuando un técnico hace una baja, una activación, o un cambio de equipo, lo registra aquí. ServiceNow traduce esa acción en un request HTTP que va hacia Komands.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo aquí en el sprint?</h3>
+      <p style="font-size:.78rem;color:#f59e0b;line-height:1.7;">No se tocó ServiceNow directamente — es un sistema externo. Lo que se hizo fue <b style="color:#e2e8f0;">documentar exactamente qué headers envía</b> y construir la colección Postman para simular esos requests tal como los mandaría ServiceNow.</p>
+    </div>
+    <div class="msec"><h3>Headers que envía por request</h3>
+      <div class="tag-list">
+        <span class="tag tb">X-Source-System: SN_PROVISION</span>
+        <span class="tag tb">X-Correlation-ID: {uuid}</span>
+        <span class="tag tb">X-User-ID: sn-operator-01</span>
+        <span class="tag tb">X-User-Organization: {VNO}</span>
+        <span class="tag tp">Authorization: Bearer {JWT}</span>
+      </div>
+    </div>
+    <div class="msec"><h3>Los 11 endpoints que llama</h3>
+      <div class="endpoint-list">
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/unsubscription</span><span class="edesc">Dar de baja un servicio</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/service-activation</span><span class="edesc">Activar acceso FTTH/SSAA nuevo</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/service-modification</span><span class="edesc">Cambiar velocidad / bloquear / agregar VLAN</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/device-modification</span><span class="edesc">Cambiar equipo ONT (swap)</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/fiber-change</span><span class="edesc">Mover cliente a otro puerto/OLT</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/reset-ont</span><span class="edesc">Reiniciar equipo ONT del cliente</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/pon-transfer</span><span class="edesc">Traspaso entre puertos PON</span></div>
+        <div class="endpoint"><span class="method post">POST</span><span class="path">/cancel-order</span><span class="edesc">Cancelar una orden en curso</span></div>
+        <div class="endpoint"><span class="method get">GET</span><span class="path">/transaction/{id}/status</span><span class="edesc">Consultar estado de una transacción</span></div>
+        <div class="endpoint"><span class="method get">GET</span><span class="path">/access/{access_id}</span><span class="edesc">Consultar estado de un acceso</span></div>
+        <div class="endpoint"><span class="method get">GET</span><span class="path">/port-occupancy</span><span class="edesc">Ver ocupación del puerto PON</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Axway APIM -->
+<div class="overlay" id="modal-axway" onclick="closeOut(event,'axway')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('axway')">✕</button>
+    <h2>🔐 Axway APIM</h2>
+    <div class="modal-sub-text">API Gateway — portero de seguridad entre ServiceNow y Komands</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">Axway es el gateway que se para en el medio entre ServiceNow y Komands. Hace dos cosas: <b style="color:#e2e8f0;">verifica que quien manda el request tiene permiso</b> (OAuth2 con JWT) y <b style="color:#e2e8f0;">controla quién puede hacer qué</b> según su VNO y scope. Sin pasar por Axway, nadie puede llamar a Komands.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo aquí en el sprint?</h3>
+      <p style="font-size:.78rem;color:#f59e0b;line-height:1.7;">No tenemos acceso a Axway todavía. Lo que se hizo fue <b style="color:#e2e8f0;">recrear su comportamiento en el mock</b>: el mock valida tokens JWT con los mismos scopes que Axway real, rechaza VNOs no autorizados, y retorna 401/403 de la misma forma.</p>
+    </div>
+    <div class="msec"><h3>Scopes del spec v2.2.3</h3>
+      <div class="tag-list">
+        <span class="tag tp">komands:provision → POST (crear/modificar)</span>
+        <span class="tag tb">komands:query → GET (solo lectura)</span>
+      </div>
+      <p style="font-size:.72rem;color:#64748b;margin-top:8px;">⚠ Antes del sprint se usaban nombres viejos (komands:write / komands:read) — se corrigieron en toda la suite.</p>
+    </div>
+    <div class="msec"><h3>Estructura del token JWT</h3>
+      <div class="code-block">{
+  "iss": "https://api.onnetfibra.cl/api/Komands",
+  "sub": "servicenow-client",
+  "vno_id": "DTV",          <span style="color:#475569;">// VNO del operador</span>
+  "scope": "komands:provision komands:query",
+  "exp": 1234567890         <span style="color:#475569;">// expira en 1 hora</span>
+}</div>
+    </div>
+    <div class="msec"><h3>Pendiente de Pablo Álvarez</h3>
+      <div class="tag-list">
+        <span class="tag ta">URL base Dev/QA</span>
+        <span class="tag ta">Endpoint /token</span>
+        <span class="tag ta">consumer_key</span>
+        <span class="tag ta">consumer_secret</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Komands API -->
+<div class="overlay" id="modal-api" onclick="closeOut(event,'api')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('api')">✕</button>
+    <h2>⚡ Komands API v2.2.3</h2>
+    <div class="modal-sub-text">El cerebro de la operación — recibe órdenes y las ejecuta en las OLTs</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">Komands es el servidor central que recibe las órdenes de ServiceNow (vía Axway) y las traduce en comandos para los equipos Nokia y Huawei. Es asíncrono: cuando recibe una orden devuelve 202 Accepted inmediatamente y procesa la operación en background. El resultado final se puede consultar después con el endpoint de estado.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo aquí en el sprint?</h3>
+      <p style="font-size:.78rem;color:#4ade80;line-height:1.7;"><b>Se versionó el spec oficial</b> (openapi.json v2.2.3) en el repositorio — la primera vez que existe una fuente de verdad única accesible a todo el equipo. Se usó para corregir toda la suite de QA que estaba desalineada.</p>
+    </div>
+    <div class="msec"><h3>Formato de respuesta (siempre igual)</h3>
+      <div class="code-block">{
+  "result": {
+    "u_uuid":            "3fa85f64-...",   <span style="color:#475569;">// ID único de la transacción</span>
+    "u_return_code":     "0",              <span style="color:#475569;">// 0 = éxito</span>
+    "u_return_code_desc":"Solicitud aceptada",
+    "u_timestamp":       "2026-06-16T...",
+    "u_time":            "0.001s"
+  }
+}</div>
+    </div>
+    <div class="msec"><h3>Códigos de error KMD documentados</h3>
+      <div class="tag-list">
+        <span class="tag tr">KMD-2002 · ONT no encontrado en OLT</span>
+        <span class="tag tr">KMD-2003 · ONT offline / sin señal</span>
+        <span class="tag tr">KMD-3001 · Conflicto de VLAN en puerto</span>
+        <span class="tag tr">KMD-3002 · Serial ONT duplicado en red</span>
+        <span class="tag tr">KMD-4001 · Operación no soportada Nokia</span>
+        <span class="tag tr">KMD-5020 · Timeout esperando OLT</span>
+        <span class="tag tr">KMD-5021 · Alta ONT nuevo falló (swap)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Nokia -->
+<div class="overlay" id="modal-nokia" onclick="closeOut(event,'nokia')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('nokia')">✕</button>
+    <h2>📡 Nokia OLTs — ISAM 7360</h2>
+    <div class="modal-sub-text">Equipos de red que conectan la fibra al cliente</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">Las OLTs (Optical Line Terminal) son los servidores de red instalados en las centrales telefónicas. Cada OLT conecta hasta 128 clientes a través de fibra óptica. Nokia ISAM 7360 es el modelo más común en la red de ON·NET.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo aquí en el sprint?</h3>
+      <p style="font-size:.78rem;color:#4ade80;line-height:1.7;">Se mapeó la <b>diferencia clave entre Nokia y Huawei</b> y se incorporó esa lógica al mock: Nokia <b style="color:#f87171;">no soporta REMOVE_SERVICE</b>. Si un request intenta hacer esa operación en una OLT Nokia, el mock devuelve KMD-4001 igual que lo haría el servidor real.</p>
+    </div>
+    <div class="msec"><h3>Limitación importante</h3>
+      <div class="tag-list"><span class="tag tr">REMOVE_SERVICE → KMD-4001 (no soportado en Nokia)</span></div>
+      <p style="font-size:.73rem;color:#94a3b8;margin-top:8px;line-height:1.6;">Para eliminar un servicio en Nokia hay que hacer una baja completa (/unsubscription), no una modificación.</p>
+    </div>
+    <div class="msec"><h3>OLTs Nokia en el mock</h3>
+      <div class="tag-list">
+        <span class="tag tb">OLT-SAN-001</span><span class="tag tb">OLT-VAL-001</span>
+        <span class="tag tb">OLT-VAL-002</span><span class="tag tb">OLT-SCL-010</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Huawei -->
+<div class="overlay" id="modal-huawei" onclick="closeOut(event,'huawei')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('huawei')">✕</button>
+    <h2>📻 Huawei OLTs — MA5800/MA5600T</h2>
+    <div class="modal-sub-text">Segunda familia de equipos de red — comportamiento distinto a Nokia</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">Otra familia de OLTs presentes en la red. Los Huawei MA5800 sí soportan eliminar un servicio específico sin dar de baja todo el acceso. Esta diferencia es importante porque el mismo request puede comportarse distinto según a qué OLT va.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo aquí en el sprint?</h3>
+      <p style="font-size:.78rem;color:#4ade80;line-height:1.7;">El mock diferencia por <code style="color:#fbbf24;">olt_name</code>: si el nombre de OLT corresponde a un equipo Huawei (OLT-SAN-002, OLT-VAL-003), permite REMOVE_SERVICE. Si es Nokia, lo rechaza. Esta es la <b style="color:#e2e8f0;">misma lógica que tiene el servidor real</b>.</p>
+    </div>
+    <div class="msec"><h3>Diferencia clave vs Nokia</h3>
+      <div class="tag-list">
+        <span class="tag tg">REMOVE_SERVICE soportado ✓</span>
+        <span class="tag ta">Serial format: 485754CXXXXX</span>
+      </div>
+    </div>
+    <div class="msec"><h3>OLTs Huawei en el mock</h3>
+      <div class="tag-list">
+        <span class="tag tr">OLT-SAN-002</span><span class="tag tr">OLT-VAL-003</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Mock Server -->
+<div class="overlay" id="modal-mock" onclick="closeOut(event,'mock')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('mock')">✕</button>
+    <h2>🖥️ Mock Server</h2>
+    <div class="modal-sub-text">mock_server.py — CREADO en este sprint · FastAPI · localhost:8000</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">Un servidor web local que imita el comportamiento del servidor Komands real. Lo levantás en tu máquina con un comando y responde exactamente igual que el real — pero sin tocar ningún equipo de red. Indispensable porque todavía no tenemos acceso al ambiente Dev/QA.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo?</h3>
+      <p style="font-size:.78rem;color:#4ade80;line-height:1.7;">Se creó desde cero para reemplazar un mock anterior que estaba desalineado del spec. Tiene <b>11 endpoints</b>, valida JWT con scopes correctos, distingue Nokia de Huawei, y simula 9 escenarios de error usando ONT IDs y seriales especiales.</p>
+    </div>
+    <div class="msec"><h3>Cómo levantarlo</h3>
+      <div class="code-block"><span style="color:#fbbf24">python mock_server.py</span>
+<span style="color:#475569"># Corre en http://localhost:8000
+# Token de prueba: GET http://localhost:8000/test/token</span></div>
+    </div>
+    <div class="msec"><h3>ONT IDs que disparan errores</h3>
+      <div class="tag-list">
+        <span class="tag tr">8888 → KMD-2002 ONT no encontrado</span>
+        <span class="tag tr">7777 → KMD-5020 Timeout OLT</span>
+        <span class="tag tr">9999 → KMD-2002 INDEX dinámico</span>
+        <span class="tag tr">6666 → KMD-2003 ONT offline</span>
+        <span class="tag tr">9998 → KMD-2002 + rollback</span>
+        <span class="tag ta">FAIL00000000 → rollback swap</span>
+        <span class="tag ta">VLAN00000000 → conflicto VLAN</span>
+        <span class="tag ta">DUPL00000000 → serial duplicado</span>
+      </div>
+    </div>
+    <div class="msec"><h3>Fix de seguridad aplicado</h3>
+      <div class="tag-list"><span class="tag tg">S8392 resuelto: 0.0.0.0 → 127.0.0.1 (solo acepta conexiones locales)</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Postman Collection -->
+<div class="overlay" id="modal-collection" onclick="closeOut(event,'collection')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('collection')">✕</button>
+    <h2>📬 Postman Collection</h2>
+    <div class="modal-sub-text">collection Kommand/SN a Kommand.postman_collection.json — REESCRITA en este sprint</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">Una colección de Postman es un conjunto de requests HTTP organizados en carpetas. Con ella podés ejecutar todas las pruebas del API manualmente (desde Postman) o automáticamente (con newman desde la terminal). Es el entregable de QA principal que se puede mostrar al equipo como evidencia de que el sistema funciona.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo?</h3>
+      <p style="font-size:.78rem;color:#c084fc;line-height:1.7;">Se reescribió completamente. La versión anterior enviaba datos en formato incorrecto y habría fallado contra el servidor real. La nueva tiene <b style="color:#e2e8f0;">30+ requests en 10 carpetas</b>, family-format correcto, 7 verificaciones individuales por request, y logs detallados visibles en el reporte HTML.</p>
+    </div>
+    <div class="msec"><h3>10 carpetas</h3>
+      <div class="tag-list">
+        <span class="tag tb">01 · Baja de servicio</span>
+        <span class="tag tb">02 · Activación FTTH</span>
+        <span class="tag tb">03 · Modificación de servicio</span>
+        <span class="tag tb">04 · Cambio de equipo (swap)</span>
+        <span class="tag tb">05 · Cambio de fibra</span>
+        <span class="tag tb">06 · Reset ONT</span>
+        <span class="tag tb">07 · Traspaso PON ← nuevo</span>
+        <span class="tag tb">08 · Consultas síncronas</span>
+        <span class="tag tr">09 · Errores de autenticación ← nuevo</span>
+        <span class="tag tg">10 · Flujo E2E completo (6 pasos) ← nuevo</span>
+      </div>
+    </div>
+    <div class="msec"><h3>7 verificaciones automáticas por request</h3>
+      <div class="code-block"><span style="color:#4ade80">✅ HTTP 202 Accepted
+✅ result.u_uuid es UUID válido (regex)
+✅ result.u_return_code = "0"
+✅ result.u_return_code_desc presente y no vacío
+✅ result.u_timestamp presente
+✅ result.u_time presente
+✅ SLA &lt; 5000ms</span></div>
+    </div>
+    <div class="msec"><h3>Comando para generar reporte HTML</h3>
+      <div class="code-block"><span style="color:#fbbf24">newman run "collection Kommand/SN a Kommand.postman_collection.json" \
+  -e "collection Kommand/newman-environment-local.json" \
+  -r htmlextra --reporter-htmlextra-export reporte.html</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: pytest Suite -->
+<div class="overlay" id="modal-pytest" onclick="closeOut(event,'pytest')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('pytest')">✕</button>
+    <h2>🧪 pytest Suite — 351 tests</h2>
+    <div class="modal-sub-text">tests/ — Suite de tests Python, 100% pasando</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">pytest es el framework de tests de Python. Cada test es una función que manda una request HTTP al mock y verifica que la respuesta sea correcta. Con 351 tests, cubrimos el caso exitoso, los casos de error, los límites de seguridad (JWT inválido, scope incorrecto, VNO no autorizado), y los flujos E2E.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo?</h3>
+      <p style="font-size:.78rem;color:#60a5fa;line-height:1.7;">Se corrigieron los tres archivos principales que estaban desalineados: <b>conftest.py</b> enviaba formato plano en vez de family-format, <b>payloads.py</b> no tenía los escenarios de error, y <b>test_feature_flags.py</b> usaba scopes viejos que ya no existen.</p>
+    </div>
+    <div class="msec"><h3>Archivos modificados / creados</h3>
+      <div class="tag-list">
+        <span class="tag ta">tests/conftest.py — fixtures en family-format</span>
+        <span class="tag tg">tests/mocks/payloads.py — 9 escenarios de error</span>
+        <span class="tag tb">tests/security/test_feature_flags.py — scopes v2.2.3</span>
+      </div>
+    </div>
+    <div class="msec"><h3>Qué cubren los 351 tests</h3>
+      <div class="tag-list">
+        <span class="tag tg">Casos exitosos por endpoint</span>
+        <span class="tag tg">Errores KMD (8888, 7777, 9999...)</span>
+        <span class="tag tg">JWT inválido → 401</span>
+        <span class="tag tg">Scope incorrecto → 403</span>
+        <span class="tag tg">VNO no autorizado → 403</span>
+        <span class="tag tg">Nokia vs Huawei (REMOVE_SERVICE)</span>
+        <span class="tag tg">Flujos E2E multi-step</span>
+      </div>
+    </div>
+    <div class="msec"><h3>Cómo correrlos</h3>
+      <div class="code-block"><span style="color:#fbbf24">pytest tests/ -v --tb=short</span>
+<span style="color:#475569"># Con coverage:
+pytest tests/ --cov=. --cov-report=xml</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GitHub Actions CI -->
+<div class="overlay" id="modal-ci" onclick="closeOut(event,'ci')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('ci')">✕</button>
+    <h2>⚙️ GitHub Actions CI</h2>
+    <div class="modal-sub-text">.github/workflows/ci.yml — pipeline automático, verde desde PR #1</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">GitHub Actions es el sistema de integración continua (CI). Cada vez que alguien sube código o abre un Pull Request, GitHub ejecuta automáticamente todos los tests y el análisis de calidad. Si algo falla, el PR no puede mergearse. Así el equipo sabe en minutos si un cambio rompió algo.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo?</h3>
+      <p style="font-size:.78rem;color:#4ade80;line-height:1.7;">El CI tenía <b>4 problemas distintos</b> que se resolvieron uno a uno durante el sprint hasta dejarlo verde y estable.</p>
+    </div>
+    <div class="msec"><h3>Los 4 problemas resueltos</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="background:#0f172a;border-radius:8px;padding:9px 12px;border-left:3px solid #4ade80;">
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-bottom:3px;">1. Acción SonarCloud deprecada</div>
+          <div style="font-size:.72rem;color:#94a3b8;line-height:1.5;"><span style="color:#f87171;">Antes:</span> sonarcloud-github-action@v2 · <span style="color:#4ade80;">Después:</span> sonarqube-scan-action@v5</div>
+        </div>
+        <div style="background:#0f172a;border-radius:8px;padding:9px 12px;border-left:3px solid #4ade80;">
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-bottom:3px;">2. Coverage reportada como 0%</div>
+          <div style="font-size:.72rem;color:#94a3b8;line-height:1.5;">SonarCloud no encontraba coverage.xml. Se agregó <code style="color:#fbbf24">-Dsonar.python.coverage.reportPaths=coverage.xml</code> explícito.</div>
+        </div>
+        <div style="background:#0f172a;border-radius:8px;padding:9px 12px;border-left:3px solid #4ade80;">
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-bottom:3px;">3. Análisis duplicado</div>
+          <div style="font-size:.72rem;color:#94a3b8;line-height:1.5;">Automatic Analysis activado + CI analysis = 2 análisis que se pisaban. Se desactivó Automatic Analysis en la UI de SonarCloud.</div>
+        </div>
+        <div style="background:#0f172a;border-radius:8px;padding:9px 12px;border-left:3px solid #4ade80;">
+          <div style="font-size:.7rem;font-weight:700;color:#4ade80;margin-bottom:3px;">4. Hotspot de seguridad S8392</div>
+          <div style="font-size:.72rem;color:#94a3b8;line-height:1.5;">mock_server.py usaba <code style="color:#f87171">host="0.0.0.0"</code> (expone a toda la red). Se cambió a <code style="color:#4ade80">host="127.0.0.1"</code>.</div>
+        </div>
+      </div>
+    </div>
+    <div class="msec"><h3>Jobs que corren en cada PR</h3>
+      <div class="tag-list">
+        <span class="tag tg">Tests automáticos (pytest 351)</span>
+        <span class="tag tg">Resumen de resultados</span>
+        <span class="tag tg">SonarCloud Code Analysis</span>
+      </div>
+      <div class="tag-list" style="margin-top:8px;">
+        <span class="tag tg">PR #1 · feat/qa-suite-v2 · SUCCESS</span>
+        <span class="tag tg">PR #2 · feat/collection-detailed-assertions · SUCCESS</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SonarCloud -->
+<div class="overlay" id="modal-sonar" onclick="closeOut(event,'sonar')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalById('sonar')">✕</button>
+    <h2>🔍 SonarCloud</h2>
+    <div class="modal-sub-text">Análisis estático de calidad y seguridad — Quality Gate A</div>
+    <div class="msec">
+      <h3>¿Qué es?</h3>
+      <p style="font-size:.78rem;color:#94a3b8;line-height:1.7;">SonarCloud analiza el código Python automáticamente buscando bugs, vulnerabilidades de seguridad, código duplicado y malas prácticas. Le pone una nota (A/B/C/D/E) y bloquea el merge si algo está mal. Es la guardia de calidad del repositorio.</p>
+    </div>
+    <div class="msec">
+      <h3>¿Qué se hizo?</h3>
+      <p style="font-size:.78rem;color:#fb923c;line-height:1.7;">SonarCloud fallaba por 4 razones distintas (ver GitHub Actions). Una vez resueltas, el Quality Gate quedó en <b style="color:#4ade80;">nota A en todas las dimensiones</b>.</p>
+    </div>
+    <div class="msec"><h3>Estado actual</h3>
+      <div class="tag-list">
+        <span class="tag tg">Quality Gate PASSED</span>
+        <span class="tag tg">Security · nota A</span>
+        <span class="tag tg">Reliability · nota A</span>
+        <span class="tag tg">Maintainability · nota A</span>
+        <span class="tag tg">0 hotspots abiertos</span>
+        <span class="tag tg">0 vulnerabilidades</span>
+      </div>
+    </div>
+    <div class="msec"><h3>4 issues resueltos para llegar a esto</h3>
+      <div class="tag-list">
+        <span class="tag tg">S8392 · 0.0.0.0 → 127.0.0.1 (seguridad de binding)</span>
+        <span class="tag tg">Acción deprecada v2 → v5</span>
+        <span class="tag tg">Coverage path explícito en scanner</span>
+        <span class="tag tg">Automatic Analysis desactivado (análisis doble)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
+}
+function openModal(id) {
+  document.getElementById('modal-' + id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModalById(id) {
+  document.getElementById('modal-' + id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeOut(e, id) {
+  if (e.target === document.getElementById('modal-' + id)) closeModalById(id);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.overlay.open').forEach(el => el.classList.remove('open'));
+    document.body.style.overflow = '';
+  }
+});
+</script>
+</body>
+</html>

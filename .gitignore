@@ -32,6 +32,12 @@ Thumbs.db
 *.docx
 *.doc
 
+# Archivos de ambiente Postman con credenciales (solo locales, nunca al repo)
+collection Blueplanet/*.postman_environment.json
+collection Blueplanet/*.postman_environment
+collection Blueplanet/*.environment.json
+collection Kommand/newman-environment-dev.json
+
 # Reportes HTML generados por pytest
 reporte*.html
 reporte-ci.html
@@ -44,3 +50,17 @@ logs/
 
 # Metadatos Windows
 desktop.ini
+
+# Screenshots y HTML generados por crawling del portal
+*.png
+*_page.html
+komands_portal_doc.html
+flujos_screenshot.png
+login_screenshot.png
+
+# Scripts de inspección/crawling (utilitarios locales)
+inspect_*.py
+komands_crawler.py
+
+# Archivos temporales
+Prueba Demo .txt

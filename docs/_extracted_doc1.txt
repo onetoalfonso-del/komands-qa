@@ -1,0 +1,451 @@
+================================================================================
+DOCUMENT 1: docs/Diseño Desarrollo APIs PostVenta.docx
+================================================================================
+[000] Sunset BluePlanet - Desarrollo ServiceNow
+[001] Objetivo
+[002] Eliminar las dependencias de Blue Planet en los flujos actuales y migrar la integración a:
+[003] CMDB (ServiceNow) como fuente de datos, cuando antes se consultaba Blue Planet para obtener información.
+[004] Komands como sistema destino para ejecutar bajas y modificaciones, cuando antes se enviaban solicitudes a Blue Planet.
+[005] Enfoque de implementación
+[006] Implementación de flujos paralelos v2 para el desacoplamiento total de los módulos BPI / BPO (eliminando dependencia con Blue Planet).
+[007] Duplicar las tablas de core use case, por ejemplo, u_assignment con u_assignment_v2 o crear las tablas necesarias para soportar la nueva integración como u_komands_transaction .
+[008] Eliminar el uso de la tabla u_control_integration .
+[009] Al existir versiones sincronas y asincronas y versiones tanto para FFTH como para SSAA por separados, se crearán nuevas versiones para el uso de Komands de igual forma.
+[010] Agregar una validación a los endpoints de las API para los feature flags. Dependiendo del resultado se crea el registro en la tabla original (con BluePlanet) o la nueva tabla relacionada a los flujos Komands (v2).
+[011] En cada flujo duplicado, clasificar cada dependencia de Blue Planet en uno de estos dos tipos y reemplazarla:
+[012] Tipo A — Peticiones operacionales (baja/modificación/deconfiguración): 
+[013] Reemplazar las llamadas a Blue Planet por llamadas a Komands.
+[014] Tipo B — Obtención de datos (lookups/queries): 
+[015] Reemplazar las llamadas a Blue Planet por queries a CMDB (tablas y relaciones existentes en ServiceNow).
+[016] Estandarizar el patrón asíncrono:
+[017] el flujo realiza un Wait for Callback hasta que exista una respuesta final en u_komands_transaction,
+[018] luego delega la espera, manejo de timeouts y errores a un subflujo reutilizable: Integration Control Komands
+[019] Convención: acciones dedicadas para Komands
+[020] Cada request a Komands debe implementarse como una Action propia (reutilizable) para evitar lógica duplicada en los flujos.
+[021] Formato de nombre (estándar) 
+[022] <API o Proceso> - Komands
+[023] Ejemplos
+[024] Access Deregistration - Komands
+[025] Device Modification - Komands
+[026] Qué incluye la Action
+[027] Mapeo de datos y construcción del esquema JSON conforme a la especificación de la API.
+[028] Llamada HTTP/REST a Komands.
+[029] Manejo de respuesta inmediata (ACK) y extracción de correlation_id.
+[030] Salida estandarizada para el flujo (ej. correlation_id, status_code, response_body).
+[031] Qué NO incluye la Action
+[032] El Wait for Callback notification por respuesta final en u_komands_transaction (esto queda en el subflujo Integration Control Komands).
+[033] El parseo/interpretación de la respuesta final y las actualizaciones de records de negocio (esto queda en el subflujo Integration Control Komands).
+[034] Callback inbound (Komands → ServiceNow)
+[035] Para registrar la respuesta final de operaciones asíncronas, se creará un Scripted REST API inbound (webhook) con nombre definitivo:
+[036] api/v1/komands/callback
+[037] Comportamiento esperado
+[038] Komands invoca el endpoint de callback cuando la transacción finaliza.
+[039] ServiceNow actualiza u_komands_transaction usando solo txn_id como llave de correlación.
+[040] El txn_id se obtiene desde el ACK de la primera llamada a Komands y queda guardado en el flujo/registro.
+[041] Política de reintentos (Wait / consulta de estado de transacción)
+[042] La política de reintentos de Komands es la siguiente:
+[043] Reintento 1: inmediato
+[044] Reintento 2: 5s
+[045] Reintento 3: 15s
+[046] Reintento 4: 45s
+[047] Reintento 5 (último): 120s
+[048] Nota
+[049] ServiceNow puede consultar el estado vía GET /api/v1/transaction/{uuid} como mecanismo de reconciliación. Para ello se deberá crear una Action adicional por operación (Get (API) Status - Komands) y utilizarla pasado los 120s.
+[050] Nuevo componente: tabla u_komands_transaction
+[051] Se creará una nueva tabla para registrar transacciones asíncronas con Komands.
+[052] Tabla: u_komands_transaction
+[053] txn_id (String): UUID de transacción devuelto por Komands (vía ACK) para correlacionar la respuesta final. 
+[054] correlation_id (String): UUID creado por ServiceNow para cada request.
+[055] status_code (Integer): código de estado del ACK.
+[056] process_name (String): nombre del proceso o flujo que originó la transacción (por ejemplo, access_deregistration, device_modification).
+[057] external_order_id (String)
+[058] Status (String)
+[059] operation (String)
+[060] vno_code (String)
+[061] olt_name(String) 
+[062] started_at (DateTime)
+[063] completed_at (DateTime)
+[064] duration_ms (Integer)
+[065] steps (Large text)
+[066] Tablas v2 por API (nuevas)
+[067] Además de u_komands_transaction, se crearán tablas “v2” para desacoplar la nueva API (sin Blue Planet) de las tablas legacy:
+[068] Baja de Acceso: u_access_deregistration_v2
+[069] Consulta de Acceso: u_retrieve_access_v2
+[070] Device Modification: u_device_modification_v2
+[071] Modificación de Servicio: u_registration_modification_v2
+[072] Outbound REST Messages (Komands)
+[073] Cada Action que llame a Komands debe hacerlo a través de un Outbound REST Message dedicado.
+[074] Gestión de token (Axway APIM)
+[075] El token/credenciales para consumir Axway APIM se gestionarán en ServiceNow mediante Application Registry (Centraliza la obtención/rotación del token y evita hardcodear secretos en Actions o Flows).
+[076] Subflujo reutilizable: Integration Control Komands (nuevo comportamiento)
+[077] Subflujo reutilizable para estandarizar el patrón asíncrono con Komands.
+[078] Objetivo
+[079] Recibir una transacción (u_komands_transaction) y ejecutar el Wait for Callback dentro del subflujo.
+[080] Manejar timeouts y errores de callback dentro del subflujo.
+[081] Devolver al flujo principal el resultado de la transacción para que el flujo principal ejecute las actualizaciones de records.
+[082] Input
+[083] komands_transaction (Record de u_komands_transaction)
+[084] Comportamiento
+[085] Espera la respuesta final en u_komands_transaction.response mediante Wait for Callback. Se configura tiempo de espera en una propiedad de Sistema.
+[086] Si corresponde, ejecuta reconciliación mediante endpoint de Estado de Transacción - Komands.
+[087] Retorna un resultado estándar:
+[088] status (COMPLETED, ROLLBACK… )
+[089] En caso de que el status no sea completed, hay que actualizar Core Use Case y Customer Order con los errores correspondientes
+[090] Cuando la categoría de los errores son: RATE_LIMIT, SSH_ERROR, CLI_TIMEOUT se puede reintentar la request. En este caso cambiamos el output retry a true.
+[091] Reintento (retry = true): el subflujo ejecuta un ciclo de consulta de estado llamando de forma iterativa a la API Estado de Transacción - Komands (por ejemplo GET /api/v1/transaction/{uuid}) usando el txn_id como correlación, hasta obtener un estado final (Éxito o Error) o hasta alcanzar un máximo de reintentos configurable (con espera entre intentos según configuración).  Se configura la cantidad maxma de reintentos en una propiedad de sistema.
+[092] Ejemplo de los updates a Core Use Case y Customer Order records:
+[093] response_body (payload final)
+[094] retry (true/false)
+[095] Que no hace:
+[096] No actualiza records de negocio (orders/service orders/tasks/etc.). Esas actualizaciones quedan en el flujo principal.
+[097] Baja de Acceso (Access Deregistration)
+[098] Endpoint: /apiKomands/v1/unsubscription
+[099] Flujos / subflujos (se duplicarán para la versión sin Blue Planet)
+[100] Flow: Access Deregistration API Flow v1.0 (duplicado; versión sin BP)
+[101] Subflow: Access Deregistration – FTTH Fulfillment Process v2 (duplicado; versión sin BP)
+[102] Subflow: Services Deconfiguration Request – Baja (duplicado; versión sin BP)
+[103] Subflow: Services Deconfiguration Request - IPTV, VOIP, BA and GESTIÓN 
+[104] Subflow: Services Deconfiguration Request - SSAA 
+[105] Subflow reutilizable: Integration Control Komands (nuevo/actualizado, común para varios procesos)
+[106] Subflow: Services Deconfiguration Request - IPTV, VOIP, BA and GESTION (duplicado; versión sin BP)
+[107] Subflow: Management Service Fullfilment (duplicado; versión sin BP)
+[108] Cambios esperados dentro del flujo (alto nivel)
+[109] Lookups de datos
+[110] Donde hoy se consulta BP para datos de acceso/servicio: cambiar a CMDB (ServiceNow).
+[111] Requests operacionales
+[112] Donde hoy se solicita baja/deconfig/modificación a BP: cambiar a Komands.
+[113] Patrón asíncrono
+[114] Tras enviar la solicitud a Komands:
+[115] guardar correlation_id y txn_id (ACK) en u_komands_transaction
+[116] Wait dentro del nuevo subflujo (integration control Komands) hasta que u_komands_transaction.response () tenga la respuesta final
+[117] API Access Deregistration (múltiples flujos)
+[118] Paso a paso (alto nivel)
+[119] Crear system properties:
+[120] Komands kill flag (dejemos esto como el unico feature flag para empezar), despues vemos la table
+[121] Timeout para Wait
+[122] Max intentos de reintento
+[123] Crear la tabla u_komands_transaction
+[124] Duplicar la tabla access deregistration para la versión Komands: crear u_access_deregistration_v2.
+[125] Implementar/ajustar feature flag routing en el endpoint para decidir si se crea u_access_deregistration (legacy) o u_access_deregistration_v2 (Komands). (Suspendido por el momento)
+[126] Duplicar los flows/subflows de baja para la versión sin BluePlanet (v2) y apuntarlos a la nueva tabla v2.
+[127] Crear el Application Registry y OAuth entity Profile (Axway/APIM) para gestionar token/credenciales
+[128] Crear callback api/v1/komands/callback para actualizar u_komands_transaction con la respuesta final.
+[129] Crear el Outbound REST Message: Access Deregistration - Komands → POST /api/Komands/v1/unsubscription/{uuid}
+[130] Crear la Action: Access Deregistration - Komands que consuma el Outbound REST Message y entregue un output estándar (incluye txn_id del ACK).
+[131] Crear el Outbound REST Message: Get Access Deregistration  Status - Komands
+[132] Crear la Action Get Access Deregistration Status- Komands que pregunta por el estado de la transacción en caso de timeouts.
+[133] Duplicar/actualizar el subflujo de control de integración y usar Integration Control Komands (Wait for Callback + timeouts/errores) en el flujo v2.
+[134] Reemplazar dependencias de BluePlanet por: 
+[135] Queries a CMDB (obtención de datos)
+[136] Requests a Komands (operación de baja)
+[137] 1) Flow: Access Deregistration API Flow - v1.0
+[138] Cuándo se ejecuta 
+[139] Se activa cuando se crea un registro en la tabla access deregistration, con async igual a false y el servicio no es SSAA.
+[140] Qué cambia (sin Blue Planet) 
+[141] En vez de utilizar la action Retrieve Access PINT que obtenía distintos datos desde BP, utilizaremos la action Get OSP Circuit ID para utilizarlo como input en el paso 10.
+[142] Obtenemos OLT, SLOT, PON y PON Lógico de u_cmdb_ci_id_access y physical port / logic position (¿es lo mismo que logical port?) de sn_ind_tmt_orm_service_order.
+[143] Mantenemos CMDB Integration? utiliza esos datos para asegurar sincronización
+[144] Subflow Access Deregistration - FTTH Fulfillment Process v.2
+[145] A los input se debe agregar Service Order ID, OLT, Slot, PON, PON Logico. (Para poder utilizarlos mas adelante sin hacer de nuevo la query, esto debe aplicarse en los subflujos que vienen mas adelante: Services deconfiguration request - baja, services deconfiguration request - iptv,voip,va y gestion, y services deconfiguration request - ssaa, management service fulfillment)
+[146] El flujo se mantiene igual, los cambios se hacen en el subflow Service Deconfiguration Request - Baja
+[147] Subflow Service Deconfiguration Request - Baja
+[148] El action Service Order State Homologation - Baja: revisa el status de los distintos servicios en BluePlanet. Este status lo podemos revisar en las service orders en la tabla sn_ind_tmt_orm_service_order . Esta action busca el status en BP y actualiza el de esta tabla - necesitamos saber si estará actualizado de antes.
+[149] Para revisar si existe un service request el estado debe ser distinto a: Draft, Finalized, Terminated, none.
+[150] Subflow Services Deconfiguration Request - IPTV, VOIP, BA and GESTIÓN
+[151] En el flujo original existe desconfiguracion y eliminacion del servicio. Ahora sera un solo endpoint.
+[152] Según la imagen, cambiamos las actions y subflujos por las nuevas alternativas especificadas más abajo.
+[153] En caso de que el status sea retry, hacemos una nueva petición a Komands.
+[154] En caso de que el status sea exitoso, actualizamos los records como corresponda.
+[155] Si el status es fallido, terminamos el flujo? (El subflow no tiene output ni nada que valide si hay un error en la respuesta)
+[156] Nueva action: Baja de acceso - Komands
+[157] Input: 
+[158] VNO Code
+[159] Service Order ID
+[160] OLT
+[161] Slot
+[162] PON
+[163] PON Logico
+[164] Output:
+[165] Response body
+[166] Response status
+[167] // Script step 1 - Obtener el token 
+[168] // Esto es un ejemplo
+[169] var getAccessToken = new global.AxWayUtils()
+[170] var accessToken = getAccessToken.getToken();
+[171] // Script step 2 - Hacer la request
+[172] // Generar UUID y agregarlo al header
+[173] Nuevo Outbound REST Message Baja de acceso - Komands 
+[174] Authentication: No authentication - se debe agregar el token la action igual que en las requests a BP:
+[175] // Headers
+[176] "Accept": "application/json"
+[177] "Content-Type": "application/json"
+[178] "X-Correlation-ID": correlation_id // Generado para cada request
+[179] "X-Source-System": "SN_PROVISION"
+[180] “X-Source-System-ID": ID del registro de Service Now que gatilla la operación
+[181] // Body
+[182] {
+[183] "vno_code": vno_code, //Codigo VNO.
+[184] "external_order_id": external_order_id, //ID de la Service Order en ServiceNow.
+[185] "callback_url": callback_url, //URL de callback.
+[186] "olt_name": olt_name, //Hostname de la OLT.
+[187] "slot": slot, // Numero de slot.
+[188] "port": port, // Numero de puerto PON.
+[189] "logic_pon": logic_pon, // PON logico (ONT ID).
+[190] "slid": slid // Identificador del acceso (para correlacion con ServiceNow) donde se obtiene? es lo mismo que correlation_id?
+[191] "service_type": service_type // Tipo de servicio a dar de baja. Si se omite, baja completa.
+[192] }
+[193] Nueva Scripted REST API inbound: Callback - Komands
+[194] Método: POST
+[195] ACL: Scripted REST External Default
+[196] Requires Authentication: true
+[197] (function process(request, response) {
+[198]     try {
+[199]         var body = request.body.data;
+[200]         if (!body || !body.txn_id) {
+[201]             gs.error("Kommands API error: Missing txn_id in request body");
+[202]             response.setStatus(400);
+[203]             response.setBody({ error: "txn_id is required" });
+[204]             return;
+[205]         }
+[206]         var txnId = body.txn_id;
+[207]         var gr = new GlideRecord('u_komands_transaction');
+[208]         gr.addQuery('txn_id', txnId);
+[209]         gr.query();
+[210]         if (gr.next()) {
+[211]             gr.setValue('response', JSON.stringify(body));
+[212]             gr.setValue('status', body.status);
+[213]             gr.update();
+[214]             response.setStatus(200);
+[215]             response.setBody({ message: "Record updated successfully", txn_id: txnId });
+[216]         } else {
+[217]             gs.error("Kommands API error: No record found for txn_id=" + txnId);
+[218]             response.setStatus(404);
+[219]             response.setBody({ error: "Record not found for txn_id: " + txnId });
+[220]         }
+[221]     } catch (e) {
+[222]         gs.error("Kommands API exception: " + e.message);
+[223]         response.setStatus(500);
+[224]         response.setBody({ error: "Internal server error", detail: e.message });
+[225]     }
+[226] })(request, response);
+[227] Subflow Services Deconfiguration Request – SSAA
+[228] Muy similar al flujo anterior. Se elimina si es que el servicio solo ha sido asignado e integration control.
+[229] Correlation ID ya no es necesario porque se utiliza en el Integration Control y para el action que elimina el servicio. En la nueva action no se utiliza el service ID.
+[230] Si hay un error en la response, se asigna como subflow output Validation = NOK y se termina el subflujo.
+[231] Subflow Management Service Fulfillment
+[232] (No debería ser importante en este flujo porque es para management request, que estan manejadas en subflujo anterior)
+[233] 2) Flow: Access Deregistration API Flow - ACK - v1.0
+[234] Cuándo se ejecuta 
+[235] Se activa cuando se crea un registro en la tabla access deregistration, con async igual a true, estado “solicitud aceptada” y el servicio no es SSAA. 
+[236] Qué cambia:
+[237] En vez de utilizar la action Retrieve Access PINT que obtenia distintos datos desde BP, utilizaremos la action Get OSP Circuit ID para utilizarlo como input en el subflujo Access Deregistration - SSAA - Fulfillment Process
+[238] Obtenemos OLT, SLOT, PON y PON Logico de u_cmdb_ci_id_access para utilizarlos en CMDB integration.
+[239] Utiliza Subflow Access Deregistration - FTTH Fulfillment Process v.2 explicado previamente
+[240] 3) Flow: Access Deregistration SSAA API Flow v1.0
+[241] Cuándo se ejecuta 
+[242] Se activa cuando se crea un registro en la tabla access deregistration, async es igual a false y el servicio es de tipo SSAA.
+[243] Qué cambia:
+[244] En vez de utilizar la action Retrieve Access PINT que obtenia distintos datos desde BP, utilizaremos la action Get OSP Circuit ID para utilizarlo como input en el subflujo Access Deregistration - SSAA - Fulfillment Process
+[245] Subflow Access Deregistration - SSAA - Fulfillment Process:
+[246] No hay cambios en este flujo, sino en el subflujo Services Deconfiguration Request - SSAA (explicado previamente)
+[247] 4) Flow: Access Deregistration SSAA API Flow - ACK - v1.0
+[248] Cuándo se ejecuta 
+[249] Se activa cuando se crea un registro en la tabla access deregistration, async es igual a true, estado “solicitud aceptada” y el servicio es de tipo SSAA.
+[250] Qué cambia:
+[251] En vez de utilizar la action Retrieve Access PINT que obtenia distintos datos desde BP, utilizaremos la action Get OSP Circuit ID para utilizarlo como input en el subflujo Access Deregistration - SSAA - Fulfillment Process.
+[252] Device Modification
+[253] Flujos / subflujos (se duplican para la versión sin Blue Planet)
+[254] Flow/Subflow: Device Modification API Flow v2.0 (duplicado; versión sin BP) 
+[255] Subflow reutilizable: Komands Integration Control (el mismo subflujo, reutilizado; sin cambio de firma)
+[256] RetrieveAccess API Invocation sera cambiada por una query a CMDB: obtenemos OLT, SLOT, PON y PON Logico de u_cmdb_ci_id_access 
+[257] Para obtener el status y el tipo de servicio (si es que es SSAA) podemos revisar la service order en sn_ind_tmt_orm_service_order
+[258] Nueva action Device Modification - Komands
+[259] Input: 
+[260] VNO Code - Donde esta esto?
+[261] Service Order ID
+[262] OLT
+[263] Slot
+[264] PON
+[265] PON Logico
+[266] New Serial ONT (Viene de flow variable)
+[267] Output:
+[268] Response body
+[269] Response status
+[270] // Script step 1 - Obtener el token
+[271] var getAccessToken = new global.axWayUtils()
+[272] var accessToken = getAccessToken.getToken();
+[273] // Script step 2 - Hacer la request
+[274] // Crear uuid y agregarlo al header 
+[275] Nuevo Outbound REST Message: Device Modification – Komands
+[276] // Headers
+[277] "Accept": "application/json"
+[278] "Content-Type": "application/json"
+[279] "X-Correlation-ID": correlation_id // Generado para cada request
+[280] "X-Source-System": "SN_PROVISION"
+[281] “X-Source-System-ID": ID del registro de Service Now que gatilla la operación
+[282] //Ejemplo Body:
+[283] {
+[284] "vno_code": "DTV",
+[285] "external_order_id": "SO-22222", // Number/ID de la service order
+[286] "callback_url": "https://api.onnetfibra.cl/axway/callback/komands",
+[287] "olt_name": "NCOR_OLT_3",
+[288] "slot": 1, 
+[289] "port": 5, 
+[290] "logic_pon": 35,
+[291] "new_serial_ont": "HWTC-NEW99999" // Viene de flow variable
+[292] }
+[293] Nuevo Outbound REST Message Get Device Modification Status – Komands
+[294] /api/Komands/v1/device-change/{u_uuid}
+[295] Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9... 
+[296] X-Correlation-ID: b2c3d4e5-f6a7-8901-bcde-000000000099 
+[297] X-Source-System: SN_QUERY 
+[298] X-Source-System-ID: abc123def456
+[299] Nueva action Get Device Modification Status – Komands
+[300] Se encarga de invocar al outbound REST message en caso de que no haya callback u ocurra algun error durante ese proceso.
+[301] Impacto en input/output
+[302] Inputs: sin cambios (el flujo sigue recibiendo los mismos parámetros/records; cambia el origen de datos internos: BP → CMDB). 
+[303] Outputs: sin cambios (se mantiene la respuesta hacia el llamador/API; se estandariza OK/NOK vía Integration Control).
+[304] Modificación FTTH
+[305] Endpoint Komands: /apiKomands/v1/modification
+[306] Tabla v2
+[307] u_registration_modification_v2
+[308] Flujos / subflujos (v2 sin BluePlanet)
+[309] Flow: Registration Modification API Flow v3.0 
+[310] Flow (SSAA): Registration Modification SSAA API Flow v1.0 
+[311] Subflow(s): Registration Modification - Modification Type
+[312] Subflow(s): Registration Modification - Services Configuration Request SSAA
+[313] Subflow reutilizable: Integration Control Komands
+[314] Actions / REST Messages
+[315] Para mantener orden y trazabilidad, se implementará una Action por cada sub-operación (sin “mega action” con condicionales). Todas las Actions llamarán al mismo endpoint POST /apiKomands/v1/modification, pero con payload distinto según la sub-operación.
+[316] Excepción: block y unblock quedarán en una misma Action, ya que el payload es idéntico y solo cambia el valor de modification_type.
+[317] Actions (POST /apiKomands/v1/modification)
+[318] Speed Change - Komands (modification_type = speed_change)
+[319] Block/Unblock - Komands (modification_type = block | unblock)
+[320] Add Service - Komands (modification_type = add_service)
+[321] Remove Service - Komands (modification_type = remove_service)
+[322] Migrate FTTH to SSAA - Komands (modification_type = migrate_ftth_ssaa)
+[323] Action de estado (GET)
+[324] Get Status - Komands (reutilizable) → GET /apiKomands/v1/modification{uuid} (síncrono)
+[325] Patrón asíncrono (TO-BE)
+[326] Se recibe request en la Scripted REST API v2 correspondiente y se crea/actualiza registro u_registration_modification_v2.
+[327] Se ejecutan las consultas de inventario técnico y de servicios exclusivamente vía CMDB. (utilizando las tablas: )
+[328] Se ejecuta Registration Modification - Komands.
+[329] Se guarda ACK (txn_id + correlation_id) en u_komands_transaction.
+[330] Se invoca el subflujo Integration Control Komands, pasándole el record u_komands_transaction.
+[331] Con el resultado (success/final_status/response_body/retry), el flujo principal actualiza los records de negocio correspondientes:
+[332] Orders / Tasks
+[333] Customer Order
+[334] Registration Modification
+[335] Device Modification
+[336] 1) Flow: Registration Modification API Flow v3.0
+[337] No se hacen cambios en este flujo, ya que no hay ningun tipo de interacción con BluePlanet.
+[338] Subflow Registration Modification - Modification Type
+[339] El action Retrieve Access PINT se reemplaza por un query a CMDB donde obtenemos los siguientes datos:
+[340] Obtenemos OLT, SLOT, PON, PON Logico, IP Address y Manufacturer de u_cmdb_ci_id_access
+[341] Obtenemos las Service Orders de la tabla sn_ind_tmt_orm_service_order 
+[342] Obtenemos Customer Order de la tabla sn_ind_tmt_orm_order 
+[343] Circuit ID sera obtenido con el action Get OSP Circuit ID
+[344] Obtenemos Brownfield de 
+[345] No realizamos mas cambios en este subflujo, sino en los subflujos que invoca.
+[346] Subflow Registration Modification - Speed Plan Change
+[347] Este subflujo actualmente se utiliza tanto para cambiar la velocidad como para el bloqueo/desbloqueo. En este caso, se creará un action adicional para el bloqueo o desbloqueo del servicio que será utilizado en el paso 23 del subflujo Registration Modification - Modification Type, donde se llama a este mismo subflujo, pero utilizaremos el action de bloqueo.
+[348] Action Nueva: Speed Change - Komands
+[349] Construye la request
+[350] Ejecuta el cambio de velocidad
+[351] Maneja la respuesta inicial
+[352] Actualizar la tabla sn_ind_tmt_orm_order_characteristic_value en los campos characteristic_option_value y previous_characteristic_option_value .
+[353] Actualizar Speed Plan de Order Line Item
+[354] Si hay previousCustomerOrder, actualizar ese record tambien con la characteristic
+[355] Nuevo Outbound REST Message Speed Change - Komands
+[356] Método: POST
+[357] Endpoint: /api/v1/modification
+[358] Authentication: No authentication - se debe agregar el token la action igual que en las requests a BP:
+[359] // Headers
+[360] "Content-Type": "application/json"
+[361] "X-Correlation-ID": "a1b2c3d4-e5f6-7890-abcd-000000000001"
+[362] "X-Source-System": "SN_PROVISION"
+[363] “X-Source-System-ID": ID del registro de Service Now que gatilla la operación
+[364] // Body
+[365] {
+[366]   "vno_code": "DTV",
+[367]   "external_order_id": "SO-44444",
+[368]   "callback_url": "https://api.onnetfibra.cl/axway/callback/komands",
+[369]   "olt_name": "NCOR_OLT_3",
+[370]   "slot": 1,
+[371]   "port": 5,
+[372]   "logic_pon": 35,
+[373]   "modification_type": "speed_change",
+[374]   "new_speed_profile": "900M_SIMETRICO"
+[375] }
+[376] Action Nueva: Block Unblock Service - Komands
+[377] Validar el bloqueo 
+[378] Construir la request
+[379] Nuevo Outbound REST Message Block Unblock Service - Komands
+[380] Método: POST
+[381] Endpoint: /api/v1/modification
+[382] Authentication: No authentication - se debe agregar el token la action igual que en las requests a BP:
+[383] // Headers
+[384] "Content-Type": "application/json"
+[385] "X-Correlation-ID": "a1b2c3d4-e5f6-7890-abcd-000000000001"
+[386] "X-Source-System": "SN_PROVISION"
+[387] “X-Source-System-ID": ID del registro de Service Now que gatilla la operación
+[388] // Body
+[389] var body = {
+[390]   "vno_code": "DTV",
+[391]   "external_order_id": "SO-44444",
+[392]   "callback_url": "https://api.onnetfibra.cl/axway/callback/komands",
+[393]   "olt_name": "NCOR_OLT_3",
+[394]   "slot": 1,
+[395]   "port": 5,
+[396]   "logic_pon": 35,
+[397]   modification_type: inputs.modificationType // block | unblock
+[398] };
+[399] Subflow Registration Modification - Service Activation Request
+[400] En flujo modificaremos los input. Se elimina Previous Service Order Record for IPTV y VOIP, ya que no se estan utilizando en el flujo.
+[401] Este subflujo repite los mismos pasos para todos los tipos de service request, pero la idea es la misma. Reemplazaremos el action por la nueva action de activación y utilizaremos el nuevo subflujo para manejar errores y actualizar los records acorde a la respuesta. Además se debe adaptar el If del paso 12 para que acepte el output del nuevo subflujo (si es que la transacción fue exitosa o no)
+[402] En este caso, hay más datos que debemos obtener de CMDB:
+[403] serial ont: de la tabla u_retrieve_data_ont
+[404] "svlan_inet": 100,
+[405] "cvlan_inet": 200,
+[406] "svlan_voip": 300
+[407] Nueva Action
+[408] Valida los input para saber qué tipo de activación es y poder armar el payload
+[409] Hace la request
+[410] Nuevo Outbound REST Message
+[411] // Headers
+[412] "Content-Type": "application/json"
+[413] "X-Correlation-ID": "a1b2c3d4-e5f6-7890-abcd-000000000001"
+[414] "X-Source-System": "SN_PROVISION"
+[415] // Body
+[416] {
+[417] "vno_code": "DTV",
+[418] "external_order_id": "SO-12345",
+[419] "callback_url": "https://api.onnetfibra.cl/axway/callback/komands",
+[420] "olt_name": "NCOR_OLT_3",
+[421] "slot": 1,
+[422] "port": 5,
+[423] "logic_pon": 35,
+[424] "serial_ont": "HWTC-ABCD1234",
+[425] "service_type": "FTTH",
+[426] "speed_profile": "600M_SIMETRICO",
+[427] "internet": true,
+[428] "voip": true,
+[429] "iptv": false,
+[430] "svlan_inet": 100,
+[431] "cvlan_inet": 200,
+[432] "svlan_voip": 300
+[433] }
+[434] Subflow Registration Modification - Services Deconfiguration Request
+[435] En este subflujo hay un condicional por cada tipo de service request. La idea sigue siendo la misma y se utiliza la nueva action de Baja de Servicio descrita en el flujo Baja de Acceso.
+[436] Nota importante: el concepto de deconfiguration fue reemplazado por baja de servicio (único endpoint). Se asume que ya no existe un endpoint separado de deconfiguration.
+[437] Los inputs del subflujo no sufren cambios.
+[438] Propuesta inicial Feature Flags
+[439] El mecanismo de enrutamiento hacia Komands se basa en una tabla de configuración u_komands_activation, que define por combinación de VNO, producto, tecnología y operación si una transacción debe ser procesada por Komands o por BluePlanet.
+[440] Evaluación de activación por transacción
+[441] Cada vez que una API recibe una solicitud, consulta u_komands_activation mediante un Script Include.
+[442] Si existe un registro activo para la combinación consultada (u_is_active = true), la transacción se dirige a Komands (por ejemplo, insertando en u_assignment_v2).
+[443] Si no existe un registro activo, la transacción se procesa por la ruta tradicional en BluePlanet (por ejemplo, insertando en u_assignment).
+[444] Kill switch global
+[445] Existe un kill switch global u.komands.enabled que permite desactivar completamente el uso de Komands en cualquier momento, forzando que todo el tráfico vuelva a BluePlanet sin necesidad de despliegues ni cambios de código.
+[446] Consideraciones de diseño
+[447] Este mecanismo está pensado como una solución temporal para habilitar una migración progresiva, por lo que no se prioriza un diseño altamente escalable. En un escenario permanente, sería recomendable modelar la activación de cada dimensión (VNO, producto, tecnología, operación) en estructuras separadas o más normalizadas, permitiendo evaluaciones más eficientes y flexibles. El enfoque actual favorece la simplicidad operativa y la capacidad de rollback inmediato.

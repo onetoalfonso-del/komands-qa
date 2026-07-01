@@ -7,7 +7,7 @@
   },
   "item": [
     {
-      "name": "feasibility (unified) XYGO Copy",
+      "name": "01-feasibility",
       "event": [
         {
           "listen": "test",
@@ -95,7 +95,8 @@
               "pm.visualizer.set(template, constructVisualizerPayload());"
             ],
             "type": "text/javascript",
-            "packages": {}
+            "packages": {},
+            "requests": {}
           }
         },
         {
@@ -105,22 +106,18 @@
               ""
             ],
             "type": "text/javascript",
-            "packages": {}
+            "packages": {},
+            "requests": {}
           }
         }
       ],
       "request": {
         "auth": {
-          "type": "basic",
-          "basic": [
+          "type": "bearer",
+          "bearer": [
             {
-              "key": "password",
-              "value": "BEta2110*",
-              "type": "string"
-            },
-            {
-              "key": "username",
-              "value": "sn.integratrion",
+              "key": "token",
+              "value": "{{Token}}",
               "type": "string"
             }
           ]
@@ -142,7 +139,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_service_type\": \"SSAA\",\r\n    \"u_operation_type\": \"Direccion exacta\",\r\n    \"u_address_id\": \"500977421\",\r\n    \"u_address_mcd\": \"XYGO\"\r\n}",
+          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_service_type\": \"FTTH\",\r\n    \"u_operation_type\": \"Direccion exacta\",\r\n    \"u_address_id\": \"DIR02803674\", // 5003455 ->XYGO\r\n    \"u_address_mcd\": \"OSP\" //XYGO U OSP\r\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -161,352 +158,10 @@
           ]
         }
       },
-      "response": [
-        {
-          "name": "feasibility (unified) XYGO",
-          "originalRequest": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "vnoId",
-                "value": "{{vnonumber}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_service_type\": \"SSAA\",\r\n    \"u_operation_type\": \"Direccion exacta\",\r\n    \"u_address_id\": \"4189578\",\r\n    \"u_address_mcd\": \"XYGO\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{apimURL}}/fullFillment-Factibilidad/v1/feasibilityUpselling",
-              "host": [
-                "{{apimURL}}"
-              ],
-              "path": [
-                "fullFillment-Factibilidad",
-                "v1",
-                "feasibilityUpselling"
-              ]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "_postman_previewlanguage": "json",
-          "header": [
-            {
-              "key": "Date",
-              "value": "Fri, 26 Jul 2024 16:16:34 GMT"
-            },
-            {
-              "key": "Content-Type",
-              "value": "application/json;charset=UTF-8"
-            },
-            {
-              "key": "Transfer-Encoding",
-              "value": "chunked"
-            },
-            {
-              "key": "Connection",
-              "value": "keep-alive"
-            },
-            {
-              "key": "Access-Control-Allow-Origin",
-              "value": "*"
-            },
-            {
-              "key": "Access-Control-Allow-Methods",
-              "value": "POST"
-            },
-            {
-              "key": "X-Content-Type-Options",
-              "value": "nosniff"
-            },
-            {
-              "key": "Server-Timing",
-              "value": "sem_wait;dur=0, sesh_wait;dur=0"
-            },
-            {
-              "key": "X-Transaction-ID",
-              "value": "a32d38439224"
-            },
-            {
-              "key": "X-Is-Logged-In",
-              "value": "true"
-            },
-            {
-              "key": "Pragma",
-              "value": "no-store,no-cache"
-            },
-            {
-              "key": "Access-Control-Allow-Headers",
-              "value": "authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,apikey,testKey,Authorization"
-            },
-            {
-              "key": "activityid",
-              "value": "df4cf563-031b-44d6-8b68-a71300acde61"
-            },
-            {
-              "key": "Access-Control-Expose-Headers",
-              "value": ""
-            },
-            {
-              "key": "Strict-Transport-Security",
-              "value": "max-age=63072000; includeSubDomains"
-            },
-            {
-              "key": "Cache-Control",
-              "value": "no-cache,no-store,must-revalidate,max-age=-1"
-            },
-            {
-              "key": "Content-Encoding",
-              "value": "gzip"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "BIGipServerpool_onnqa=a461b7230e9db7d48336eab4c85ed993; httponly; secure; path=/; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_node_id_for_js=719f4f4e220e0b45c748e1e7c724cb641dab25cddd3b0c45961b49a7db9fb7c4; Path=/; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_session_store=A50D7C4383A30610F96B6350CEAAD36B; Max-Age=60; Expires=Fri, 26-Jul-2024 16:17:31 GMT; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_user_activity=U0N2M18xOjJueXQ1cS85WDcrZ1JJVm9tcDM4KzdvdnFBdGsvOXpqbkdPbUt6RGd1RDg9OkdFVjJhTjFrM2NibzhiT21OSTdTY0I0OWpwSlJTVHhzUkhUczUvU0R2OUk9; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Expires",
-              "value": "0"
-            }
-          ],
-          "cookie": [],
-          "body": "{\n    \"result\": {\n        \"sys_id\": \"272d3c4783a30610f96b6350ceaad353\",\n        \"u_return_code\": \"0\",\n        \"u_return_code_desc\": \"Flujo completado con éxito\",\n        \"u_int_free_access\": \"falso\",\n        \"u_int_portable_access\": \"falso\",\n        \"u_int_reassignable_access\": \"falso\",\n        \"u_access_code\": \"1\",\n        \"u_desc_access_code\": \"Con disponibilidad de Red\",\n        \"u_project_availability\": \"falso\",\n        \"u_project_release_date\": \"\",\n        \"u_green_box_availability\": \"falso\",\n        \"u_green_box_release_date\": \"\",\n        \"u_service_ba\": true,\n        \"u_service_iptv\": true,\n        \"u_service_voip\": true,\n        \"u_speed_plan_max\": null,\n        \"u_technology\": \"GPON\",\n        \"u_client_fttx\": \"0\",\n        \"u_dist_cable_num\": \"CA12-F#48\",\n        \"u_dist_low_fiber\": \"9\",\n        \"u_dist_high_fiber\": \"16\",\n        \"u_opt_term_ident\": null,\n        \"u_fiber_port_num\": \"11\",\n        \"u_eqpt_term_type\": \"6\",\n        \"u_eqpt_term_ident\": \"2/2231\",\n        \"u_building_flag\": \"0\",\n        \"u_eqpt_term_addr_co_code\": \"MELI\",\n        \"u_splitter1_code\": \"CA12SP48\",\n        \"u_addr_sp1_region_code\": null,\n        \"u_addr_sp1_region_name\": null,\n        \"u_addr_sp1_street_name\": null,\n        \"u_addr_sp1_street_code\": null,\n        \"u_addr_sp1_lot_num\": null,\n        \"u_splitter2_code\": \"CA12SP48SS2\",\n        \"u_addr_sp2_region_code\": \"9\",\n        \"u_addr_sp2_region_name\": \"SANTIAGO\",\n        \"u_addr_sp2_street_name\": \"MERCED\",\n        \"u_addr_sp2_street_code\": \"040200\",\n        \"u_addr_sp2_lot_num\": \"2231\",\n        \"u_splitter3_code\": null,\n        \"u_addr_sp3_region_code\": null,\n        \"u_addr_sp3_region_name\": null,\n        \"u_addr_sp3_street_name\": null,\n        \"u_addr_sp3_street_code\": null,\n        \"u_addr_sp3_lot_num\": null,\n        \"u_splitter4_code\": null,\n        \"u_addr_sp4_region_code\": null,\n        \"u_addr_sp4_region_name\": null,\n        \"u_addr_sp4_street_name\": null,\n        \"u_addr_sp4_street_code\": null,\n        \"u_addr_sp4_lot_num\": null,\n        \"u_splitter5_code\": null,\n        \"u_addr_sp5_region_code\": null,\n        \"u_addr_sp5_region_name\": null,\n        \"u_addr_sp5_street_name\": null,\n        \"u_addr_sp5_street_code\": null,\n        \"u_addr_sp5_lot_num\": null,\n        \"u_eqpt_term_addr_region_code\": \"9\",\n        \"u_eqpt_term_addr_region_name\": \"SANTIAGO\",\n        \"u_eqpt_term_addr_street_name\": \"MERCED\",\n        \"u_eqpt_term_addr_street_code\": \"040200\",\n        \"u_eqpt_term_addr_lot_num\": \"2231\",\n        \"u_eqpt_term_id\": \"374974\",\n        \"u_alim_co_code\": \"MELI\",\n        \"u_alim_region_code\": \"9\",\n        \"u_alim_cable_num\": \"CA12\",\n        \"u_alim_fiber_num\": \"48\",\n        \"u_client_region_code\": \"9\",\n        \"u_client_region_name\": \"SANTIAGO\",\n        \"u_client_street_code\": \"040200\",\n        \"u_client_street_name\": \"MERCED\",\n        \"u_client_lot_num\": \"2219\",\n        \"u_mkt_lot_use_type\": \"Casa\",\n        \"u_term_eqpt_vg_qty\": \"4\",\n        \"u_term_eqpt_oc_qty\": \"1\",\n        \"u_term_eqpt_rs_qty\": \"0\",\n        \"u_term_eqpt_ds_qty\": \"3\",\n        \"u_term_eqpt_df_qty\": \"0\",\n        \"u_term_eqpt_ra_qty\": \"0\",\n        \"u_term_eqpt_rt_qty\": \"0\",\n        \"u_odf_ext_code\": \"CAP PITA_MELI\",\n        \"u_odf_ext_rack\": \"1\",\n        \"u_odf_ext_module\": \"1\",\n        \"u_odf_ext_tray\": \"17-32\",\n        \"u_odf_ext_port\": \"24\",\n        \"u_available_bandwidth_assured_gpon\": 105,\n        \"u_available_bandwidth_fixed_gpon\": 26.92,\n        \"u_available_bandwidth_assured_xgspon\": 0,\n        \"u_available_bandwidth_fixed_xgspon\": 0\n    }\n}"
-        },
-        {
-          "name": "feasibility (unified) XYGO",
-          "originalRequest": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "vnoId",
-                "value": "{{vnonumber}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_service_type\": \"FTTH\",\r\n    \"u_operation_type\": \"Direccion exacta\",\r\n    \"u_address_id\": \"DIR02801122\",\r\n    \"u_address_mcd\": \"OSP\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{apimURL}}/fullFillment-Factibilidad/v1/feasibilityUpselling",
-              "host": [
-                "{{apimURL}}"
-              ],
-              "path": [
-                "fullFillment-Factibilidad",
-                "v1",
-                "feasibilityUpselling"
-              ]
-            }
-          },
-          "status": "OK",
-          "code": 200,
-          "_postman_previewlanguage": "json",
-          "header": [
-            {
-              "key": "Date",
-              "value": "Tue, 08 Oct 2024 17:46:09 GMT"
-            },
-            {
-              "key": "Content-Type",
-              "value": "application/json;charset=UTF-8"
-            },
-            {
-              "key": "Transfer-Encoding",
-              "value": "chunked"
-            },
-            {
-              "key": "Connection",
-              "value": "keep-alive"
-            },
-            {
-              "key": "Access-Control-Allow-Origin",
-              "value": "*"
-            },
-            {
-              "key": "Access-Control-Allow-Methods",
-              "value": "POST"
-            },
-            {
-              "key": "X-Content-Type-Options",
-              "value": "nosniff"
-            },
-            {
-              "key": "Server-Timing",
-              "value": "sem_wait;dur=0, sesh_wait;dur=0"
-            },
-            {
-              "key": "X-Transaction-ID",
-              "value": "81579eb26d14"
-            },
-            {
-              "key": "X-Is-Logged-In",
-              "value": "true"
-            },
-            {
-              "key": "Pragma",
-              "value": "no-store,no-cache"
-            },
-            {
-              "key": "Access-Control-Allow-Headers",
-              "value": "authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,apikey,testKey,Authorization"
-            },
-            {
-              "key": "activityid",
-              "value": "06fd3b39-e351-471d-94d1-1cae99a90e8f"
-            },
-            {
-              "key": "Access-Control-Expose-Headers",
-              "value": ""
-            },
-            {
-              "key": "Strict-Transport-Security",
-              "value": "max-age=63072000; includeSubDomains"
-            },
-            {
-              "key": "Cache-Control",
-              "value": "no-cache,no-store,must-revalidate,max-age=-1"
-            },
-            {
-              "key": "Content-Encoding",
-              "value": "gzip"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "BIGipServerpool_onnqa=b5af03c4a7b5e7b97511bebcbbc9b1ad; httponly; secure; path=/; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "JSESSIONID=B779F5475D20C5A6F14FB280551A2118; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_node_id_for_js=6cec9563136c188ec38d08db0c2ba0e905f495ea5d0fac486dd4c07a9ea90b48; Path=/; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_session_store=4D579EB2C341161082965EBEB001316C; Max-Age=1800; Expires=Tue, 08-Oct-2024 18:16:05 GMT; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_user=; Max-Age=0; Expires=Thu, 01-Jan-1970 00:00:10 GMT; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_user_route=glide.8194de9915947ca17f7522bc5a262eec; Max-Age=2147483647; Expires=Sun, 26-Oct-2092 21:00:12 GMT; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Set-Cookie",
-              "value": "glide_user_session=; Max-Age=0; Expires=Thu, 01-Jan-1970 00:00:10 GMT; Path=/; HttpOnly; secure; SameSite=None"
-            },
-            {
-              "key": "Expires",
-              "value": "0"
-            }
-          ],
-          "cookie": [],
-          "body": "{\n    \"result\": {\n        \"sys_id\": \"c557de36c341161082965ebeb0013108\",\n        \"u_return_code\": \"0\",\n        \"u_return_code_desc\": \"Flujo completado con éxito\",\n        \"u_int_free_access\": \"falso\",\n        \"u_int_portable_access\": \"falso\",\n        \"u_int_reassignable_access\": \"falso\",\n        \"u_access_code\": \"1\",\n        \"u_desc_access_code\": \"Con disponibilidad de Red\",\n        \"u_project_availability\": \"falso\",\n        \"u_project_release_date\": \"\",\n        \"u_green_box_availability\": \"falso\",\n        \"u_green_box_release_date\": \"\",\n        \"u_service_ba\": true,\n        \"u_service_iptv\": true,\n        \"u_service_voip\": true,\n        \"u_speed_plan_max\": \"940/940\",\n        \"u_technology\": \"GPON\",\n        \"u_client_fttx\": \"0\",\n        \"u_dist_cable_num\": \"CA98-F#24\",\n        \"u_dist_low_fiber\": \"217\",\n        \"u_dist_high_fiber\": \"224\",\n        \"u_opt_term_ident\": \"ONF_KAO2\",\n        \"u_fiber_port_num\": \"218\",\n        \"u_eqpt_term_type\": \"15\",\n        \"u_eqpt_term_ident\": \"28/19(5)\",\n        \"u_building_flag\": \"0\",\n        \"u_eqpt_term_addr_co_code\": \"PITA\",\n        \"u_splitter1_code\": \"CA98SP24\",\n        \"u_addr_sp1_region_code\": \"9\",\n        \"u_addr_sp1_region_name\": \"SANTIAGO\",\n        \"u_addr_sp1_street_name\": \"OBISPO DONOSO\",\n        \"u_addr_sp1_street_code\": \"014546\",\n        \"u_addr_sp1_lot_num\": \"19\",\n        \"u_splitter2_code\": \"CA98SP24SS4\",\n        \"u_addr_sp2_region_code\": \"9\",\n        \"u_addr_sp2_region_name\": \"SANTIAGO\",\n        \"u_addr_sp2_street_name\": \"OBISPO DONOSO\",\n        \"u_addr_sp2_street_code\": \"014546\",\n        \"u_addr_sp2_lot_num\": \"19\",\n        \"u_splitter3_code\": null,\n        \"u_addr_sp3_region_code\": null,\n        \"u_addr_sp3_region_name\": null,\n        \"u_addr_sp3_street_name\": null,\n        \"u_addr_sp3_street_code\": null,\n        \"u_addr_sp3_lot_num\": null,\n        \"u_splitter4_code\": null,\n        \"u_addr_sp4_region_code\": null,\n        \"u_addr_sp4_region_name\": null,\n        \"u_addr_sp4_street_name\": null,\n        \"u_addr_sp4_street_code\": null,\n        \"u_addr_sp4_lot_num\": null,\n        \"u_splitter5_code\": null,\n        \"u_addr_sp5_region_code\": null,\n        \"u_addr_sp5_region_name\": null,\n        \"u_addr_sp5_street_name\": null,\n        \"u_addr_sp5_street_code\": null,\n        \"u_addr_sp5_lot_num\": null,\n        \"u_eqpt_term_addr_region_code\": \"9\",\n        \"u_eqpt_term_addr_region_name\": \"SANTIAGO\",\n        \"u_eqpt_term_addr_street_name\": \"OBISPO DONOSO\",\n        \"u_eqpt_term_addr_street_code\": \"014546\",\n        \"u_eqpt_term_addr_lot_num\": \"19\",\n        \"u_eqpt_term_id\": \"348577\",\n        \"u_alim_co_code\": \"PITA\",\n        \"u_alim_region_code\": \"9\",\n        \"u_alim_cable_num\": \"CA98\",\n        \"u_alim_fiber_num\": \"24\",\n        \"u_client_region_code\": \"9\",\n        \"u_client_region_name\": \"SANTIAGO\",\n        \"u_client_street_code\": \"014546\",\n        \"u_client_street_name\": \"OBISPO DONOSO\",\n        \"u_client_lot_num\": \"19\",\n        \"u_mkt_lot_use_type\": \"Edificio Corporativo\",\n        \"u_term_eqpt_vg_qty\": \"7\",\n        \"u_term_eqpt_oc_qty\": \"0\",\n        \"u_term_eqpt_rs_qty\": \"0\",\n        \"u_term_eqpt_ds_qty\": \"1\",\n        \"u_term_eqpt_df_qty\": \"0\",\n        \"u_term_eqpt_ra_qty\": \"0\",\n        \"u_term_eqpt_rt_qty\": \"0\",\n        \"u_odf_ext_code\": \"CAP 98 FTTX\",\n        \"u_odf_ext_rack\": \"CAP 98 FTTX\",\n        \"u_odf_ext_module\": \"CAP 98 FTTX\",\n        \"u_odf_ext_tray\": \"017-032\",\n        \"u_odf_ext_port\": \"24\"\n    }\n}"
-        },
-        {
-          "name": "response",
-          "originalRequest": {
-            "auth": {
-              "type": "basic",
-              "basic": [
-                {
-                  "key": "password",
-                  "value": "BEta2110*",
-                  "type": "string"
-                },
-                {
-                  "key": "username",
-                  "value": "sn.integratrion",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "vnoId",
-                "value": "03"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_service_type\": \"SSAA\",\r\n    \"u_operation_type\": \"Direccion exacta\",\r\n    \"u_address_id\": \"500977421\",\r\n    \"u_address_mcd\": \"XYGO\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{apimURL}}/fullFillment-Factibilidad/v1/feasibilityUpselling",
-              "host": [
-                "{{apimURL}}"
-              ],
-              "path": [
-                "fullFillment-Factibilidad",
-                "v1",
-                "feasibilityUpselling"
-              ]
-            }
-          },
-          "_postman_previewlanguage": null,
-          "header": null,
-          "cookie": [],
-          "body": null
-        }
-      ]
+      "response": []
     },
     {
-      "name": "ModificationSSAA | FTTH Copy",
+      "name": "05-ModificationAsync",
       "request": {
         "auth": {
           "type": "bearer",
@@ -522,7 +177,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n    \"u_access_id_vno\": \"03-3320999MH11\",\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"M\",\r\n    \"u_service_type\": \"SSAA\",\r\n    \"u_perfil_ssaa\": \"GroupC.640K\",// ID Perfil conforme “Aplicación Perfiles de velocidad” en SN\r\n    \"u_inet_cvlan\": \"3002\",\r\n    \"u_tkip_datop_cvlan\": \"3003\"\r\n}",
+          "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-TESTPREPROD-DIR02803674-1\",\r\n  \"u_serial_number\": \"SCOM13032002\"\r\n}\r\n",
           "options": {
             "raw": {
               "language": "json"
@@ -544,7 +199,7 @@
       "response": []
     },
     {
-      "name": "Activation SSAA | FTTH 02 Copy",
+      "name": "03-Activation Async",
       "request": {
         "auth": {
           "type": "bearer",
@@ -595,7 +250,7 @@
       "response": []
     },
     {
-      "name": "RetrieveAccess ASYNC Copy",
+      "name": "02-ConsultaAcceso Async",
       "event": [
         {
           "listen": "test",
@@ -668,7 +323,7 @@
       "response": []
     },
     {
-      "name": "Baja de acceso ASYNC Copy",
+      "name": "06-Baja de acceso ASYNC",
       "request": {
         "auth": {
           "type": "bearer",
@@ -700,7 +355,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\r\n    \"u_id_vno\": \"{{vnonumber}}\",//CAMBIAR MANUAL O AJUSTAR LA VARIABLE EN EL ENVIROMENTS\r\n    \"u_access_id_vno\": \"03-QAPSSMM0000068\",\r\n    \"u_service_type\": \"SSAA\"\r\n}",
+          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-TESTPREPROD-DIR02803674-1\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -716,6 +371,279 @@
             "fullFillment-accessDeregistrationAsync",
             "v1",
             "accessDeregistrationAsync"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04-DeviceModification",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "vnoId",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "\r\n{\r\n  \"u_id_vno\": \"02\",\r\n  \"u_access_id_vno\": \"01-XXXXXXXXXXXXXXXX\",\r\n  \"u_serial_number\": \"4D53544309400749\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-deviceModification",
+            "v1",
+            "deviceModification"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "05-Modification",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "vnoId",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-TESTPREPROD-DIR02803674-1\",\r\n    \"u_operation_type\": \"M\",\r\n    \"u_speed_plan\": \"940/940\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-modification",
+            "v1",
+            "registrationModification"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "06-Baja de Acceso",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "vnoId",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-TESTPREPROD-DIR02803674-1\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-unsubcription/v1/accessDeregistration",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-unsubcription",
+            "v1",
+            "accessDeregistration"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04-DeviceModificationAsync",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "vnoId",
+            "value": "03"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-TESTPREPROD-DIR02803674-1\",\r\n  \"u_serial_number\": \"SCOM13032002\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-deviceModificationAsync/v1/deviceModificationAsync",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-deviceModificationAsync",
+            "v1",
+            "deviceModificationAsync"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "00-get Token Copy",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "let cKey = pm.environment.get('consumerKey');\r",
+              "let cPass = pm.environment.get('consumerSecret');\r",
+              "let authorization = btoa(cKey + \":\" + cPass);\r",
+              "pm.environment.set(\"authorization\", authorization);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = JSON.parse(responseBody); //Asigna a la variable jsonData el contenido del  response body \r",
+              "\r",
+              "pm.environment.set(\"Token\",jsonData.access_token) //extrae el token desde jsonData y lo asigna a la variable ambiental  token"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{authorization}}"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{apimURL}}/token",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "token"
           ]
         }
       },
