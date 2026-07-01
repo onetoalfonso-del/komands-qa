@@ -376,18 +376,33 @@ async def api_run_parallel(request: Request):
                  "Connection": "keep-alive"})
 
 
-_runtime_config: dict = {}
+_CONFIG_FILE = Path("/tmp/komands-apim.json")
+
+def _load_persisted_config():
+    """Carga credenciales guardadas en /tmp/ y las inyecta en os.environ."""
+    if _CONFIG_FILE.exists():
+        try:
+            data = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+            if data.get("ck") and data.get("cs"):
+                os.environ["SN_CONSUMER_KEY"] = data["ck"]
+                os.environ["SN_CONSUMER_SECRET"] = data["cs"]
+                return True
+        except Exception:
+            pass
+    return False
 
 @app.post("/api/config")
 async def api_config(request: Request):
-    """Guarda credenciales APIM en memoria y genera archivos de ambiente."""
+    """Guarda credenciales APIM en /tmp/ (persiste en la sesión del contenedor)."""
     body = await request.json()
     ck = body.get("consumer_key", "").strip()
     cs = body.get("consumer_secret", "").strip()
     if not ck or not cs:
         return JSONResponse({"error": "consumer_key y consumer_secret son requeridos"}, status_code=400)
-    _runtime_config["SN_CONSUMER_KEY"] = ck
-    _runtime_config["SN_CONSUMER_SECRET"] = cs
+    try:
+        _CONFIG_FILE.write_text(json.dumps({"ck": ck, "cs": cs}), encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"error": f"No se pudo guardar: {e}"}, status_code=500)
     os.environ["SN_CONSUMER_KEY"] = ck
     os.environ["SN_CONSUMER_SECRET"] = cs
     _generate_env_files()
@@ -1146,6 +1161,7 @@ if __name__ == "__main__":
         print("Instalar: pip install fastapi \"uvicorn[standard]\"")
         sys.exit(1)
 
+    _load_persisted_config()
     _generate_env_files()
 
     port    = int(os.environ.get("PORT", 8001))
