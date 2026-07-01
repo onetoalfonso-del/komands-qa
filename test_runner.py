@@ -423,7 +423,8 @@ async def api_health():
             "SN_CONSUMER_SECRET": "NOT_SET" if "SN_CONSUMER_SECRET" not in os.environ else ("EMPTY" if not os.environ["SN_CONSUMER_SECRET"] else f"SET(len={len(os.environ['SN_CONSUMER_SECRET'])})"),
             "APIM_URL": "NOT_SET" if "APIM_URL" not in os.environ else os.environ["APIM_URL"],
             "all_custom_keys": [k for k in os.environ if k.startswith(("SN_", "APIM_", "DEV_", "VNO"))],
-            "all_keys_sample": sorted(os.environ.keys())[:40],
+            "railway_keys": [k for k in os.environ if "RAILWAY" in k],
+            "port": os.environ.get("PORT", "NOT_SET"),
         },
         "env_files": {},
         "write_test": None,
@@ -770,23 +771,12 @@ function renderSNForm(){
     return h;
   }
   var sf=document.getElementById('sn-form');
-  var h='<div class="apim-cfg" id="apim-cfg">'
-    +'<div class="apim-cfg-hdr"><span class="apim-cfg-title">&#9881; Credenciales APIM</span>'
-    +'<span class="apim-status" id="apim-status" style="color:var(--warn)">&#9679; Sin configurar</span></div>'
-    +'<div id="apim-fields" class="apim-fields">'
-    +'<div class="pp-group"><label>Consumer Key</label>'
-    +'<input id="apim-ck" placeholder="KJcg..." type="password" autocomplete="off"></div>'
-    +'<div class="pp-group"><label>Consumer Secret</label>'
-    +'<input id="apim-cs" placeholder="wDux..." type="password" autocomplete="off"></div>'
-    +'<button class="sn-run" style="margin-top:4px;background:var(--acc);color:#0D1B3E" onclick="saveApimConfig()">Guardar credenciales</button>'
-    +'</div></div>';
-  h+='<div class="sn-cards">';
+  var h='<div class="sn-cards">';
   h+=card('03','Entel','#C586C0',s03);
   h+=card('02','ClaroVTR','#4EC9B0',s02);
   h+='</div>';
   h+='<button class="sn-run" id="sn-run-btn" onclick="executeSN()">&#9654; Ejecutar pruebas</button>';
   sf.innerHTML=h; sf.classList.add('show');
-  checkApimConfig();
   document.getElementById('sn-tog-02').onchange=function(){toggleVNO('02');};
   document.getElementById('sn-tog-03').onchange=function(){toggleVNO('03');};
   snEnabled={'02':true,'03':true};
