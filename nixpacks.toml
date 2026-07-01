@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt",
+  "npm install -g newman newman-reporter-htmlextra"
+]
+
+[start]
+cmd = "python test_runner.py"
