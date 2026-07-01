@@ -528,6 +528,8 @@ def deactivation_payload_nokia() -> dict:
 
 def _body_ont_id(body: dict) -> int:
     """Extrae ont_id como int. Prioridad: plano explícito > u_routing.u_ontid."""
+    if not isinstance(body, dict):
+        return 0
     try:
         val = body.get("ont_id")
         if val is not None:
@@ -535,9 +537,11 @@ def _body_ont_id(body: dict) -> int:
     except (ValueError, TypeError):
         pass
     try:
-        val = body.get("u_routing", {}).get("u_ontid")
-        if val is not None:
-            return int(val)
+        routing = body.get("u_routing")
+        if isinstance(routing, dict):
+            val = routing.get("u_ontid")
+            if val is not None:
+                return int(val)
     except (ValueError, TypeError):
         pass
     return 0
@@ -545,6 +549,8 @@ def _body_ont_id(body: dict) -> int:
 
 def _body_new_ont_id(body: dict) -> int:
     """Extrae new_ont_id como int. Prioridad: plano explícito > u_routing_new.u_ontid."""
+    if not isinstance(body, dict):
+        return 0
     try:
         val = body.get("new_ont_id")
         if val is not None:
@@ -552,9 +558,11 @@ def _body_new_ont_id(body: dict) -> int:
     except (ValueError, TypeError):
         pass
     try:
-        val = body.get("u_routing_new", {}).get("u_ontid")
-        if val is not None:
-            return int(val)
+        routing = body.get("u_routing_new")
+        if isinstance(routing, dict):
+            val = routing.get("u_ontid")
+            if val is not None:
+                return int(val)
     except (ValueError, TypeError):
         pass
     return 0
@@ -562,38 +570,68 @@ def _body_new_ont_id(body: dict) -> int:
 
 def _body_new_serial(body: dict) -> str:
     """Extrae serial del ONT nuevo. Prioridad: plano explícito > u_identification."""
+    if not isinstance(body, dict):
+        return ""
+    ident = body.get("u_identification")
     return (
         body.get("new_serial_ont")
-        or body.get("u_identification", {}).get("u_new_serialnumber", "")
+        or (isinstance(ident, dict) and ident.get("u_new_serialnumber") or "")
     )
 
 
 def _body_cancel_sentinel(body: dict) -> str:
     """Extrae centinela de cancelación. Prioridad: plano explícito > u_identification."""
+    if not isinstance(body, dict):
+        return ""
+    ident = body.get("u_identification")
     return (
         body.get("external_order_id")
-        or body.get("u_identification", {}).get("u_access_id", "")
+        or (isinstance(ident, dict) and ident.get("u_access_id") or "")
     )
 
 
 def _body_olt_name(body: dict) -> str:
     """Extrae nombre de la OLT. Prioridad: plano explícito > u_routing.u_olt."""
-    return body.get("olt_name") or body.get("u_routing", {}).get("u_olt", "")
+    if not isinstance(body, dict):
+        return ""
+    routing = body.get("u_routing")
+    return body.get("olt_name") or (isinstance(routing, dict) and routing.get("u_olt") or "")
 
 
 def _body_mod_type(body: dict) -> str:
     """Extrae tipo de modificación. Prioridad: plano explícito > u_action.u_type."""
-    return body.get("modification_type") or body.get("u_action", {}).get("u_type", "")
+    if not isinstance(body, dict):
+        return ""
+    action = body.get("u_action")
+    return body.get("modification_type") or (isinstance(action, dict) and action.get("u_type") or "")
 
 
 def _body_speed_profile(body: dict) -> str:
     """Extrae perfil de velocidad nuevo. Prioridad: plano explícito > u_product.u_speed_plan."""
-    return body.get("new_speed_profile") or body.get("u_product", {}).get("u_speed_plan", "")
+    if not isinstance(body, dict):
+        return ""
+    product = body.get("u_product")
+    return body.get("new_speed_profile") or (isinstance(product, dict) and product.get("u_speed_plan") or "")
 
 
 def _body_product(body: dict) -> str:
     """Extrae tipo de producto (FTTH/SSAA). Prioridad: plano explícito > u_routing.u_product."""
-    return body.get("service_type") or body.get("u_routing", {}).get("u_product", "FTTH")
+    if not isinstance(body, dict):
+        return "FTTH"
+    routing = body.get("u_routing")
+    return body.get("service_type") or (isinstance(routing, dict) and routing.get("u_product") or "FTTH")
+
+
+async def _safe_json(request) -> dict:
+    """Lee el body JSON del request; retorna {} ante cualquier error de parseo.
+
+    Protege contra bytes inválidos (Schemathesis fuzzing), JSON no-objeto, etc.
+    """
+    try:
+        data = await request.json()
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 # ─── Helpers de respuesta StandardResponse + campos legacy ───────────────────
@@ -702,7 +740,7 @@ def _build_test_app() -> FastAPI:
     @app.post("/api/Komands/v1/activation", status_code=202)
     async def service_activation(request: Request):
         _check_write_auth(request)
-        body = await request.json()
+        body = await _safe_json(request)
         ont_id = _body_ont_id(body)
 
         if ont_id == 6661:
@@ -751,7 +789,7 @@ def _build_test_app() -> FastAPI:
     @app.post("/api/Komands/v1/unsuscription", status_code=202)
     async def unsubscription(request: Request):
         _check_write_auth(request)
-        body = await request.json()
+        body = await _safe_json(request)
         ont_id = _body_ont_id(body)
 
         if ont_id == 9999:
@@ -797,7 +835,7 @@ def _build_test_app() -> FastAPI:
     async def service_modification(request: Request):
         from fastapi.responses import JSONResponse
         _check_write_auth(request)
-        body = await request.json()
+        body = await _safe_json(request)
         ont_id = _body_ont_id(body)
         mod_type = _body_mod_type(body)
         speed_profile = _body_speed_profile(body)
@@ -832,7 +870,7 @@ def _build_test_app() -> FastAPI:
     @app.post("/api/Komands/v1/reset-ont", status_code=202)
     async def reset_ont(request: Request):
         _check_write_auth(request)
-        body = await request.json()
+        body = await _safe_json(request)
         ont_id = _body_ont_id(body)
 
         if ont_id == 8888:
@@ -856,7 +894,7 @@ def _build_test_app() -> FastAPI:
     @app.post("/api/Komands/v1/device-modification", status_code=202)
     async def device_modification(request: Request):
         _check_write_auth(request)
-        body = await request.json()
+        body = await _safe_json(request)
         new_serial = _body_new_serial(body)
         ont_id = _body_ont_id(body)
 
@@ -888,7 +926,7 @@ def _build_test_app() -> FastAPI:
     @app.post("/api/Komands/v1/fiber-change", status_code=202)
     async def fiber_change(request: Request):
         _check_write_auth(request)
-        body = await request.json()
+        body = await _safe_json(request)
         new_ont_id = _body_new_ont_id(body)
 
         if new_ont_id == 9000:
@@ -1048,7 +1086,7 @@ def _build_test_app() -> FastAPI:
     # ── POST /internal/complete — simula worker terminado → callback ──────────
     @app.post("/api/Komands/v1/internal/complete", status_code=200)
     async def complete_operation(request: Request):
-        body = await request.json()
+        body = await _safe_json(request)
         txn_id = body.get("txn_id", _FIXED_UUID)
         status = body.get("status", "COMPLETED")
         callback_url = body.get("callback_url")
@@ -1164,7 +1202,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
-        body = await request.json()
+        body = await _safe_json(request)
         product = _body_product(body)
 
         if not state.is_enabled(vno_id, product):
@@ -1233,7 +1271,7 @@ def _build_flagged_app(state: AppState) -> FastAPI:
         else:
             raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
 
-        body = await request.json()
+        body = await _safe_json(request)
         product = _body_product(body)
 
         if not state.is_enabled(vno_id, product):
