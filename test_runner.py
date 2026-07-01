@@ -384,9 +384,10 @@ async def api_health():
         "bp_dir_exists": BP_DIR.exists(),
         "bp_dir_writable": False,
         "env_vars": {
-            "SN_CONSUMER_KEY": bool(os.environ.get("SN_CONSUMER_KEY")),
-            "SN_CONSUMER_SECRET": bool(os.environ.get("SN_CONSUMER_SECRET")),
-            "APIM_URL": os.environ.get("APIM_URL", "(default)"),
+            "SN_CONSUMER_KEY": "NOT_SET" if "SN_CONSUMER_KEY" not in os.environ else ("EMPTY" if not os.environ["SN_CONSUMER_KEY"] else f"SET(len={len(os.environ['SN_CONSUMER_KEY'])})"),
+            "SN_CONSUMER_SECRET": "NOT_SET" if "SN_CONSUMER_SECRET" not in os.environ else ("EMPTY" if not os.environ["SN_CONSUMER_SECRET"] else f"SET(len={len(os.environ['SN_CONSUMER_SECRET'])})"),
+            "APIM_URL": "NOT_SET" if "APIM_URL" not in os.environ else os.environ["APIM_URL"],
+            "all_custom_keys": [k for k in os.environ if k.startswith(("SN_", "APIM_", "DEV_", "VNO"))],
         },
         "env_files": {},
         "write_test": None,
