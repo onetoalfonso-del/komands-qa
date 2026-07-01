@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_parse_service_port_index_sin_index_lanza_error
+INFO     komands.qa:conftest.py:43       La respuesta de la OLT no contiene la línea del INDEX.

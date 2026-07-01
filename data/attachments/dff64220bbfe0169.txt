@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [RBAC-09]  test_rbac09_operator_no_puede_crear_usuarios
+INFO     komands.qa:conftest.py:43       Usuario con rol OPERATOR intenta POST /users.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/users "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/users
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"email": "intruso@onnet.cl", "role": "ADMIN"}
+INFO     komands.qa:conftest.py:183   << 403  {"detail": "Rol 'OPERATOR' no tiene permiso 'users:write'"}

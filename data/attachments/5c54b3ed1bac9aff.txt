@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ssaa_grupo_a_usa_cvlan_dato
+INFO     komands.qa:conftest.py:43       Activación Nokia SSAA grupo A.

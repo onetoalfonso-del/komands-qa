@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ftth_activation_voip_qos_q4_p5
+INFO     komands.qa:conftest.py:43       Activación Nokia FTTH con servicio VoIP.

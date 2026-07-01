@@ -1,0 +1,15 @@
+
+
+  -------------------------------------------------------
+  CICLO DE VIDA COMPLETADO  |  Modo: MOCK (local)
+  -------------------------------------------------------
+  ONT     : ALCL00QA0001 -> ALCL00QA0002 (post-swap)
+  OLT     : OLT-SAN-001  |  Slot 1  PON 0  ID 99
+  VNO     : DTV
+  -------------------------------------------------------
+  txn Alta         : 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  txn Modificacion : 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  txn Cambio ONT   : 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  txn Baja         : 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  -------------------------------------------------------
+

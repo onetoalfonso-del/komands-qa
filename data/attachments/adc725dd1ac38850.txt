@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [OPS-02]  test_ops02_estado_devuelve_operacion_correcta[unsubscription-unsubscription]
+INFO     komands.qa:conftest.py:43       El campo operation en la respuesta refleja el endpoint llamado.
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/unsubscription/3fa85f64-5717-4562-b3fc-2c963f66afa6 "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/unsubscription/3fa85f64-5717-4562-b3fc-2c963f66afa6
+INFO     komands.qa:conftest.py:183   << 200  {"txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "operation": "unsubscription", "status": "COMPLETED", "result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "0", "u_return_code_desc": "Operación completada", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "COMPLETED"}, "steps": []}

@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_swap_con_services_genera_service_ports
+INFO     komands.qa:conftest.py:43       Swap Huawei FTTH con services=["INTERNET", "VOIP"].

@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [BAJ-15]  test_baj15_todos_los_vnos_pueden_dar_de_baja[TCH]
+INFO     komands.qa:conftest.py:43       Cada VNO autorizado envía una baja.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "vno_code": "TCH"}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "0", "u_return_code_desc": "Solicitud aceptada para procesamiento", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "COMPLETED"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ACCEPTED", "message": "Baja encolada"}

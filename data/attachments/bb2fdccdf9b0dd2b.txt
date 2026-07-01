@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [CAN-02]  test_can02_sin_provision_activa_cierra_orden_sin_transaccion
+INFO     komands.qa:conftest.py:43       El acceso ya no tiene provisión activa — fue dado de baja previamente.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "DTV", "external_order_id": "NO_PROVISION", "olt_name": "OLT-SAN-001", "slot": 1, "port": 3, "ont_id": 45}
+INFO     komands.qa:conftest.py:183   << 200  {"status": "NO_ACTION", "message": "Sin provisión activa — orden cerrada por ServiceNow"}

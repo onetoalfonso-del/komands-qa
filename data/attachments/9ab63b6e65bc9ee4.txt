@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ftth_activation_tres_servicios_genera_tres_bloques_qos
+INFO     komands.qa:conftest.py:43       Activación con INTERNET + VoIP + IPTV.

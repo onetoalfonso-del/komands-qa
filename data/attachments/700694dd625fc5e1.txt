@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ssaa_y_ftth_generan_comandos_distintos
+INFO     komands.qa:conftest.py:43       Mismo vendor Nokia, mismo ONT, pero producto distinto.

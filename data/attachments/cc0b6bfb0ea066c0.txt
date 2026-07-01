@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_reset_contiene_comando_reset
+INFO     komands.qa:conftest.py:43       Reset Nokia FTTH.

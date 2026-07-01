@@ -1,0 +1,4 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_e2e_05_cambio_dispositivo
+INFO     komands.qa:conftest.py:43       PASO 5 — Cambio Dispositivo (swap de ONT dañado por nuevo).
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/device-modification "HTTP/1.1 202 Accepted"

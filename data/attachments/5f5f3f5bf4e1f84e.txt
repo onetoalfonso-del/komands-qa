@@ -1,0 +1,8 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [CBK-06]  test_cbk06_callback_failed_tras_reintentos_agotados
+INFO     komands.qa:conftest.py:43       ServiceNow devuelve 503 en todos los intentos de callback.
+INFO     httpx:_client.py:1740 HTTP Request: POST https://servicenow.onnet.cl/api/komands/callback "HTTP/1.1 503 Service Unavailable"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/internal/complete "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/internal/complete
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "correlation_id": "corr-test-001", "external_order_id": "ORD-SN-TEST-001", "operation": "activation", "vno_id": "DTV", "vno_code": "DTV", "olt_name": "OLT-SAN-001", "started_at": "2026-06-09T10:00:00Z", "completed_at": "2026-06-09T10:00:45Z", "duration_ms": 1250, "steps": [], "callback_url": "https://servicenow.onnet.cl/api/komands/callback", "status": "COMPLETED", "attempt": 5, "max_attempts": 5}
+INFO     komands.qa:conftest.py:183   << 200  {"ok": false, "callback_http_status": 503, "exhausted": true, "status": "CALLBACK_FAILED"}

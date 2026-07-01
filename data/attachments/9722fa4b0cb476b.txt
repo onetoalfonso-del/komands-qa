@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_activacion_ftth_vendor_desconocido_lanza_error
+INFO     komands.qa:conftest.py:43       build_activation con vendor="cisco" y product="FTTH".

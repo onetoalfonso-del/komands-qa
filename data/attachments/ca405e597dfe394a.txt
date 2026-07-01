@@ -1,0 +1,11 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [FF-01]  test_ff01_flag_dtv_desactivado_retorna_kmd4001
+INFO     komands.qa:conftest.py:43       El flag de DTV está desactivado (como al inicio del proyecto).
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/test/feature-flags "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /test/feature-flags
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_id": "DTV", "enabled": false}
+INFO     komands.qa:conftest.py:183   << 200  {"ok": true, "vno_id": "DTV", "product": null, "enabled": false}
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/activation "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/activation
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_action": {"u_iptv": "T", "u_voz": "T", "u_gestion": "F"}, "u_product": {"u_speed_plan": "100M/20M"}}
+INFO     komands.qa:conftest.py:183   << 200  {"error": "KMD-4001", "message": "Feature flag desactivado para VNO=DTV producto=FTTH", "redirect": "blueplanet"}

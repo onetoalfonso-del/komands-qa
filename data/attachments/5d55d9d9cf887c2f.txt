@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_mod_unblock_contiene_admin_state_up
+INFO     komands.qa:conftest.py:43       Desbloqueo de servicio Nokia FTTH.

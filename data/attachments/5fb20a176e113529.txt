@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [FIB-05]  test_fib05_token_expirado_rechaza_401
+INFO     komands.qa:conftest.py:43       Token JWT expirado enviado al endpoint de cambio de fibra.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/fiber-change "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/fiber-change
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "DTV", "external_order_id": "SO-FIB-001", "current_olt_name": "OLT-SAN-001", "current_slot": 1, "current_port": 3, "current_ont_id": 45, "new_olt_name": "OLT-SAN-001", "new_slot": 1, "new_port": 4, "new_ont_id": 45, "serial_ont": "ALCLF1234567"}
+INFO     komands.qa:conftest.py:183   << 401  {"detail": "Token inválido o expirado"}

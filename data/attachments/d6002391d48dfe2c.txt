@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_mod_speed_change_contiene_line_profile_nuevo
+INFO     komands.qa:conftest.py:43       Cambio de velocidad Nokia FTTH → nuevo perfil 200M_50M.

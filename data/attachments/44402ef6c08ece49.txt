@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_baja_contiene_ont_delete
+INFO     komands.qa:conftest.py:43       Baja Huawei FTTH — eliminación del ONT.

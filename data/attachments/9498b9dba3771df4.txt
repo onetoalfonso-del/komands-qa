@@ -1,0 +1,8 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [CBK-02]  test_cbk02_operacion_fallida_callback_incluye_error_object_con_retryable
+INFO     komands.qa:conftest.py:43       Una baja falla con ONT no encontrado — callback notifica FAILED
+INFO     httpx:_client.py:1740 HTTP Request: POST https://servicenow.onnet.cl/api/komands/callback "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/internal/complete "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/internal/complete
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "correlation_id": "corr-test-001", "external_order_id": "ORD-SN-TEST-001", "operation": "deactivation", "vno_id": "DTV", "vno_code": "DTV", "olt_name": "OLT-SAN-001", "started_at": "2026-06-09T10:00:00Z", "completed_at": "2026-06-09T10:00:45Z", "duration_ms": 1250, "steps": [], "callback_url": "https://servicenow.onnet.cl/api/komands/callback", "status": "FAILED", "error_code": "KMD-2002", "error_message": "ONT no encontrado en la OLT — verificar ID en ServiceNow", "error_retryable": false}
+INFO     komands.qa:conftest.py:183   << 200  {"ok": true, "callback_http_status": 200}

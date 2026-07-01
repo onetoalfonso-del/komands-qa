@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [RBAC-07]  test_rbac07_viewer_no_puede_ver_audit_log
+INFO     komands.qa:conftest.py:43       Usuario con rol VIEWER intenta GET /audit-log.
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/audit-log "HTTP/1.1 403 Forbidden"
+INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/audit-log
+INFO     komands.qa:conftest.py:183   << 403  {"detail": "Rol 'VIEWER' no tiene permiso 'audit:read'"}
