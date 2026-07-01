@@ -376,19 +376,24 @@ async def api_run_parallel(request: Request):
                  "Connection": "keep-alive"})
 
 
-_CONFIG_FILE = Path("/tmp/komands-apim.json")
+_CONFIG_FILE      = Path("/tmp/komands-apim.json")
+_BUILD_CONFIG_FILE = ROOT / "apim-config.json"
 
 def _load_persisted_config():
-    """Carga credenciales guardadas en /tmp/ y las inyecta en os.environ."""
-    if _CONFIG_FILE.exists():
-        try:
-            data = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
-            if data.get("ck") and data.get("cs"):
-                os.environ["SN_CONSUMER_KEY"] = data["ck"]
-                os.environ["SN_CONSUMER_SECRET"] = data["cs"]
-                return True
-        except Exception:
-            pass
+    """Carga credenciales desde config de build (Dockerfile ARG) o runtime (/tmp/)."""
+    for path in [_CONFIG_FILE, _BUILD_CONFIG_FILE]:
+        if path.exists():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if data.get("ck") and data.get("cs"):
+                    os.environ["SN_CONSUMER_KEY"] = data["ck"]
+                    os.environ["SN_CONSUMER_SECRET"] = data["cs"]
+                    if data.get("url"):
+                        os.environ["APIM_URL"] = data["url"]
+                    print(f"  [env] Credenciales cargadas desde: {path.name}")
+                    return True
+            except Exception:
+                pass
     return False
 
 @app.post("/api/config")
