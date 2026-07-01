@@ -934,8 +934,11 @@ def _generate_env_files():
     ck  = os.environ.get("SN_CONSUMER_KEY")
     cs  = os.environ.get("SN_CONSUMER_SECRET")
     url = os.environ.get("APIM_URL", "https://epreapi.onnetfibra.cl")
+    print(f"  [env] SN_CONSUMER_KEY={'SET' if ck else 'NO ENCONTRADA'}")
+    print(f"  [env] SN_CONSUMER_SECRET={'SET' if cs else 'NO ENCONTRADA'}")
     if not (ck and cs):
-        return  # sin credenciales → modo local, los archivos deben existir ya
+        print("  [env] ADVERTENCIA: sin credenciales APIM → los archivos .postman_environment.json deben existir localmente")
+        return
 
     def _write(path, name, idvno, access_id, serial, speed, addr_id, addr_mcd):
         data = {
