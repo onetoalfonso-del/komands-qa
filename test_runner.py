@@ -931,6 +931,7 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 # ─── Generar env files desde variables de entorno (Railway/producción) ────────
 def _generate_env_files():
     """Si existen las env vars, genera los archivos .postman_environment.json."""
+    print(f"  [env] BP_DIR = {BP_DIR}  (existe: {BP_DIR.exists()})")
     ck  = os.environ.get("SN_CONSUMER_KEY")
     cs  = os.environ.get("SN_CONSUMER_SECRET")
     url = os.environ.get("APIM_URL", "https://epreapi.onnetfibra.cl")
@@ -941,6 +942,10 @@ def _generate_env_files():
         return
 
     def _write(path, name, idvno, access_id, serial, speed, addr_id, addr_mcd):
+        try:
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
         data = {
             "id": f"env-vno{idvno}-generated",
             "name": name,
@@ -962,26 +967,32 @@ def _generate_env_files():
         Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"  [env] generado: {Path(path).name}")
 
-    _write(
-        path     = str(BP_DIR / "VnoB1_vnoid03 PRE.postman_environment.json"),
-        name     = "VnoB1_vnoid03 PRE",
-        idvno    = "03",
-        access_id= os.environ.get("VNO03_ACCESS_ID",  "03-TESTPREPROD-DIR02873675-8"),
-        serial   = os.environ.get("VNO03_SERIAL",     "SCOM13032001"),
-        speed    = os.environ.get("VNO03_SPEED_PLAN", "940/940"),
-        addr_id  = os.environ.get("VNO03_ADDRESS_ID", "DIR02873638"),
-        addr_mcd = os.environ.get("VNO03_ADDRESS_MCD","OSP"),
-    )
-    _write(
-        path     = str(BP_DIR / "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json"),
-        name     = "VnoB1_vnoid02 PRE ClaroVTR",
-        idvno    = "02",
-        access_id= os.environ.get("VNO02_ACCESS_ID",  "02-TESTPREPROD-DIR02803674-2"),
-        serial   = os.environ.get("VNO02_SERIAL",     "SCOM13022002"),
-        speed    = os.environ.get("VNO02_SPEED_PLAN", "600/600"),
-        addr_id  = os.environ.get("VNO02_ADDRESS_ID", "DIR02803638"),
-        addr_mcd = os.environ.get("VNO02_ADDRESS_MCD","OSP"),
-    )
+    try:
+        _write(
+            path     = str(BP_DIR / "VnoB1_vnoid03 PRE.postman_environment.json"),
+            name     = "VnoB1_vnoid03 PRE",
+            idvno    = "03",
+            access_id= os.environ.get("VNO03_ACCESS_ID",  "03-TESTPREPROD-DIR02873675-8"),
+            serial   = os.environ.get("VNO03_SERIAL",     "SCOM13032001"),
+            speed    = os.environ.get("VNO03_SPEED_PLAN", "940/940"),
+            addr_id  = os.environ.get("VNO03_ADDRESS_ID", "DIR02873638"),
+            addr_mcd = os.environ.get("VNO03_ADDRESS_MCD","OSP"),
+        )
+    except Exception as e:
+        print(f"  [env] ERROR generando VNO-03: {e}")
+    try:
+        _write(
+            path     = str(BP_DIR / "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json"),
+            name     = "VnoB1_vnoid02 PRE ClaroVTR",
+            idvno    = "02",
+            access_id= os.environ.get("VNO02_ACCESS_ID",  "02-TESTPREPROD-DIR02803674-2"),
+            serial   = os.environ.get("VNO02_SERIAL",     "SCOM13022002"),
+            speed    = os.environ.get("VNO02_SPEED_PLAN", "600/600"),
+            addr_id  = os.environ.get("VNO02_ADDRESS_ID", "DIR02803638"),
+            addr_mcd = os.environ.get("VNO02_ADDRESS_MCD","OSP"),
+        )
+    except Exception as e:
+        print(f"  [env] ERROR generando VNO-02: {e}")
 
     # Environment DEV (Endpoints Kommand Dev + T7)
     dev_url = os.environ.get("DEV_BASE_URL", "https://onf-komands.cl:9016")
