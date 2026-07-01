@@ -875,6 +875,81 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 </body>
 </html>"""
 
+# ─── Generar env files desde variables de entorno (Railway/producción) ────────
+def _generate_env_files():
+    """Si existen las env vars, genera los archivos .postman_environment.json."""
+    ck  = os.environ.get("SN_CONSUMER_KEY")
+    cs  = os.environ.get("SN_CONSUMER_SECRET")
+    url = os.environ.get("APIM_URL", "https://epreapi.onnetfibra.cl")
+    if not (ck and cs):
+        return  # sin credenciales → modo local, los archivos deben existir ya
+
+    def _write(path, name, idvno, access_id, serial, speed, addr_id, addr_mcd):
+        data = {
+            "id": f"env-vno{idvno}-generated",
+            "name": name,
+            "values": [
+                {"key": "consumerKey",    "value": ck,       "type": "default", "enabled": True},
+                {"key": "consumerSecret", "value": cs,       "type": "default", "enabled": True},
+                {"key": "Token",          "value": "",       "type": "default", "enabled": True},
+                {"key": "authorization",  "value": "",       "type": "default", "enabled": True},
+                {"key": "apimURL",        "value": url,      "type": "default", "enabled": True},
+                {"key": "idvno",          "value": idvno,    "type": "default", "enabled": True},
+                {"key": "accessId",       "value": access_id,"type": "default", "enabled": True},
+                {"key": "serial",         "value": serial,   "type": "default", "enabled": True},
+                {"key": "speedPlan",      "value": speed,    "type": "default", "enabled": True},
+                {"key": "addressId",      "value": addr_id,  "type": "default", "enabled": True},
+                {"key": "addressMcd",     "value": addr_mcd, "type": "default", "enabled": True},
+            ],
+            "_postman_variable_scope": "environment",
+        }
+        Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"  [env] generado: {Path(path).name}")
+
+    _write(
+        path     = str(BP_DIR / "VnoB1_vnoid03 PRE.postman_environment.json"),
+        name     = "VnoB1_vnoid03 PRE",
+        idvno    = "03",
+        access_id= os.environ.get("VNO03_ACCESS_ID",  "03-TESTPREPROD-DIR02873675-8"),
+        serial   = os.environ.get("VNO03_SERIAL",     "SCOM13032001"),
+        speed    = os.environ.get("VNO03_SPEED_PLAN", "940/940"),
+        addr_id  = os.environ.get("VNO03_ADDRESS_ID", "DIR02873638"),
+        addr_mcd = os.environ.get("VNO03_ADDRESS_MCD","OSP"),
+    )
+    _write(
+        path     = str(BP_DIR / "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json"),
+        name     = "VnoB1_vnoid02 PRE ClaroVTR",
+        idvno    = "02",
+        access_id= os.environ.get("VNO02_ACCESS_ID",  "02-TESTPREPROD-DIR02803674-2"),
+        serial   = os.environ.get("VNO02_SERIAL",     "SCOM13022002"),
+        speed    = os.environ.get("VNO02_SPEED_PLAN", "600/600"),
+        addr_id  = os.environ.get("VNO02_ADDRESS_ID", "DIR02803638"),
+        addr_mcd = os.environ.get("VNO02_ADDRESS_MCD","OSP"),
+    )
+
+    # Environment DEV (Endpoints Kommand Dev + T7)
+    dev_url = os.environ.get("DEV_BASE_URL", "https://onf-komands.cl:9016")
+    dev_cid = os.environ.get("DEV_CLIENT_ID")
+    dev_csc = os.environ.get("DEV_CLIENT_SECRET")
+    if dev_cid and dev_csc:
+        dev_data = {
+            "id": "env-dev-generated",
+            "name": "KOMANDs DEV",
+            "values": [
+                {"key": "base_url",     "value": dev_url, "type": "default", "enabled": True},
+                {"key": "client_id",    "value": dev_cid, "type": "default", "enabled": True},
+                {"key": "client_secret","value": dev_csc, "type": "default", "enabled": True},
+                {"key": "scope",        "value": os.environ.get("DEV_SCOPE","komands:provision komands:query"), "type": "default", "enabled": True},
+                {"key": "callback_url", "value": os.environ.get("DEV_CALLBACK_URL",""), "type": "default", "enabled": True},
+                {"key": "u_id",         "value": os.environ.get("DEV_U_ID","NCOR_OLT_3_1_1_3"), "type": "default", "enabled": True},
+            ],
+            "_postman_variable_scope": "environment",
+        }
+        dev_path = COLL_DIR / "newman-environment-dev.json"
+        dev_path.write_text(json.dumps(dev_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"  [env] generado: {dev_path.name}")
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     try:
@@ -883,15 +958,22 @@ if __name__ == "__main__":
         print("Instalar: pip install fastapi \"uvicorn[standard]\"")
         sys.exit(1)
 
+    _generate_env_files()
+
+    port    = int(os.environ.get("PORT", 8001))
+    is_prod = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RENDER"))
+    host    = "0.0.0.0" if is_prod else "127.0.0.1"
+
     print("=" * 50)
     print("  KOMANDs QA Test Runner")
-    print("  URL: http://localhost:8001")
+    print(f"  URL: http://{'0.0.0.0' if is_prod else 'localhost'}:{port}")
     print("  Ctrl+C para detener")
     print("=" * 50)
 
-    def _open():
-        time.sleep(1.5)
-        webbrowser.open("http://localhost:8001")
+    if not is_prod:
+        def _open():
+            time.sleep(1.5)
+            webbrowser.open(f"http://localhost:{port}")
+        threading.Thread(target=_open, daemon=True).start()
 
-    threading.Thread(target=_open, daemon=True).start()
-    uvicorn.run(app, host="127.0.0.1", port=8001, log_level="warning")
+    uvicorn.run(app, host=host, port=port, log_level="warning")
