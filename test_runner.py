@@ -638,7 +638,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
   <aside class="sb">
     <div class="sb-head">
       <div class="sb-logo">
-        <span class="k-text">K</span><span class="k-toggle"></span><span class="k-text">MANDs</span><span class="k-suffix">s</span>
+        <span class="k-text">K</span><span class="k-toggle"></span><span class="k-text">MAND</span><span class="k-suffix">s</span>
       </div>
       <div class="sb-tagline">Network Command <span>Administrator</span></div>
       <div class="sb-sub">QA Test Runner</div>
