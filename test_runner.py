@@ -376,6 +376,47 @@ async def api_run_parallel(request: Request):
                  "Connection": "keep-alive"})
 
 
+@app.get("/api/health")
+async def api_health():
+    import traceback
+    status = {
+        "bp_dir": str(BP_DIR),
+        "bp_dir_exists": BP_DIR.exists(),
+        "bp_dir_writable": False,
+        "env_vars": {
+            "SN_CONSUMER_KEY": bool(os.environ.get("SN_CONSUMER_KEY")),
+            "SN_CONSUMER_SECRET": bool(os.environ.get("SN_CONSUMER_SECRET")),
+            "APIM_URL": os.environ.get("APIM_URL", "(default)"),
+        },
+        "env_files": {},
+        "write_test": None,
+        "generate_result": None,
+    }
+    # Test write permission
+    test_path = BP_DIR / "_write_test.tmp"
+    try:
+        BP_DIR.mkdir(parents=True, exist_ok=True)
+        test_path.write_text("ok")
+        test_path.unlink()
+        status["bp_dir_writable"] = True
+    except Exception as e:
+        status["write_test"] = str(e)
+    # Try generating env files
+    try:
+        _generate_env_files()
+        status["generate_result"] = "ok"
+    except Exception as e:
+        status["generate_result"] = str(e)
+    # Check each env file
+    for fname in [
+        "VnoB1_vnoid03 PRE.postman_environment.json",
+        "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json",
+    ]:
+        p = BP_DIR / fname
+        status["env_files"][fname] = p.exists()
+    return JSONResponse(status)
+
+
 @app.get("/api/report/{suite_id}")
 async def api_report(suite_id: str):
     suite = SUITE_MAP.get(suite_id)
