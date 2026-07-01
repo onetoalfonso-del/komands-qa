@@ -42,6 +42,11 @@ collection Kommand/newman-environment-dev.json
 reporte*.html
 reporte-ci.html
 
+# Allure — resultados e historial (se publican en GitHub Pages)
+allure-results/
+allure-report/
+allure-history/
+
 # Logs de ejecución
 logs/
 

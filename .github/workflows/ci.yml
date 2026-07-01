@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: write   # necesario para publicar en gh-pages
+
 jobs:
   tests:
     name: Tests automáticos
@@ -29,13 +32,24 @@ jobs:
       - name: Ejecutar suite completa
         run: |
           pytest tests/ \
+            --ignore=tests/contract \
             --tb=short \
             --cov=komands \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
+            --alluredir=allure-results \
             --html=reporte-ci.html \
             --self-contained-html \
             -q
+
+      - name: Ejecutar T1-C — Contrato OpenAPI (Schemathesis)
+        run: |
+          pytest tests/contract/ \
+            --tb=short \
+            --no-cov \
+            --alluredir=allure-results \
+            -q
+        continue-on-error: true
 
       - name: Análisis SonarCloud
         uses: SonarSource/sonarqube-scan-action@v5.0.0
@@ -46,7 +60,7 @@ jobs:
           SONAR_HOST_URL: https://sonarcloud.io
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Publicar reporte HTML
+      - name: Publicar reporte HTML (pytest-html)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -61,6 +75,23 @@ jobs:
           name: cobertura
           path: coverage.xml
           retention-days: 30
+
+      - name: Generar Allure Report
+        if: always()
+        uses: simple-elf/allure-report-action@v1.9
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          allure_history: allure-history
+          keep_reports: 20
+
+      - name: Publicar Allure en GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
 
   resumen:
     name: Resumen de resultados
