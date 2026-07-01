@@ -252,7 +252,9 @@ async def api_run(suite_id: str, request: Request):
 
         req = suite.get("requires")
         if req and not Path(req).exists():
-            msg = f"Archivo no encontrado: {req}\nCopia el archivo de entorno y vuelve a ejecutar."
+            _generate_env_files()
+        if req and not Path(req).exists():
+            msg = f"Archivo no encontrado: {req}\nVerifica las variables de entorno en Railway."
             yield f"data: {json.dumps({'e':'error','t':msg})}\n\n"
             return
 
@@ -324,7 +326,9 @@ async def api_run_parallel(request: Request):
         for s, label, _ in to_run:
             req = s.get("requires")
             if req and not Path(req).exists():
-                yield f"data: {json.dumps({'e':'error','t':f'[{label}] Archivo no encontrado: {req}'})}\n\n"
+                _generate_env_files()
+            if req and not Path(req).exists():
+                yield f"data: {json.dumps({'e':'error','t':f'[{label}] Archivo no encontrado: {req}. Verifica las variables SN_CONSUMER_KEY y SN_CONSUMER_SECRET en Railway.'})}\n\n"
                 return
 
         q: asyncio.Queue = asyncio.Queue()
