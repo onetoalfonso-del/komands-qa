@@ -367,7 +367,11 @@ async def api_run_parallel(request: Request):
 
         await asyncio.gather(*tasks, return_exceptions=True)
         code = max(exit_codes) if exit_codes else 0
-        yield f"data: {json.dumps({'e':'done','code':code,'passed':passed,'failed':failed,'requests':requests,'has_report':False,'report_id':'apim-parallel'})}\n\n"
+        rp03 = SUITE_MAP.get("apim-vno03", {}).get("report", "")
+        rp02 = SUITE_MAP.get("apim-vno02", {}).get("report", "")
+        has_rp = bool((rp03 and Path(rp03).exists()) or (rp02 and Path(rp02).exists()))
+        rp_id = "apim-vno03" if (rp03 and Path(rp03).exists()) else "apim-vno02"
+        yield f"data: {json.dumps({'e':'done','code':code,'passed':passed,'failed':failed,'requests':requests,'has_report':has_rp,'report_id':rp_id})}\n\n"
         await asyncio.sleep(0.15)
 
     return StreamingResponse(sse(), media_type="text/event-stream",
