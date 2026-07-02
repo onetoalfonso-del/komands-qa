@@ -70,6 +70,31 @@ class TestConsultaAcceso:
         for campo in ["access_id", "ont_serial", "status", "olt_name", "source"]:
             assert campo in data, f"Campo '{campo}' ausente en la respuesta"
 
+    # QRY-07 | G-05 / PV-QRY-002 (source=live)
+    def test_qry07_acceso_source_live_devuelve_200(self, test_client, admin_token):
+        """
+        ESCENARIO: Consulta de acceso con source=live (PV-QRY-002).
+
+        Con source=live Komands dispara SSH a la OLT y retorna el estado
+        en tiempo real, sin pasar por caché Redis. Es más lento que cache
+        pero garantiza datos actualizados. El mock devuelve source=live
+        en la respuesta para confirmar que el parámetro fue procesado.
+
+        Resultado esperado: HTTP 200 con campo source == "live".
+        """
+        response = test_client.get(
+            "/api/Komands/v1/access/ACC-DTV-00123?source=live",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200, (
+            f"source=live debería retornar 200, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+        data = response.json()
+        assert data.get("source") == "live", (
+            f"Se esperaba source=live, se obtuvo: {data.get('source')}"
+        )
+
     # QRY-03 | PV-QRY-003
     def test_qry03_acceso_inexistente_devuelve_404(self, test_client, admin_token):
         """

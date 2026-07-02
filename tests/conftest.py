@@ -996,12 +996,13 @@ def _build_test_app() -> FastAPI:
         _require_permission(payload, "transaction:read")
         if access_id == "NOTFOUND":
             raise HTTPException(status_code=404, detail="error_code=KMD-2002")
+        source = request.query_params.get("source", "cache")
         return {
             "access_id": access_id,
             "ont_serial": "ALCLF1234567",
             "status": "ACTIVE",
             "olt_name": "OLT-SAN-001",
-            "source": "cache",
+            "source": source,
         }
 
     # ── GET /port-occupancy (mock-only) ───────────────────────────────────────

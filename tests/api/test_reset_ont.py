@@ -76,6 +76,29 @@ class TestResetValido:
         )
         assert response.status_code == 202
 
+    # RST-22 | G-04 / PV-RST-002 — Reset Huawei FTTH VNO=ENTEL (gap explícito del plan)
+    def test_rst22_huawei_ftth_entel_devuelve_202(self, test_client):
+        """
+        ESCENARIO: Reset Huawei FTTH — VNO Entel (PV-RST-002).
+
+        El plan distingue este caso explícitamente: RST-02 usa DTV/Huawei,
+        pero PV-RST-002 especifica ENTEL/Huawei como caso de prueba propio.
+        Los clientes Entel en OLTs Huawei (OLT-SCL-011) deben poder resetear.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        response = test_client.post(
+            "/api/Komands/v1/reset-ont",
+            json={**RESET_ONT_HUAWEI_VALID, "vno_code": "ENTEL",
+                  "olt_name": "OLT-SCL-011"},
+            headers={"Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"},
+        )
+        assert response.status_code == 202, (
+            f"Reset Huawei ENTEL debería retornar 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+
     # RST-04 | PV-RST-282
     def test_rst04_nokia_ftth_entel_devuelve_202(self, test_client):
         """

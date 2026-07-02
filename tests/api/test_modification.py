@@ -36,6 +36,8 @@ from tests.mocks.payloads import (
     MODIFICATION_ADD_SERVICE_VOIP_HUAWEI,
     MODIFICATION_REMOVE_SERVICE_HUAWEI,
     MODIFICATION_MIGRATE_FTTH_SSAA,
+    MODIFICATION_SPEED_CHANGE_NOKIA_DOWNGRADE,
+    MODIFICATION_ADD_SERVICE_IPTV_NOKIA,
 )
 
 pytestmark = pytest.mark.postventa
@@ -631,6 +633,50 @@ class TestModificacionNuevosServicios:
         )
         data = response.json()
         assert "txn_id" in data, f"txn_id ausente en remove_service Huawei: {data}"
+
+    # MOD-27 → G-02 / PV-MOD-001 (downgrade Nokia)
+    def test_mod27_nokia_speed_change_downgrade_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Reducción de velocidad Nokia FTTH — de 200M a 50M/10M (downgrade).
+
+        PV-MOD-001 distingue explícitamente upgrade y downgrade.
+        La OLT Nokia acepta ambos con el mismo comando — la diferencia es
+        solo el perfil destino (menor capacidad). El endpoint debe aceptarlo igual.
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/Komands/v1/modification",
+            json=MODIFICATION_SPEED_CHANGE_NOKIA_DOWNGRADE,
+            headers=auth_headers,
+        )
+        assert response.status_code == 202, (
+            f"Downgrade Nokia debería retornar 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+        assert "txn_id" in response.json()
+
+    # MOD-28 → G-03 / PV-MOD-006 (add_service IPTV Nokia)
+    def test_mod28_add_service_iptv_nokia_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Agregar servicio IPTV a acceso Nokia FTTH existente (PV-MOD-006).
+
+        A diferencia de SERVICE_REMOVE (MOD-22) que Nokia no soporta,
+        ADD_SERVICE con u_iptv="T" reconfigura la VLAN de IPTV en el
+        service-port Nokia existente sin crear un port nuevo.
+
+        Resultado esperado: HTTP 202.
+        """
+        response = test_client.post(
+            "/api/Komands/v1/modification",
+            json=MODIFICATION_ADD_SERVICE_IPTV_NOKIA,
+            headers=auth_headers,
+        )
+        assert response.status_code == 202, (
+            f"Add service IPTV Nokia debería retornar 202, se obtuvo {response.status_code}. "
+            f"Body: {response.text}"
+        )
+        assert "txn_id" in response.json()
 
     # MOD-26 → PV-MOD-009
     def test_mod26_migrate_ftth_ssaa_devuelve_202(self, test_client):

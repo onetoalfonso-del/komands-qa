@@ -672,6 +672,19 @@ MODIFICATION_SERVICE_REMOVE_VOIP = {
     },
 }
 
+# Downgrade de velocidad Nokia (G-02 / PV-MOD-001 off-path)
+MODIFICATION_SPEED_CHANGE_NOKIA_DOWNGRADE = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_product": {"u_speed_plan": "50M/10M"},
+}
+
+# Add service IPTV Nokia (G-03 / PV-MOD-006)
+MODIFICATION_ADD_SERVICE_IPTV_NOKIA = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_action": {"u_type": "ADD_SERVICE", "u_iptv": "T"},
+    "u_product": {},
+}
+
 # ─── Centinelas — errores de negocio en modificación ──────────────────────────
 #
 # u_routing.u_ontid="8888" → ONT no encontrado                        (MOD-18/19)

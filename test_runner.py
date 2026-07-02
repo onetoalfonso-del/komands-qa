@@ -33,8 +33,8 @@ NEWMAN = shutil.which("newman") or "newman"
 SUITES = [
     {
         "id": "t1", "group": "disponible",
-        "label": "T1 — Spec API + Regresión (mock)",
-        "desc":  "435 casos pytest · mock en memoria",
+        "label": "T1 — Spec API + Regresión",
+        "desc":  "435 casos pytest",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "--color=no", "--no-header", "-q",
                   "--ignore=tests/integration",
@@ -53,7 +53,7 @@ SUITES = [
     },
     {
         "id": "t2", "group": "disponible",
-        "label": "T2 — Comandos CLI (mock)",
+        "label": "T2 — Comandos CLI",
         "desc":  "Nokia/Huawei · comandos CLI",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "-k", "activation or cli or command",
@@ -64,7 +64,7 @@ SUITES = [
     },
     {
         "id": "t3", "group": "disponible",
-        "label": "T3 — Respuesta OLT (mock)",
+        "label": "T3 — Respuesta OLT",
         "desc":  "Parseo Nokia + INDEX Huawei",
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "-k", "olt or parsing or response or operation_status",
@@ -141,7 +141,7 @@ SUITES = [
     },
     {
         "id": "t7", "group": "disponible",
-        "label": "T7 — Seguridad OWASP (real)",
+        "label": "T7 — Seguridad OWASP",
         "desc":  "JWT · Headers · Métodos HTTP · onf-komands.cl:9016",
         "cmd":   [NEWMAN, "run",
                   "KOMANDs Security Tests v1.0.postman_collection.json",
@@ -153,6 +153,16 @@ SUITES = [
         "cwd":   str(COLL_DIR),
         "report": str(COLL_DIR / "reporte_seguridad_t7.html"),
         "requires": None,
+    },
+    {
+        "id": "t5", "group": "bloqueado",
+        "label": "T5 — Base de Datos PostgreSQL",
+        "desc":  "transaction_listener · audit_log · UUID únicos",
+        "blocker": "Requiere PostgreSQL DEV con schema Komands desplegado",
+        "cmd":   [PY, "-u", "-m", "pytest", "tests/api/test_database.py", "-v",
+                  "--tb=short", "--color=no", "--no-header",
+                  "--html=reporte_t5.html", "--self-contained-html"],
+        "cwd":   str(ROOT), "report": str(ROOT / "reporte_t5.html"), "requires": None,
     },
     {
         "id": "t4", "group": "bloqueado",
