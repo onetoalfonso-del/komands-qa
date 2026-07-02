@@ -329,7 +329,29 @@ async def pon_transfer(request: Request):
     return _ok("Traspaso PON encolado")
 
 
-# ─── 08 Cancelación ──────────────────────────────────────────────────────────
+# ─── 09 Reset ONT ────────────────────────────────────────────────────────────
+
+@app.post("/api/Komands/v1/reset-ont", status_code=202)
+async def reset_ont(request: Request):
+    _require_provision(_decode(request))
+    body = await request.json()
+    ont_id = _ont_id(body)
+
+    if ont_id == 8888:
+        return _err("10", "ONT no encontrada en la OLT", "KMD-2002")
+
+    return _ok("Reset ONT encolado")
+
+
+@app.get("/api/Komands/v1/reset-ont/{op_uuid}")
+async def get_reset_ont_status(op_uuid: str, request: Request):
+    _require_query(_decode(request))
+    if op_uuid == "00000000-0000-0000-0000-000000000000":
+        raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+    return _op_status(op_uuid, "reset-ont")
+
+
+# ─── 10 Cancelación ──────────────────────────────────────────────────────────
 
 @app.post("/api/Komands/v1/cancel-order", status_code=202)
 async def cancel_order(request: Request):

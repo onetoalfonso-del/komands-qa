@@ -942,6 +942,11 @@ def _build_test_app() -> FastAPI:
         _check_write_auth(request)
         return _ok_response(msg="Transferencia PON encolada")
 
+    @app.post("/api/Komands/v1/reset-ont", status_code=202)
+    async def reset_ont(request: Request):
+        _check_write_auth(request)
+        return _ok_response(msg="Reset ONT encolado")
+
     # ── Portal web — endpoints con RBAC por rol ───────────────────────────────
 
     @app.get("/api/Komands/v1/transaction/{txn_id_path}")
@@ -1082,6 +1087,14 @@ def _build_test_app() -> FastAPI:
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "pon-transfer")
+
+    @app.get("/api/Komands/v1/reset-ont/{op_uuid}")
+    async def get_reset_ont_status(op_uuid: str, request: Request):
+        payload = _decode_portal_token(request)
+        _require_permission(payload, "transaction:read")
+        if op_uuid == "00000000-0000-0000-0000-000000000000":
+            raise HTTPException(status_code=404, detail="error_code=KMD-2003")
+        return _operation_status_response(op_uuid, "reset-ont")
 
     # ── POST /internal/complete — simula worker terminado → callback ──────────
     @app.post("/api/Komands/v1/internal/complete", status_code=200)
