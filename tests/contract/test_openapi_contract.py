@@ -90,6 +90,9 @@ _schema = (
 )
 
 
+# ─── Códigos documentados en AnexoH v2.2.3 ────────────────────────────────────
+_ALLOWED_CODES = {200, 202, 400, 401, 403, 404, 409, 422}
+
 # ─── Test ─────────────────────────────────────────────────────────────────────
 
 @_schema.parametrize()
@@ -101,13 +104,45 @@ _schema = (
 def test_contrato_openapi(case):
     """
     ESCENARIO: Contrato OpenAPI 3.0 — AnexoH v2.2.3 — 13 endpoints funcionales
-    Resultado esperado: nunca HTTP 5xx con payload generado desde el spec.
 
-    Schemathesis genera hasta 15 combinaciones por endpoint (válidas e inválidas)
-    y verifica que ninguna provoque HTTP 500. Los 4xx son esperados para payloads
-    inválidos — eso confirma que la validación funciona.
+    Genera payloads desde el spec automáticamente y verifica que el servidor
+    no retorne errores internos ni respuestas fuera del contrato documentado.
+
+    Resultado esperado (mock — CI/Railway):
+      - Nunca HTTP 5xx con payload conforme al spec
+      - HTTP 202 Accepted para POST exitosos
+
+    Resultado esperado (servidor real — KOMANDS_TEST_URL configurado):
+      - Código de respuesta dentro del rango documentado en AnexoH v2.2.3:
+          202  Accepted         — operación encolada correctamente
+          400  Bad Request      — payload inválido o campo requerido ausente
+          401  Unauthorized     — token ausente, expirado o inválido
+          403  Forbidden        — VNO sin permisos sobre el recurso
+          404  Not Found        — ONT o recurso no existe
+          409  Conflict         — operación duplicada (idempotencia)
+          422  Unprocessable    — datos semánticamente incorrectos
+          NUNCA 5xx             — cualquier 5xx indica defecto en el servidor
+      - Content-Type: application/json en toda respuesta
     """
     case.headers = {**(case.headers or {}), **_required_headers()}
-    # Mock mode: solo verifica que no haya 5xx (el mock no valida headers ni schemas).
-    # Servidor real: quitar 'checks=' para activar todos los checks del spec.
-    case.call_and_validate(checks=[not_a_server_error])
+
+    if _REAL_URL:
+        response = case.call()
+
+        assert response.status_code < 500, (
+            f"\nResultado obtenido:  HTTP {response.status_code} — error interno del servidor"
+            f"\nResultado esperado:  nunca HTTP 5xx con payload conforme al spec"
+        )
+        assert response.status_code in _ALLOWED_CODES, (
+            f"\nResultado obtenido:  HTTP {response.status_code}"
+            f"\nResultado esperado:  código documentado en AnexoH v2.2.3"
+            f"\n                     202 Accepted | 400 Bad Request | 401 Unauthorized"
+            f"\n                     403 Forbidden | 404 Not Found | 409 Conflict | 422 Unprocessable"
+        )
+        ct = response.headers.get("content-type", "")
+        assert "application/json" in ct, (
+            f"\nResultado obtenido:  Content-Type: {ct!r}"
+            f"\nResultado esperado:  application/json en toda respuesta"
+        )
+    else:
+        case.call_and_validate(checks=[not_a_server_error])
