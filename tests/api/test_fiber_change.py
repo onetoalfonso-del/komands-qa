@@ -194,6 +194,53 @@ _DEST_OCCUPIED = {
 }
 
 
+# ─── FIB-08: Cross-vendor Huawei→Nokia (inverso de FIB-02) ──────────────────
+
+_CROSS_VENDOR_REVERSE = {
+    **_NOKIA,
+    "external_order_id": "SO-FIB-004",
+    "current_olt_name": "OLT-SAN-002",
+    "new_olt_name": "OLT-SAN-001",
+    "serial_ont": "485754C12345",
+}
+
+
+class TestFiberChangeCrossVendorReverso:
+    """
+    Cambio de fibra cross-vendor en sentido inverso: Huawei origen → Nokia destino.
+
+    FIB-02 cubre Nokia→Huawei. Este caso cubre el sentido contrario.
+    Ocurre cuando un cliente migra desde una OLT Huawei a una OLT Nokia
+    (por ejemplo, modernización de infraestructura en una zona).
+
+    La documentación (AnexoE §fiber-modification) especifica que Komands
+    maneja este caso internamente seleccionando el adapter correcto para
+    cada tramo: adapter Huawei para la baja en origen y adapter Nokia para
+    el alta en destino.
+    """
+
+    # FIB-08
+    def test_fib08_cross_vendor_huawei_a_nokia_acepta_y_encola(self, test_client, auth_headers):
+        """
+        ESCENARIO: Cambio de fibra cross-vendor — OLT Huawei origen (OLT-SAN-002),
+        OLT Nokia destino (OLT-SAN-001).
+
+        El cliente migra de plataforma Huawei a Nokia. Komands debe soportar
+        la combinación de fabricantes sin rechazar la solicitud: usa el adapter
+        Huawei para la baja y el adapter Nokia para el alta.
+
+        Resultado esperado: HTTP 202 con status=ACCEPTED y txn_id.
+        """
+        response = test_client.post(FIBER_CHANGE_URL, json=_CROSS_VENDOR_REVERSE, headers=auth_headers)
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data.get("status") == "ACCEPTED", (
+            f"Cross-vendor Huawei→Nokia debería retornar ACCEPTED, se obtuvo: {data.get('status')}"
+        )
+        assert data.get("txn_id"), "txn_id ausente en cambio cross-vendor Huawei→Nokia"
+
+
 @pytest.mark.mock_only
 class TestFiberChangeErrores:
     """

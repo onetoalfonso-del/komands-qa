@@ -812,6 +812,11 @@ def _build_test_app() -> FastAPI:
                                  "KMD-5020", "FAILED",
                                  "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes")
 
+        if ont_id == 6667:
+            return _err_response("115", "Fallo en paso crítico de baja — rollback ejecutado",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Paso crítico de baja Nokia falló — servicio restaurado al estado activo")
+
         cancel_sentinel = _body_cancel_sentinel(body)
         if cancel_sentinel == "NO_PROVISION":
             from fastapi.responses import JSONResponse
@@ -863,6 +868,11 @@ def _build_test_app() -> FastAPI:
             return _err_response("50", "Timeout esperando respuesta de la OLT",
                                  "KMD-5020", "FAILED",
                                  "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes")
+
+        if ont_id == 6665:
+            return _err_response("115", "Paso crítico de modificación falló — rollback ejecutado",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Modificación falló en ejecución CLI — servicio restaurado al perfil anterior")
 
         return _ok_response(msg="Modificación encolada")
 
@@ -941,6 +951,27 @@ def _build_test_app() -> FastAPI:
     async def pon_transfer(request: Request):
         _check_write_auth(request)
         return _ok_response(msg="Transferencia PON encolada")
+
+    # ── POST /fiber-modification (Reasignación puerto PON, AnexoH v2.2) ───────
+    # Sentinelas en u_routing_new.u_ontid:
+    #   5001 → puerto PON destino sin capacidad → FAILED KMD-1003
+    #   5002 → alta en destino falla tras baja exitosa en origen → ROLLED_BACK KMD-5021
+    @app.post("/api/Komands/v1/fiber-modification", status_code=202)
+    async def fiber_modification(request: Request):
+        _check_write_auth(request)
+        body = await _safe_json(request)
+        new_ont_id = _body_new_ont_id(body)
+
+        if new_ont_id == 5001:
+            return _err_response("10", "Puerto PON destino sin capacidad disponible",
+                                 "KMD-1003", "FAILED",
+                                 "Puerto PON destino sin capacidad — seleccionar otro puerto o esperar a que se libere")
+        if new_ont_id == 5002:
+            return _err_response("115", "Alta en OLT destino falló — rollback ejecutado",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Baja en origen exitosa, pero alta en destino falló — cliente restaurado en origen")
+
+        return _ok_response(msg="Modificación de fibra encolada")
 
     @app.post("/api/Komands/v1/reset-ont", status_code=202)
     async def reset_ont(request: Request):

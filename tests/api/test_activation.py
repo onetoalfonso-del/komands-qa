@@ -24,6 +24,13 @@ from tests.mocks.payloads import (
     ACTIVATION_HUAWEI_FTTH_VALID,
     ACTIVATION_HUAWEI_FTTH_WITH_IPTV,
     ACTIVATION_NOKIA_SSAA_GROUP_A,
+    ACTIVATION_NOKIA_SSAA_GROUP_AC,
+    ACTIVATION_NOKIA_SSAA_GROUP_ACD,
+    ACTIVATION_NOKIA_SSAA_GROUP_B,
+    ACTIVATION_NOKIA_SSAA_GROUP_BX,
+    ACTIVATION_NOKIA_SSAA_GROUP_C,
+    ACTIVATION_NOKIA_SSAA_GROUP_D,
+    ACTIVATION_NOKIA_SSAA_GROUP_DX,
     ACTIVATION_HUAWEI_SSAA_GROUP_A,
     ACTIVATION_INVALID_VNO,
 )
@@ -396,4 +403,176 @@ class TestActivacionMultiVNO:
 
         assert response.status_code == 202, (
             f"VNO {vno_id} recibió {response.status_code} — esperado 202"
+        )
+
+
+# ─── ACT-18 a ACT-24: SSAA Grupos B, C, D, BX, DX y combinaciones ────────────
+
+class TestActivacionSSAAGruposExtendidos:
+    """
+    Activaciones SSAA Nokia con todos los grupos comerciales definidos en HLD §11.8.
+
+    Los grupos SSAA determinan el tipo de service-port y perfil de QoS que Komands
+    debe configurar en la OLT. Cada grupo es una combinación distinta de VLAN y
+    velocidad garantizada:
+
+      B   → Internet empresarial GPON — dedicado, banda garantizada media
+      C   → L2 punto a punto GPON — para enlaces entre sedes
+      D   → Video/Streaming GPON — QoS optimizado para multicast
+      BX  → Banda asegurada XGSPON — alta velocidad garantizada (ya cubierto)
+      DX  → Best effort XGSPON — alta velocidad no garantizada
+
+    Combinaciones válidas (misma ONT, múltiples service-ports):
+      A+C     → Internet básico + L2 punto a punto (2 service-ports)
+      A+C+D   → Internet + L2 + Video (3 service-ports)
+
+    Fuente: HLD §19.2 T2 — "~320 combinaciones CLI sin OLTs", Plan QA §3.1
+    """
+
+    # ACT-18
+    def test_act18_nokia_ssaa_grupo_b_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA grupo B — internet empresarial GPON.
+
+        El grupo B configura un service-port con banda garantizada media.
+        Diferente del grupo A (básico) en el perfil de QoS y CVLAN.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_B,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupo B devolvió {response.status_code}. Body: {response.text}"
+        )
+
+    # ACT-19
+    def test_act19_nokia_ssaa_grupo_c_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA grupo C — L2 punto a punto GPON.
+
+        El grupo C es para servicios de transporte L2 entre sedes empresariales.
+        Usa una CVLAN diferente y sin QoS de consumidor final.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_C,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupo C devolvió {response.status_code}. Body: {response.text}"
+        )
+
+    # ACT-20
+    def test_act20_nokia_ssaa_grupo_d_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA grupo D — video/streaming GPON.
+
+        El grupo D configura multicast habilitado con QoS para video corporativo.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_D,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupo D devolvió {response.status_code}. Body: {response.text}"
+        )
+
+    # ACT-21
+    def test_act21_nokia_ssaa_grupo_bx_xgspon_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA grupo BX — banda asegurada XGSPON.
+
+        BX es la variante XGSPON del grupo B: misma semántica de servicio pero
+        sobre tecnología de 10G. Requiere que la OLT tenga tarjetas XGSPON.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_BX,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupo BX devolvió {response.status_code}. Body: {response.text}"
+        )
+
+    # ACT-22
+    def test_act22_nokia_ssaa_grupo_dx_xgspon_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA grupo DX — best effort XGSPON.
+
+        DX es la variante XGSPON del grupo D: velocidad alta sin garantía.
+        Usado para clientes empresariales con alto volumen pero tolerantes a jitter.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_DX,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupo DX devolvió {response.status_code}. Body: {response.text}"
+        )
+
+    # ACT-23
+    def test_act23_nokia_ssaa_grupos_ac_combo_dos_service_ports_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA con grupos A+C combinados — 2 service-ports.
+
+        Una misma ONT empresarial puede necesitar Internet básico (A) y un enlace
+        L2 punto a punto (C) simultáneamente. Komands debe configurar ambos
+        service-ports en la OLT en una sola transacción.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_AC,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupos A+C (combo) devolvió {response.status_code}. Body: {response.text}"
+        )
+
+    # ACT-24
+    def test_act24_nokia_ssaa_grupos_acd_combo_tres_service_ports_devuelve_202(self, test_client, auth_headers):
+        """
+        ESCENARIO: Activación Nokia SSAA con grupos A+C+D combinados — 3 service-ports.
+
+        Es el caso más complejo de SSAA Nokia: Internet + L2 + Video en una sola ONT.
+        Komands configura 3 service-ports con VLANs y perfiles de QoS distintos.
+        Si falla alguno de los 3 pasos, Komands hace rollback de los pasos previos.
+
+        Resultado esperado: HTTP 202.
+        """
+        from tests.conftest import _make_token
+        headers = {**auth_headers, "Authorization": f"Bearer {_make_token(vno_id='ENTEL')}"}
+        response = test_client.post(
+            "/api/Komands/v1/activation",
+            json=ACTIVATION_NOKIA_SSAA_GROUP_ACD,
+            headers=headers,
+        )
+        assert response.status_code == 202, (
+            f"SSAA Grupos A+C+D (combo 3 service-ports) devolvió {response.status_code}. Body: {response.text}"
         )

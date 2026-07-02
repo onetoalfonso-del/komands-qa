@@ -1088,3 +1088,175 @@ ACTIVATION_IDEMPOTENCY = {
     **ACTIVATION_NOKIA_FTTH_VALID,
     "u_routing": {**ACTIVATION_NOKIA_FTTH_VALID["u_routing"], "u_ontid": "46"},
 }
+
+# ─── SSAA Grupos B, C, D, DX — Nokia (T2 con mocks, HLD §19.2) ───────────────
+# Grupos empresariales SSAA:
+#   A: Internet básico      B: Internet empresarial GPON   C: L2/Punto a punto
+#   D: Video/Streaming      BX: Banda asegurada XGSPON     DX: Best effort XGSPON
+
+ACTIVATION_NOKIA_SSAA_GROUP_B = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "ENTEL",
+        "u_olt": "OLT-SCL-010",
+        "u_slot": "1",
+        "u_pon": "0",
+        "u_ontid": "6",
+        "u_product": "SSAA",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF8881111",
+        "u_slid": "SLID-SCL-B01",
+    },
+    "u_product": {"u_speed_plan": "300M/300M"},
+    "u_services_port": [
+        {"u_index": "1", "u_service": "B", "u_cvlan": "210", "u_svlan": "100"},
+    ],
+}
+
+ACTIVATION_NOKIA_SSAA_GROUP_C = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "ENTEL",
+        "u_olt": "OLT-SCL-010",
+        "u_slot": "1",
+        "u_pon": "0",
+        "u_ontid": "7",
+        "u_product": "SSAA",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF8882222",
+        "u_slid": "SLID-SCL-C01",
+    },
+    "u_product": {"u_speed_plan": "200M/200M"},
+    "u_services_port": [
+        {"u_index": "1", "u_service": "C", "u_cvlan": "202", "u_svlan": "100"},
+    ],
+}
+
+ACTIVATION_NOKIA_SSAA_GROUP_D = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "ENTEL",
+        "u_olt": "OLT-SCL-010",
+        "u_slot": "1",
+        "u_pon": "0",
+        "u_ontid": "8",
+        "u_product": "SSAA",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF8883333",
+        "u_slid": "SLID-SCL-D01",
+    },
+    "u_product": {"u_speed_plan": "200M/200M"},
+    "u_services_port": [
+        {"u_index": "1", "u_service": "D", "u_cvlan": "203", "u_svlan": "100"},
+    ],
+}
+
+ACTIVATION_NOKIA_SSAA_GROUP_DX = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "ENTEL",
+        "u_olt": "OLT-SCL-010",
+        "u_slot": "1",
+        "u_pon": "0",
+        "u_ontid": "9",
+        "u_product": "SSAA",
+        "u_technology": "XGSPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF8884444",
+        "u_slid": "SLID-SCL-DX01",
+    },
+    "u_product": {"u_speed_plan": "1G/500M"},
+    "u_services_port": [
+        {"u_index": "1", "u_service": "DX", "u_cvlan": "200", "u_svlan": "100"},
+    ],
+}
+
+# ─── POST /api/Komands/v1/fiber-modification ─────────────────────────────────
+# Cambio de puerto PON manteniendo el servicio activo del cliente.
+# u_routing_new.u_ontid="5001" → puerto PON destino sin capacidad   (FM-03)
+# u_routing_new.u_ontid="5002" → alta en destino falla → rollback   (FM-04)
+
+FIBER_MODIFICATION_NOKIA_VALID = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "DTV",
+        "u_olt": "OLT-SAN-001",
+        "u_slot": "1",
+        "u_pon": "3",
+        "u_ontid": "45",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "ALCLF1234567",
+        "u_slid": "SLID-001",
+    },
+    "u_routing_new": {
+        "u_olt": "OLT-SAN-001",
+        "u_slot": "1",
+        "u_pon": "4",
+        "u_ontid": "45",
+        "u_technology": "GPON",
+    },
+}
+
+FIBER_MODIFICATION_HUAWEI_VALID = {
+    "u_callback_url": _CB,
+    "u_routing": {
+        "u_id_vno": "DTV",
+        "u_olt": "OLT-SAN-002",
+        "u_slot": "0",
+        "u_pon": "2",
+        "u_ontid": "10",
+        "u_product": "FTTH",
+        "u_technology": "GPON",
+    },
+    "u_identification": {
+        "u_serialnumber": "485754C12345",
+        "u_slid": "SLID-H-001",
+    },
+    "u_routing_new": {
+        "u_olt": "OLT-SAN-002",
+        "u_slot": "0",
+        "u_pon": "3",
+        "u_ontid": "10",
+        "u_technology": "GPON",
+    },
+}
+
+FIBER_MODIFICATION_NO_CAPACITY = {
+    **FIBER_MODIFICATION_NOKIA_VALID,
+    "u_routing_new": {
+        **FIBER_MODIFICATION_NOKIA_VALID["u_routing_new"],
+        "u_ontid": "5001",
+    },
+}
+
+FIBER_MODIFICATION_ROLLBACK = {
+    **FIBER_MODIFICATION_NOKIA_VALID,
+    "u_routing_new": {
+        **FIBER_MODIFICATION_NOKIA_VALID["u_routing_new"],
+        "u_ontid": "5002",
+    },
+}
+
+# ─── Rollback en otras operaciones ───────────────────────────────────────────
+# u_routing.u_ontid="6665" → service-modification paso crítico → ROLLED_BACK (RBK-05)
+# u_routing.u_ontid="6667" → unsubscription Nokia paso crítico → ROLLED_BACK (RBK-06)
+
+MODIFICATION_NOKIA_ROLLBACK = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "6665"},
+}
+
+DEACTIVATION_NOKIA_ROLLBACK = {
+    **DEACTIVATION_NOKIA_VALID,
+    "u_routing": {**DEACTIVATION_NOKIA_VALID["u_routing"], "u_ontid": "6667"},
+}
