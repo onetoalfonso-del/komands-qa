@@ -708,6 +708,10 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 <script>
 var suites=[], currentEs=null, running=false, queue=[], tStart=0, selectedId=null;
 var snEnabled={'02':true,'03':true};
+var suiteLogs={};      // { suiteId: [{text,cls}] }
+var suiteSummaries={}; // { suiteId: htmlString }
+var suiteReports={};   // { suiteId: rid }
+var suiteTopState={};  // { suiteId: {cls,title,status} }
 
 fetch('/api/suites').then(r=>r.json()).then(data=>{suites=data;renderSB();});
 
@@ -741,7 +745,33 @@ function selectSuite(id){
     renderSNForm();
   } else {
     switchView('std');
-    setTop('',s.label,'Seleccionado — presiona Ejecutar');
+    // Restaurar log guardado para esta suite
+    var term=document.getElementById('term');
+    term.innerHTML='';
+    (suiteLogs[id]||[]).forEach(function(l){
+      var sp=document.createElement('span');
+      sp.className='tl'+(l.cls?' '+l.cls:'');
+      sp.textContent=l.text;
+      term.appendChild(sp);
+    });
+    term.scrollTop=term.scrollHeight;
+    // Restaurar summary
+    var sumEl=document.getElementById('summary');
+    sumEl.innerHTML=suiteSummaries[id]||'<span class="sum-idle">Ejecuta una suite para ver resultados</span>';
+    // Restaurar botones de reporte
+    var rb=document.getElementById('rpt-btn'), db=document.getElementById('dl-btn');
+    if(suiteReports[id]){
+      rb.classList.add('show');rb.dataset.rid=suiteReports[id];
+      db.classList.add('show');db.dataset.rid=suiteReports[id];
+    } else {
+      rb.classList.remove('show'); db.classList.remove('show');
+    }
+    // Restaurar estado del topbar
+    if(suiteTopState[id]){
+      setTop(suiteTopState[id].cls,suiteTopState[id].title,suiteTopState[id].status);
+    } else {
+      setTop('',s.label,'Seleccionado — presiona Ejecutar');
+    }
   }
   var eb=document.getElementById('exec-btn');
   if(eb) eb.disabled=running;
@@ -943,6 +973,8 @@ function setSnIco(vno,state){
 function _doRun(url, params, s){
   if(running) return;
   running=true; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
   document.getElementById('term').innerHTML='';
   document.getElementById('rpt-btn').classList.remove('show');
   document.getElementById('dl-btn').classList.remove('show');
@@ -985,15 +1017,19 @@ function onDone(d,s){
   app('',''); app('── Fin: '+s.label+' '+'─'.repeat(30),'dim');
   app('Código de salida: '+d.code+'  Tiempo: '+elapsed, ok?'ok bold':'err bold');
   setIco(s.id, ok?'passed':'failed');
-  setTop(ok?'passed':'failed', s.label, ok?'Completado ✓':'Falló ✗');
+  var topCls=ok?'passed':'failed', topStatus=ok?'Completado ✓':'Falló ✗';
+  setTop(topCls, s.label, topStatus);
+  suiteTopState[s.id]={cls:topCls, title:s.label, status:topStatus};
   var h='';
   if(d.requests) h+=stat('acc',d.requests,'requests')+'&nbsp;&nbsp;';
   h+=stat('ok',d.passed||0,'pasados')+'&nbsp;&nbsp;'+stat('err',d.failed||0,'fallidos');
   h+='<span class="st">'+esc(elapsed)+'</span>';
   document.getElementById('summary').innerHTML=h;
+  suiteSummaries[s.id]=h;
   if(d.has_report){
     var rb=document.getElementById('rpt-btn');rb.classList.add('show');rb.dataset.rid=d.report_id;
     var db=document.getElementById('dl-btn');db.classList.add('show');db.dataset.rid=d.report_id;
+    suiteReports[s.id]=d.report_id;
   }
   document.getElementById('run-all').disabled=false;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=false;
@@ -1035,6 +1071,12 @@ function toggleTheme(){
   }
 })();
 function clearTerm(){
+  if(selectedId){
+    suiteLogs[selectedId]=[];
+    delete suiteSummaries[selectedId];
+    delete suiteReports[selectedId];
+    delete suiteTopState[selectedId];
+  }
   document.getElementById('term').innerHTML='';
   document.getElementById('rpt-btn').classList.remove('show');
   document.getElementById('dl-btn').classList.remove('show');
@@ -1042,6 +1084,10 @@ function clearTerm(){
   setTop('','KOMANDs QA Runner','Listo');
 }
 function app(text,cls){
+  if(selectedId){
+    if(!suiteLogs[selectedId]) suiteLogs[selectedId]=[];
+    suiteLogs[selectedId].push({text:text,cls:cls||''});
+  }
   var term=document.getElementById('term');
   var sp=document.createElement('span');
   sp.className='tl'+(cls?' '+cls:''); sp.textContent=text;
