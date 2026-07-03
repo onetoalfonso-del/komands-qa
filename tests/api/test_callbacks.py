@@ -32,6 +32,22 @@ import respx
 
 pytestmark = [pytest.mark.postventa, pytest.mark.mock_only]
 
+
+@pytest.fixture(scope="module", autouse=True)
+def _aviso_mock_callbacks():
+    import sys
+    out = sys.__stdout__
+    sep = "=" * 64
+    out.write("\n" + sep + "\n")
+    out.write("  [MOCK ONLY] test_callbacks.py\n")
+    out.write("  Valida el CONTRATO del payload JSON que Komands enviaria\n")
+    out.write("  a ServiceNow: campos requeridos, tipos y estructura\n")
+    out.write("  segun AnexoH v2.2. NO prueba la entrega real.\n")
+    out.write("  Entrega real = T4 (requiere OLTs lab + SN disponible).\n")
+    out.write(sep + "\n")
+    out.flush()
+    yield
+
 # URL de callback configurada por ServiceNow en cada request
 SERVICENOW_CB_URL = "https://servicenow.onnet.cl/api/komands/callback"
 
