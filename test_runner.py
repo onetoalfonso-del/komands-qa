@@ -35,6 +35,16 @@ SUITES = [
         "id": "t1", "group": "disponible",
         "label": "T1 — Spec API + Regresión",
         "desc":  "630 casos pytest",
+        "note":  [
+            "================================================================",
+            "  T1 - Especificacion API + Regresion completa",
+            "  Cubre: activacion, baja, modificacion, fiber-change, rollback,",
+            "         idempotencia, callbacks (contrato), seguridad headers.",
+            "  Entorno: mock en memoria (TestClient FastAPI) - sin OLTs reales.",
+            "  Base de datos: test_database.py se omite (requiere PostgreSQL).",
+            "  Performance: test_performance.py se omite (requiere ambiente SLO).",
+            "================================================================",
+        ],
         "cmd":   [PY, "-u", "-m", "pytest", "tests/", "-v", "--tb=short",
                   "--color=no", "--no-header", "-q",
                   "--ignore=tests/integration",
@@ -46,6 +56,15 @@ SUITES = [
         "id": "t1-contract", "group": "disponible",
         "label": "T1-C — Contrato OpenAPI (Schemathesis)",
         "desc":  "docs/openapi.json v2.2.3 · genera casos automáticos · mock",
+        "note":  [
+            "================================================================",
+            "  T1-C - Contrato OpenAPI con Schemathesis (property-based)",
+            "  Genera casos automaticos desde openapi.json v2.2.3.",
+            "  Verifica que el mock responde conforme al esquema definido.",
+            "  max_examples=15 por endpoint (ajustable, mas = mas lento).",
+            "  Entorno: mock en memoria - NO prueba el servidor :9016 real.",
+            "================================================================",
+        ],
         "cmd":   [PY, "-u", "-m", "pytest", "tests/contract/", "-v", "--tb=short",
                   "--color=no", "--no-header",
                   "--html=reporte_t1c.html", "--self-contained-html"],
@@ -55,6 +74,15 @@ SUITES = [
         "id": "t2", "group": "disponible",
         "label": "T2 — Comandos CLI",
         "desc":  "Nokia/Huawei · comandos CLI",
+        "note":  [
+            "================================================================",
+            "  T2 - Validacion de comandos CLI Nokia / Huawei",
+            "  Valida que Komands genera los comandos CLI correctos por vendor",
+            "  y VNO para activacion, baja, modificacion y post-venta.",
+            "  Entorno: mock en memoria (TestClient FastAPI).",
+            "  Sin OLTs reales. Sin PostgreSQL. Sin callback real a ServiceNow.",
+            "================================================================",
+        ],
         "cmd":   [PY, "-u", "-m", "pytest", "tests/api/", "tests/unit/", "-v", "--tb=short",
                   "--color=no", "--no-header",
                   "--html=reporte_t2.html", "--self-contained-html"],
@@ -64,6 +92,17 @@ SUITES = [
         "id": "t3", "group": "disponible",
         "label": "T3 — Respuesta OLT",
         "desc":  "Parseo Nokia + INDEX Huawei",
+        "note":  [
+            "================================================================",
+            "  T3 - Parseo de respuestas OLT + contrato de callbacks",
+            "  test_operation_status.py: valida el parseo de respuestas CLI",
+            "    que retornarian Nokia (display ont) y Huawei (display board).",
+            "  test_callbacks.py: valida el contrato del payload JSON que",
+            "    Komands enviaria a ServiceNow (campos, tipos, estructura).",
+            "  IMPORTANTE: ambos archivos usan mocks - sin OLTs reales.",
+            "  Entrega real de callbacks = T4 (bloqueado, requiere lab OLT).",
+            "================================================================",
+        ],
         "cmd":   [PY, "-u", "-m", "pytest",
                   "tests/api/test_operation_status.py",
                   "tests/api/test_callbacks.py",
@@ -76,6 +115,15 @@ SUITES = [
         "id": "newman-dev", "group": "disponible",
         "label": "Endpoints Kommand Dev",
         "desc":  "Contrato API real · onf-komands.cl:9016",
+        "note":  [
+            "================================================================",
+            "  Endpoints Kommand Dev - Coleccion Postman vs servidor REAL",
+            "  Ejecuta requests reales contra onf-komands.cl:9016 (DEV/QA).",
+            "  Verifica estructura de respuesta, status codes y campos JSON.",
+            "  NOTA: :9016 es el servidor DEV/QA de Komands (mockup funcional,",
+            "    no requiere OLTs fisicas). Requiere conexion activa a :9016.",
+            "================================================================",
+        ],
         "cmd":   [NEWMAN, "run",
                   "KOMANDs API v2.2.3.postman_collection.json",
                   "-e", "newman-environment-dev.json",
@@ -135,6 +183,15 @@ SUITES = [
         "id": "apim-parallel", "group": "disponible",
         "label": "Endpoints Services Now",
         "desc":  "VNO-02 ClaroVTR · VNO-03 Entel · elige uno o ambos",
+        "note":  [
+            "================================================================",
+            "  Endpoints Services Now - Coleccion APIM vs PREPROD Axway",
+            "  Ejecuta el flujo de activacion real via Axway API Management",
+            "  en ambiente PREPROD contra OLTs de laboratorio.",
+            "  VNO-02 ClaroVTR y/o VNO-03 Entel (seleccionables).",
+            "  Requiere credenciales APIM (accessId/serial/speedPlan).",
+            "================================================================",
+        ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
         "parallel": ["apim-vno02", "apim-vno03"],
     },
@@ -142,6 +199,15 @@ SUITES = [
         "id": "t7", "group": "disponible",
         "label": "T7 — Seguridad OWASP",
         "desc":  "JWT · Headers · Métodos HTTP · onf-komands.cl:9016",
+        "note":  [
+            "================================================================",
+            "  T7 - Pruebas de seguridad OWASP vs servidor REAL :9016",
+            "  Verifica: autenticacion JWT, headers de seguridad HTTP,",
+            "    metodos HTTP no permitidos, tokens invalidos/expirados.",
+            "  Ejecuta contra onf-komands.cl:9016 (DEV/QA) - requiere conexion.",
+            "  Hallazgos reportados en docs/reporte-seguridad-headers.html.",
+            "================================================================",
+        ],
         "cmd":   [NEWMAN, "run",
                   "KOMANDs Security Tests v1.0.postman_collection.json",
                   "-e", "newman-environment-dev.json",
@@ -158,6 +224,14 @@ SUITES = [
         "label": "T5 — Base de Datos PostgreSQL",
         "desc":  "transaction_listener · audit_log · UUID únicos",
         "blocker": "Requiere PostgreSQL DEV con schema Komands desplegado",
+        "note":  [
+            "================================================================",
+            "  T5 - Validacion PostgreSQL (BLOQUEADO)",
+            "  Prueba: transaction_listener, audit_log, unicidad de UUIDs.",
+            "  BLOQUEADO: requiere PostgreSQL DEV con schema Komands activo.",
+            "  El test_database.py esta marcado con @pytest.mark.skip en T1/T2.",
+            "================================================================",
+        ],
         "cmd":   [PY, "-u", "-m", "pytest", "tests/api/test_database.py", "-v",
                   "--tb=short", "--color=no", "--no-header",
                   "--html=reporte_t5.html", "--self-contained-html"],
@@ -168,6 +242,17 @@ SUITES = [
         "label": "T4 — Flujo E2E OLTs reales",
         "desc":  "POST→callback no disponible aún",
         "blocker": "Requiere endpoint de callback accesible desde servidor DEV",
+        "note":  [
+            "================================================================",
+            "  T4 - Flujo E2E con OLTs reales (BLOQUEADO)",
+            "  Prueba el ciclo completo: activacion en OLT fisica -> Komands",
+            "    ejecuta CLI en OLT -> OLT responde -> Komands notifica a",
+            "    ServiceNow via callback HTTP POST.",
+            "  BLOQUEADO: requiere OLTs de laboratorio + endpoint callback SN",
+            "    accesible desde el servidor DEV.",
+            "  Cobertura actual de callbacks: T3 (contrato payload, con mock).",
+            "================================================================",
+        ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
     {
@@ -175,6 +260,14 @@ SUITES = [
         "label": "T6 — Paridad VNO + OLT",
         "desc":  "VNO-02 ClaroVTR · VNO-03 Entel",
         "blocker": "Requiere datos reales de VNO-02 y VNO-03",
+        "note":  [
+            "================================================================",
+            "  T6 - Paridad VNO + OLT (BLOQUEADO)",
+            "  Valida que el comportamiento de Komands es identico para todos",
+            "  los VNOs registrados: DTV, CVTR (VNO-02), ENTEL (VNO-03), TCH.",
+            "  BLOQUEADO: requiere datos de activacion reales de VNO-02/VNO-03.",
+            "================================================================",
+        ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
     {
@@ -182,6 +275,14 @@ SUITES = [
         "label": "T8 — Performance k6 / SLOs",
         "desc":  "Latencia p95 · throughput · error rate",
         "blocker": "Requiere ambiente dedicado y SLOs definidos",
+        "note":  [
+            "================================================================",
+            "  T8 - Performance y SLOs con k6 (BLOQUEADO)",
+            "  Mide latencia p95, throughput (req/s) y error rate bajo carga.",
+            "  BLOQUEADO: requiere ambiente de performance dedicado y SLOs",
+            "    formalmente definidos con el equipo de arquitectura.",
+            "================================================================",
+        ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
 ]
@@ -271,6 +372,9 @@ async def api_run(suite_id: str, request: Request):
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
 
+        for note_line in suite.get("note", []):
+            yield f"data: {json.dumps({'e':'line','t':note_line})}\n\n"
+
         req = suite.get("requires")
         if req and not Path(req).exists():
             _generate_env_files()
@@ -330,6 +434,10 @@ async def api_run_parallel(request: Request):
 
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':'apim-parallel','label':'Endpoints Services Now'})}\n\n"
+
+        apim_suite = SUITE_MAP.get("apim-parallel", {})
+        for note_line in apim_suite.get("note", []):
+            yield f"data: {json.dumps({'e':'line','t':note_line})}\n\n"
 
         env = {**os.environ,
                "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
