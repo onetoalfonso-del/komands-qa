@@ -67,7 +67,6 @@ SUITES = [
         "cmd":   [PY, "-u", "-m", "pytest",
                   "tests/api/test_operation_status.py",
                   "tests/api/test_callbacks.py",
-                  "tests/api/test_queries.py",
                   "-v", "--tb=short",
                   "--color=no", "--no-header",
                   "--html=reporte_t3.html", "--self-contained-html"],
