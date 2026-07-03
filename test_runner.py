@@ -748,6 +748,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .terminal:empty::after{content:"Selecciona una suite del panel izquierdo para ejecutar";color:var(--txt3);font-family:var(--sans);font-size:.8rem}
 .tl{display:block;white-space:pre-wrap;word-break:break-all}
 .tl.ok{color:var(--ok)}.tl.err{color:var(--err)}.tl.warn{color:var(--warn)}
+.tl.skip{color:var(--warn);opacity:.75}
 .tl.acc{color:var(--acc)}.tl.dim{color:var(--txt3)}.tl.bold{font-weight:700}
 .tl.sum-ok{color:var(--ok);font-weight:700}.tl.sum-err{color:var(--err);font-weight:700}
 .tl.vno02{color:#4EC9B0}.tl.vno03{color:#C586C0}
@@ -1207,6 +1208,7 @@ function col(t){
   if(/^\\s+(GET|POST|PUT|DELETE|PATCH)\\s+https?:/.test(t)) return 'acc';
   if(/expected\\s+|AssertionError/.test(t)) return 'err';
   if(/PASSED/.test(t)) return 'ok';
+  if(/SKIPPED/.test(t)) return 'skip';
   if(/FAILED|^ERROR /.test(t)) return 'err';
   if(/^E\\s/.test(t)) return 'err';
   if(/={3,}.*\\d+ passed/.test(t)&&!/failed/.test(t)) return 'sum-ok';
