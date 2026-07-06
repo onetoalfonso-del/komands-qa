@@ -729,7 +729,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sn-form.show{display:flex}
 .sn-cards{display:flex;gap:12px;flex-wrap:wrap}
 .sn-card{flex:1;min-width:210px;background:var(--side);border:1px solid var(--brd);border-radius:7px;padding:11px 13px;display:flex;flex-direction:column;gap:8px;transition:opacity .2s}
-.sn-card.off{opacity:.32;pointer-events:none}
+.sn-card.off{opacity:.32}.sn-card.off .sn-inp{pointer-events:none}
 .sn-card-hdr{display:flex;justify-content:space-between;align-items:center}
 .sn-name{font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:8px}
 .sn-badge{font-size:.58rem;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:100px;background:var(--brd);color:var(--txt2)}
