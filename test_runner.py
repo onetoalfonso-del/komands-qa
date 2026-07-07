@@ -155,6 +155,10 @@ SUITES = [
                   "--env-var", "accessId=03-TESTPREPROD-DIR02873675-8",
                   "--env-var", "serial=SCOM13032001",
                   "--env-var", "speedPlan=940/940",
+                  "--env-var", "addressId=DIR02873675",
+                  "--env-var", "addressMcd=OSP",
+                  "--env-var", "serviceType=FTTH",
+                  "--env-var", "run_phase=all",
                   "--insecure",
                   "--reporters", "cli,htmlextra",
                   "--reporter-htmlextra-export", "reporte_apim_vno03.html"],
@@ -162,9 +166,12 @@ SUITES = [
         "report": str(BP_DIR / "reporte_apim_vno03.html"),
         "requires": str(BP_DIR / "VnoB1_vnoid03 PRE.postman_environment.json"),
         "params": [
-            {"key": "accessId",  "label": "Access ID",   "default": "03-TESTPREPROD-DIR02873675-8"},
-            {"key": "serial",    "label": "Serial ONT",  "default": "SCOM13032001"},
-            {"key": "speedPlan", "label": "Speed Plan",  "default": "940/940"},
+            {"key": "accessId",   "label": "Access ID",     "default": "03-TESTPREPROD-DIR02873675-8"},
+            {"key": "serial",     "label": "Serial ONT",    "default": "SCOM13032001"},
+            {"key": "speedPlan",  "label": "Speed Plan",    "default": "940/940"},
+            {"key": "addressId",  "label": "Address ID",    "default": "DIR02873675"},
+            {"key": "addressMcd", "label": "Address MCD",   "default": "OSP"},
+            {"key": "serviceType","label": "Tipo Servicio", "default": "FTTH"},
         ],
     },
     {
@@ -177,6 +184,10 @@ SUITES = [
                   "--env-var", "accessId=02-TESTPREPROD-DIR02803674-2",
                   "--env-var", "serial=SCOM13022002",
                   "--env-var", "speedPlan=600/600",
+                  "--env-var", "addressId=DIR02803638",
+                  "--env-var", "addressMcd=OSP",
+                  "--env-var", "serviceType=FTTH",
+                  "--env-var", "run_phase=all",
                   "--insecure",
                   "--reporters", "cli,htmlextra",
                   "--reporter-htmlextra-export", "reporte_apim_vno02.html"],
@@ -184,9 +195,12 @@ SUITES = [
         "report": str(BP_DIR / "reporte_apim_vno02.html"),
         "requires": str(BP_DIR / "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json"),
         "params": [
-            {"key": "accessId",  "label": "Access ID",   "default": "02-TESTPREPROD-DIR02803674-2"},
-            {"key": "serial",    "label": "Serial ONT",  "default": "SCOM13022002"},
-            {"key": "speedPlan", "label": "Speed Plan",  "default": "600/600"},
+            {"key": "accessId",   "label": "Access ID",     "default": "02-TESTPREPROD-DIR02803674-2"},
+            {"key": "serial",     "label": "Serial ONT",    "default": "SCOM13022002"},
+            {"key": "speedPlan",  "label": "Speed Plan",    "default": "600/600"},
+            {"key": "addressId",  "label": "Address ID",    "default": "DIR02803638"},
+            {"key": "addressMcd", "label": "Address MCD",   "default": "OSP"},
+            {"key": "serviceType","label": "Tipo Servicio", "default": "FTTH"},
         ],
     },
     {
@@ -199,7 +213,9 @@ SUITES = [
             "  Ejecuta el flujo de activacion real via Axway API Management",
             "  en ambiente PREPROD contra OLTs de laboratorio.",
             "  VNO-02 ClaroVTR y/o VNO-03 Entel (seleccionables).",
-            "  Requiere credenciales APIM (accessId/serial/speedPlan).",
+            "  Fase 1 — Provisioning : Factibilidad + Consulta + Asignacion + Activacion",
+            "  Fase 2 — Operaciones  : DevMod Sync/Async + Modification Sync/Async",
+            "  Fase 3 — Baja         : Desregistracion del acceso FTTH",
             "================================================================",
         ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
@@ -441,8 +457,11 @@ async def api_run_parallel(request: Request):
     suite02 = SUITE_MAP.get("apim-vno02")
     suite03 = SUITE_MAP.get("apim-vno03")
 
+    phase = params.pop("phase", "all")
     overrides02 = {k[3:]: v for k, v in params.items() if k.startswith("02_")}
     overrides03 = {k[3:]: v for k, v in params.items() if k.startswith("03_")}
+    overrides02["run_phase"] = phase
+    overrides03["run_phase"] = phase
 
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':'apim-parallel','label':'Endpoints Services Now'})}\n\n"
@@ -736,6 +755,16 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sn-run{width:100%;padding:7px;border-radius:6px;background:var(--ok);border:none;color:#fff;font-size:.77rem;font-weight:700;cursor:pointer;transition:opacity .15s}
 .sn-run:hover{opacity:.85}
 .sn-run:disabled{opacity:.35;cursor:not-allowed}
+.sn-phases{display:flex;gap:8px;flex-wrap:wrap}
+.sn-phase-btn{flex:1;min-width:140px;padding:8px 12px;border-radius:6px;border:1px solid var(--brd);background:var(--side);color:var(--txt2);font-size:.72rem;font-weight:700;cursor:pointer;transition:all .15s;text-align:left;line-height:1.5}
+.sn-phase-btn:hover:not(:disabled){border-color:var(--acc);color:var(--txt);background:var(--accd)}
+.sn-phase-btn:disabled{opacity:.28;cursor:not-allowed}
+.sn-phase-btn.ph-provisioning:hover:not(:disabled){border-color:#4EC9B0;color:#4EC9B0;background:rgba(78,201,176,.07)}
+.sn-phase-btn.ph-operations:hover:not(:disabled){border-color:var(--ok);color:var(--ok);background:rgba(61,214,140,.07)}
+.sn-phase-btn.ph-baja:hover:not(:disabled){border-color:var(--err);color:var(--err);background:rgba(214,80,80,.07)}
+.sn-phase-num{display:block;font-size:.57rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;opacity:.5;margin-bottom:1px}
+.sn-phase-name{display:block;font-size:.77rem;font-weight:700}
+.sn-phase-desc{display:block;font-size:.6rem;font-weight:400;opacity:.6;margin-top:2px;line-height:1.35}
 
 /* APIM CONFIG */
 .apim-cfg{background:var(--side);border:1px solid var(--brd);border-radius:7px;padding:10px 13px;margin-bottom:8px}
@@ -957,13 +986,29 @@ function renderSNForm(){
   h+=card('03','Entel','#C586C0',s03);
   h+=card('02','ClaroVTR','#4EC9B0',s02);
   h+='</div>';
-  h+='<button class="sn-run" id="sn-run-btn" onclick="executeSN()">&#9654; Ejecutar pruebas</button>';
+  h+='<div class="sn-phases">';
+  h+='<button class="sn-phase-btn ph-provisioning" onclick="executeSN(\'provisioning\')">';
+  h+='<span class="sn-phase-num">Fase 1</span>';
+  h+='<span class="sn-phase-name">&#9654; Provisioning</span>';
+  h+='<span class="sn-phase-desc">Factibilidad &rarr; Consulta &rarr; Asignaci&oacute;n &rarr; Activaci&oacute;n</span>';
+  h+='</button>';
+  h+='<button class="sn-phase-btn ph-operations" onclick="executeSN(\'operations\')">';
+  h+='<span class="sn-phase-num">Fase 2</span>';
+  h+='<span class="sn-phase-name">&#9654; Operaciones</span>';
+  h+='<span class="sn-phase-desc">DevMod Sync/Async &middot; Modification Sync/Async</span>';
+  h+='</button>';
+  h+='<button class="sn-phase-btn ph-baja" onclick="executeSN(\'baja\')">';
+  h+='<span class="sn-phase-num">Fase 3</span>';
+  h+='<span class="sn-phase-name">&#9654; Baja de Acceso</span>';
+  h+='<span class="sn-phase-desc">Desregistraci&oacute;n del acceso &mdash; irreversible</span>';
+  h+='</button>';
+  h+='</div>';
   sf.innerHTML=h; sf.classList.add('show');
   document.getElementById('sn-tog-02').onchange=function(){toggleVNO('02');};
   document.getElementById('sn-tog-03').onchange=function(){toggleVNO('03');};
   snEnabled={'02':true,'03':true};
   snTerm('03',''); snTerm('02','');
-  setTop('','Endpoints Services Now','Configura y ejecuta');
+  setTop('','Endpoints Services Now','Selecciona una fase y ejecuta');
 }
 
 function checkApimConfig(){
@@ -1008,10 +1053,10 @@ function toggleVNO(vno){
   card.querySelectorAll('.sn-inp').forEach(function(inp){inp.disabled=!tog.checked;});
 }
 
-function executeSN(){
+function executeSN(phase){
   if(running) return;
   if(!snEnabled['02']&&!snEnabled['03']){alert('Habilita al menos un VNO');return;}
-  var params={run02:snEnabled['02']?'true':'false', run03:snEnabled['03']?'true':'false'};
+  var params={run02:snEnabled['02']?'true':'false', run03:snEnabled['03']?'true':'false', phase:phase||'all'};
   var s02=suites.find(function(x){return x.id==='apim-vno02';});
   var s03=suites.find(function(x){return x.id==='apim-vno03';});
   if(snEnabled['02']&&s02){
@@ -1027,14 +1072,16 @@ function executeSN(){
     });
   }
   var sp=suites.find(function(x){return x.id==='apim-parallel';});
-  _doRunSN(params,sp);
+  var phaseLabels={provisioning:'Fase 1 — Provisioning',operations:'Fase 2 — Operaciones',baja:'Fase 3 — Baja',all:'Completo'};
+  _doRunSN(params,sp,phaseLabels[params.phase]||params.phase);
 }
 
-function _doRunSN(params,s){
+function _doRunSN(params,s,phaseLabel){
   running=true; tStart=Date.now();
+  var topLabel=phaseLabel?s.label+' — '+phaseLabel:s.label;
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
-  setTop('running',s.label,'Ejecutando'); setIco(s.id,'running');
-  document.getElementById('sn-run-btn').disabled=true;
+  setTop('running',topLabel,'Ejecutando'); setIco(s.id,'running');
+  document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=true;});
   document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   if(snEnabled['03']) setSnIco('03','running');
@@ -1060,7 +1107,7 @@ function _doRunSN(params,s){
       onDone(d.e==='error'?{code:1,passed:0,failed:0,requests:0,has_report:false}:d, s);
       if(snEnabled['03']) setSnIco('03',ok?'passed':'failed');
       if(snEnabled['02']) setSnIco('02',ok?'passed':'failed');
-      document.getElementById('sn-run-btn').disabled=false;
+      document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
     }
   };
   es.onerror=function(){
@@ -1069,7 +1116,7 @@ function _doRunSN(params,s){
       snTerm('03','[Conexión interrumpida]');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
       setSnIco('03','failed'); setSnIco('02','failed');
-      document.getElementById('sn-run-btn').disabled=false;
+      document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
     }
   };
 }

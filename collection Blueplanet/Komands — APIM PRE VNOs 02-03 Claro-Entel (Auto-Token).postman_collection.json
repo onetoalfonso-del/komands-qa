@@ -104,7 +104,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -180,7 +182,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -255,7 +259,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -330,7 +336,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -406,7 +414,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -478,7 +488,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -548,7 +560,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -618,7 +632,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -687,7 +703,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'baja') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -821,7 +839,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -897,7 +917,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -972,7 +994,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -1047,7 +1071,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -1123,7 +1149,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -1195,7 +1223,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -1265,7 +1295,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -1335,7 +1367,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
@@ -1404,7 +1438,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }"
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'baja') { pm.execution.skipRequest(); return; }"
                 ]
               }
             },
