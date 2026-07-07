@@ -541,9 +541,11 @@ async def api_run_parallel(request: Request):
         code = max(exit_codes) if exit_codes else 0
         rp03 = SUITE_MAP.get("apim-vno03", {}).get("report", "")
         rp02 = SUITE_MAP.get("apim-vno02", {}).get("report", "")
-        has_rp = bool((rp03 and Path(rp03).exists()) or (rp02 and Path(rp02).exists()))
-        rp_id = "apim-vno03" if (rp03 and Path(rp03).exists()) else "apim-vno02"
-        yield f"data: {json.dumps({'e':'done','code':code,'passed':passed,'failed':failed,'requests':requests,'has_report':has_rp,'report_id':rp_id})}\n\n"
+        has_rp03 = bool(rp03 and Path(rp03).exists())
+        has_rp02 = bool(rp02 and Path(rp02).exists())
+        has_rp = has_rp03 or has_rp02
+        rp_id = "apim-vno03" if has_rp03 else "apim-vno02"
+        yield f"data: {json.dumps({'e':'done','code':code,'passed':passed,'failed':failed,'requests':requests,'has_report':has_rp,'report_id':rp_id,'has_report_03':has_rp03,'has_report_02':has_rp02})}\n\n"
         await asyncio.sleep(0.15)
 
     return StreamingResponse(sse(), media_type="text/event-stream",
@@ -850,12 +852,14 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
         <div class="sn-term">
           <div class="sn-thdr" style="color:#C586C0">
             <div class="ico" id="ico-sn03">&#183;</div>VNO-03 Entel
+            <button id="rpt-sn03" class="rpt-btn" style="margin-left:auto;font-size:.65rem;padding:3px 9px">&#128196; Reporte</button>
           </div>
           <div class="terminal" id="term-03"></div>
         </div>
         <div class="sn-term">
           <div class="sn-thdr" style="color:#4EC9B0">
             <div class="ico" id="ico-sn02">&#183;</div>VNO-02 ClaroVTR
+            <button id="rpt-sn02" class="rpt-btn" style="margin-left:auto;font-size:.65rem;padding:3px 9px">&#128196; Reporte</button>
           </div>
           <div class="terminal" id="term-02"></div>
         </div>
@@ -1043,6 +1047,8 @@ function renderSNForm(){
   document.getElementById('sn-tog-02').onchange=function(){toggleVNO('02');};
   document.getElementById('sn-tog-03').onchange=function(){toggleVNO('03');};
   snEnabled={'02':true,'03':true};
+  var rb03=document.getElementById('rpt-sn03'); if(rb03) rb03.classList.remove('show');
+  var rb02=document.getElementById('rpt-sn02'); if(rb02) rb02.classList.remove('show');
   snTerm('03',''); snTerm('02','');
   setTop('','Endpoints Services Now','Selecciona una fase y ejecuta');
 }
@@ -1144,6 +1150,10 @@ function _doRunSN(params,s,phaseLabel){
       if(snEnabled['03']) setSnIco('03',ok?'passed':'failed');
       if(snEnabled['02']) setSnIco('02',ok?'passed':'failed');
       document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
+      var rb03=document.getElementById('rpt-sn03');
+      var rb02=document.getElementById('rpt-sn02');
+      if(rb03){rb03.classList.toggle('show',!!(d.has_report_03));rb03.onclick=function(){openSnReport('apim-vno03');};}
+      if(rb02){rb02.classList.toggle('show',!!(d.has_report_02));rb02.onclick=function(){openSnReport('apim-vno02');};}
     }
   };
   es.onerror=function(){
@@ -1253,6 +1263,9 @@ function runAll(){
 function openReport(){
   var rid=document.getElementById('rpt-btn').dataset.rid;
   if(!rid) return;
+  window.open('/api/report/'+rid,'_blank');
+}
+function openSnReport(rid){
   window.open('/api/report/'+rid,'_blank');
 }
 function downloadReport(){
