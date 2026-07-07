@@ -863,7 +863,18 @@ var suiteSummaries={}; // { suiteId: htmlString }
 var suiteReports={};   // { suiteId: rid }
 var suiteTopState={};  // { suiteId: {cls,title,status} }
 
-fetch('/api/suites').then(r=>r.json()).then(data=>{suites=data;renderSB();});
+function loadSuites(attempt){
+  attempt=attempt||1;
+  fetch('/api/suites').then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(data){
+    suites=data; renderSB();
+  }).catch(function(){
+    if(attempt<5) setTimeout(function(){loadSuites(attempt+1);}, 1500*attempt);
+  });
+}
+loadSuites();
 
 function renderSB(){
   var el=document.getElementById('sb-list'); el.innerHTML='';
