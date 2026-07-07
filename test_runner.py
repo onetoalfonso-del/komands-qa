@@ -387,6 +387,18 @@ async def api_suites():
     return SUITES
 
 
+@app.get("/api/debug")
+async def api_debug():
+    import platform
+    return {
+        "suites_count": len(SUITES),
+        "suite_ids": [s["id"] for s in SUITES],
+        "groups": {s["id"]: s.get("group") for s in SUITES},
+        "python": platform.python_version(),
+        "railway_env": os.environ.get("RAILWAY_ENVIRONMENT", "no-set"),
+    }
+
+
 @app.get("/api/run/{suite_id}")
 async def api_run(suite_id: str, request: Request):
     suite = SUITE_MAP.get(suite_id)
@@ -869,9 +881,19 @@ function loadSuites(attempt){
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.json();
   }).then(function(data){
-    suites=data; renderSB();
-  }).catch(function(){
-    if(attempt<5) setTimeout(function(){loadSuites(attempt+1);}, 1500*attempt);
+    suites=data;
+    if(!suites||!suites.length){
+      document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">ERROR: /api/suites devolvió vacío</div>';
+      return;
+    }
+    renderSB();
+  }).catch(function(err){
+    if(attempt<6){
+      setTimeout(function(){loadSuites(attempt+1);}, 1200*attempt);
+    } else {
+      document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">Error cargando suites — refresca la página</div>';
+      console.error('[loadSuites] FALLO definitivo:', err);
+    }
   });
 }
 loadSuites();
