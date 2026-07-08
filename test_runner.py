@@ -76,6 +76,29 @@ SUITES = [
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_t1c.html"), "requires": None,
     },
     {
+        "id": "t1c-real", "group": "disponible",
+        "label": "T1-C — Contrato OpenAPI (Real)",
+        "desc":  "Schemathesis → onf-komands.cl:9016 · servidor real",
+        "note":  [
+            "================================================================",
+            "  T1-C Real - Schemathesis contra servidor REAL :9016",
+            "  Genera casos automaticos desde openapi.json v2.2.3 y los",
+            "  ejecuta contra onf-komands.cl:9016 (DEV/QA).",
+            "  Auth: token HS256 de prueba (puede retornar 401).",
+            "  Valida: nunca 5xx, Content-Type JSON, codigos documentados.",
+            "  Codigos permitidos: 200 202 400 401 403 404 409 422.",
+            "  Requiere conexion activa a onf-komands.cl:9016.",
+            "================================================================",
+        ],
+        "cmd":   [PY, "-u", "-m", "pytest", "tests/contract/", "-v", "--tb=short",
+                  "--color=no", "--no-header",
+                  "--html=reporte_t1c_real.html", "--self-contained-html"],
+        "cwd":   str(ROOT),
+        "report": str(ROOT / "reporte_t1c_real.html"),
+        "requires": None,
+        "env_extra": {"KOMANDS_TEST_URL": "https://onf-komands.cl:9016"},
+    },
+    {
         "id": "t2", "group": "disponible",
         "label": "T2 — Comandos CLI",
         "desc":  "Nokia/Huawei · comandos CLI",
@@ -426,7 +449,8 @@ async def api_run(suite_id: str, request: Request):
         env = {**os.environ,
                "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
                "PYTHONUNBUFFERED": "1",
-               "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
+               "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0",
+               **suite.get("env_extra", {})}
 
         cmd = _apply_params(suite["cmd"], overrides)
         passed = failed = requests = 0
