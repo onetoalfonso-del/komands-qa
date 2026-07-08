@@ -336,6 +336,31 @@ SUITES = [
         ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
+    {
+        "id": "t-flg", "group": "bloqueado",
+        "label": "T-FLG — Feature Flags Komands ↔ BluePlanet",
+        "desc":  "PV-FLG-001/003 · REG-FF-001/004 · conmutación < 5 min",
+        "blocker": "Requiere tabla feature_flag en PostgreSQL DEV",
+        "note":  [
+            "================================================================",
+            "  T-FLG - Feature Flags y Conmutacion Komands <-> BluePlanet",
+            "  Casos PV-FLG-001: Flag ON  -> Komands atiende el request.",
+            "  Casos PV-FLG-002: Flag OFF -> BluePlanet (legacy) atiende.",
+            "  Casos PV-FLG-003: Conmutacion completa + rollback < 5 min.",
+            "  Casos REG-FF-001: Ruta BluePlanet responde OK con Flag OFF.",
+            "  Casos REG-FF-002: Pre-condicion 0 IN_PROGRESS antes de conmutar.",
+            "  Casos REG-FF-003: Txns activas al conmutar -> estado INTERRUPTED.",
+            "  Casos REG-FF-004: audit_log registra cambio de flag + inmutabilidad.",
+            "  BLOQUEADO: requiere PostgreSQL DEV con schema Komands desplegado.",
+            "    Variable requerida: KOMANDS_DEV_DB_URL=postgresql+asyncpg://...",
+            "    URL DEV esperada: https://edevapi.onnetfibra.cl/komands (Sem 3).",
+            "================================================================",
+        ],
+        "cmd":   [PY, "-u", "-m", "pytest", "tests/feature_flags/", "-v",
+                  "--tb=short", "--color=no", "--no-header",
+                  "--html=reporte_tflg.html", "--self-contained-html"],
+        "cwd":   str(ROOT), "report": str(ROOT / "reporte_tflg.html"), "requires": None,
+    },
 ]
 
 SUITE_MAP = {s["id"]: s for s in SUITES}
