@@ -875,6 +875,109 @@ RESET_ONT_HUAWEI_SSH_TIMEOUT = {
     "u_routing": {**RESET_ONT_HUAWEI_VALID["u_routing"], "u_ontid": "7777"},
 }
 
+# ─── Códigos reales Jeffrey — nuevos sentineles ──────────────────────────────
+#
+# Mapeo u_return_code (servidor real) → ont_id sentinel
+#   40  OLT con problemas de acceso           → ont_id=5555  (todas las operaciones)
+#   60  Problemas con credenciales SSH        → ont_id=4444  (todas las operaciones)
+#   30  SL ID no asociado a la ruta           → ont_id=3333  (baja, device-mod, service-mod)
+#   70  Servicio ya activo                    → ont_id=2070  (service-modification)
+#   80  Servicio ya inactivo                  → ont_id=2080  (service-modification)
+#   90  Ningún servicio seleccionado          → ont_id=2090  (service-modification)
+#  100  Tecnología no reconocida              → ont_id=2100  (service-activation)
+#   11  Par de identificador incompleto       → new_ont_id=1011 (fiber-change)
+#  110  Fallo activación PON nueva (paso 1)   → new_ont_id=1110 (fiber-change)
+
+ACTIVATION_OLT_ACCESS_ERROR = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "u_routing": {**ACTIVATION_NOKIA_FTTH_VALID["u_routing"], "u_ontid": "5555"},
+}
+
+ACTIVATION_SSH_CREDENTIALS_ERROR = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "u_routing": {**ACTIVATION_NOKIA_FTTH_VALID["u_routing"], "u_ontid": "4444"},
+}
+
+ACTIVATION_TECH_NOT_RECOGNIZED = {
+    **ACTIVATION_NOKIA_FTTH_VALID,
+    "u_routing": {**ACTIVATION_NOKIA_FTTH_VALID["u_routing"], "u_ontid": "2100"},
+}
+
+DEACTIVATION_OLT_ACCESS_ERROR = {
+    **DEACTIVATION_NOKIA_VALID,
+    "u_routing": {**DEACTIVATION_NOKIA_VALID["u_routing"], "u_ontid": "5555"},
+}
+
+DEACTIVATION_SSH_CREDENTIALS_ERROR = {
+    **DEACTIVATION_NOKIA_VALID,
+    "u_routing": {**DEACTIVATION_NOKIA_VALID["u_routing"], "u_ontid": "4444"},
+}
+
+DEACTIVATION_SLID_NOT_ASSOCIATED = {
+    **DEACTIVATION_NOKIA_VALID,
+    "u_routing": {**DEACTIVATION_NOKIA_VALID["u_routing"], "u_ontid": "3333"},
+}
+
+MODIFICATION_OLT_ACCESS_ERROR = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "5555"},
+}
+
+MODIFICATION_SSH_CREDENTIALS_ERROR = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "4444"},
+}
+
+MODIFICATION_SLID_NOT_ASSOCIATED = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "3333"},
+}
+
+MODIFICATION_SERVICE_ALREADY_ACTIVE = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "2070"},
+}
+
+MODIFICATION_SERVICE_ALREADY_INACTIVE = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "2080"},
+}
+
+MODIFICATION_NO_SERVICE_SELECTED = {
+    **MODIFICATION_SPEED_CHANGE_NOKIA,
+    "u_routing": {**MODIFICATION_SPEED_CHANGE_NOKIA["u_routing"], "u_ontid": "2090"},
+}
+
+DEVICE_MOD_OLT_ACCESS_ERROR = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "u_routing": {**DEVICE_MOD_NOKIA_VALID["u_routing"], "u_ontid": "5555"},
+}
+
+DEVICE_MOD_SSH_CREDENTIALS_ERROR = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "u_routing": {**DEVICE_MOD_NOKIA_VALID["u_routing"], "u_ontid": "4444"},
+}
+
+DEVICE_MOD_SLID_NOT_ASSOCIATED = {
+    **DEVICE_MOD_NOKIA_VALID,
+    "u_routing": {**DEVICE_MOD_NOKIA_VALID["u_routing"], "u_ontid": "3333"},
+}
+
+FIBER_CHANGE_INCOMPLETE_IDENTIFIER = {
+    **FIBER_CHANGE_DEST_PORT_OCCUPIED,
+    "u_routing_new": {**FIBER_CHANGE_DEST_PORT_OCCUPIED["u_routing_new"], "u_ontid": "1011"},
+}
+
+FIBER_CHANGE_PON_ACTIVATION_FAIL_STEP1 = {
+    **FIBER_CHANGE_DEST_PORT_OCCUPIED,
+    "u_routing_new": {**FIBER_CHANGE_DEST_PORT_OCCUPIED["u_routing_new"], "u_ontid": "1110"},
+}
+
+FIBER_CHANGE_OLT_ACCESS_ERROR = {
+    **FIBER_CHANGE_DEST_PORT_OCCUPIED,
+    "u_routing_new": {**FIBER_CHANGE_DEST_PORT_OCCUPIED["u_routing_new"], "u_ontid": "5555"},
+}
+
 # ─── Callbacks esperados (contratos de respuesta) ─────────────────────────────
 
 CALLBACK_COMPLETED = {

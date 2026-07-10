@@ -220,6 +220,12 @@ async def unsubscription(request: Request):
         return _err("10", "ONT no encontrado en la OLT", "KMD-2002")
     if ont_id == 7777:
         return _err("50", "Timeout esperando respuesta de la OLT", "KMD-5020")
+    if ont_id == 5555:
+        return _err("40", "OLT con problemas de acceso", "KMD-2003")
+    if ont_id == 4444:
+        return _err("60", "Problemas con credenciales SSH en la OLT", "KMD-5020")
+    if ont_id == 3333:
+        return _err("30", "SL ID no asociado a la ruta", "KMD-2002")
 
     return _ok("Baja encolada")
 
@@ -230,6 +236,14 @@ async def unsubscription(request: Request):
 @app.post("/api/Komands/v1/activation", status_code=202)
 async def service_activation(request: Request):
     _require_provision(_decode(request))
+    body = await request.json()
+    ont_id = _ont_id(body)
+    if ont_id == 2100:
+        return _err("100", "Tecnología no reconocida — solo FTTH/SSAA", "KMD-4001")
+    if ont_id == 5555:
+        return _err("40", "OLT con problemas de acceso", "KMD-2003")
+    if ont_id == 4444:
+        return _err("60", "Problemas con credenciales SSH en la OLT", "KMD-5020")
     return _ok("Activación encolada")
 
 
@@ -258,6 +272,18 @@ async def service_modification(request: Request):
         return _err("10", "ONT no encontrado en la OLT", "KMD-2002")
     if ont_id == 7777:
         return _err("50", "Timeout esperando respuesta de la OLT", "KMD-5020")
+    if ont_id == 2070:
+        return _err("70", "Servicio ya activo — alta no ejecutada", "KMD-4001")
+    if ont_id == 2080:
+        return _err("80", "Servicio ya inactivo — baja no ejecutada", "KMD-4001")
+    if ont_id == 2090:
+        return _err("90", "Ningún servicio seleccionado (flags en F)", "KMD-4001")
+    if ont_id == 5555:
+        return _err("40", "OLT con problemas de acceso", "KMD-2003")
+    if ont_id == 4444:
+        return _err("60", "Problemas con credenciales SSH en la OLT", "KMD-5020")
+    if ont_id == 3333:
+        return _err("30", "SL ID no asociado a la ruta", "KMD-2002")
 
     return _ok("Modificación encolada")
 
@@ -281,6 +307,12 @@ async def device_modification(request: Request):
         return _err("10", "ONT no encontrado — no se puede iniciar el swap", "KMD-2002")
     if new_serial == "DUPL00000000":
         return _err("20", "Serial duplicado — ONT ya registrado en otra OLT", "KMD-3002", u_status="ROLLED_BACK")
+    if ont_id == 5555:
+        return _err("40", "OLT con problemas de acceso", "KMD-2003")
+    if ont_id == 4444:
+        return _err("60", "Problemas con credenciales SSH en la OLT", "KMD-5020")
+    if ont_id == 3333:
+        return _err("30", "SL ID no asociado a la ruta", "KMD-2002")
 
     return _ok("Cambio de equipo encolado")
 
@@ -291,9 +323,19 @@ async def device_modification(request: Request):
 async def fiber_change(request: Request):
     _require_provision(_decode(request))
     body = await request.json()
+    new_ont = _new_ont_id(body)
+    ont = _ont_id(body)
 
-    if _new_ont_id(body) == 9000:
+    if new_ont == 9000:
         return _err("120", "Posición destino ocupada", "KMD-3003", u_status="ROLLED_BACK")
+    if new_ont == 1011:
+        return _err("11", "Par de identificador incompleto", "KMD-2002")
+    if new_ont == 1110:
+        return _err("110", "Fallo activación prueba PON nueva (paso 1)", "KMD-5021")
+    if ont == 5555 or new_ont == 5555:
+        return _err("40", "OLT con problemas de acceso", "KMD-2003")
+    if ont == 4444 or new_ont == 4444:
+        return _err("60", "Problemas con credenciales SSH en la OLT", "KMD-5020")
 
     return _ok("Cambio de fibra encolado")
 
@@ -309,9 +351,13 @@ async def reset_ont(request: Request):
     if ont_id == 8888:
         return _err("10", "ONT no encontrado en la OLT", "KMD-2002")
     if ont_id == 6666:
-        return _err("20", "ONT offline — sin señal óptica", "KMD-2003")
+        return _err("40", "ONT offline — sin señal óptica", "KMD-2003")
     if ont_id == 7777:
         return _err("50", "Timeout esperando respuesta de la OLT", "KMD-5020")
+    if ont_id == 5555:
+        return _err("40", "OLT con problemas de acceso", "KMD-2003")
+    if ont_id == 4444:
+        return _err("60", "Problemas con credenciales SSH en la OLT", "KMD-5020")
 
     return _ok("Reset encolado")
 

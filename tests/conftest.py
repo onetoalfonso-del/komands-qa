@@ -761,6 +761,21 @@ def _build_test_app() -> FastAPI:
         if ont_id == 6664:
             return _ok_response("ACCEPTED", "Paso no crítico omitido — operación continúa")
 
+        if ont_id == 2100:
+            return _err_response("100", "Tecnología no reconocida — solo FTTH/SSAA",
+                                 "KMD-4001", "FAILED",
+                                 "Tecnología no reconocida — solo se admite FTTH o SSAA")
+
+        if ont_id == 5555:
+            return _err_response("40", "OLT con problemas de acceso",
+                                 "KMD-2003", "FAILED",
+                                 "OLT con problemas de acceso — verificar conectividad o escalar a Redes")
+
+        if ont_id == 4444:
+            return _err_response("60", "Problemas con credenciales SSH en la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Problemas con credenciales SSH — verificar configuración de acceso a la OLT")
+
         corr_id = request.headers.get("X-Correlation-ID", "")
         if corr_id == "idempotency-test-fixed-uuid-001":
             _idempotency_store = getattr(app.state, "idempotency_store", {})
@@ -816,6 +831,21 @@ def _build_test_app() -> FastAPI:
             return _err_response("115", "Fallo en paso crítico de baja — rollback ejecutado",
                                  "KMD-5021", "ROLLED_BACK",
                                  "Paso crítico de baja Nokia falló — servicio restaurado al estado activo")
+
+        if ont_id == 5555:
+            return _err_response("40", "OLT con problemas de acceso",
+                                 "KMD-2003", "FAILED",
+                                 "OLT con problemas de acceso — verificar conectividad o escalar a Redes")
+
+        if ont_id == 4444:
+            return _err_response("60", "Problemas con credenciales SSH en la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Problemas con credenciales SSH — verificar configuración de acceso a la OLT")
+
+        if ont_id == 3333:
+            return _err_response("30", "SL ID no asociado a la ruta",
+                                 "KMD-2002", "FAILED",
+                                 "SL ID no asociado a la ruta — verificar datos del acceso en ServiceNow")
 
         cancel_sentinel = _body_cancel_sentinel(body)
         if cancel_sentinel == "NO_PROVISION":
@@ -874,6 +904,36 @@ def _build_test_app() -> FastAPI:
                                  "KMD-5021", "ROLLED_BACK",
                                  "Modificación falló en ejecución CLI — servicio restaurado al perfil anterior")
 
+        if ont_id == 2070:
+            return _err_response("70", "Servicio ya activo — alta no ejecutada",
+                                 "KMD-4001", "FAILED",
+                                 "El servicio ya está activo en la OLT — alta no ejecutada")
+
+        if ont_id == 2080:
+            return _err_response("80", "Servicio ya inactivo — baja no ejecutada",
+                                 "KMD-4001", "FAILED",
+                                 "El servicio ya está inactivo en la OLT — baja no ejecutada")
+
+        if ont_id == 2090:
+            return _err_response("90", "Ningún servicio seleccionado (flags en F)",
+                                 "KMD-4001", "FAILED",
+                                 "Todos los flags de servicio están en F — no hay nada que modificar")
+
+        if ont_id == 5555:
+            return _err_response("40", "OLT con problemas de acceso",
+                                 "KMD-2003", "FAILED",
+                                 "OLT con problemas de acceso — verificar conectividad o escalar a Redes")
+
+        if ont_id == 4444:
+            return _err_response("60", "Problemas con credenciales SSH en la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Problemas con credenciales SSH — verificar configuración de acceso a la OLT")
+
+        if ont_id == 3333:
+            return _err_response("30", "SL ID no asociado a la ruta",
+                                 "KMD-2002", "FAILED",
+                                 "SL ID no asociado a la ruta — verificar datos del acceso en ServiceNow")
+
         return _ok_response(msg="Modificación encolada")
 
     # ── POST /reset-ont  (mock-only: no está en el API real) ──────────────────
@@ -898,6 +958,16 @@ def _build_test_app() -> FastAPI:
                                  "KMD-5020", "FAILED",
                                  "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes")
 
+        if ont_id == 5555:
+            return _err_response("40", "OLT con problemas de acceso",
+                                 "KMD-2003", "FAILED",
+                                 "OLT con problemas de acceso — verificar conectividad o escalar a Redes")
+
+        if ont_id == 4444:
+            return _err_response("60", "Problemas con credenciales SSH en la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Problemas con credenciales SSH — verificar configuración de acceso a la OLT")
+
         return _ok_response(msg="Reset encolado")
 
     # ── POST /device-modification ──────────────────────────────────────────────
@@ -916,7 +986,7 @@ def _build_test_app() -> FastAPI:
             return resp
 
         if new_serial == "VLAN00000000":
-            return _err_response("10", "VLAN_CONFLICT — VLAN asignada ya en uso",
+            return _err_response("120", "VLAN_CONFLICT — VLAN asignada ya en uso",
                                  "KMD-3001", "ROLLED_BACK",
                                  "VLAN_CONFLICT: la VLAN asignada al nuevo ONT ya está en uso en este puerto PON")
 
@@ -930,6 +1000,21 @@ def _build_test_app() -> FastAPI:
                                  "KMD-3002", "ROLLED_BACK",
                                  "Serial duplicado: el ONT nuevo ya está registrado en otra OLT")
 
+        if ont_id == 5555:
+            return _err_response("40", "OLT con problemas de acceso",
+                                 "KMD-2003", "FAILED",
+                                 "OLT con problemas de acceso — verificar conectividad o escalar a Redes")
+
+        if ont_id == 4444:
+            return _err_response("60", "Problemas con credenciales SSH en la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Problemas con credenciales SSH — verificar configuración de acceso a la OLT")
+
+        if ont_id == 3333:
+            return _err_response("30", "SL ID no asociado a la ruta",
+                                 "KMD-2002", "FAILED",
+                                 "SL ID no asociado a la ruta — verificar datos del acceso en ServiceNow")
+
         return _ok_response(msg="Cambio de equipo encolado")
 
     # ── POST /fiber-change ─────────────────────────────────────────────────────
@@ -940,9 +1025,30 @@ def _build_test_app() -> FastAPI:
         new_ont_id = _body_new_ont_id(body)
 
         if new_ont_id == 9000:
-            return _err_response("10", "Posición destino ocupada",
+            return _err_response("120", "Posición destino ocupada",
                                  "KMD-3003", "ROLLED_BACK",
                                  "Posición destino ocupada: ONT ID en el puerto de destino ya está asignado a otro cliente")
+
+        if new_ont_id == 1011:
+            return _err_response("11", "Par de identificador incompleto",
+                                 "KMD-2002", "FAILED",
+                                 "Par de identificador incompleto — verificar u_ontid y u_olt en los datos del cambio de fibra")
+
+        if new_ont_id == 1110:
+            return _err_response("110", "Fallo activación prueba PON nueva (paso 1)",
+                                 "KMD-5021", "ROLLED_BACK",
+                                 "Fallo en la activación de prueba de la PON nueva — cliente mantenido en PON origen")
+
+        ont_id = _body_ont_id(body)
+        if ont_id == 5555 or new_ont_id == 5555:
+            return _err_response("40", "OLT con problemas de acceso",
+                                 "KMD-2003", "FAILED",
+                                 "OLT con problemas de acceso — verificar conectividad o escalar a Redes")
+
+        if ont_id == 4444 or new_ont_id == 4444:
+            return _err_response("60", "Problemas con credenciales SSH en la OLT",
+                                 "KMD-5020", "FAILED",
+                                 "Problemas con credenciales SSH — verificar configuración de acceso a la OLT")
 
         return _ok_response(msg="Cambio de fibra encolado")
 
