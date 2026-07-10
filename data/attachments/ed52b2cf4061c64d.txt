@@ -1,7 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [FIB-07]  test_fib07_destino_ont_id_ocupado_retorna_rolled_back
-INFO     komands.qa:conftest.py:43       Cambio de fibra Nokia — el ONT ID en el puerto de destino ya está en uso.
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/fiber-change "HTTP/1.1 202 Accepted"
-INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/fiber-change
-INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "DTV", "external_order_id": "SO-FIB-ERR-001", "current_olt_name": "OLT-SAN-001", "current_slot": 1, "current_port": 3, "current_ont_id": 45, "new_olt_name": "OLT-SAN-001", "new_slot": 1, "new_port": 5, "new_ont_id": 9000, "serial_ont": "ALCLF1234567"}
-INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "10", "u_return_code_desc": "Posición destino ocupada", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "ROLLED_BACK", "u_error_code": "KMD-3003"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ROLLED_BACK", "error_code": "KMD-3003", "error_message": "Posición destino ocupada: ONT ID en el puerto de destino ya está asignado a otro cliente"}
