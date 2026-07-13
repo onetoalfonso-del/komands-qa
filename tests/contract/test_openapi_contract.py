@@ -167,7 +167,7 @@ def test_contrato_openapi(case):
     case.headers = {**(case.headers or {}), **_required_headers()}
 
     if _REAL_URL:
-        response = case.call()
+        response = case.call(verify=False)
 
         assert response.status_code < 500, (
             f"\nResultado obtenido:  HTTP {response.status_code} — error interno del servidor"
