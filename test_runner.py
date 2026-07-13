@@ -96,7 +96,11 @@ SUITES = [
         "cwd":   str(ROOT),
         "report": str(ROOT / "reporte_t1c_real.html"),
         "requires": None,
-        "env_extra": {"KOMANDS_TEST_URL": "https://onf-komands.cl:9016"},
+        "env_extra": {
+            "KOMANDS_TEST_URL":      os.environ.get("DEV_BASE_URL", "https://onf-komands.cl:9016"),
+            "KOMANDS_CLIENT_ID":     os.environ.get("DEV_CLIENT_ID", ""),
+            "KOMANDS_CLIENT_SECRET": os.environ.get("DEV_CLIENT_SECRET", ""),
+        },
     },
     {
         "id": "t2", "group": "disponible",

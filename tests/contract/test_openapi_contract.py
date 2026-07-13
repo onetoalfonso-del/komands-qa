@@ -21,6 +21,8 @@ import time
 import uuid
 from pathlib import Path
 
+import requests as _requests
+
 import pytest
 import schemathesis.openapi as _oa
 from hypothesis import HealthCheck, settings
@@ -38,11 +40,49 @@ _REAL_URL = os.getenv("KOMANDS_TEST_URL", "")
 # El servidor real usa RS256 firmado por Axway — modo real requiere credenciales aparte
 _JWT_SECRET = "test-secret-komands-qa"
 
+# Cache del token real (se obtiene una vez por sesión de pytest)
+_cached_real_token: str | None = None
+
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
+def _fetch_real_token() -> str:
+    """
+    Obtiene un token real desde el servidor KOMANDs vía OAuth2 client_credentials.
+    Lee DEV_CLIENT_ID / DEV_CLIENT_SECRET del entorno (nunca hardcodeados).
+    """
+    client_id = os.getenv("KOMANDS_CLIENT_ID", "")
+    client_secret = os.getenv("KOMANDS_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "T1-C Real requiere KOMANDS_CLIENT_ID y KOMANDS_CLIENT_SECRET.\n"
+            "Configura esas variables de entorno (Railway o local .env) y vuelve a ejecutar."
+        )
+    resp = _requests.post(
+        f"{_REAL_URL}/api/Komands/v1/auth/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "komands:provision komands:query",
+        },
+        timeout=15,
+        verify=False,  # onf-komands.cl:9016 usa cert autofirmado en algunos ambientes
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
 def _provision_token(vno: str = "DTV") -> str:
-    """Token con scope provision+query, HS256, compatible con mock."""
+    """
+    Modo mock: token HS256 compatible con el mock del conftest.
+    Modo real: token OAuth2 obtenido del servidor onf-komands.cl:9016.
+    """
+    global _cached_real_token
+    if _REAL_URL:
+        if _cached_real_token is None:
+            _cached_real_token = _fetch_real_token()
+        return _cached_real_token
     return jwt.encode(
         {
             "sub": "sn-integration",
