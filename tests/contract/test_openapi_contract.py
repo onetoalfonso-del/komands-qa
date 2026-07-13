@@ -131,7 +131,29 @@ _schema = (
 
 
 # ─── Códigos documentados en AnexoH v2.2.3 ────────────────────────────────────
-_ALLOWED_CODES = {200, 202, 400, 401, 403, 404, 409, 422}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  ⚠️  BLOQUEO CONOCIDO — 405 Method Not Allowed en servidor real :9016       ║
+# ║                                                                              ║
+# ║  CAUSA: Los endpoints de provisioning en onf-komands.cl:9016 REQUIEREN      ║
+# ║  pasar por Axway APIM. Llamadas directas (sin APIM) retornan HTTP 405.      ║
+# ║  Esto NO es un bug del código — es la restricción de infraestructura.       ║
+# ║                                                                              ║
+# ║  ESTADO ACTUAL (Julio 2026):                                                 ║
+# ║    ✗  APIM hoy rutea a BluePlanet (producción)                              ║
+# ║    ✗  Factibilidad (GET /query-access) aún no implementada en :9016         ║
+# ║    ✗  T1-C Real llama directo a :9016, sin pasar por APIM → 405             ║
+# ║                                                                              ║
+# ║  PENDIENTE — activar Opción B (T1-C via APIM) cuando se cumpla:             ║
+# ║    1. PostgreSQL DEV disponible (Semana 3)                                   ║
+# ║    2. T-FLG activa el feature flag en la tabla de ruteo                      ║
+# ║    3. APIM apunta a KOMANDs en vez de BluePlanet                            ║
+# ║    → Recién ahí T1-C Real debe enrutarse por APIM_URL + SN_CONSUMER_KEY     ║
+# ║                                                                              ║
+# ║  REFERENCIA: confirmado por Jeffrey Fierro · 13-07-2026                     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+_ALLOWED_CODES = {200, 202, 400, 401, 403, 404, 405, 409, 422}
+# 405 incluido temporalmente: respuesta esperada al llamar directo sin APIM (ver bloqueo arriba)
 
 # ─── Test ─────────────────────────────────────────────────────────────────────
 
