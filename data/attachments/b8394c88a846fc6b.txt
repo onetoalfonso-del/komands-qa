@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_y_huawei_reset_generan_comandos_distintos
-INFO     komands.qa:conftest.py:43       Reset con mismos parámetros, vendors distintos.

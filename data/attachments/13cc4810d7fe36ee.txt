@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_operation_type_desconocido_lanza_error
-INFO     komands.qa:conftest.py:43       Nokia FTTH con operation_type="REBOOT".

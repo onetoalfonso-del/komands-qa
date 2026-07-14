@@ -1,6 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [QRY-04]  test_qry04_ocupacion_pon_devuelve_200
-INFO     komands.qa:conftest.py:43       Consulta de ocupación de puerto PON.
-INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/port-occupancy "HTTP/1.1 200 OK"
-INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/port-occupancy
-INFO     komands.qa:conftest.py:183   << 200  {"max_onts": 128, "active_onts": 87, "available": 41}

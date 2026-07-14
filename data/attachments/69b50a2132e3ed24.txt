@@ -1,6 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [OPS-06]  test_ops06_auditor_sin_transaction_read_devuelve_403[fiber-change-fiber-change]
-INFO     komands.qa:conftest.py:43       Rol AUDITOR intenta consultar estado de operación.
-INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/fiber-change/3fa85f64-5717-4562-b3fc-2c963f66afa6 "HTTP/1.1 403 Forbidden"
-INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/fiber-change/3fa85f64-5717-4562-b3fc-2c963f66afa6
-INFO     komands.qa:conftest.py:183   << 403  {"detail": "Rol 'AUDITOR' no tiene permiso 'transaction:read'"}

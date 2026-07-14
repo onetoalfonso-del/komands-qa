@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_swap_contiene_baja_del_ont_viejo
-INFO     komands.qa:conftest.py:43       Swap Nokia — el ONT viejo debe darse de baja primero.

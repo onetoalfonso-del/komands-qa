@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_activation_sin_ont_serial_lanza_error
-INFO     komands.qa:conftest.py:43       Se intenta activar sin ont_serial.

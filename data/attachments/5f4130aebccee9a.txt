@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ssaa_dos_grupos_genera_dos_bridge_ports
-INFO     komands.qa:conftest.py:43       Activación Nokia SSAA con grupos A y C.

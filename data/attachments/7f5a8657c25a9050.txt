@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_baja_contiene_admin_state_down
-INFO     komands.qa:conftest.py:43       Baja Nokia FTTH — el ONT debe bajar primero de admin-state.

@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_baja_tch_agrega_no_vlan
-INFO     komands.qa:conftest.py:43       Baja Nokia TCH con delete_vlan_on_terminate=True.

@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_speed_change_sin_perfil_lanza_error
-INFO     komands.qa:conftest.py:43       SPEED_CHANGE Huawei FTTH sin indicar el nuevo perfil de velocidad.

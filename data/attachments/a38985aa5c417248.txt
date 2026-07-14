@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_parse_service_port_index_extrae_numero_correcto
-INFO     komands.qa:conftest.py:43       La OLT Huawei responde con el INDEX asignado al service-port.

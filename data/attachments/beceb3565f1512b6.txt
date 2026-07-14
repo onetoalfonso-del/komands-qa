@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_baja_vendor_desconocido_lanza_error
-INFO     komands.qa:conftest.py:43       build_deactivation con vendor="cisco".

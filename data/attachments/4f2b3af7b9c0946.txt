@@ -1,6 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [QRY-06]  test_qry06_transaccion_inexistente_devuelve_404
-INFO     komands.qa:conftest.py:43       Consulta de transacción con UUID que no existe.
-INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/transaction/00000000-0000-0000-0000-000000000000/status "HTTP/1.1 404 Not Found"
-INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/transaction/00000000-0000-0000-0000-000000000000/status
-INFO     komands.qa:conftest.py:183   << 404  {"detail": "error_code=KMD-2003"}

@@ -1,7 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [FM-04]  test_fm04_alta_en_destino_falla_ejecuta_rollback_rolled_back
-INFO     komands.qa:conftest.py:43       Baja en el puerto origen exitosa, pero el alta en el puerto destino
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/fiber-modification "HTTP/1.1 202 Accepted"
-INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/fiber-modification
-INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_routing_new": {"u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "4", "u_ontid": "5002", "u_technology": "GPON"}}
-INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "115", "u_return_code_desc": "Alta en OLT destino falló — rollback ejecutado", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "ROLLED_BACK", "u_error_code": "KMD-5021"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ROLLED_BACK", "error_code": "KMD-5021", "error_message": "Baja en origen exitosa, pero alta en destino falló — cliente restaurado en origen"}

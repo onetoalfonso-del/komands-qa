@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_baja_contiene_undo_service_port_con_index
-INFO     komands.qa:conftest.py:43       Baja Huawei FTTH con service_port_index=1025.

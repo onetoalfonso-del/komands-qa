@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_e2e_06_estado_cambio_dispositivo[Nokia-DTV]
-INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/device-modification/3fa85f64-5717-4562-b3fc-2c963f66afa6 "HTTP/1.1 200 OK"

@@ -1,6 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [RBAC-06]  test_rbac06_auditor_puede_ver_audit_log
-INFO     komands.qa:conftest.py:43       Usuario con rol AUDITOR consulta GET /audit-log.
-INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/audit-log "HTTP/1.1 200 OK"
-INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/audit-log
-INFO     komands.qa:conftest.py:183   << 200  {"logs": [], "total": 0}

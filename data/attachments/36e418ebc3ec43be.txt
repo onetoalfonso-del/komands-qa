@@ -1,7 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [BAJ-17]  test_baj17_huawei_index_parcial_retorna_rolled_back
-INFO     komands.qa:conftest.py:43       Baja Huawei FTTH — cliente con 3 service-ports, solo 2 tienen INDEX.
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 202 Accepted"
-INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
-INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-002", "u_slot": "0", "u_pon": "2", "u_ontid": "9998", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "485754C12345", "u_slid": "SLID-H-001"}}
-INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "20", "u_return_code_desc": "INDEX parcial — rollback ejecutado", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "ROLLED_BACK", "u_error_code": "KMD-2002"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ROLLED_BACK", "error_code": "KMD-2002", "error_message": "INDEX parcial: 2 de 3 service-ports resueltos — rollback ejecutado"}

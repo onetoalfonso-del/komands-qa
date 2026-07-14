@@ -1,7 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [MOD-22]  test_mod22_service_remove_nokia_devuelve_422
-INFO     komands.qa:conftest.py:43       Se intenta hacer SERVICE_REMOVE en Nokia FTTH.
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/modification "HTTP/1.1 422 Unprocessable Entity"
-INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/modification
-INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_action": {"u_type": "REMOVE_SERVICE", "u_voz": "F"}}
-INFO     komands.qa:conftest.py:183   << 422  {"error_code": "KMD-4001", "error_message": "SERVICE_REMOVE no soportado en FTTH — usar baja completa si el cliente no quiere ningún servicio"}

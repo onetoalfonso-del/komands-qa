@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_modificacion_producto_no_soportado_lanza_error
-INFO     komands.qa:conftest.py:43       build_modification con product="SSAA".

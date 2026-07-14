@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_ssaa_dos_grupos_genera_dos_service_ports
-INFO     komands.qa:conftest.py:43       Activación Huawei SSAA con grupos A y C.

@@ -1,7 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [RBAC-08]  test_rbac08_admin_puede_crear_usuarios
-INFO     komands.qa:conftest.py:43       Usuario con rol ADMIN hace POST /users para crear un nuevo usuario.
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/users "HTTP/1.1 201 Created"
-INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/users
-INFO     komands.qa:conftest.py:182      PAYLOAD  {"email": "nuevo.operador@onnet.cl", "role": "OPERATOR"}
-INFO     komands.qa:conftest.py:183   << 201  {"user_id": 1, "message": "Usuario creado"}

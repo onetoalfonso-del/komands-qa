@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_mod_block_contiene_ont_deactivate
-INFO     komands.qa:conftest.py:43       Bloqueo de servicio Huawei FTTH.

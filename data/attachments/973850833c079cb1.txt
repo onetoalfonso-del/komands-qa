@@ -1,6 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_rc003a_baja_slid_not_associated
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsubscription "HTTP/1.1 202 Accepted"
-INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsubscription
-INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "3333", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}}
-INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "30", "u_return_code_desc": "SL ID no asociado a la ruta", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "FAILED", "u_error_code": "KMD-2002"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "FAILED", "error_code": "KMD-2002", "error_message": "SL ID no asociado a la ruta — verificar datos del acceso en ServiceNow"}

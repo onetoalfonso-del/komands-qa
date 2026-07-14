@@ -1,6 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [OPS-03]  test_ops03_uuid_no_encontrado_devuelve_404[unsubscription-unsubscription]
-INFO     komands.qa:conftest.py:43       Consulta de estado con UUID centinela (todos-ceros).
-INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/unsubscription/00000000-0000-0000-0000-000000000000 "HTTP/1.1 404 Not Found"
-INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/unsubscription/00000000-0000-0000-0000-000000000000
-INFO     komands.qa:conftest.py:183   << 404  {"detail": "error_code=KMD-2003"}

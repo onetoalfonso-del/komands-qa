@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_baja_contiene_no_equipment_ont_interface
-INFO     komands.qa:conftest.py:43       Baja Nokia FTTH — el comando de eliminación es obligatorio.

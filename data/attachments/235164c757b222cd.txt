@@ -1,4 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_e2e_01_alta_nokia_ftth
-INFO     komands.qa:conftest.py:43       PASO 1 — Alta de acceso Nokia FTTH con Internet + VoIP.
-INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/service-activation "HTTP/1.1 202 Accepted"

@@ -1,3 +1,0 @@
-INFO     komands.qa:conftest.py:40 ============================================================
-INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ftth_activation_internet_contiene_interfaz_ont
-INFO     komands.qa:conftest.py:43       Activación Nokia FTTH solo INTERNET.
