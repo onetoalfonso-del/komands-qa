@@ -89,6 +89,237 @@
                      "description":  "Endpoint emisor de tokens JWT (OAuth 2.0 client_credentials). Ref: Sección 5.2."
                  },
                  {
+                     "name":  "Baja de Acceso",
+                     "item":  [
+                                  {
+                                      "name":  "POST Baja de Acceso",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code es 202 Accepted\u0027, function() {",
+                                                                                    "    pm.response.to.have.status(202);",
+                                                                                    "});",
+                                                                                    "if (pm.response.code === 202) {",
+                                                                                    "    var jsonData = pm.response.json();",
+                                                                                    "    pm.collectionVariables.set(\u0027u_uuid\u0027, jsonData.result.u_uuid);",
+                                                                                    "    pm.test(\u0027u_return_code es 0 (exito)\u0027, function() {",
+                                                                                    "        pm.expect(jsonData.result.u_return_code).to.eql(\u00270\u0027);",
+                                                                                    "    });",
+                                                                                    "    pm.test(\u0027u_uuid presente\u0027, function() {",
+                                                                                    "        pm.expect(jsonData.result.u_uuid).to.be.a(\u0027string\u0027);",
+                                                                                    "    });",
+                                                                                    "    pm.test(\u0027Response headers presentes\u0027, function() {",
+                                                                                    "        pm.expect(pm.response.headers.get(\u0027X-Correlation-ID\u0027)).to.not.be.undefined;",
+                                                                                    "        pm.expect(pm.response.headers.get(\u0027X-Transaction-ID\u0027)).to.not.be.undefined;",
+                                                                                    "        pm.expect(pm.response.headers.get(\u0027X-API-Version\u0027)).to.eql(\u00272.2.3\u0027);",
+                                                                                    "    });",
+                                                                                    "}"
+                                                                                ],
+                                                                       "type":  "text/javascript",
+                                                                       "packages":  {
+
+                                                                                    },
+                                                                       "requests":  {
+
+                                                                                    }
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Source-System",
+                                                                         "value":  "SN"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Correlation-ID",
+                                                                         "value":  "test-nokia-001"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Source-System-ID",
+                                                                         "value":  "SN-SYS-005"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-ID",
+                                                                         "value":  "jeff"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "admin"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Organization",
+                                                                         "value":  "ON-NET CHILE"
+                                                                     },
+                                                                     {
+                                                                         "key":  "traceparent",
+                                                                         "value":  "testing_traceparent",
+                                                                         "type":  "text",
+                                                                         "disabled":  true
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_id_vno\": \"DTV\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/api/Komands/v1/unsubscription",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "Komands",
+                                                                               "v1",
+                                                                               "unsubscription"
+                                                                           ]
+                                                              },
+                                                      "description":  "Solicita una baja de acceso asincrona (Tabla 11 del documento).\nFamilias: u_routing + u_identification.\nRespuesta: HTTP 202 con u_uuid para tracking.\nEl test guarda u_uuid en la variable de coleccion para el GET."
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "GET Estado Baja de Acceso",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "pm.test(\u0027Status code es 200 OK\u0027, function() {",
+                                                                                    "    pm.response.to.have.status(200);",
+                                                                                    "});",
+                                                                                    "if (pm.response.code === 200) {",
+                                                                                    "    var jsonData = pm.response.json();",
+                                                                                    "    pm.test(\u0027u_return_code presente\u0027, function() {",
+                                                                                    "        pm.expect(jsonData.result.u_return_code).to.be.a(\u0027string\u0027);",
+                                                                                    "    });",
+                                                                                    "    pm.test(\u0027u_uuid coincide\u0027, function() {",
+                                                                                    "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get(\u0027u_uuid\u0027));",
+                                                                                    "    });",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "X-Source-System",
+                                                                         "value":  "SN"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Correlation-ID",
+                                                                         "value":  "{{$guid}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Source-System-ID",
+                                                                         "value":  "abc123def4567890abcdef0123456789"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-ID",
+                                                                         "value":  "jperez"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "agent"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Organization",
+                                                                         "value":  "ON-NET CHILE"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/api/Komands/v1/unsubscription/{{u_uuid}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "Komands",
+                                                                               "v1",
+                                                                               "unsubscription",
+                                                                               "{{u_uuid}}"
+                                                                           ]
+                                                              },
+                                                      "description":  "Consulta el estado de una baja previamente creada (Tabla 13).\nUsa el u_uuid guardado por el POST anterior."
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "id":  "4bdfe6b0-79c3-4d04-8ed6-fbebfe78bedd",
+                                      "name":  "POST Baja de Acceso — Nokia NCOR_OLT_3",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json",
+                                                                         "type":  "text"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{Token}}",
+                                                                         "type":  "text"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Correlation-ID",
+                                                                         "value":  "{{$guid}}",
+                                                                         "type":  "text"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-Source-System",
+                                                                         "value":  "SERVICE-NOW",
+                                                                         "type":  "text"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_id_vno\": \"DTV\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\"\n  }\n}",
+                                                                   "options":  {
+                                                                                   "raw":  {
+                                                                                               "language":  "json"
+                                                                                           }
+                                                                               }
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/api/Komands/v1/unsubscription",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "Komands",
+                                                                               "v1",
+                                                                               "unsubscription"
+                                                                           ]
+                                                              }
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  }
+                              ],
+                     "description":  "Operación de baja de acceso FTTH/SSAA. Sección 2.1-2.2 del documento.\nPatrón: POST async 202 + callback → GET sync 200 (reconciliación)."
+                 },
+                 {
                      "name":  "Activación de Servicio",
                      "item":  [
                                   {
@@ -842,237 +1073,6 @@
                                   }
                               ],
                      "description":  "Migración de un acceso de una PON a otra (cambio de CTO). Sección 2.6 del documento.\nTransacción atómica de 3 pasos: activar en PON nueva → baja en PON antigua → device modification con serial real.\nCódigos específicos: 11, 110, 115, 120."
-                 },
-                 {
-                     "name":  "Baja de Acceso",
-                     "item":  [
-                                  {
-                                      "name":  "POST Baja de Acceso",
-                                      "event":  [
-                                                    {
-                                                        "listen":  "test",
-                                                        "script":  {
-                                                                       "exec":  [
-                                                                                    "pm.test(\u0027Status code es 202 Accepted\u0027, function() {",
-                                                                                    "    pm.response.to.have.status(202);",
-                                                                                    "});",
-                                                                                    "if (pm.response.code === 202) {",
-                                                                                    "    var jsonData = pm.response.json();",
-                                                                                    "    pm.collectionVariables.set(\u0027u_uuid\u0027, jsonData.result.u_uuid);",
-                                                                                    "    pm.test(\u0027u_return_code es 0 (exito)\u0027, function() {",
-                                                                                    "        pm.expect(jsonData.result.u_return_code).to.eql(\u00270\u0027);",
-                                                                                    "    });",
-                                                                                    "    pm.test(\u0027u_uuid presente\u0027, function() {",
-                                                                                    "        pm.expect(jsonData.result.u_uuid).to.be.a(\u0027string\u0027);",
-                                                                                    "    });",
-                                                                                    "    pm.test(\u0027Response headers presentes\u0027, function() {",
-                                                                                    "        pm.expect(pm.response.headers.get(\u0027X-Correlation-ID\u0027)).to.not.be.undefined;",
-                                                                                    "        pm.expect(pm.response.headers.get(\u0027X-Transaction-ID\u0027)).to.not.be.undefined;",
-                                                                                    "        pm.expect(pm.response.headers.get(\u0027X-API-Version\u0027)).to.eql(\u00272.2.3\u0027);",
-                                                                                    "    });",
-                                                                                    "}"
-                                                                                ],
-                                                                       "type":  "text/javascript",
-                                                                       "packages":  {
-
-                                                                                    },
-                                                                       "requests":  {
-
-                                                                                    }
-                                                                   }
-                                                    }
-                                                ],
-                                      "request":  {
-                                                      "method":  "POST",
-                                                      "header":  [
-                                                                     {
-                                                                         "key":  "Content-Type",
-                                                                         "value":  "application/json"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Source-System",
-                                                                         "value":  "SN"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Correlation-ID",
-                                                                         "value":  "test-nokia-001"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Source-System-ID",
-                                                                         "value":  "SN-SYS-005"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-User-ID",
-                                                                         "value":  "jeff"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-User-Role",
-                                                                         "value":  "admin"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-User-Organization",
-                                                                         "value":  "ON-NET CHILE"
-                                                                     },
-                                                                     {
-                                                                         "key":  "traceparent",
-                                                                         "value":  "testing_traceparent",
-                                                                         "type":  "text",
-                                                                         "disabled":  true
-                                                                     }
-                                                                 ],
-                                                      "body":  {
-                                                                   "mode":  "raw",
-                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_id_vno\": \"DTV\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\"\n  }\n}",
-                                                                   "options":  {
-                                                                                   "raw":  {
-                                                                                               "language":  "json"
-                                                                                           }
-                                                                               }
-                                                               },
-                                                      "url":  {
-                                                                  "raw":  "{{base_url}}/api/Komands/v1/unsubscription",
-                                                                  "host":  [
-                                                                               "{{base_url}}"
-                                                                           ],
-                                                                  "path":  [
-                                                                               "api",
-                                                                               "Komands",
-                                                                               "v1",
-                                                                               "unsubscription"
-                                                                           ]
-                                                              },
-                                                      "description":  "Solicita una baja de acceso asincrona (Tabla 11 del documento).\nFamilias: u_routing + u_identification.\nRespuesta: HTTP 202 con u_uuid para tracking.\nEl test guarda u_uuid en la variable de coleccion para el GET."
-                                                  },
-                                      "response":  [
-
-                                                   ]
-                                  },
-                                  {
-                                      "name":  "GET Estado Baja de Acceso",
-                                      "event":  [
-                                                    {
-                                                        "listen":  "test",
-                                                        "script":  {
-                                                                       "type":  "text/javascript",
-                                                                       "exec":  [
-                                                                                    "pm.test(\u0027Status code es 200 OK\u0027, function() {",
-                                                                                    "    pm.response.to.have.status(200);",
-                                                                                    "});",
-                                                                                    "if (pm.response.code === 200) {",
-                                                                                    "    var jsonData = pm.response.json();",
-                                                                                    "    pm.test(\u0027u_return_code presente\u0027, function() {",
-                                                                                    "        pm.expect(jsonData.result.u_return_code).to.be.a(\u0027string\u0027);",
-                                                                                    "    });",
-                                                                                    "    pm.test(\u0027u_uuid coincide\u0027, function() {",
-                                                                                    "        pm.expect(jsonData.result.u_uuid).to.eql(pm.collectionVariables.get(\u0027u_uuid\u0027));",
-                                                                                    "    });",
-                                                                                    "}"
-                                                                                ]
-                                                                   }
-                                                    }
-                                                ],
-                                      "request":  {
-                                                      "method":  "GET",
-                                                      "header":  [
-                                                                     {
-                                                                         "key":  "X-Source-System",
-                                                                         "value":  "SN"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Correlation-ID",
-                                                                         "value":  "{{$guid}}"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Source-System-ID",
-                                                                         "value":  "abc123def4567890abcdef0123456789"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-User-ID",
-                                                                         "value":  "jperez"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-User-Role",
-                                                                         "value":  "agent"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-User-Organization",
-                                                                         "value":  "ON-NET CHILE"
-                                                                     }
-                                                                 ],
-                                                      "url":  {
-                                                                  "raw":  "{{base_url}}/api/Komands/v1/unsubscription/{{u_uuid}}",
-                                                                  "host":  [
-                                                                               "{{base_url}}"
-                                                                           ],
-                                                                  "path":  [
-                                                                               "api",
-                                                                               "Komands",
-                                                                               "v1",
-                                                                               "unsubscription",
-                                                                               "{{u_uuid}}"
-                                                                           ]
-                                                              },
-                                                      "description":  "Consulta el estado de una baja previamente creada (Tabla 13).\nUsa el u_uuid guardado por el POST anterior."
-                                                  },
-                                      "response":  [
-
-                                                   ]
-                                  },
-                                  {
-                                      "id":  "4bdfe6b0-79c3-4d04-8ed6-fbebfe78bedd",
-                                      "name":  "POST Baja de Acceso — Nokia NCOR_OLT_3",
-                                      "request":  {
-                                                      "method":  "POST",
-                                                      "header":  [
-                                                                     {
-                                                                         "key":  "Content-Type",
-                                                                         "value":  "application/json",
-                                                                         "type":  "text"
-                                                                     },
-                                                                     {
-                                                                         "key":  "Authorization",
-                                                                         "value":  "Bearer {{Token}}",
-                                                                         "type":  "text"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Correlation-ID",
-                                                                         "value":  "{{$guid}}",
-                                                                         "type":  "text"
-                                                                     },
-                                                                     {
-                                                                         "key":  "X-Source-System",
-                                                                         "value":  "SERVICE-NOW",
-                                                                         "type":  "text"
-                                                                     }
-                                                                 ],
-                                                      "body":  {
-                                                                   "mode":  "raw",
-                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_id_vno\": \"DTV\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\"\n  }\n}",
-                                                                   "options":  {
-                                                                                   "raw":  {
-                                                                                               "language":  "json"
-                                                                                           }
-                                                                               }
-                                                               },
-                                                      "url":  {
-                                                                  "raw":  "{{base_url}}/api/Komands/v1/unsubscription",
-                                                                  "host":  [
-                                                                               "{{base_url}}"
-                                                                           ],
-                                                                  "path":  [
-                                                                               "api",
-                                                                               "Komands",
-                                                                               "v1",
-                                                                               "unsubscription"
-                                                                           ]
-                                                              }
-                                                  },
-                                      "response":  [
-
-                                                   ]
-                                  }
-                              ],
-                     "description":  "Operación de baja de acceso FTTH/SSAA. Sección 2.1-2.2 del documento.\nPatrón: POST async 202 + callback → GET sync 200 (reconciliación)."
                  },
                  {
                      "name":  "Health Checks",
