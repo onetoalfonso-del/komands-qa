@@ -178,7 +178,7 @@ SUITES = [
                 {"olt": "NCOR_OLT_3", "vendor": "Nokia",  "slot": "1", "pon": "1", "ontid": "3", "vno": "DTV",   "serial": "TEST:AONETO"},
                 {"olt": "NCOR_OLT_1", "vendor": "Huawei", "slot": "7", "pon": "6", "ontid": "2", "vno": "DTV",   "serial": "TEST:AONETO"},
             ],
-            "active": 0,
+            "active": 1,
         },
     },
     {
