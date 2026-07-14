@@ -1546,7 +1546,9 @@ def _generate_env_files():
         print("  [env] ADVERTENCIA: sin credenciales APIM → los archivos .postman_environment.json deben existir localmente")
         return
 
-    def _write(path, name, idvno, access_id, serial, speed, addr_id, addr_mcd):
+    def _write(path, name, idvno, access_id, serial, speed, addr_id, addr_mcd, ck_vno=None, cs_vno=None):
+        _ck = ck_vno or ck
+        _cs = cs_vno or cs
         try:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         except Exception:
@@ -1555,8 +1557,8 @@ def _generate_env_files():
             "id": f"env-vno{idvno}-generated",
             "name": name,
             "values": [
-                {"key": "consumerKey",    "value": ck,       "type": "default", "enabled": True},
-                {"key": "consumerSecret", "value": cs,       "type": "default", "enabled": True},
+                {"key": "consumerKey",    "value": _ck,      "type": "default", "enabled": True},
+                {"key": "consumerSecret", "value": _cs,      "type": "default", "enabled": True},
                 {"key": "Token",          "value": "",       "type": "default", "enabled": True},
                 {"key": "authorization",  "value": "",       "type": "default", "enabled": True},
                 {"key": "apimURL",        "value": url,      "type": "default", "enabled": True},
@@ -1582,6 +1584,8 @@ def _generate_env_files():
             speed    = os.environ.get("VNO03_SPEED_PLAN", "940/940"),
             addr_id  = os.environ.get("VNO03_ADDRESS_ID", "DIR02873638"),
             addr_mcd = os.environ.get("VNO03_ADDRESS_MCD","OSP"),
+            ck_vno   = os.environ.get("VNO03_CONSUMER_KEY"),
+            cs_vno   = os.environ.get("VNO03_CONSUMER_SECRET"),
         )
     except Exception as e:
         print(f"  [env] ERROR generando VNO-03: {e}")
@@ -1595,6 +1599,8 @@ def _generate_env_files():
             speed    = os.environ.get("VNO02_SPEED_PLAN", "600/600"),
             addr_id  = os.environ.get("VNO02_ADDRESS_ID", "DIR02803638"),
             addr_mcd = os.environ.get("VNO02_ADDRESS_MCD","OSP"),
+            ck_vno   = os.environ.get("VNO02_CONSUMER_KEY"),
+            cs_vno   = os.environ.get("VNO02_CONSUMER_SECRET"),
         )
     except Exception as e:
         print(f"  [env] ERROR generando VNO-02: {e}")
@@ -1608,6 +1614,8 @@ def _generate_env_files():
             speed    = os.environ.get("VNO05_SPEED_PLAN", ""),
             addr_id  = os.environ.get("VNO05_ADDRESS_ID", ""),
             addr_mcd = os.environ.get("VNO05_ADDRESS_MCD","OSP"),
+            ck_vno   = os.environ.get("VNO05_CONSUMER_KEY"),
+            cs_vno   = os.environ.get("VNO05_CONSUMER_SECRET"),
         )
     except Exception as e:
         print(f"  [env] ERROR generando VNO-05: {e}")
@@ -1621,6 +1629,8 @@ def _generate_env_files():
             speed    = os.environ.get("VNO00_SPEED_PLAN", ""),
             addr_id  = os.environ.get("VNO00_ADDRESS_ID", ""),
             addr_mcd = os.environ.get("VNO00_ADDRESS_MCD","OSP"),
+            ck_vno   = os.environ.get("VNO00_CONSUMER_KEY"),
+            cs_vno   = os.environ.get("VNO00_CONSUMER_SECRET"),
         )
     except Exception as e:
         print(f"  [env] ERROR generando VNO-00: {e}")
