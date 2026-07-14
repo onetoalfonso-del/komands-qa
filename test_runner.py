@@ -1598,6 +1598,32 @@ def _generate_env_files():
         )
     except Exception as e:
         print(f"  [env] ERROR generando VNO-02: {e}")
+    try:
+        _write(
+            path     = str(BP_DIR / "VnoB1_vnoid05 PRE.postman_environment.json"),
+            name     = "VnoB1_vnoid05 PRE",
+            idvno    = "05",
+            access_id= os.environ.get("VNO05_ACCESS_ID",  "05-TESTPREPROD-"),
+            serial   = os.environ.get("VNO05_SERIAL",     ""),
+            speed    = os.environ.get("VNO05_SPEED_PLAN", ""),
+            addr_id  = os.environ.get("VNO05_ADDRESS_ID", ""),
+            addr_mcd = os.environ.get("VNO05_ADDRESS_MCD","OSP"),
+        )
+    except Exception as e:
+        print(f"  [env] ERROR generando VNO-05: {e}")
+    try:
+        _write(
+            path     = str(BP_DIR / "VnoB1_vnoid00 PRE.postman_environment.json"),
+            name     = "VnoB1_vnoid00 PRE",
+            idvno    = "00",
+            access_id= os.environ.get("VNO00_ACCESS_ID",  "00-TESTPREPROD-"),
+            serial   = os.environ.get("VNO00_SERIAL",     ""),
+            speed    = os.environ.get("VNO00_SPEED_PLAN", ""),
+            addr_id  = os.environ.get("VNO00_ADDRESS_ID", ""),
+            addr_mcd = os.environ.get("VNO00_ADDRESS_MCD","OSP"),
+        )
+    except Exception as e:
+        print(f"  [env] ERROR generando VNO-00: {e}")
 
     # Environment DEV (Endpoints Kommand Dev + T7)
     dev_url = os.environ.get("DEV_BASE_URL", "https://onf-komands.cl:9016")
