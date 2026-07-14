@@ -342,18 +342,25 @@ def pytest_addoption(parser):
 
 
 def pytest_generate_tests(metafunc):
-    if "vno_id" in metafunc.fixturenames:
-        code = metafunc.config.getoption("--vno", default=None)
-        if code is not None:
-            vno = VNO_CODES.get(code)
-            if not vno:
-                raise ValueError(
-                    f"--vno '{code}' no reconocido. Opciones válidas: "
-                    + ", ".join(f"{c}={v}" for c, v in VNO_CODES.items())
-                )
-            metafunc.parametrize("vno_id", [vno], ids=[f"{vno}[{code}]"])
-        else:
-            metafunc.parametrize("vno_id", _VNO_PARAMETRIZE, ids=_VNO_IDS)
+    if "vno_id" not in metafunc.fixturenames:
+        return
+    # Si el test ya tiene @pytest.mark.parametrize("vno_id", ...) no re-parametrizar
+    for marker in metafunc.definition.iter_markers("parametrize"):
+        argnames = marker.args[0] if marker.args else ""
+        names = [a.strip() for a in argnames.split(",")] if isinstance(argnames, str) else list(argnames)
+        if "vno_id" in names:
+            return
+    code = metafunc.config.getoption("--vno", default=None)
+    if code is not None:
+        vno = VNO_CODES.get(code)
+        if not vno:
+            raise ValueError(
+                f"--vno '{code}' no reconocido. Opciones válidas: "
+                + ", ".join(f"{c}={v}" for c, v in VNO_CODES.items())
+            )
+        metafunc.parametrize("vno_id", [vno], ids=[f"{vno}[{code}]"])
+    else:
+        metafunc.parametrize("vno_id", _VNO_PARAMETRIZE, ids=_VNO_IDS)
 
 
 ROLE_PERMISSIONS = {
