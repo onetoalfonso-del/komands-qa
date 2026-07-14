@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [BAJ-07]  test_baj07_token_malformado_devuelve_401
+INFO     komands.qa:conftest.py:43       Token con formato inválido (no es un JWT).
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}}
+INFO     komands.qa:conftest.py:183   << 401  {"detail": "Token inválido o expirado"}

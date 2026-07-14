@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_baj_matriz_ssh_timeout[PV-BAJ-205-ENTEL-OLT-SCL-010-False]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "vno_code": "ENTEL", "olt_name": "OLT-SCL-010", "ont_id": 7777, "external_order_id": "SO-PV-BAJ-205"}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "50", "u_return_code_desc": "Timeout esperando respuesta de la OLT", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "FAILED", "u_error_code": "KMD-5020"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "FAILED", "error_code": "KMD-5020", "error_message": "Timeout esperando respuesta de la OLT — reintentar más tarde o escalar a Redes"}

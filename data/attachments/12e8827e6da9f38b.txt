@@ -1,0 +1,11 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [FLG-02]  test_flg02_flag_desactivado_baja_retorna_kmd4001[TCH[00]]
+INFO     komands.qa:conftest.py:43       Rollback Komands→BP — flag FTTH desactivado para la VNO seleccionada.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/test/feature-flags "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /test/feature-flags
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_id": "TCH", "product": "FTTH", "enabled": false}
+INFO     komands.qa:conftest.py:183   << 200  {"ok": true, "vno_id": "TCH", "product": "FTTH", "enabled": false}
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "TCH", "external_order_id": "SO-FLG-001", "olt_name": "OLT-SAN-001", "slot": 1, "port": 3, "ont_id": 45}
+INFO     komands.qa:conftest.py:183   << 200  {"error": "KMD-4001", "message": "Feature flag desactivado para VNO=TCH producto=FTTH", "redirect": "blueplanet"}

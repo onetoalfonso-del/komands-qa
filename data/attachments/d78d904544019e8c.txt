@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_ssaa_contiene_ont_add
+INFO     komands.qa:conftest.py:43       Activación Huawei SSAA grupo A.

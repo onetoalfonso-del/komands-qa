@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_mod_unblock_contiene_ont_activate
+INFO     komands.qa:conftest.py:43       Desbloqueo de servicio Huawei FTTH.

@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [RBK-03]  test_rbk03_rollback_tambien_falla_retorna_rollback_failed
+INFO     komands.qa:conftest.py:43       Paso crítico falla Y el rollback de ese paso también falla.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/activation "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/activation
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "6663", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_action": {"u_iptv": "T", "u_voz": "T", "u_gestion": "F"}, "u_product": {"u_speed_plan": "100M/20M"}}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "120", "u_return_code_desc": "Fallo crítico sin rollback posible", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "ROLLBACK_FAILED", "u_error_code": "KMD-5030"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ROLLBACK_FAILED", "error_code": "KMD-5030", "error_message": "Paso crítico falló y rollback también falló — intervención manual requerida"}

@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [RBK-02]  test_rbk02_huawei_paso_critico_falla_retorna_rolled_back
+INFO     komands.qa:conftest.py:43       Activación Huawei — pasos 1 y 2 OK, paso 3 lanza excepción SSH.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/activation "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/activation
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-002", "u_slot": "0", "u_pon": "2", "u_ontid": "6662", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "485754C12345", "u_slid": "SLID-H-001"}, "u_action": {"u_iptv": "F", "u_voz": "T", "u_gestion": "F"}, "u_product": {"u_speed_plan": "100M/20M"}}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "115", "u_return_code_desc": "Fallo en paso crítico Huawei — rollback ejecutado", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "ROLLED_BACK", "u_error_code": "KMD-5021"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ROLLED_BACK", "error_code": "KMD-5021", "error_message": "Paso crítico Huawei falló — rollback ejecutado correctamente"}

@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [QRY-07]  test_qry07_acceso_source_live_devuelve_200[DTV[05]]
+INFO     komands.qa:conftest.py:43       Consulta de acceso con source=live (PV-QRY-002).
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/access/ACC-DTV-00123?source=live "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/access/ACC-DTV-00123?source=live
+INFO     komands.qa:conftest.py:183   << 200  {"access_id": "ACC-DTV-00123", "ont_serial": "ALCLF1234567", "status": "ACTIVE", "olt_name": "OLT-SAN-001", "source": "live"}

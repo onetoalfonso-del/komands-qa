@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [RBK-05]  test_rbk05_modification_nokia_paso_critico_falla_retorna_rolled_back
+INFO     komands.qa:conftest.py:43       Service-modification Nokia (cambio de velocidad) — paso crítico
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/modification
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "6665", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_action": {"u_type": "SPEED_CHANGE"}, "u_product": {"u_speed_plan": "200M/50M"}}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "115", "u_return_code_desc": "Paso crítico de modificación falló — rollback ejecutado", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "ROLLED_BACK", "u_error_code": "KMD-5021"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "ROLLED_BACK", "error_code": "KMD-5021", "error_message": "Modificación falló en ejecución CLI — servicio restaurado al perfil anterior"}

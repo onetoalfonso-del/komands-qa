@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [FM-03]  test_fm03_puerto_destino_sin_capacidad_retorna_failed_kmd1003
+INFO     komands.qa:conftest.py:43       El puerto PON de destino ya tiene 128 ONTs (límite Nokia GPON) y
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/fiber-modification "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/fiber-modification
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_routing_new": {"u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "4", "u_ontid": "5001", "u_technology": "GPON"}}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "u_return_code": "10", "u_return_code_desc": "Puerto PON destino sin capacidad disponible", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "FAILED", "u_error_code": "KMD-1003"}, "txn_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "status": "FAILED", "error_code": "KMD-1003", "error_message": "Puerto PON destino sin capacidad — seleccionar otro puerto o esperar a que se libere"}

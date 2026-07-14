@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_can_matriz_sin_provision_activa[ids9-TCH-OLT-SCL-010-False-TCH/Nokia-SSAA]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "TCH", "external_order_id": "NO_PROVISION", "olt_name": "OLT-SCL-010", "slot": 1, "port": 3, "ont_id": 45}
+INFO     komands.qa:conftest.py:183   << 200  {"status": "NO_ACTION", "message": "Sin provisión activa — orden cerrada por ServiceNow"}

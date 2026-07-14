@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_swap_contiene_undo_service_port
+INFO     komands.qa:conftest.py:43       Swap Huawei — el service-port del ONT viejo debe borrarse.

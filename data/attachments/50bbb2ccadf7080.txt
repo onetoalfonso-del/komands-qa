@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_mod_block_contiene_admin_state_down
+INFO     komands.qa:conftest.py:43       Bloqueo de servicio Nokia FTTH.

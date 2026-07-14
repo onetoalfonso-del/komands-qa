@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_contrato_openapi[GET /api/Komands/v1/pon-transfer/{u_uuid}]
+INFO     komands.qa:conftest.py:43       Contrato OpenAPI 3.0 — AnexoH v2.2.3 — 13 endpoints funcionales

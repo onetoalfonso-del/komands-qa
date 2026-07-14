@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_swap_contiene_serial_nuevo
+INFO     komands.qa:conftest.py:43       Swap Nokia — el nuevo serial debe aparecer en los comandos.

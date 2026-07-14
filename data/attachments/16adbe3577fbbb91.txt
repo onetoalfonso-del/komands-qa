@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_can_matriz_txn_en_progreso_409[ids0-DTV-OLT-SAN-002-True-DTV/Huawei-MA5800]
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 409 Conflict"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "DTV", "external_order_id": "IN_PROGRESS", "olt_name": "OLT-SAN-002", "slot": 0, "port": 2, "ont_id": 45}
+INFO     komands.qa:conftest.py:183   << 409  {"error_code": "KMD-3003", "error_message": "Transacción en progreso para este acceso — reintentar en 30 segundos"}

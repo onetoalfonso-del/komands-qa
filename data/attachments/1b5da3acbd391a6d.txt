@@ -1,0 +1,7 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [SEC-03]  test_sec03_token_expirado_devuelve_401
+INFO     komands.qa:conftest.py:43       El token es un JWT bien formado pero ya expiró (exp en el pasado).
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/activation "HTTP/1.1 401 Unauthorized"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/activation
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"u_callback_url": "https://api.onnetfibra.cl/sn/komands/callback", "u_routing": {"u_id_vno": "DTV", "u_olt": "OLT-SAN-001", "u_slot": "1", "u_pon": "3", "u_ontid": "45", "u_product": "FTTH", "u_technology": "GPON"}, "u_identification": {"u_serialnumber": "ALCLF1234567", "u_slid": "SLID-001"}, "u_action": {"u_iptv": "T", "u_voz": "T", "u_gestion": "F"}, "u_product": {"u_speed_plan": "100M/20M"}}
+INFO     komands.qa:conftest.py:183   << 401  {"detail": "Token inválido o expirado"}

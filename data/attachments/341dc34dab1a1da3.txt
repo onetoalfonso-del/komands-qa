@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_ftth_activation_contiene_comando_ont_add
+INFO     komands.qa:conftest.py:43       Activación Huawei FTTH.

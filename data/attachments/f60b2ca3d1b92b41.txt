@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_huawei_swap_sin_service_port_index_lanza_error
+INFO     komands.qa:conftest.py:43       Swap Huawei sin service_port_index.

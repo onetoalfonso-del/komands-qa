@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [QRY-03]  test_qry03_acceso_inexistente_devuelve_404[CVTR[02]]
+INFO     komands.qa:conftest.py:43       Consulta con access_id que no existe en el sistema.
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/access/NOTFOUND "HTTP/1.1 404 Not Found"
+INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/access/NOTFOUND
+INFO     komands.qa:conftest.py:183   << 404  {"detail": "error_code=KMD-2002"}

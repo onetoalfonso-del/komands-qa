@@ -1,0 +1,6 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [QRY-02]  test_qry02_respuesta_contiene_campos_obligatorios[TCH[00]]
+INFO     komands.qa:conftest.py:43       Consulta válida — verificar contrato de respuesta.
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/Komands/v1/access/ACC-TCH-00123 "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> GET /api/Komands/v1/access/ACC-TCH-00123
+INFO     komands.qa:conftest.py:183   << 200  {"access_id": "ACC-TCH-00123", "ont_serial": "ALCLF1234567", "status": "ACTIVE", "olt_name": "OLT-SAN-001", "source": "cache"}

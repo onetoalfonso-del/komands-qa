@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ssaa_no_usa_qos_ftth
+INFO     komands.qa:conftest.py:43       Activación Nokia SSAA — verificar que NO usa QoS FTTH.

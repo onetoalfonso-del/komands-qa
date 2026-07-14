@@ -1,0 +1,3 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [-]  test_nokia_ssaa_grupo_bx_genera_comandos_validos
+INFO     komands.qa:conftest.py:43       Activación Nokia SSAA grupo BX (tecnología XGSPON).

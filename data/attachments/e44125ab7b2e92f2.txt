@@ -1,0 +1,8 @@
+
+================================================================
+  [MOCK ONLY] test_callbacks.py
+  Valida el CONTRATO del payload JSON que Komands enviaria
+  a ServiceNow: campos requeridos, tipos y estructura
+  segun AnexoH v2.2. NO prueba la entrega real.
+  Entrega real = T4 (requiere OLTs lab + SN disponible).
+================================================================
