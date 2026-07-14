@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "4adfe8e3-7c6d-42dd-98a6-262556b37b13",
-    "name": "Komands — APIM PRE VNOs 02/03 Claro/Entel (Auto-Token)",
+    "name": "Komands — APIM PRE VNOs 00-02-03-05 All VNOs (Auto-Token)",
     "description": "Suite completa contra APIM PRE-PROD — VNOs 02 (ClaroVTR) y 03 (Entel).\n\n9 flujos por VNO: Feasibilidad → Consulta Acceso → Asignación → Activation → DevMod Sync → DevMod Async → Modification SSAA → Modification Sync → Baja.\n\nTOGGLE VNO (en el environment):\n  vno02_enabled = true/false  → habilita/deshabilita VNO 02\n  vno03_enabled = true/false  → habilita/deshabilita VNO 03\n\nVARIABLES REQUERIDAS (env combined o env individual por VNO):\n  apimURL, consumerKey(_02/_03), consumerSecret(_02/_03)\n  accessId(_02/_03), serial(_02/_03), speedPlan(_02/_03)\n  addressId(_02/_03), addressMcd(_02/_03), serviceType(_02/_03)\n\nToken OAuth2 obtenido automáticamente con caché por VNO.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "56013580"
@@ -1456,6 +1456,1476 @@
                   "    pm.test('result.u_return_code presente',      function () { pm.expect(body.result).to.have.property('u_return_code'); });",
                   "    pm.test('result.u_return_code_desc presente', function () { pm.expect(body.result).to.have.property('u_return_code_desc'); });",
                   "    console.log('[Baja VNO03] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc + ' | access=' + body.result.u_access_id_vno + (body.result.sys_id ? ' | sys_id=' + body.result.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_service_type\": \"FTTH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-accessDeregistrationAsync",
+                "v1",
+                "accessDeregistrationAsync"
+              ]
+            },
+            "description": "Baja de acceso FTTH asincónica. u_service_type siempre 'FTTH'."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "VNO 05 — DTV",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ── VNO 05 — DTV: habilitar/deshabilitar y token ─────────────────────",
+              "// Modo A: env combined  → usa consumerKey_05, toggle vno05_enabled",
+              "// Modo B: env individual (Newman) → usa consumerKey genérico, salta si idvno ≠ '05'",
+              "const envVno    = pm.environment.get('idvno');",
+              "const enabled02 = pm.environment.get('vno05_enabled');",
+              "const skipThis  = enabled02 === 'false' || (envVno && envVno !== '05');",
+              "if (skipThis) {",
+              "    pm.collectionVariables.set('_skipVno', 'true');",
+              "    console.log('[VNO 05] Saltando — ' + (envVno ? 'env individual idvno=' + envVno : 'deshabilitado'));",
+              "    pm.execution.skipRequest();",
+              "    return;",
+              "}",
+              "pm.collectionVariables.set('_skipVno',   'false');",
+              "pm.collectionVariables.set('idvno',      '05');",
+              "pm.collectionVariables.set('accessId',   pm.environment.get('accessId_05')    || pm.environment.get('accessId'));",
+              "pm.collectionVariables.set('serial',     pm.environment.get('serial_05')      || pm.environment.get('serial'));",
+              "pm.collectionVariables.set('speedPlan',  pm.environment.get('speedPlan_05')   || pm.environment.get('speedPlan'));",
+              "pm.collectionVariables.set('addressId',  pm.environment.get('addressId_05')   || pm.environment.get('addressId'));",
+              "pm.collectionVariables.set('addressMcd', pm.environment.get('addressMcd_05')  || pm.environment.get('addressMcd'));",
+              "pm.collectionVariables.set('serviceType',pm.environment.get('serviceType_05') || pm.environment.get('serviceType') || 'FTTH');",
+              "",
+              "const apimURL = pm.environment.get('apimURL');",
+              "const cKey    = pm.environment.get('consumerKey_05')    || pm.environment.get('consumerKey');",
+              "const cSecret = pm.environment.get('consumerSecret_05') || pm.environment.get('consumerSecret');",
+              "const expiresAt = pm.collectionVariables.get('_tokenExpiresAt_05');",
+              "if (expiresAt && Date.now() < parseInt(expiresAt)) {",
+              "    pm.environment.set('Token', pm.collectionVariables.get('_token_05'));",
+              "    const s = Math.round((parseInt(expiresAt) - Date.now()) / 1000);",
+              "    console.log('[Token VNO05] En caché — válido por ' + s + 's más');",
+              "    return;",
+              "}",
+              "if (!cKey || !cSecret) {",
+              "    console.error('[Token VNO05] ERROR: faltan consumerKey_05/consumerKey o consumerSecret_05/consumerSecret en el environment');",
+              "    return;",
+              "}",
+              "pm.sendRequest({",
+              "    url: apimURL + '/token',",
+              "    method: 'POST',",
+              "    header: { 'Authorization': 'Basic ' + btoa(cKey + ':' + cSecret), 'Content-Type': 'application/x-www-form-urlencoded' },",
+              "    body: { mode: 'urlencoded', urlencoded: [{ key: 'grant_type', value: 'client_credentials' }] }",
+              "}, function(err, res) {",
+              "    if (err) { console.error('[Token VNO05] Error de red: ' + err); return; }",
+              "    if (res.code !== 200) { console.error('[Token VNO05] HTTP ' + res.code + ': ' + res.text()); return; }",
+              "    const j = res.json();",
+              "    const ttl = j.expires_in || 3600;",
+              "    pm.environment.set('Token',              j.access_token);",
+              "    pm.collectionVariables.set('_token_05',          j.access_token);",
+              "    pm.collectionVariables.set('_tokenExpiresAt_05', String(Date.now() + (ttl - 60) * 1000));",
+              "    console.log('[Token VNO05] Nuevo token obtenido — expira en ' + ttl + 's');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "01 — Feasibilidad",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[Feasibility VNO05] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[Feasibility VNO05] rc=' + rc + ' | ' + desc);",
+                  "    const bw = ['u_available_bandwidth_assured_gpon','u_available_bandwidth_fixed_gpon',",
+                  "                'u_available_bandwidth_assured_xgspon','u_available_bandwidth_fixed_xgspon'];",
+                  "    bw.forEach(function(k) { if (r[k]) console.log('  ' + k + '=' + r[k]); });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_service_type\": \"{{serviceType}}\",\n  \"u_operation_type\": \"Direccion exacta\",\n  \"u_address_id\": \"{{addressId}}\",\n  \"u_address_mcd\": \"{{addressMcd}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-Factibilidad/v1/feasibilityUpselling",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-Factibilidad",
+                "v1",
+                "feasibilityUpselling"
+              ]
+            },
+            "description": "Consulta factibilidad de cobertura para una dirección. u_service_type: FTTH o SSAA. u_address_id: código DIR (OSP) o XYGO. rc=0 → factible. rc=10,13,14,15,16 → sin cobertura/facilidad."
+          },
+          "response": []
+        },
+        {
+          "name": "02 — Consulta Acceso Async",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[ConsultaAcceso VNO05] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[ConsultaAcceso VNO05] rc=' + rc + ' | ' + desc",
+                  "        + (r.u_access_id_vno ? ' | access=' + r.u_access_id_vno : '')",
+                  "        + (r.u_status ? ' | status=' + r.u_status : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_service_type\": \"{{serviceType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-retrieveAccessAsync",
+                "v1",
+                "retrieveAccessAsync"
+              ]
+            },
+            "description": "Recupera el estado actual de un acceso en ServiceNow. u_service_type: FTTH o SSAA."
+          },
+          "response": []
+        },
+        {
+          "name": "03 — Asignación",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[Asignacion VNO05] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[Asignacion VNO05] rc=' + rc + ' | ' + desc",
+                  "        + (r.u_access_id_vno ? ' | access=' + r.u_access_id_vno : '')",
+                  "        + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"A\",\n  \"u_scenario\": \"Alta de Acceso\",\n  \"u_speed_plan\": \"{{speedPlan}}\",\n  \"u_address_id\": \"{{addressId}}\",\n  \"u_address_mcd\": \"{{addressMcd}}\",\n  \"u_service_ba\": true,\n  \"u_service_voip\": true,\n  \"u_service_iptv\": true,\n  \"u_service_type\": \"{{serviceType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-AsignationSSAA/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-AsignationSSAA",
+                "v1",
+                "assignment"
+              ]
+            },
+            "description": "Alta de acceso FTTH/SSAA. u_operation_type siempre 'A'. u_scenario siempre 'Alta de Acceso'. u_address_id: el mismo DIR que se factibilizó."
+          },
+          "response": []
+        },
+        {
+          "name": "04 — Activation Async",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[Activation VNO05] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[Activation VNO05] rc=' + rc + ' | ' + desc",
+                  "        + (r.u_access_id_vno  ? ' | access=' + r.u_access_id_vno : '')",
+                  "        + (r.u_serial_number  ? ' | serial=' + r.u_serial_number : '')",
+                  "        + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"A\",\n  \"u_speed_plan\": \"{{speedPlan}}\",\n  \"u_service_ba\": true,\n  \"u_service_voip\": true,\n  \"u_service_iptv\": true,\n  \"u_serial_number\": \"{{serial}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-ActivationSSAA/v1/registrationActivationSSAA",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-ActivationSSAA",
+                "v1",
+                "registrationActivationSSAA"
+              ]
+            },
+            "description": "Activa el acceso en la OLT. u_operation_type siempre 'A'. Requiere u_serial_number del ONT que se instalará."
+          },
+          "response": []
+        },
+        {
+          "name": "05 — DeviceModification Sincónico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "console.log('[DevMod SYNC VNO05] RAW BODY: ' + JSON.stringify(body));",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc = r.u_return_code || '(vacío)'; const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[DevMod SYNC VNO05] rc=' + rc + ' | ' + desc + ' | access=' + (r.u_access_id_vno||'?') + ' | serial=' + (r.u_serial_number||'?') + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "} else { console.warn('[DevMod SYNC VNO05] body.result ausente'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_serial_number\": \"{{serial}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            },
+            "description": "Cambio de ONT sincónico. Requiere accessId provisionado en BluePlanet PRE-PROD."
+          },
+          "response": []
+        },
+        {
+          "name": "06 — DeviceModification Asincónico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[DevMod ASYNC VNO05] rc=' + r.u_return_code + ' | ' + r.u_return_code_desc + ' | access=' + r.u_access_id_vno + ' | serial=' + r.u_serial_number + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_serial_number\": \"{{serial}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModificationAsync/v1/deviceModificationAsync",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModificationAsync",
+                "v1",
+                "deviceModificationAsync"
+              ]
+            },
+            "description": "Cambio de ONT asincónico. Mismos requisitos que SYNC."
+          },
+          "response": []
+        },
+        {
+          "name": "07 — Modification Asincónica (SSAA)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "const result = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "if (result) {",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(result).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(result).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[ModSSAA ASYNC VNO05] rc=' + result.u_return_code + ' | ' + result.u_return_code_desc + ' | access=' + result.u_access_id_vno + (result.sys_id ? ' | sys_id=' + result.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"Modificacion\",\n  \"u_speed_plan\": \"{{speedPlan}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-ModificationSSAA/v1/registrationModificationSSAA",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-ModificationSSAA",
+                "v1",
+                "registrationModificationSSAA"
+              ]
+            },
+            "description": "Cambio de plan asincónico vía SSAA. u_operation_type: 'Modificacion' (con mayúscula, sin tilde — exactamente así)."
+          },
+          "response": []
+        },
+        {
+          "name": "08 — Modification Sincónica",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(body.result).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(body.result).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[Mod SYNC VNO05] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc + ' | access=' + body.result.u_access_id_vno + (body.result.sys_id ? ' | sys_id=' + body.result.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"M\",\n  \"u_speed_plan\": \"{{speedPlan}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            },
+            "description": "Cambio de plan sincónico. u_operation_type: 'M'."
+          },
+          "response": []
+        },
+        {
+          "name": "09 — Baja de Acceso",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'baja') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(body.result).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(body.result).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[Baja VNO05] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc + ' | access=' + body.result.u_access_id_vno + (body.result.sys_id ? ' | sys_id=' + body.result.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_service_type\": \"FTTH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-accessDeregistrationAsync",
+                "v1",
+                "accessDeregistrationAsync"
+              ]
+            },
+            "description": "Baja de acceso FTTH asincónica. u_service_type siempre 'FTTH'."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "VNO 00 — TCH",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// ── VNO 00 — TCH: habilitar/deshabilitar y token ─────────────────────",
+              "// Modo A: env combined  → usa consumerKey_00, toggle vno00_enabled",
+              "// Modo B: env individual (Newman) → usa consumerKey genérico, salta si idvno ≠ '00'",
+              "const envVno    = pm.environment.get('idvno');",
+              "const enabled03 = pm.environment.get('vno00_enabled');",
+              "const skipThis  = enabled03 === 'false' || (envVno && envVno !== '00');",
+              "if (skipThis) {",
+              "    pm.collectionVariables.set('_skipVno', 'true');",
+              "    console.log('[VNO 00] Saltando — ' + (envVno ? 'env individual idvno=' + envVno : 'deshabilitado'));",
+              "    pm.execution.skipRequest();",
+              "    return;",
+              "}",
+              "pm.collectionVariables.set('_skipVno',   'false');",
+              "pm.collectionVariables.set('idvno',      '00');",
+              "pm.collectionVariables.set('accessId',   pm.environment.get('accessId_00')    || pm.environment.get('accessId'));",
+              "pm.collectionVariables.set('serial',     pm.environment.get('serial_00')      || pm.environment.get('serial'));",
+              "pm.collectionVariables.set('speedPlan',  pm.environment.get('speedPlan_00')   || pm.environment.get('speedPlan'));",
+              "pm.collectionVariables.set('addressId',  pm.environment.get('addressId_00')   || pm.environment.get('addressId'));",
+              "pm.collectionVariables.set('addressMcd', pm.environment.get('addressMcd_00')  || pm.environment.get('addressMcd'));",
+              "pm.collectionVariables.set('serviceType',pm.environment.get('serviceType_00') || pm.environment.get('serviceType') || 'FTTH');",
+              "",
+              "const apimURL = pm.environment.get('apimURL');",
+              "const cKey    = pm.environment.get('consumerKey_00')    || pm.environment.get('consumerKey');",
+              "const cSecret = pm.environment.get('consumerSecret_00') || pm.environment.get('consumerSecret');",
+              "const expiresAt = pm.collectionVariables.get('_tokenExpiresAt_00');",
+              "if (expiresAt && Date.now() < parseInt(expiresAt)) {",
+              "    pm.environment.set('Token', pm.collectionVariables.get('_token_00'));",
+              "    const s = Math.round((parseInt(expiresAt) - Date.now()) / 1000);",
+              "    console.log('[Token VNO00] En caché — válido por ' + s + 's más');",
+              "    return;",
+              "}",
+              "if (!cKey || !cSecret) {",
+              "    console.error('[Token VNO00] ERROR: faltan consumerKey_00/consumerKey o consumerSecret_00/consumerSecret en el environment');",
+              "    return;",
+              "}",
+              "pm.sendRequest({",
+              "    url: apimURL + '/token',",
+              "    method: 'POST',",
+              "    header: { 'Authorization': 'Basic ' + btoa(cKey + ':' + cSecret), 'Content-Type': 'application/x-www-form-urlencoded' },",
+              "    body: { mode: 'urlencoded', urlencoded: [{ key: 'grant_type', value: 'client_credentials' }] }",
+              "}, function(err, res) {",
+              "    if (err) { console.error('[Token VNO00] Error de red: ' + err); return; }",
+              "    if (res.code !== 200) { console.error('[Token VNO00] HTTP ' + res.code + ': ' + res.text()); return; }",
+              "    const j = res.json();",
+              "    const ttl = j.expires_in || 3600;",
+              "    pm.environment.set('Token',              j.access_token);",
+              "    pm.collectionVariables.set('_token_00',          j.access_token);",
+              "    pm.collectionVariables.set('_tokenExpiresAt_00', String(Date.now() + (ttl - 60) * 1000));",
+              "    console.log('[Token VNO00] Nuevo token obtenido — expira en ' + ttl + 's');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "01 — Feasibilidad",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[Feasibility VNO00] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[Feasibility VNO00] rc=' + rc + ' | ' + desc);",
+                  "    const bw = ['u_available_bandwidth_assured_gpon','u_available_bandwidth_fixed_gpon',",
+                  "                'u_available_bandwidth_assured_xgspon','u_available_bandwidth_fixed_xgspon'];",
+                  "    bw.forEach(function(k) { if (r[k]) console.log('  ' + k + '=' + r[k]); });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_service_type\": \"{{serviceType}}\",\n  \"u_operation_type\": \"Direccion exacta\",\n  \"u_address_id\": \"{{addressId}}\",\n  \"u_address_mcd\": \"{{addressMcd}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-Factibilidad/v1/feasibilityUpselling",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-Factibilidad",
+                "v1",
+                "feasibilityUpselling"
+              ]
+            },
+            "description": "Consulta factibilidad de cobertura para una dirección. u_service_type: FTTH o SSAA. u_address_id: código DIR (OSP) o XYGO. rc=0 → factible. rc=10,13,14,15,16 → sin cobertura/facilidad."
+          },
+          "response": []
+        },
+        {
+          "name": "02 — Consulta Acceso Async",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[ConsultaAcceso VNO00] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[ConsultaAcceso VNO00] rc=' + rc + ' | ' + desc",
+                  "        + (r.u_access_id_vno ? ' | access=' + r.u_access_id_vno : '')",
+                  "        + (r.u_status ? ' | status=' + r.u_status : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_service_type\": \"{{serviceType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-retrieveAccessAsync",
+                "v1",
+                "retrieveAccessAsync"
+              ]
+            },
+            "description": "Recupera el estado actual de un acceso en ServiceNow. u_service_type: FTTH o SSAA."
+          },
+          "response": []
+        },
+        {
+          "name": "03 — Asignación",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[Asignacion VNO00] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[Asignacion VNO00] rc=' + rc + ' | ' + desc",
+                  "        + (r.u_access_id_vno ? ' | access=' + r.u_access_id_vno : '')",
+                  "        + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"A\",\n  \"u_scenario\": \"Alta de Acceso\",\n  \"u_speed_plan\": \"{{speedPlan}}\",\n  \"u_address_id\": \"{{addressId}}\",\n  \"u_address_mcd\": \"{{addressMcd}}\",\n  \"u_service_ba\": true,\n  \"u_service_voip\": true,\n  \"u_service_iptv\": true,\n  \"u_service_type\": \"{{serviceType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-AsignationSSAA/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-AsignationSSAA",
+                "v1",
+                "assignment"
+              ]
+            },
+            "description": "Alta de acceso FTTH/SSAA. u_operation_type siempre 'A'. u_scenario siempre 'Alta de Acceso'. u_address_id: el mismo DIR que se factibilizó."
+          },
+          "response": []
+        },
+        {
+          "name": "04 — Activation Async",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'provisioning') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (!body || !body.result) { console.warn('[Activation VNO00] body.result ausente — RAW: ' + JSON.stringify(body)); }",
+                  "else {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc   = r.u_return_code      || '(vacío)';",
+                  "    const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[Activation VNO00] rc=' + rc + ' | ' + desc",
+                  "        + (r.u_access_id_vno  ? ' | access=' + r.u_access_id_vno : '')",
+                  "        + (r.u_serial_number  ? ' | serial=' + r.u_serial_number : '')",
+                  "        + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"A\",\n  \"u_speed_plan\": \"{{speedPlan}}\",\n  \"u_service_ba\": true,\n  \"u_service_voip\": true,\n  \"u_service_iptv\": true,\n  \"u_serial_number\": \"{{serial}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-ActivationSSAA/v1/registrationActivationSSAA",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-ActivationSSAA",
+                "v1",
+                "registrationActivationSSAA"
+              ]
+            },
+            "description": "Activa el acceso en la OLT. u_operation_type siempre 'A'. Requiere u_serial_number del ONT que se instalará."
+          },
+          "response": []
+        },
+        {
+          "name": "05 — DeviceModification Sincónico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "console.log('[DevMod SYNC VNO00] RAW BODY: ' + JSON.stringify(body));",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    const rc = r.u_return_code || '(vacío)'; const desc = r.u_return_code_desc || '(sin desc)';",
+                  "    console.log('[DevMod SYNC VNO00] rc=' + rc + ' | ' + desc + ' | access=' + (r.u_access_id_vno||'?') + ' | serial=' + (r.u_serial_number||'?') + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "} else { console.warn('[DevMod SYNC VNO00] body.result ausente'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_serial_number\": \"{{serial}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            },
+            "description": "Cambio de ONT sincónico. Requiere accessId provisionado en BluePlanet PRE-PROD."
+          },
+          "response": []
+        },
+        {
+          "name": "06 — DeviceModification Asincónico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    const r = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(r).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(r).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[DevMod ASYNC VNO00] rc=' + r.u_return_code + ' | ' + r.u_return_code_desc + ' | access=' + r.u_access_id_vno + ' | serial=' + r.u_serial_number + (r.sys_id ? ' | sys_id=' + r.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_serial_number\": \"{{serial}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModificationAsync/v1/deviceModificationAsync",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModificationAsync",
+                "v1",
+                "deviceModificationAsync"
+              ]
+            },
+            "description": "Cambio de ONT asincónico. Mismos requisitos que SYNC."
+          },
+          "response": []
+        },
+        {
+          "name": "07 — Modification Asincónica (SSAA)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "const result = (typeof body.result === 'string') ? JSON.parse(body.result) : body.result;",
+                  "if (result) {",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(result).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(result).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[ModSSAA ASYNC VNO00] rc=' + result.u_return_code + ' | ' + result.u_return_code_desc + ' | access=' + result.u_access_id_vno + (result.sys_id ? ' | sys_id=' + result.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"Modificacion\",\n  \"u_speed_plan\": \"{{speedPlan}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-ModificationSSAA/v1/registrationModificationSSAA",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-ModificationSSAA",
+                "v1",
+                "registrationModificationSSAA"
+              ]
+            },
+            "description": "Cambio de plan asincónico vía SSAA. u_operation_type: 'Modificacion' (con mayúscula, sin tilde — exactamente así)."
+          },
+          "response": []
+        },
+        {
+          "name": "08 — Modification Sincónica",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'operations') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(body.result).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(body.result).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[Mod SYNC VNO00] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc + ' | access=' + body.result.u_access_id_vno + (body.result.sys_id ? ' | sys_id=' + body.result.sys_id : ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"u_id_vno\": \"{{idvno}}\",\n  \"u_access_id_vno\": \"{{accessId}}\",\n  \"u_operation_type\": \"M\",\n  \"u_speed_plan\": \"{{speedPlan}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            },
+            "description": "Cambio de plan sincónico. u_operation_type: 'M'."
+          },
+          "response": []
+        },
+        {
+          "name": "09 — Baja de Acceso",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get('_skipVno') === 'true') { pm.execution.skipRequest(); return; }",
+                  "const _rp = pm.environment.get('run_phase');",
+                  "if (_rp && _rp !== 'all' && _rp !== 'baja') { pm.execution.skipRequest(); return; }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 o 202', function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta tiene campo result', function () { pm.expect(body).to.have.property('result'); });",
+                  "if (body && body.result) {",
+                  "    pm.test('result.u_return_code presente',      function () { pm.expect(body.result).to.have.property('u_return_code'); });",
+                  "    pm.test('result.u_return_code_desc presente', function () { pm.expect(body.result).to.have.property('u_return_code_desc'); });",
+                  "    console.log('[Baja VNO00] rc=' + body.result.u_return_code + ' | ' + body.result.u_return_code_desc + ' | access=' + body.result.u_access_id_vno + (body.result.sys_id ? ' | sys_id=' + body.result.sys_id : ''));",
                   "}"
                 ]
               }
