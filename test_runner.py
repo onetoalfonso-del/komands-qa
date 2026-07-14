@@ -173,6 +173,13 @@ SUITES = [
         "cwd":   str(COLL_DIR),
         "report": str(COLL_DIR / "reporte_funcional.html"),
         "requires": None,
+        "olt_config": {
+            "positions": [
+                {"olt": "NCOR_OLT_3", "vendor": "Nokia",  "slot": "1", "pon": "1", "ontid": "3", "vno": "DTV",   "serial": "TEST:AONETO"},
+                {"olt": "NCOR_OLT_1", "vendor": "Huawei", "slot": "7", "pon": "6", "ontid": "2", "vno": "DTV",   "serial": "TEST:AONETO"},
+            ],
+            "active": 0,
+        },
     },
     {
         "id": "apim-vno03", "group": "hidden",
@@ -925,6 +932,15 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sn-thdr{padding:6px 13px;font-size:.7rem;font-weight:600;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:7px}
 .sn-thdr .ico{width:14px;height:14px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.55rem;background:var(--brd);color:var(--txt3)}
 
+/* OLT INFO BAR */
+.olt-info-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--side);border-bottom:1px solid var(--brd);flex-wrap:wrap;font-size:.71rem;font-family:var(--mono)}
+.olt-info-bar .oib-label{color:var(--txt3);margin-right:2px;font-style:italic}
+.olt-info-bar .oib-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:100px;border:1px solid var(--brd);background:var(--card);color:var(--txt);cursor:pointer;transition:border-color .15s,background .15s}
+.olt-info-bar .oib-chip:hover{border-color:var(--acc)}
+.olt-info-bar .oib-chip.active{border-color:var(--acc);background:var(--accd);color:var(--acc)}
+.olt-info-bar .oib-pos{font-weight:700;color:var(--acc)}
+.olt-info-bar .oib-vno{color:var(--ok)}
+.olt-info-bar .oib-vendor{color:var(--txt2)}
 /* TERMINAL */
 .terminal{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px;background:var(--term);font-family:var(--mono);font-size:.76rem;line-height:1.6}
 .terminal::-webkit-scrollbar{width:4px}
@@ -979,6 +995,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista estándar -->
     <div id="std-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div class="olt-info-bar" id="olt-info-bar" style="display:none"></div>
       <div class="terminal" id="term"></div>
     </div>
     <!-- Vista Services Now — doble terminal -->
@@ -1092,6 +1109,36 @@ function selectSuite(id){
   // Mostrar selector VNO solo para suites que lo soportan
   var vnoSel=document.getElementById('vno-sel');
   if(vnoSel) vnoSel.classList.toggle('show', !!(s&&s.vno_support));
+  // Barra de info OLT para newman-dev
+  _renderOltBar(s);
+}
+
+function _renderOltBar(s){
+  var bar=document.getElementById('olt-info-bar');
+  if(!bar) return;
+  var cfg=s&&s.olt_config;
+  if(!cfg){bar.style.display='none';return;}
+  var activeIdx=cfg.active||0;
+  var h='<span class="oib-label">OLT activa:</span>';
+  cfg.positions.forEach(function(p,i){
+    var isActive=(i===activeIdx);
+    h+='<span class="oib-chip'+(isActive?' active':'')+'" onclick="_setOltActive('+i+')" title="Click para marcar como activa">';
+    h+='<span class="oib-vendor">'+esc(p.vendor)+'</span>';
+    h+=' <span class="oib-pos">'+esc(p.olt)+'</span>';
+    h+=' <span style="color:var(--txt3)">'+esc(p.slot)+'/'+esc(p.pon)+'/'+esc(p.ontid)+'</span>';
+    h+=' <span class="oib-vno">'+esc(p.vno)+'</span>';
+    h+=' <span style="color:var(--txt3);font-size:.67rem">'+esc(p.serial)+'</span>';
+    h+='</span>';
+  });
+  bar.innerHTML=h;
+  bar.style.display='flex';
+}
+
+function _setOltActive(idx){
+  var s=suites.find(function(x){return x.id==='newman-dev';});
+  if(!s||!s.olt_config) return;
+  s.olt_config.active=idx;
+  _renderOltBar(s);
 }
 
 var VNO_NAMES={'00':'TCH','02':'ClaroVTR','03':'Entel','05':'DTV'};
