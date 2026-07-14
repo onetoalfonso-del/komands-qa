@@ -574,7 +574,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"5\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\",\n    \"u_new_serialnumber\": \"ALCL-TEST00005\"\n  }\n}",
+                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\",\n    \"u_new_serialnumber\": \"SCOM:AAAAAAAA\"\n  }\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
@@ -1047,7 +1047,7 @@
                                                                  ],
                                                       "body":  {
                                                                    "mode":  "raw",
-                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"3\",\n    \"u_ontid\": \"5\",\n    \"u_id_vno\": \"ENTEL\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-NK-01\",\n    \"u_serialnumber\": \"\"\n  }\n}",
+                                                                   "raw":  "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\",\n    \"u_id_vno\": \"DTV\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"\"\n  }\n}",
                                                                    "options":  {
                                                                                    "raw":  {
                                                                                                "language":  "json"
