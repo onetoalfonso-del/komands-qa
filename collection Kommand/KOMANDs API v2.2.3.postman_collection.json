@@ -367,7 +367,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-HW-001\",\n    \"u_serialnumber\": \"HWTC:TEST0001\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"SRV_DTV_HSI\",\n    \"u_line_profile\": \"LINE_DTV_HSI\",\n    \"u_speed_plan\": \"BA100M\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  },\n  \"u_services_port\": [\n    {\n      \"u_gemport\": 1,\n      \"u_gemport_name\": \"Internet\",\n      \"u_gemport_uvlan\": 10\n    }\n  ]\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-HW-001\",\n    \"u_serialnumber\": \"HWTCABCD0001\"\n  },\n  \"u_action\": {\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"SRV_DTV_HSI\",\n    \"u_line_profile\": \"LINE_DTV_HSI\",\n    \"u_speed_plan\": \"BA100M\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  },\n  \"u_services_port\": [\n    {\n      \"u_gemport\": 1,\n      \"u_gemport_name\": \"Internet\",\n      \"u_gemport_uvlan\": 10\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -612,7 +612,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-HW-001\",\n    \"u_serialnumber\": \"HWTC:TEST0001\"\n  },\n  \"u_action\": {\n    \"u_action\": \"M\",\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"SRV_DTV_HSI\",\n    \"u_line_profile\": \"LINE_DTV_HSI\",\n    \"u_speed_plan\": \"BA100M\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-HW-001\",\n    \"u_serialnumber\": \"HWTCABCD0001\"\n  },\n  \"u_action\": {\n    \"u_action\": \"M\",\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"SRV_DTV_HSI\",\n    \"u_line_profile\": \"LINE_DTV_HSI\",\n    \"u_speed_plan\": \"BA100M\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -774,7 +774,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"HWTC:TEST0001\",\n    \"u_new_serialnumber\": \"HWTC:TEST0002\"\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"\",\n    \"u_serialnumber\": \"HWTCABCD0001\",\n    \"u_new_serialnumber\": \"HWTCABCD0002\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -936,7 +936,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-HW-001\",\n    \"u_serialnumber\": \"HWTC:TEST0001\"\n  },\n  \"u_action\": {\n    \"u_action\": \"M\",\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"SRV_DTV_HSI\",\n    \"u_line_profile\": \"LINE_DTV_HSI\",\n    \"u_speed_plan\": \"BA100M\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  }\n}",
+              "raw": "{\n  \"u_callback_url\": \"https://httpbin.org/post\",\n  \"u_routing\": {\n    \"u_id_vno\": \"DTV\",\n    \"u_olt\": \"NCOR_OLT_1\",\n    \"u_slot\": \"7\",\n    \"u_pon\": \"6\",\n    \"u_ontid\": \"2\",\n    \"u_product\": \"FTTH\",\n    \"u_technology\": \"GPON\"\n  },\n  \"u_routing_new\": {\n    \"u_olt\": \"NCOR_OLT_3\",\n    \"u_slot\": \"1\",\n    \"u_pon\": \"1\",\n    \"u_ontid\": \"3\"\n  },\n  \"u_identification\": {\n    \"u_slid\": \"SLID-HW-001\",\n    \"u_serialnumber\": \"HWTCABCD0001\"\n  },\n  \"u_action\": {\n    \"u_action\": \"M\",\n    \"u_iptv\": \"F\",\n    \"u_voz\": \"F\",\n    \"u_gestion\": \"F\"\n  },\n  \"u_product\": {\n    \"u_srv_profile\": \"SRV_DTV_HSI\",\n    \"u_line_profile\": \"LINE_DTV_HSI\",\n    \"u_speed_plan\": \"BA100M\"\n  },\n  \"u_vlan\": {\n    \"u_inet_cvlan\": 100,\n    \"u_inet_svlan\": 1100\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
