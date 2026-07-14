@@ -34,7 +34,7 @@ SUITES = [
     {
         "id": "t1", "group": "disponible",
         "label": "T1 — Spec API + Regresión",
-        "desc":  "630 casos pytest",
+        "desc":  "675 casos pytest",
         "note":  [
             "================================================================",
             "  T1 - Especificacion API + Regresion completa",
