@@ -940,7 +940,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </div>
 
 <script>
-var suites=[], currentEs=null, running=false, queue=[], tStart=0, selectedId=null;
+var suites=[], currentEs=null, running=false, queue=[], tStart=0, selectedId=null, runningId=null;
 var snEnabled={'02':true,'03':true};
 var suiteLogs={};      // { suiteId: [{text,cls}] }
 var suiteSummaries={}; // { suiteId: htmlString }
@@ -1268,7 +1268,7 @@ function setSnIco(vno,state){
 
 function _doRun(url, params, s){
   if(running) return;
-  running=true; tStart=Date.now();
+  running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
   delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
   document.getElementById('term').innerHTML='';
@@ -1307,7 +1307,7 @@ function _doRun(url, params, s){
 }
 
 function onDone(d,s){
-  running=false;
+  running=false; runningId=null;
   var elapsed=((Date.now()-tStart)/1000).toFixed(1)+'s';
   var ok=d.code===0;
   app('',''); app('── Fin: '+s.label+' '+'─'.repeat(30),'dim');
@@ -1383,14 +1383,17 @@ function clearTerm(){
   setTop('','KOMANDs QA Runner','Listo');
 }
 function app(text,cls){
-  if(selectedId){
-    if(!suiteLogs[selectedId]) suiteLogs[selectedId]=[];
-    suiteLogs[selectedId].push({text:text,cls:cls||''});
+  var logId=runningId||selectedId;
+  if(logId){
+    if(!suiteLogs[logId]) suiteLogs[logId]=[];
+    suiteLogs[logId].push({text:text,cls:cls||''});
   }
-  var term=document.getElementById('term');
-  var sp=document.createElement('span');
-  sp.className='tl'+(cls?' '+cls:''); sp.textContent=text;
-  term.appendChild(sp); term.scrollTop=term.scrollHeight;
+  if(!runningId||runningId===selectedId){
+    var term=document.getElementById('term');
+    var sp=document.createElement('span');
+    sp.className='tl'+(cls?' '+cls:''); sp.textContent=text;
+    term.appendChild(sp); term.scrollTop=term.scrollHeight;
+  }
 }
 function col(t){
   if(/^\\s+√/.test(t)||/^\\s+✔/.test(t)) return 'ok';
