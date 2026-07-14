@@ -233,22 +233,80 @@ SUITES = [
         ],
     },
     {
+        "id": "apim-vno05", "group": "hidden",
+        "label": "Endpoints SN — VNO-05 DTV",
+        "desc":  "APIM PRE VNO-05 DTV · auto-token",
+        "cmd":   [NEWMAN, "run",
+                  "Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
+                  "-e", "VnoB1_vnoid05 PRE.postman_environment.json",
+                  "--env-var", "accessId=05-TESTPREPROD-",
+                  "--env-var", "serial=",
+                  "--env-var", "speedPlan=",
+                  "--env-var", "addressId=",
+                  "--env-var", "addressMcd=OSP",
+                  "--env-var", "serviceType=FTTH",
+                  "--env-var", "run_phase=all",
+                  "--insecure",
+                  "--reporters", "cli,htmlextra",
+                  "--reporter-htmlextra-export", "reporte_apim_vno05.html"],
+        "cwd":   str(BP_DIR),
+        "report": str(BP_DIR / "reporte_apim_vno05.html"),
+        "requires": str(BP_DIR / "VnoB1_vnoid05 PRE.postman_environment.json"),
+        "params": [
+            {"key": "accessId",   "label": "Access ID",     "default": "05-TESTPREPROD-"},
+            {"key": "serial",     "label": "Serial ONT",    "default": ""},
+            {"key": "speedPlan",  "label": "Speed Plan",    "default": ""},
+            {"key": "addressId",  "label": "Address ID",    "default": ""},
+            {"key": "addressMcd", "label": "Address MCD",   "default": "OSP"},
+            {"key": "serviceType","label": "Tipo Servicio", "default": "FTTH"},
+        ],
+    },
+    {
+        "id": "apim-vno00", "group": "hidden",
+        "label": "Endpoints SN — VNO-00 TCH",
+        "desc":  "APIM PRE VNO-00 TCH · auto-token",
+        "cmd":   [NEWMAN, "run",
+                  "Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
+                  "-e", "VnoB1_vnoid00 PRE.postman_environment.json",
+                  "--env-var", "accessId=00-TESTPREPROD-",
+                  "--env-var", "serial=",
+                  "--env-var", "speedPlan=",
+                  "--env-var", "addressId=",
+                  "--env-var", "addressMcd=OSP",
+                  "--env-var", "serviceType=FTTH",
+                  "--env-var", "run_phase=all",
+                  "--insecure",
+                  "--reporters", "cli,htmlextra",
+                  "--reporter-htmlextra-export", "reporte_apim_vno00.html"],
+        "cwd":   str(BP_DIR),
+        "report": str(BP_DIR / "reporte_apim_vno00.html"),
+        "requires": str(BP_DIR / "VnoB1_vnoid00 PRE.postman_environment.json"),
+        "params": [
+            {"key": "accessId",   "label": "Access ID",     "default": "00-TESTPREPROD-"},
+            {"key": "serial",     "label": "Serial ONT",    "default": ""},
+            {"key": "speedPlan",  "label": "Speed Plan",    "default": ""},
+            {"key": "addressId",  "label": "Address ID",    "default": ""},
+            {"key": "addressMcd", "label": "Address MCD",   "default": "OSP"},
+            {"key": "serviceType","label": "Tipo Servicio", "default": "FTTH"},
+        ],
+    },
+    {
         "id": "apim-parallel", "group": "disponible",
         "label": "Endpoints Services Now",
-        "desc":  "VNO-02 ClaroVTR · VNO-03 Entel · elige uno o ambos",
+        "desc":  "VNO-02 ClaroVTR · VNO-03 Entel · VNO-05 DTV · VNO-00 TCH · elige uno o varios",
         "note":  [
             "================================================================",
             "  Endpoints Services Now - Coleccion APIM vs PREPROD Axway",
             "  Ejecuta el flujo de activacion real via Axway API Management",
             "  en ambiente PREPROD contra OLTs de laboratorio.",
-            "  VNO-02 ClaroVTR y/o VNO-03 Entel (seleccionables).",
+            "  VNO-03 Entel · VNO-02 ClaroVTR · VNO-05 DTV · VNO-00 TCH",
             "  Fase 1 — Provisioning : Factibilidad + Consulta + Asignacion + Activacion",
             "  Fase 2 — Operaciones  : DevMod Sync/Async + Modification Sync/Async",
             "  Fase 3 — Baja         : Desregistracion del acceso FTTH",
             "================================================================",
         ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
-        "parallel": ["apim-vno02", "apim-vno03"],
+        "parallel": ["apim-vno03", "apim-vno02", "apim-vno05", "apim-vno00"],
     },
     {
         "id": "t7", "group": "disponible",
@@ -438,7 +496,13 @@ async def index():
 
 @app.get("/api/suites")
 async def api_suites():
-    return SUITES
+    result = []
+    for s in SUITES:
+        d = dict(s)
+        req = s.get("requires")
+        d["locked"] = bool(req and not Path(req).exists())
+        result.append(d)
+    return result
 
 
 @app.get("/api/debug")
@@ -517,21 +581,28 @@ async def api_run(suite_id: str, request: Request):
 
 @app.get("/api/run-parallel")
 async def api_run_parallel(request: Request):
-    """Ejecuta suites APIM VNO-02 y/o VNO-03, mezclando output con prefijo [VNO-XX]."""
+    """Ejecuta suites APIM VNO dinámicamente según parámetros runXX=true/false."""
     import asyncio
     params = dict(request.query_params)
-
-    run02 = params.pop("run02", "true").lower() != "false"
-    run03 = params.pop("run03", "true").lower() != "false"
-
-    suite02 = SUITE_MAP.get("apim-vno02")
-    suite03 = SUITE_MAP.get("apim-vno03")
-
     phase = params.pop("phase", "all")
-    overrides02 = {k[3:]: v for k, v in params.items() if k.startswith("02_")}
-    overrides03 = {k[3:]: v for k, v in params.items() if k.startswith("03_")}
-    overrides02["run_phase"] = phase
-    overrides03["run_phase"] = phase
+
+    # Detect enabled VNOs from runXX=true/false params
+    vno_enabled = {}
+    for k in list(params.keys()):
+        m = re.match(r'^run(\d{2})$', k)
+        if m:
+            vno_enabled[m.group(1)] = params.pop(k).lower() != "false"
+
+    to_run = []
+    for code, enabled in vno_enabled.items():
+        if not enabled:
+            continue
+        suite = SUITE_MAP.get(f"apim-vno{code}")
+        if not suite:
+            continue
+        overrides = {k[3:]: v for k, v in params.items() if k.startswith(f"{code}_")}
+        overrides["run_phase"] = phase
+        to_run.append((suite, f"VNO-{code}", overrides))
 
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':'apim-parallel','label':'Endpoints Services Now'})}\n\n"
@@ -544,10 +615,6 @@ async def api_run_parallel(request: Request):
                "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
                "PYTHONUNBUFFERED": "1",
                "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
-
-        to_run = []
-        if run03: to_run.append((suite03, "VNO-03", overrides03))
-        if run02: to_run.append((suite02, "VNO-02", overrides02))
 
         if not to_run:
             yield f"data: {json.dumps({'e':'error','t':'Ningún VNO habilitado'})}\n\n"
@@ -596,14 +663,15 @@ async def api_run_parallel(request: Request):
                 exit_codes.append(1)
 
         await asyncio.gather(*tasks, return_exceptions=True)
-        code = max(exit_codes) if exit_codes else 0
-        rp03 = SUITE_MAP.get("apim-vno03", {}).get("report", "")
-        rp02 = SUITE_MAP.get("apim-vno02", {}).get("report", "")
-        has_rp03 = bool(rp03 and Path(rp03).exists())
-        has_rp02 = bool(rp02 and Path(rp02).exists())
-        has_rp = has_rp03 or has_rp02
-        rp_id = "apim-vno03" if has_rp03 else "apim-vno02"
-        yield f"data: {json.dumps({'e':'done','code':code,'passed':passed,'failed':failed,'requests':requests,'has_report':has_rp,'report_id':rp_id,'has_report_03':has_rp03,'has_report_02':has_rp02})}\n\n"
+        exit_code = max(exit_codes) if exit_codes else 0
+        reports = {}
+        for s_item, lbl, _ in to_run:
+            vno_code = s_item["id"].replace("apim-vno", "")
+            rp = s_item.get("report", "")
+            reports[vno_code] = bool(rp and Path(rp).exists())
+        has_rp = any(reports.values())
+        rp_id = next((f"apim-vno{c}" for c, ok in reports.items() if ok), "apim-parallel")
+        yield f"data: {json.dumps({'e':'done','code':exit_code,'passed':passed,'failed':failed,'requests':requests,'has_report':has_rp,'report_id':rp_id,'reports':reports})}\n\n"
         await asyncio.sleep(0.15)
 
     return StreamingResponse(sse(), media_type="text/event-stream",
@@ -850,9 +918,9 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .apim-fields .pp-group{flex:1;min-width:160px}
 .apim-fields .sn-run{flex-shrink:0;padding:5px 14px;font-size:.72rem}
 
-/* SN DUAL TERMINAL */
-.sn-terms{display:flex;flex:1;overflow:hidden;min-height:0}
-.sn-term{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--brd)}
+/* SN MULTI TERMINAL */
+.sn-terms{display:flex;flex:1;overflow-x:auto;overflow-y:hidden;min-height:0}
+.sn-term{flex:1;min-width:280px;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--brd)}
 .sn-term:last-child{border-right:none}
 .sn-thdr{padding:6px 13px;font-size:.7rem;font-weight:600;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:7px}
 .sn-thdr .ico{width:14px;height:14px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.55rem;background:var(--brd);color:var(--txt3)}
@@ -916,22 +984,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <!-- Vista Services Now — doble terminal -->
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="sn-form" id="sn-form"></div>
-      <div class="sn-terms">
-        <div class="sn-term">
-          <div class="sn-thdr" style="color:#C586C0">
-            <div class="ico" id="ico-sn03">&#183;</div>VNO-03 Entel
-            <button id="rpt-sn03" class="rpt-btn" style="margin-left:auto;font-size:.65rem;padding:3px 9px">&#128196; Reporte</button>
-          </div>
-          <div class="terminal" id="term-03"></div>
-        </div>
-        <div class="sn-term">
-          <div class="sn-thdr" style="color:#4EC9B0">
-            <div class="ico" id="ico-sn02">&#183;</div>VNO-02 ClaroVTR
-            <button id="rpt-sn02" class="rpt-btn" style="margin-left:auto;font-size:.65rem;padding:3px 9px">&#128196; Reporte</button>
-          </div>
-          <div class="terminal" id="term-02"></div>
-        </div>
-      </div>
+      <div class="sn-terms" id="sn-terms"></div>
     </div>
     <div class="summary" id="summary">
       <span class="sum-idle">Ejecuta una suite para ver resultados</span>
@@ -941,7 +994,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 
 <script>
 var suites=[], currentEs=null, running=false, queue=[], tStart=0, selectedId=null, runningId=null;
-var snEnabled={'02':true,'03':true};
+var SN_VNO_DEFS=[
+  {code:'03',label:'Entel',   color:'#C586C0',suiteId:'apim-vno03'},
+  {code:'02',label:'ClaroVTR',color:'#4EC9B0',suiteId:'apim-vno02'},
+  {code:'05',label:'DTV',     color:'#CE9178',suiteId:'apim-vno05'},
+  {code:'00',label:'TCH',     color:'#569CD6',suiteId:'apim-vno00'},
+];
+var snEnabled={};
 var suiteLogs={};      // { suiteId: [{text,cls}] }
 var suiteSummaries={}; // { suiteId: htmlString }
 var suiteReports={};   // { suiteId: rid }
@@ -1079,31 +1138,45 @@ function switchView(mode){
 }
 
 function renderSNForm(){
-  var s02=suites.find(function(x){return x.id==='apim-vno02';})||{params:[],id:'apim-vno02'};
-  var s03=suites.find(function(x){return x.id==='apim-vno03';})||{params:[],id:'apim-vno03'};
-  function card(vno, label, color, s){
-    var h='<div class="sn-card" id="sn-card-'+vno+'">';
-    h+='<div class="sn-card-hdr">';
-    h+='<div class="sn-name" style="color:'+color+'">';
-    h+='<label class="tog"><input type="checkbox" id="sn-tog-'+vno+'" checked>'
-      +'<span class="tog-sl"></span></label>';
-    h+=esc(label);
-    h+='</div>';
-    h+='<span class="sn-badge">VNO '+vno+'</span>';
-    h+='</div>';
-    (s.params||[]).forEach(function(p){
-      h+='<div class="pp-group">'
-        +'<label>'+esc(p.label)+'</label>'
-        +'<input class="sn-inp" id="sn-'+vno+'-'+p.key+'" value="'+esc(p.default)+'" placeholder="'+esc(p.label)+'">'
-        +'</div>';
-    });
-    h+='</div>';
-    return h;
-  }
   var sf=document.getElementById('sn-form');
+  var termsCont=document.getElementById('sn-terms');
+
+  // Build card HTML for each VNO
+  snEnabled={};
   var h='<div class="sn-cards">';
-  h+=card('03','Entel','#C586C0',s03);
-  h+=card('02','ClaroVTR','#4EC9B0',s02);
+  SN_VNO_DEFS.forEach(function(def){
+    var s=suites.find(function(x){return x.id===def.suiteId;})||{params:[],id:def.suiteId};
+    var locked=!!(s.locked);
+    snEnabled[def.code]=!locked;
+    if(locked){
+      h+='<div class="sn-card off locked" id="sn-card-'+def.code+'" title="Pendiente: archivo de entorno">';
+      h+='<div class="sn-card-hdr">';
+      h+='<div class="sn-name" style="color:'+def.color+';opacity:.45">';
+      h+='&#128274; '+esc(def.label);
+      h+='</div>';
+      h+='<span class="sn-badge" style="opacity:.35">VNO '+def.code+'</span>';
+      h+='</div>';
+      h+='<div style="font-size:.72rem;color:var(--txt3);padding:6px 13px 10px">Archivo de entorno pendiente</div>';
+      h+='</div>';
+    } else {
+      h+='<div class="sn-card" id="sn-card-'+def.code+'">';
+      h+='<div class="sn-card-hdr">';
+      h+='<div class="sn-name" style="color:'+def.color+'">';
+      h+='<label class="tog"><input type="checkbox" id="sn-tog-'+def.code+'" checked>';
+      h+='<span class="tog-sl"></span></label>';
+      h+=esc(def.label);
+      h+='</div>';
+      h+='<span class="sn-badge">VNO '+def.code+'</span>';
+      h+='</div>';
+      (s.params||[]).forEach(function(p){
+        h+='<div class="pp-group">';
+        h+='<label>'+esc(p.label)+'</label>';
+        h+='<input class="sn-inp" id="sn-'+def.code+'-'+p.key+'" value="'+esc(p.default)+'" placeholder="'+esc(p.label)+'">';
+        h+='</div>';
+      });
+      h+='</div>';
+    }
+  });
   h+='</div>';
   h+='<div class="sn-phases">';
   h+='<button class="sn-phase-btn ph-provisioning" data-phase="provisioning">';
@@ -1126,12 +1199,29 @@ function renderSNForm(){
   sf.querySelectorAll('.sn-phase-btn').forEach(function(b){
     b.onclick=function(){executeSN(b.getAttribute('data-phase'));};
   });
-  document.getElementById('sn-tog-02').onchange=function(){toggleVNO('02');};
-  document.getElementById('sn-tog-03').onchange=function(){toggleVNO('03');};
-  snEnabled={'02':true,'03':true};
-  var rb03=document.getElementById('rpt-sn03'); if(rb03) rb03.classList.remove('show');
-  var rb02=document.getElementById('rpt-sn02'); if(rb02) rb02.classList.remove('show');
-  snTerm('03',''); snTerm('02','');
+  SN_VNO_DEFS.forEach(function(def){
+    if(snEnabled[def.code]){
+      var tog=document.getElementById('sn-tog-'+def.code);
+      if(tog) tog.onchange=function(){toggleVNO(def.code);};
+    }
+  });
+
+  // Rebuild terminals (only for non-locked VNOs)
+  if(termsCont){
+    var th='';
+    SN_VNO_DEFS.forEach(function(def){
+      if(!snEnabled[def.code]) return;
+      th+='<div class="sn-term">';
+      th+='<div class="sn-thdr" style="color:'+def.color+'">';
+      th+='<div class="ico" id="ico-sn'+def.code+'">&#183;</div>VNO-'+def.code+' '+esc(def.label);
+      th+='<button id="rpt-sn'+def.code+'" class="rpt-btn" style="margin-left:auto;font-size:.65rem;padding:3px 9px">&#128196; Reporte</button>';
+      th+='</div>';
+      th+='<div class="terminal" id="term-'+def.code+'"></div>';
+      th+='</div>';
+    });
+    termsCont.innerHTML=th;
+  }
+
   setTop('','Endpoints Services Now','Selecciona una fase y ejecuta');
 }
 
@@ -1179,22 +1269,21 @@ function toggleVNO(vno){
 
 function executeSN(phase){
   if(running) return;
-  if(!snEnabled['02']&&!snEnabled['03']){alert('Habilita al menos un VNO');return;}
-  var params={run02:snEnabled['02']?'true':'false', run03:snEnabled['03']?'true':'false', phase:phase||'all'};
-  var s02=suites.find(function(x){return x.id==='apim-vno02';});
-  var s03=suites.find(function(x){return x.id==='apim-vno03';});
-  if(snEnabled['02']&&s02){
-    (s02.params||[]).forEach(function(p){
-      var el=document.getElementById('sn-02-'+p.key);
-      if(el) params['02_'+p.key]=el.value;
-    });
-  }
-  if(snEnabled['03']&&s03){
-    (s03.params||[]).forEach(function(p){
-      var el=document.getElementById('sn-03-'+p.key);
-      if(el) params['03_'+p.key]=el.value;
-    });
-  }
+  var anyEnabled=SN_VNO_DEFS.some(function(def){return snEnabled[def.code];});
+  if(!anyEnabled){alert('Habilita al menos un VNO');return;}
+  var params={phase:phase||'all'};
+  SN_VNO_DEFS.forEach(function(def){
+    params['run'+def.code]=snEnabled[def.code]?'true':'false';
+    if(snEnabled[def.code]){
+      var s=suites.find(function(x){return x.id===def.suiteId;});
+      if(s){
+        (s.params||[]).forEach(function(p){
+          var el=document.getElementById('sn-'+def.code+'-'+p.key);
+          if(el) params[def.code+'_'+p.key]=el.value;
+        });
+      }
+    }
+  });
   var sp=suites.find(function(x){return x.id==='apim-parallel';});
   var phaseLabels={provisioning:'Fase 1 — Provisioning',operations:'Fase 2 — Operaciones',baja:'Fase 3 — Baja',all:'Completo'};
   _doRunSN(params,sp,phaseLabels[params.phase]||params.phase);
@@ -1208,8 +1297,7 @@ function _doRunSN(params,s,phaseLabel){
   document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=true;});
   document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
-  if(snEnabled['03']) setSnIco('03','running');
-  if(snEnabled['02']) setSnIco('02','running');
+  SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'running');});
 
   var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
   var url='/api/run-parallel'+(qs?'?'+qs:'');
@@ -1221,29 +1309,40 @@ function _doRunSN(params,s,phaseLabel){
   es.onmessage=function(ev){
     var d=JSON.parse(ev.data);
     if(d.e==='line'){
-      if(d.vno==='VNO-02') snTerm('02',d.t);
-      else if(d.vno==='VNO-03') snTerm('03',d.t);
-      else { snTerm('03',d.t); snTerm('02',d.t); }
+      if(d.vno){
+        snTerm(d.vno.replace('VNO-',''),d.t);
+      } else {
+        SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) snTerm(def.code,d.t);});
+      }
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       var ok=d.e==='done'&&d.code===0;
-      if(d.e==='error') snTerm('03','ERROR: '+d.t);
+      if(d.e==='error'){
+        SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) snTerm(def.code,'ERROR: '+d.t);});
+      }
       onDone(d.e==='error'?{code:1,passed:0,failed:0,requests:0,has_report:false}:d, s);
-      if(snEnabled['03']) setSnIco('03',ok?'passed':'failed');
-      if(snEnabled['02']) setSnIco('02',ok?'passed':'failed');
+      SN_VNO_DEFS.forEach(function(def){
+        if(snEnabled[def.code]) setSnIco(def.code,ok?'passed':'failed');
+      });
       document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
-      var rb03=document.getElementById('rpt-sn03');
-      var rb02=document.getElementById('rpt-sn02');
-      if(rb03){rb03.classList.toggle('show',!!(d.has_report_03));rb03.onclick=function(){openSnReport('apim-vno03');};}
-      if(rb02){rb02.classList.toggle('show',!!(d.has_report_02));rb02.onclick=function(){openSnReport('apim-vno02');};}
+      var reports=d.reports||{};
+      SN_VNO_DEFS.forEach(function(def){
+        var rb=document.getElementById('rpt-sn'+def.code);
+        if(rb){
+          var hasRp=!!(reports[def.code]);
+          rb.classList.toggle('show',hasRp);
+          if(hasRp){(function(c){rb.onclick=function(){openSnReport('apim-vno'+c);};})(def.code);}
+        }
+      });
     }
   };
   es.onerror=function(){
     if(running&&currentEs===es){
       currentEs=null; es.close();
-      snTerm('03','[Conexión interrumpida]');
+      var first=SN_VNO_DEFS.find(function(def){return snEnabled[def.code];});
+      if(first) snTerm(first.code,'[Conexión interrumpida]');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
-      setSnIco('03','failed'); setSnIco('02','failed');
+      SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'failed');});
       document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
     }
   };
