@@ -326,6 +326,36 @@ JWT_ALGORITHM = "HS256"
 # GTD y WOM: aparecen en documentación pero SIN flujos configurados aún
 VNOS = ["DTV", "VTR", "Entel", "ENTEL", "TCH", "Claro", "Genérico", "GTD", "WOM", "CVTR"]
 
+# Códigos de VNO para el flag --vno: 00=TCH | 02=ClaroVTR | 03=Entel | 05=DTV
+VNO_CODES = {"00": "TCH", "02": "CVTR", "03": "ENTEL", "05": "DTV"}
+_VNO_PARAMETRIZE = list(VNO_CODES.values())
+_VNO_IDS = [f"{v}[{c}]" for c, v in VNO_CODES.items()]
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--vno",
+        default=None,
+        metavar="CODIGO",
+        help="VNO a probar: 00=TCH | 02=ClaroVTR | 03=Entel | 05=DTV. Sin argumento: todas.",
+    )
+
+
+def pytest_generate_tests(metafunc):
+    if "vno_id" in metafunc.fixturenames:
+        code = metafunc.config.getoption("--vno", default=None)
+        if code is not None:
+            vno = VNO_CODES.get(code)
+            if not vno:
+                raise ValueError(
+                    f"--vno '{code}' no reconocido. Opciones válidas: "
+                    + ", ".join(f"{c}={v}" for c, v in VNO_CODES.items())
+                )
+            metafunc.parametrize("vno_id", [vno], ids=[f"{vno}[{code}]"])
+        else:
+            metafunc.parametrize("vno_id", _VNO_PARAMETRIZE, ids=_VNO_IDS)
+
+
 ROLE_PERMISSIONS = {
     "ADMIN":    ["activation:write", "transaction:read", "audit:read", "users:write"],
     "OPERATOR": ["activation:write", "transaction:read"],
@@ -419,6 +449,26 @@ def auth_headers(valid_token: str) -> dict:
         "X-User-ID": "sn-integration",
         "X-User-Role": "API_CLIENT",
         "X-User-Organization": "DTV",
+    }
+
+
+@pytest.fixture
+def vno_token(vno_id: str) -> str:
+    """Token de API VNO para la VNO seleccionada con --vno o parametrizada."""
+    return _make_token(vno_id=vno_id)
+
+
+@pytest.fixture
+def vno_auth_headers(vno_token: str, vno_id: str) -> dict:
+    """Headers completos de ServiceNow para la VNO seleccionada."""
+    return {
+        "Authorization": f"Bearer {vno_token}",
+        "X-Correlation-ID": str(uuid.uuid4()),
+        "X-Source-System": "ServiceNow",
+        "X-Source-System-ID": "SN-PROD-001",
+        "X-User-ID": "sn-integration",
+        "X-User-Role": "API_CLIENT",
+        "X-User-Organization": vno_id,
     }
 
 
@@ -728,6 +778,36 @@ def _require_permission(payload: dict, permission: str) -> None:
             status_code=403,
             detail=f"Rol '{role}' no tiene permiso '{permission}'",
         )
+
+
+def _decode_any_token(request: Request) -> dict:
+    """Acepta token de portal (role+permissions) o de API VNO (vno_id+komands:query).
+
+    Usado en endpoints de consulta que deben ser accesibles tanto desde el
+    portal web como desde clientes API (ServiceNow via Axway).
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token ausente")
+    token = auth.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    if "role" in payload:
+        if "transaction:read" not in payload.get("permissions", []):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Rol '{payload.get('role')}' no tiene transaction:read",
+            )
+    elif "vno_id" in payload:
+        if payload["vno_id"] not in VNOS:
+            raise HTTPException(status_code=403, detail="VNO no autorizada")
+        if "komands:query" not in payload.get("scope", ""):
+            raise HTTPException(status_code=403, detail="Scope insuficiente para consultas")
+    else:
+        raise HTTPException(status_code=401, detail="Token sin claims reconocidos")
+    return payload
 
 
 # ─── Mini app de prueba ───────────────────────────────────────────────────────
@@ -1180,56 +1260,49 @@ def _build_test_app() -> FastAPI:
 
     @app.get("/api/Komands/v1/service-activation/{op_uuid}")
     async def get_activation_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "service-activation")
 
     @app.get("/api/Komands/v1/unsubscription/{op_uuid}")
     async def get_unsubscription_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "unsubscription")
 
     @app.get("/api/Komands/v1/device-modification/{op_uuid}")
     async def get_device_modification_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "device-modification")
 
     @app.get("/api/Komands/v1/service-modification/{op_uuid}")
     async def get_service_modification_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "service-modification")
 
     @app.get("/api/Komands/v1/fiber-change/{op_uuid}")
     async def get_fiber_change_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "fiber-change")
 
     @app.get("/api/Komands/v1/pon-transfer/{op_uuid}")
     async def get_pon_transfer_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "pon-transfer")
 
     @app.get("/api/Komands/v1/reset-ont/{op_uuid}")
     async def get_reset_ont_status(op_uuid: str, request: Request):
-        payload = _decode_portal_token(request)
-        _require_permission(payload, "transaction:read")
+        _decode_any_token(request)
         if op_uuid == "00000000-0000-0000-0000-000000000000":
             raise HTTPException(status_code=404, detail="error_code=KMD-2003")
         return _operation_status_response(op_uuid, "reset-ont")

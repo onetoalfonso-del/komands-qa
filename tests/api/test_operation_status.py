@@ -137,7 +137,7 @@ class TestEstadoOperacionAuth:
 
     # OPS-04
     @pytest.mark.parametrize("endpoint,operation", _OPERATIONS)
-    def test_ops04_sin_token_devuelve_401(self, test_client, endpoint, operation):
+    def test_ops04_sin_token_devuelve_401(self, test_client, endpoint, operation):  # noqa: no vno_id — auth pura
         """
         ESCENARIO: GET sin header Authorization.
 
@@ -198,4 +198,40 @@ class TestEstadoOperacionAuth:
         assert response.status_code == 403, (
             f"[{endpoint}] AUDITOR sin transaction:read esperaba 403, "
             f"se obtuvo {response.status_code}"
+        )
+
+
+# ─── OPS-07: Token de API VNO puede consultar estado ─────────────────────────
+
+class TestEstadoOperacionVNOToken:
+    """
+    GET /{operation}/{uuid} con token de API VNO (komands:query scope).
+
+    Verifica que los clientes API (ServiceNow vía Axway APIM) también pueden
+    consultar el estado de sus propias operaciones usando su token de VNO,
+    no solo los usuarios de portal con transaction:read.
+    """
+
+    # OPS-07
+    @pytest.mark.parametrize("endpoint,operation", _OPERATIONS)
+    def test_ops07_vno_api_token_puede_consultar_estado(
+        self, test_client, vno_token, vno_id, endpoint, operation
+    ):
+        """
+        ESCENARIO: Consulta de estado con token de API VNO (no token de portal).
+
+        ServiceNow usa su token VNO para consultar el estado de una operación
+        que encoló previamente. El endpoint debe aceptar tokens de API VNO
+        con scope komands:query, no solo tokens de portal con transaction:read.
+
+        Resultado esperado: HTTP 200.
+        """
+        response = test_client.get(
+            f"/api/Komands/v1/{endpoint}/{SAMPLE_UUID}",
+            headers={"Authorization": f"Bearer {vno_token}"},
+        )
+
+        assert response.status_code == 200, (
+            f"[{endpoint}][{vno_id}] VNO API token esperaba 200, "
+            f"se obtuvo {response.status_code}. Body: {response.text}"
         )

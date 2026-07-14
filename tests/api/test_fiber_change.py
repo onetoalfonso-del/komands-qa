@@ -67,7 +67,7 @@ class TestFiberChangeHappyPath:
     """
 
     # FIB-01
-    def test_fib01_nokia_ftth_cambio_puerto_pon_acepta_y_encola(self, test_client, auth_headers):
+    def test_fib01_nokia_ftth_cambio_puerto_pon_acepta_y_encola(self, test_client, vno_auth_headers, vno_id):
         """
         ESCENARIO: Nokia FTTH — cambio de puerto PON en la misma OLT Nokia.
 
@@ -77,7 +77,7 @@ class TestFiberChangeHappyPath:
 
         Resultado esperado: HTTP 202 con status=PENDING y txn_id.
         """
-        response = test_client.post(FIBER_CHANGE_URL, json=_NOKIA, headers=auth_headers)
+        response = test_client.post(FIBER_CHANGE_URL, json={**_NOKIA, "vno_code": vno_id}, headers=vno_auth_headers)
 
         assert response.status_code == 202
         data = response.json()
@@ -87,7 +87,7 @@ class TestFiberChangeHappyPath:
         assert data.get("txn_id"), "txn_id ausente — no se puede rastrear el resultado"
 
     # FIB-02
-    def test_fib02_cross_vendor_nokia_a_huawei_acepta_y_encola(self, test_client, auth_headers):
+    def test_fib02_cross_vendor_nokia_a_huawei_acepta_y_encola(self, test_client, vno_auth_headers, vno_id):
         """
         ESCENARIO: Cambio de fibra cross-vendor — OLT Nokia origen, OLT Huawei destino.
 
@@ -97,7 +97,7 @@ class TestFiberChangeHappyPath:
 
         Resultado esperado: HTTP 202 con status=PENDING.
         """
-        response = test_client.post(FIBER_CHANGE_URL, json=_CROSS_VENDOR, headers=auth_headers)
+        response = test_client.post(FIBER_CHANGE_URL, json={**_CROSS_VENDOR, "vno_code": vno_id}, headers=vno_auth_headers)
 
         assert response.status_code == 202
         data = response.json()
@@ -107,7 +107,7 @@ class TestFiberChangeHappyPath:
         assert data.get("txn_id"), "txn_id ausente en cambio cross-vendor"
 
     # FIB-03
-    def test_fib03_huawei_ftth_cambio_puerto_pon_acepta_y_encola(self, test_client, auth_headers):
+    def test_fib03_huawei_ftth_cambio_puerto_pon_acepta_y_encola(self, test_client, vno_auth_headers, vno_id):
         """
         ESCENARIO: Huawei FTTH — cambio de puerto PON en la misma OLT Huawei.
 
@@ -116,7 +116,7 @@ class TestFiberChangeHappyPath:
 
         Resultado esperado: HTTP 202 con status=PENDING y txn_id.
         """
-        response = test_client.post(FIBER_CHANGE_URL, json=_HUAWEI, headers=auth_headers)
+        response = test_client.post(FIBER_CHANGE_URL, json={**_HUAWEI, "vno_code": vno_id}, headers=vno_auth_headers)
 
         assert response.status_code == 202
         data = response.json()
@@ -220,7 +220,7 @@ class TestFiberChangeCrossVendorReverso:
     """
 
     # FIB-08
-    def test_fib08_cross_vendor_huawei_a_nokia_acepta_y_encola(self, test_client, auth_headers):
+    def test_fib08_cross_vendor_huawei_a_nokia_acepta_y_encola(self, test_client, vno_auth_headers, vno_id):
         """
         ESCENARIO: Cambio de fibra cross-vendor — OLT Huawei origen (OLT-SAN-002),
         OLT Nokia destino (OLT-SAN-001).
@@ -231,7 +231,7 @@ class TestFiberChangeCrossVendorReverso:
 
         Resultado esperado: HTTP 202 con status=ACCEPTED y txn_id.
         """
-        response = test_client.post(FIBER_CHANGE_URL, json=_CROSS_VENDOR_REVERSE, headers=auth_headers)
+        response = test_client.post(FIBER_CHANGE_URL, json={**_CROSS_VENDOR_REVERSE, "vno_code": vno_id}, headers=vno_auth_headers)
 
         assert response.status_code == 202
         data = response.json()

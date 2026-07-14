@@ -31,7 +31,7 @@ class TestConsultaAcceso:
     """
 
     # QRY-01
-    def test_qry01_acceso_existente_devuelve_200(self, test_client, admin_token):
+    def test_qry01_acceso_existente_devuelve_200(self, test_client, admin_token, vno_id):
         """
         ESCENARIO: Consulta de acceso con access_id válido (source=cache).
 
@@ -41,7 +41,7 @@ class TestConsultaAcceso:
         Resultado esperado: HTTP 200 con datos del ONT.
         """
         response = test_client.get(
-            "/api/Komands/v1/access/ACC-DTV-00123",
+            f"/api/Komands/v1/access/ACC-{vno_id}-00123",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200, (
@@ -52,7 +52,7 @@ class TestConsultaAcceso:
         assert "status" in data
 
     # QRY-02 | PV-QRY-002
-    def test_qry02_respuesta_contiene_campos_obligatorios(self, test_client, admin_token):
+    def test_qry02_respuesta_contiene_campos_obligatorios(self, test_client, admin_token, vno_id):
         """
         ESCENARIO: Consulta válida — verificar contrato de respuesta.
 
@@ -62,7 +62,7 @@ class TestConsultaAcceso:
         Resultado esperado: HTTP 200 con todos los campos presentes.
         """
         response = test_client.get(
-            "/api/Komands/v1/access/ACC-DTV-00123",
+            f"/api/Komands/v1/access/ACC-{vno_id}-00123",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200
@@ -71,7 +71,7 @@ class TestConsultaAcceso:
             assert campo in data, f"Campo '{campo}' ausente en la respuesta"
 
     # QRY-07 | G-05 / PV-QRY-002 (source=live)
-    def test_qry07_acceso_source_live_devuelve_200(self, test_client, admin_token):
+    def test_qry07_acceso_source_live_devuelve_200(self, test_client, admin_token, vno_id):
         """
         ESCENARIO: Consulta de acceso con source=live (PV-QRY-002).
 
@@ -83,7 +83,7 @@ class TestConsultaAcceso:
         Resultado esperado: HTTP 200 con campo source == "live".
         """
         response = test_client.get(
-            "/api/Komands/v1/access/ACC-DTV-00123?source=live",
+            f"/api/Komands/v1/access/ACC-{vno_id}-00123?source=live",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert response.status_code == 200, (
@@ -96,7 +96,7 @@ class TestConsultaAcceso:
         )
 
     # QRY-03 | PV-QRY-003
-    def test_qry03_acceso_inexistente_devuelve_404(self, test_client, admin_token):
+    def test_qry03_acceso_inexistente_devuelve_404(self, test_client, admin_token, vno_id):
         """
         ESCENARIO: Consulta con access_id que no existe en el sistema.
 

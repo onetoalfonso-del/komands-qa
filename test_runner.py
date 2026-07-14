@@ -56,6 +56,7 @@ SUITES = [
                   "--ignore=tests/security/test_auth_infra.py",
                   "--html=reporte_t1.html", "--self-contained-html"],
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_t1.html"), "requires": None,
+        "vno_support": True,
     },
     {
         "id": "t1-contract", "group": "disponible",
@@ -124,6 +125,7 @@ SUITES = [
                   "--ignore=tests/security/test_auth_infra.py",
                   "--html=reporte_t2.html", "--self-contained-html"],
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_t2.html"), "requires": None,
+        "vno_support": True,
     },
     {
         "id": "t3", "group": "disponible",
@@ -482,6 +484,9 @@ async def api_run(suite_id: str, request: Request):
                **suite.get("env_extra", {})}
 
         cmd = _apply_params(suite["cmd"], overrides)
+        vno_code = overrides.get("vno", "").strip()
+        if vno_code and suite.get("vno_support") and "pytest" in str(cmd):
+            cmd = list(cmd) + ["--vno", vno_code]
         passed = failed = requests = 0
 
         async for kind, val in _iter_proc(cmd, suite["cwd"], env):
@@ -794,6 +799,9 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .rpt-btn:hover{border-color:var(--acc);color:var(--acc)}
 .clr-btn{padding:4px 11px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt3);font-size:.7rem;transition:all .12s;flex-shrink:0}
 .clr-btn:hover{color:var(--txt2)}
+.vno-sel{display:none;padding:3px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt);font-size:.7rem;font-family:var(--sans);cursor:pointer;outline:none;transition:border-color .15s;min-width:130px}
+.vno-sel:hover,.vno-sel:focus{border-color:var(--acc)}
+.vno-sel.show{display:block}
 
 /* TOGGLE */
 .tog{position:relative;width:32px;height:18px;flex-shrink:0;display:inline-block}
@@ -888,6 +896,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <div class="topbar">
       <span class="top-title" id="top-title">KOMANDs QA Runner</span>
       <span class="top-status" id="top-status">Listo</span>
+      <select class="vno-sel" id="vno-sel" title="VNO a probar (solo suites con soporte VNO)">
+        <option value="">Todas las VNOs</option>
+        <option value="00">00 — TCH</option>
+        <option value="02">02 — ClaroVTR</option>
+        <option value="03">03 — Entel</option>
+        <option value="05">05 — DTV</option>
+      </select>
       <button class="exec-btn" id="exec-btn" onclick="executeSelected()" disabled>&#9654; Ejecutar</button>
       <button class="rpt-btn" id="rpt-btn" onclick="openReport()">&#128196; Ver reporte</button>
       <button class="rpt-btn" id="dl-btn" onclick="downloadReport()">&#11015; Descargar</button>
@@ -1015,6 +1030,18 @@ function selectSuite(id){
   }
   var eb=document.getElementById('exec-btn');
   if(eb) eb.disabled=running;
+  // Mostrar selector VNO solo para suites que lo soportan
+  var vnoSel=document.getElementById('vno-sel');
+  if(vnoSel) vnoSel.classList.toggle('show', !!(s&&s.vno_support));
+}
+
+var VNO_NAMES={'00':'TCH','02':'ClaroVTR','03':'Entel','05':'DTV'};
+
+function _vnoParams(){
+  var vnoSel=document.getElementById('vno-sel');
+  if(!vnoSel||!vnoSel.classList.contains('show')||!vnoSel.value) return {params:{},suffix:''};
+  var code=vnoSel.value;
+  return {params:{vno:code}, suffix:' ['+(VNO_NAMES[code]||code)+']'};
 }
 
 function executeSelected(){
@@ -1023,7 +1050,9 @@ function executeSelected(){
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
-  _doRun('/api/run/'+selectedId, {}, s);
+  var v=_vnoParams();
+  var sRun=v.suffix?Object.assign({},s,{label:s.label+v.suffix}):s;
+  _doRun('/api/run/'+selectedId, v.params, sRun);
 }
 
 function run(id){

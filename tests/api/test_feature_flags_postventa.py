@@ -39,11 +39,11 @@ class TestFeatureFlagsBaja:
     """
 
     # FLG-01
-    def test_flg01_flag_activo_baja_devuelve_202(self, ff_client, valid_token):
+    def test_flg01_flag_activo_baja_devuelve_202(self, ff_client, vno_token, vno_id):
         """
-        ESCENARIO: Conmutación BP→Komands — flag DTV FTTH activado.
+        ESCENARIO: Conmutación BP→Komands — flag FTTH activado para la VNO seleccionada.
 
-        Cuando el Feature Flag está activo para DTV+FTTH, Komands debe
+        Cuando el Feature Flag está activo para la VNO+FTTH, Komands debe
         procesar la baja y devolver 202+ACCEPTED. Es la condición normal
         de operación para los VNOs que ya migraron a Komands.
 
@@ -51,21 +51,21 @@ class TestFeatureFlagsBaja:
         """
         ff_client.post(
             "/test/feature-flags",
-            json={"vno_id": "DTV", "product": "FTTH", "enabled": True},
+            json={"vno_id": vno_id, "product": "FTTH", "enabled": True},
         )
         response = ff_client.post(
             "/api/Komands/v1/unsuscription",
-            json=_BASE_BAJ,
-            headers={"Authorization": f"Bearer {valid_token}"},
+            json={**_BASE_BAJ, "vno_code": vno_id},
+            headers={"Authorization": f"Bearer {vno_token}"},
         )
         assert response.status_code == 202, (
             f"Con flag activo se esperaba 202, se obtuvo {response.status_code}"
         )
 
     # FLG-02 | PV-FLG-002
-    def test_flg02_flag_desactivado_baja_retorna_kmd4001(self, ff_client, valid_token):
+    def test_flg02_flag_desactivado_baja_retorna_kmd4001(self, ff_client, vno_token, vno_id):
         """
-        ESCENARIO: Rollback Komands→BP — flag DTV FTTH desactivado.
+        ESCENARIO: Rollback Komands→BP — flag FTTH desactivado para la VNO seleccionada.
 
         Cuando el Feature Flag está desactivado, Komands rechaza la operación
         con KMD-4001 y dice a ServiceNow que use BluePlanet.
@@ -75,12 +75,12 @@ class TestFeatureFlagsBaja:
         """
         ff_client.post(
             "/test/feature-flags",
-            json={"vno_id": "DTV", "product": "FTTH", "enabled": False},
+            json={"vno_id": vno_id, "product": "FTTH", "enabled": False},
         )
         response = ff_client.post(
             "/api/Komands/v1/unsuscription",
-            json=_BASE_BAJ,
-            headers={"Authorization": f"Bearer {valid_token}"},
+            json={**_BASE_BAJ, "vno_code": vno_id},
+            headers={"Authorization": f"Bearer {vno_token}"},
         )
         data = response.json()
         assert response.status_code != 202, (
@@ -143,7 +143,7 @@ class TestIdempotenciaBaja:
 
     # IDP-01
     def test_idp01_txn_id_duplicado_retorna_200_con_txn_original(
-        self, ff_client, valid_token
+        self, ff_client, vno_token, vno_id
     ):
         """
         ESCENARIO: ServiceNow envía la misma baja dos veces con el mismo txn_id.
@@ -155,8 +155,8 @@ class TestIdempotenciaBaja:
         Resultado esperado: primer POST → 202, segundo POST → 200, mismo txn_id.
         """
         txn_id_fijo = str(uuid.uuid4())
-        payload = {**_BASE_BAJ, "txn_id": txn_id_fijo}
-        headers = {"Authorization": f"Bearer {valid_token}"}
+        payload = {**_BASE_BAJ, "txn_id": txn_id_fijo, "vno_code": vno_id}
+        headers = {"Authorization": f"Bearer {vno_token}"}
 
         resp1 = ff_client.post("/api/Komands/v1/unsuscription", json=payload, headers=headers)
         assert resp1.status_code == 202, (
