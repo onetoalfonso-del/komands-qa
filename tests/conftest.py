@@ -345,6 +345,7 @@ def pytest_generate_tests(metafunc):
     if "vno_id" not in metafunc.fixturenames:
         return
     # Si el test ya tiene @pytest.mark.parametrize("vno_id", ...) no re-parametrizar
+    # (el filtrado por --vno se hace en pytest_collection_modifyitems)
     for marker in metafunc.definition.iter_markers("parametrize"):
         argnames = marker.args[0] if marker.args else ""
         names = [a.strip() for a in argnames.split(",")] if isinstance(argnames, str) else list(argnames)
@@ -361,6 +362,26 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("vno_id", [vno], ids=[f"{vno}[{code}]"])
     else:
         metafunc.parametrize("vno_id", _VNO_PARAMETRIZE, ids=_VNO_IDS)
+
+
+def pytest_collection_modifyitems(config, items):
+    """Filtra tests por --vno también para suites con @parametrize("vno_id") propio."""
+    code = config.getoption("--vno", default=None)
+    if not code:
+        return
+    vno = VNO_CODES.get(code)
+    if not vno:
+        return
+    selected, deselected = [], []
+    for item in items:
+        cs = getattr(item, "callspec", None)
+        if cs and "vno_id" in cs.params:
+            (selected if cs.params["vno_id"] == vno else deselected).append(item)
+        else:
+            selected.append(item)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
 
 
 ROLE_PERMISSIONS = {
