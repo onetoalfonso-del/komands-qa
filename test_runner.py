@@ -1199,6 +1199,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .rpt-btn:hover{border-color:var(--acc);color:var(--acc)}
 .clr-btn{padding:4px 11px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt3);font-size:.7rem;transition:all .12s;flex-shrink:0}
 .si-child{padding-left:28px!important;border-left:2px solid var(--brdl)}
+.si-child-grp{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);padding:6px 10px 2px 28px}
 .ep-section{margin-bottom:14px}
 .ep-section-hdr{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);padding:4px 2px 8px;border-bottom:1px solid var(--brdl);margin-bottom:6px}
 .ep-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;border:1px solid var(--brdl);margin-bottom:5px;background:var(--card);transition:border-color .15s}
@@ -1431,14 +1432,45 @@ function renderSB(){
       row.id='si-'+s.id;
       row.className='si'+(s.group==='bloqueado'?' si-blk':'');
       row.title=s.group==='bloqueado'?('Bloqueado: '+(s.blocker||'')):s.label;
-      if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
-      row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
-        +'<div class="si-txt"><div class="si-name">'+esc(s.label)+'</div>'
-        +'<div class="si-desc">'+esc(s.desc)+'</div></div>';
-      el.appendChild(row);
+      if(s.id==='qa-endpoints'){
+        var isOpen=!!_accordionOpen[s.id];
+        row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
+          +'<div class="si-txt" style="flex:1">'
+          +'<div class="si-name">'+esc(s.label)+'</div>'
+          +'<div class="si-desc">'+esc(s.desc)+'</div></div>'
+          +'<button class="acc-toggle" title="Expandir endpoints">'
+          +(isOpen?'&#9660;':'&#9654;')+'</button>';
+        row.querySelector('.si-txt').onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
+        row.querySelector('.acc-toggle').onclick=(function(pid){return function(e){e.stopPropagation();toggleAccordion(pid);};})(s.id);
+        el.appendChild(row);
+        if(isOpen){
+          var _sections=[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}];
+          _sections.forEach(function(sec){
+            var kids=suites.filter(function(c){return c.parent===sec.par;});
+            if(!kids.length) return;
+            var gh=document.createElement('div'); gh.className='si-child-grp'; gh.textContent=sec.lbl; el.appendChild(gh);
+            kids.forEach(function(c){
+              var crow=document.createElement('div');
+              crow.id='si-'+c.id; crow.className='si si-child';
+              crow.onclick=(function(cid){return function(){selectSuite(cid);};})(c.id);
+              crow.innerHTML='<div class="si-ico" id="ico-'+c.id+'">&#183;</div>'
+                +'<div class="si-txt"><div class="si-name">'+esc(c.label)+'</div>'
+                +'<div class="si-desc">'+esc(c.desc)+'</div></div>';
+              el.appendChild(crow);
+            });
+          });
+        }
+      } else {
+        if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
+        row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
+          +'<div class="si-txt"><div class="si-name">'+esc(s.label)+'</div>'
+          +'<div class="si-desc">'+esc(s.desc)+'</div></div>';
+        el.appendChild(row);
+      }
     });
   });
 }
+
 function toggleAccordion(pid){
   _accordionOpen[pid]=!_accordionOpen[pid];
   renderSB();
@@ -1928,33 +1960,15 @@ function renderEPVNOBar(){
 function renderEPView(){
   var list=document.getElementById('ep-list');
   if(!list) return;
-  list.innerHTML='';
-  var sections=[
-    {label:'FulFillment',parent:'qa-fulfillment'},
-    {label:'Consultas',  parent:'qa-consultas'},
-  ];
-  sections.forEach(function(sec){
-    var children=suites.filter(function(s){return s.parent===sec.parent;});
-    if(!children.length) return;
-    var secDiv=document.createElement('div'); secDiv.className='ep-section';
-    var hdr=document.createElement('div'); hdr.className='ep-section-hdr';
-    hdr.textContent=sec.label+' ('+children.length+')';
-    secDiv.appendChild(hdr);
-    children.forEach(function(s){
-      var row=document.createElement('div'); row.className='ep-row'; row.id='ep-row-'+s.id;
-      var ico=document.createElement('div'); ico.className='ep-row-ico'; ico.id='ep-ico-'+s.id; ico.textContent='·';
-      var txt=document.createElement('div'); txt.className='ep-row-txt';
-      var nm=document.createElement('div'); nm.className='ep-row-name'; nm.textContent=s.label;
-      var ds=document.createElement('div'); ds.className='ep-row-desc'; ds.textContent=s.desc;
-      txt.appendChild(nm); txt.appendChild(ds);
-      var btn=document.createElement('button'); btn.className='ep-run-btn'; btn.textContent='▶ Correr';
-      btn.disabled=running;
-      btn.onclick=(function(sid,sb){return function(){runEndpoint(sid,sb);};})(s.id,btn);
-      row.appendChild(ico); row.appendChild(txt); row.appendChild(btn);
-      secDiv.appendChild(row);
-    });
-    list.appendChild(secDiv);
-  });
+  var ff=suites.filter(function(s){return s.parent==='qa-fulfillment';}).length;
+  var cons=suites.filter(function(s){return s.parent==='qa-consultas';}).length;
+  list.innerHTML='<div style="padding:24px 10px;color:var(--txt3);font-size:.78rem;line-height:1.7">'
+    +'<div style="font-size:.85rem;font-weight:600;color:var(--txt2);margin-bottom:8px">'+String.fromCharCode(8592)+' Selecciona un endpoint del menú lateral</div>'
+    +'<div>Expande la suite <strong style="color:var(--acc)">Endpoints QA</strong> en el panel izquierdo</div>'
+    +'<div style="margin-top:12px;display:flex;gap:16px">'
+    +'<span style="padding:4px 10px;border:1px solid var(--brdl);border-radius:4px">FulFillment: '+ff+'</span>'
+    +'<span style="padding:4px 10px;border:1px solid var(--brdl);border-radius:4px">Consultas: '+cons+'</span>'
+    +'</div></div>';
 }
 function runEndpoint(id,btn){
   if(running) return;
