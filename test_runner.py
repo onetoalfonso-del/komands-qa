@@ -341,7 +341,7 @@ SUITES = [
         "requires": None,
     },
     {
-        "id": "t5", "group": "bloqueado",
+        "id": "t5", "group": "hidden",
         "label": "T5 — Base de Datos PostgreSQL",
         "desc":  "transaction_listener · audit_log · UUID únicos",
         "blocker": "Requiere PostgreSQL DEV con schema Komands desplegado",
@@ -359,7 +359,7 @@ SUITES = [
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_t5.html"), "requires": None,
     },
     {
-        "id": "t4", "group": "bloqueado",
+        "id": "t4", "group": "hidden",
         "label": "T4 — Flujo E2E OLTs reales",
         "desc":  "POST→callback no disponible aún",
         "blocker": "Requiere endpoint de callback accesible desde servidor DEV",
@@ -377,7 +377,7 @@ SUITES = [
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
     {
-        "id": "t6", "group": "bloqueado",
+        "id": "t6", "group": "hidden",
         "label": "T6 — Paridad VNO + OLT",
         "desc":  "VNO-02 ClaroVTR · VNO-03 Entel",
         "blocker": "Requiere datos reales de VNO-02 y VNO-03",
@@ -393,7 +393,7 @@ SUITES = [
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
     {
-        "id": "t8", "group": "bloqueado",
+        "id": "t8", "group": "hidden",
         "label": "T8 — Performance k6 / SLOs",
         "desc":  "Latencia p95 · throughput · error rate",
         "blocker": "Requiere ambiente dedicado y SLOs definidos",
@@ -409,7 +409,7 @@ SUITES = [
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
     {
-        "id": "t-flg", "group": "bloqueado",
+        "id": "t-flg", "group": "hidden",
         "label": "T-FLG — Feature Flags Komands ↔ BluePlanet",
         "desc":  "PV-FLG-001/003 · REG-FF-001/004 · conmutación < 5 min",
         "blocker": "Requiere tabla feature_flag en PostgreSQL DEV",
@@ -641,7 +641,7 @@ except ImportError:
     print("Instalar: pip install fastapi \"uvicorn[standard]\"")
     sys.exit(1)
 
-app = FastAPI(title="KOMANDs QA Runner")
+app = FastAPI(title="Pruebas de Regresion ambiente QA OnnetFibra")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -940,7 +940,7 @@ HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KOMANDs QA Runner</title>
+<title>Pruebas de Regresion ambiente QA OnnetFibra</title>
 <style>
 :root{
   --bg:#13132A;--side:#1A1A3E;--sideh:#20204A;--card:#181836;--term:#0D0D20;
@@ -1126,7 +1126,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
   </aside>
   <main class="main">
     <div class="topbar">
-      <span class="top-title" id="top-title">KOMANDs QA Runner</span>
+      <span class="top-title" id="top-title">Pruebas de Regresion ambiente QA OnnetFibra</span>
       <span class="top-status" id="top-status">Listo</span>
       <select class="vno-sel" id="vno-sel" title="VNO a probar (solo suites con soporte VNO)">
         <option value="">Todas las VNOs</option>
@@ -1674,7 +1674,7 @@ function clearTerm(){
   document.getElementById('rpt-btn').classList.remove('show');
   document.getElementById('dl-btn').classList.remove('show');
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecuta una suite para ver resultados</span>';
-  setTop('','KOMANDs QA Runner','Listo');
+  setTop('','Pruebas de Regresion ambiente QA OnnetFibra','Listo');
 }
 function app(text,cls){
   var logId=runningId||selectedId;
