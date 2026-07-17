@@ -26,6 +26,12 @@ ROOT      = Path(__file__).parent
 COLL_DIR  = ROOT / "collection Kommand"
 BP_DIR    = ROOT / "collection Blueplanet"
 QA_DIR    = ROOT / "collection QA"
+QA_VNO_ENV_MAP = {
+    "00": "00-TCH QA.postman_environment.json",
+    "02": "02 QA_KAO.postman_environment.json",
+    "03": "03-B1_vnoid03 QA.postman_environment.json",
+    "05": "05 QA_DTV.postman_environment.json",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -559,6 +565,128 @@ SUITES = [
         "report": str(QA_DIR / "reporte_qa_consultas.html"),
         "requires": str(QA_DIR / "02 QA_KAO.postman_environment.json"),
     },
+    # ── QA FulFillment — endpoints individuales ──────────────────────
+    {"id":"qa-ep-factibilidad",  "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Factibilidad",    "desc":"feasibility · chequeo de puerto OLT",
+     "env_type":"qa_vno","folder":"01-Factibilidad",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_factibilidad.html"),"requires":None},
+    {"id":"qa-ep-assignment",    "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Assignment",      "desc":"asignación de recursos ONT",
+     "env_type":"qa_vno","folder":"02-Assignment",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_assignment.html"),"requires":None},
+    {"id":"qa-ep-ia",            "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Intervención Asegurada","desc":"inicio · finalización · cancela",
+     "env_type":"qa_vno","folder":"03-IntervencionAsegurada",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia.html"),"requires":None},
+    {"id":"qa-ep-activacion",    "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Activación",      "desc":"activación ONT FTTH",
+     "env_type":"qa_vno","folder":"04-Activacion",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_activacion.html"),"requires":None},
+    {"id":"qa-ep-fiberchange",   "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Fiber Change",    "desc":"cambio de fibra sincrónico",
+     "env_type":"qa_vno","folder":"05-FiberChange",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_fiberchange.html"),"requires":None},
+    {"id":"qa-ep-devmod",        "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Device Modification","desc":"modificación de dispositivo",
+     "env_type":"qa_vno","folder":"06-DeviceModification",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_devmod.html"),"requires":None},
+    {"id":"qa-ep-modificacion",  "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Modificación Acceso","desc":"modificación de acceso FTTH",
+     "env_type":"qa_vno","folder":"07-Modificacion De Acceso",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_modificacion.html"),"requires":None},
+    {"id":"qa-ep-cancel",        "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Cancel Orden Servicio","desc":"cancelación de orden de servicio",
+     "env_type":"qa_vno","folder":"08-CancelOrdenServicio",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_cancel.html"),"requires":None},
+    {"id":"qa-ep-unsub",         "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Unsubscription",  "desc":"desuscripción / baja de acceso",
+     "env_type":"qa_vno","folder":"10-Unsubscription",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_unsub.html"),"requires":None},
+    {"id":"qa-ep-reinicio",      "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Reinicio ONT",    "desc":"reinicio de ONT · masivo",
+     "env_type":"qa_vno","folder":"11-Reinicio ONT",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_reinicio.html"),"requires":None},
+    {"id":"qa-ep-precutovertch", "group":"qa-child","parent":"qa-fulfillment",
+     "label":"APIs TCH Pre-Cutover","desc":"GuaranteedIntervention · Cancela · Finalización",
+     "env_type":"qa_vno","folder":"12-APIS TCH PRE-CUTOVER",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_precutovertch.html"),"requires":None},
+    # ── QA Consultas — endpoints individuales ──────────────────────────────────
+    {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
+     "label":"ConsultaDataONT", "desc":"consulta datos ONT",
+     "env_type":"qa_vno","folder":"ConsultaDataONT",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_dataont.html"),"requires":None},
+    {"id":"qa-cons-retrievetch", "group":"qa-child","parent":"qa-consultas",
+     "label":"RetrieveAccess TCH","desc":"retrieve access VNO TCH",
+     "env_type":"qa_vno","folder":"RetrieveAccess (TCH)",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_retrievetch.html"),"requires":None},
+    {"id":"qa-cons-retrievetch-mas","group":"qa-child","parent":"qa-consultas",
+     "label":"RetrieveAccess TCH Masivo","desc":"retrieve access masivo TCH",
+     "env_type":"qa_vno","folder":"RetrieveAccess (TCH) MASIVO",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_retrievetch_mas.html"),"requires":None},
+    {"id":"qa-cons-consultaacceso","group":"qa-child","parent":"qa-consultas",
+     "label":"ConsultaAcceso",  "desc":"consulta de acceso",
+     "env_type":"qa_vno","folder":"ConsultaAcceso",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_consultaacceso.html"),"requires":None},
+    {"id":"qa-cons-diagnostico", "group":"qa-child","parent":"qa-consultas",
+     "label":"DiagnosticoAcceso","desc":"diagnóstico de acceso FTTH",
+     "env_type":"qa_vno","folder":"DiagnosticoAcceso",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_diagnostico.html"),"requires":None},
+    {"id":"qa-cons-accessstate", "group":"qa-child","parent":"qa-consultas",
+     "label":"AccessStateResponse","desc":"estado del acceso",
+     "env_type":"qa_vno","folder":"AccessStateResponse",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_accessstate.html"),"requires":None},
+    {"id":"qa-cons-cevvecino",   "group":"qa-child","parent":"qa-consultas",
+     "label":"CEVEstadoVecino",  "desc":"estado vecino CEV",
+     "env_type":"qa_vno","folder":"CEVEstadoVecino",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_cevvecino.html"),"requires":None},
+    {"id":"qa-cons-estadovecino","group":"qa-child","parent":"qa-consultas",
+     "label":"EstadoVecino",    "desc":"estado vecino V",
+     "env_type":"qa_vno","folder":"EstadoVecino V",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_estadovecino.html"),"requires":None},
+    {"id":"qa-cons-queryneighbors","group":"qa-child","parent":"qa-consultas",
+     "label":"QueryNeighborsState","desc":"query neighbors state response",
+     "env_type":"qa_vno","folder":"QueryNeighborsStateResponse",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_queryneighbors.html"),"requires":None},
+    {"id":"qa-cons-retrievekao", "group":"qa-child","parent":"qa-consultas",
+     "label":"RetrieveAccess KAO","desc":"retrieve access VNO KAO",
+     "env_type":"qa_vno","folder":"RetrieveAccess KAO",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_retrievekao.html"),"requires":None},
+    {"id":"qa-cons-modification","group":"qa-child","parent":"qa-consultas",
+     "label":"Modification",    "desc":"modification request",
+     "env_type":"qa_vno","folder":"Modification",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_modification.html"),"requires":None},
+    {"id":"qa-cons-reinicio",   "group":"qa-child","parent":"qa-consultas",
+     "label":"ReinicioONT",     "desc":"reinicio ONT",
+     "env_type":"qa_vno","folder":"ReinicioONT",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_reinicio.html"),"requires":None},
+    {"id":"qa-cons-fiberchange", "group":"qa-child","parent":"qa-consultas",
+     "label":"Fiber Change",    "desc":"fiber change request",
+     "env_type":"qa_vno","folder":"Fiber Change",
+     "collection":"03-Consultas.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_fiberchange.html"),"requires":None},
 ]
 
 SUITE_MAP = {s["id"]: s for s in SUITES}
@@ -661,6 +789,23 @@ async def api_run(suite_id: str, request: Request):
 
     overrides = dict(request.query_params)
 
+    if suite.get("env_type") == "qa_vno":
+        vno_code = overrides.pop("vno", "02")
+        env_file = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", suite["collection"],
+                 "-e", env_file,
+                 "--folder", suite["folder"],
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out],
+            report=rp_out,
+            requires=None,
+        )
+
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
 
@@ -712,6 +857,40 @@ async def api_run(suite_id: str, request: Request):
                  "X-Accel-Buffering": "no",
                  "Connection": "keep-alive"})
 
+
+
+@app.get("/api/response/{suite_id}")
+async def api_response(suite_id: str):
+    json_path = QA_DIR / f"rsp_{suite_id}.json"
+    if not json_path.exists():
+        return JSONResponse({"error": "no run yet"}, status_code=404)
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    responses = []
+    for ex in data.get("run", {}).get("executions", []):
+        item = ex.get("item", {})
+        resp = ex.get("response") or {}
+        body = resp.get("body", "") or ""
+        try:
+            body_json = json.loads(body) if body else None
+        except Exception:
+            body_json = None
+        req = ex.get("request") or {}
+        url_obj = req.get("url") or {}
+        url_raw = url_obj.get("raw", "") if isinstance(url_obj, dict) else str(url_obj)
+        responses.append({
+            "name":     item.get("name", ""),
+            "method":   req.get("method", "GET"),
+            "url":      url_raw,
+            "code":     resp.get("code", 0),
+            "status":   resp.get("status", ""),
+            "time_ms":  resp.get("responseTime", 0),
+            "body_raw": body[:8192],
+            "body_json": body_json,
+        })
+    return JSONResponse({"responses": responses})
 
 @app.get("/api/run-parallel")
 async def api_run_parallel(request: Request):
@@ -1012,6 +1191,23 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .rpt-btn.show{display:block}
 .rpt-btn:hover{border-color:var(--acc);color:var(--acc)}
 .clr-btn{padding:4px 11px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt3);font-size:.7rem;transition:all .12s;flex-shrink:0}
+.si-child{padding-left:28px!important;border-left:2px solid var(--brdl)}
+.si-child .si-name{font-size:.72rem}
+.si-child .si-desc{font-size:.64rem}
+.acc-toggle{background:none;border:none;color:var(--txt3);cursor:pointer;padding:0 4px;font-size:.65rem;flex-shrink:0;transition:color .15s}
+.acc-toggle:hover{color:var(--acc)}
+.vno-bar{display:none;align-items:center;gap:6px;padding:7px 14px;border-bottom:1px solid var(--brd);flex-wrap:wrap;flex-shrink:0}
+.vno-bar-lbl{font-size:.66rem;color:var(--txt3);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
+.vnobtn{padding:3px 13px;border-radius:4px;border:1px solid var(--brd);background:transparent;color:var(--txt2);font-size:.72rem;cursor:pointer;transition:all .15s}
+.vnobtn.active{font-weight:700}
+.resp-panel{display:none;overflow-y:auto;padding:8px 10px;border-top:1px solid var(--brd);flex-shrink:0;max-height:42vh}
+.resp-card{border:1px solid var(--brd);border-radius:5px;margin-bottom:6px;overflow:hidden}
+.resp-card-hdr{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--card);cursor:pointer;user-select:none}
+.resp-status{font-family:var(--mono);font-size:.7rem;font-weight:700;min-width:36px}
+.resp-name{font-size:.72rem;color:var(--txt1);flex:1}
+.resp-time{font-size:.66rem;color:var(--txt3)}
+.resp-body{display:none;background:var(--term);padding:8px 12px;overflow-x:auto}
+.resp-body pre{margin:0;font-family:var(--mono);font-size:.71rem;line-height:1.55;color:var(--txt1);white-space:pre-wrap;word-break:break-all}
 .clr-btn:hover{color:var(--txt2)}
 .vno-sel{display:none;padding:3px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt);font-size:.7rem;font-family:var(--sans);cursor:pointer;outline:none;transition:border-color .15s;min-width:130px}
 .vno-sel:hover,.vno-sel:focus{border-color:var(--acc)}
@@ -1135,7 +1331,9 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <!-- Vista estándar -->
     <div id="std-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="olt-info-bar" id="olt-info-bar" style="display:none"></div>
+      <div class="vno-bar" id="vno-bar"></div>
       <div class="terminal" id="term"></div>
+      <div class="resp-panel" id="resp-panel"></div>
     </div>
     <!-- Vista Services Now — doble terminal -->
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -1164,6 +1362,11 @@ var QA_VNO_DEFS=[
 ];
 var _activeDefs=SN_VNO_DEFS;
 var _activeParallelId='apim-parallel';
+var _globalVNO='02';
+var _QA_VNO_COLORS={'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'};
+var _QA_VNO_LABELS={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
+var _accordionOpen={};
+var _isQAChild=false;
 var snEnabled={};
 var suiteLogs={};      // { suiteId: [{text,cls}] }
 var suiteSummaries={}; // { suiteId: htmlString }
@@ -1200,17 +1403,46 @@ function renderSB(){
     if(!items.length) return;
     var d=document.createElement('div'); d.className='grp'; d.textContent=g.lbl; el.appendChild(d);
     items.forEach(function(s){
+      var children=suites.filter(function(c){return c.parent===s.id;});
+      var hasKids=children.length>0;
+      var isOpen=!!_accordionOpen[s.id];
       var row=document.createElement('div');
       row.id='si-'+s.id;
       row.className='si'+(s.group==='bloqueado'?' si-blk':'');
       row.title=s.group==='bloqueado'?('Bloqueado: '+(s.blocker||'')):s.label;
-      if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
-      row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
-        +'<div class="si-txt"><div class="si-name">'+esc(s.label)+'</div>'
-        +'<div class="si-desc">'+esc(s.desc)+'</div></div>';
+      if(hasKids){
+        row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
+          +'<div class="si-txt" style="flex:1;cursor:pointer" onclick="selectSuite(''+s.id+'')">'
+          +'<div class="si-name">'+esc(s.label)+'</div>'
+          +'<div class="si-desc">'+esc(s.desc)+'</div></div>'
+          +'<button class="acc-toggle" onclick="toggleAccordion(''+s.id+'')" title="Expandir endpoints">'
+          +(isOpen?'&#9660;':'&#9654;')+'</button>';
+      } else {
+        if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
+        row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
+          +'<div class="si-txt"><div class="si-name">'+esc(s.label)+'</div>'
+          +'<div class="si-desc">'+esc(s.desc)+'</div></div>';
+      }
       el.appendChild(row);
+      if(hasKids&&isOpen){
+        children.forEach(function(c){
+          var crow=document.createElement('div');
+          crow.id='si-'+c.id; crow.className='si si-child';
+          crow.title=c.label;
+          crow.onclick=(function(cid){return function(){selectSuite(cid);};})(c.id);
+          crow.innerHTML='<div class="si-ico" id="ico-'+c.id+'">&#183;</div>'
+            +'<div class="si-txt"><div class="si-name">'+esc(c.label)+'</div>'
+            +'<div class="si-desc">'+esc(c.desc)+'</div></div>';
+          el.appendChild(crow);
+        });
+      }
     });
   });
+}
+function toggleAccordion(pid){
+  _accordionOpen[pid]=!_accordionOpen[pid];
+  renderSB();
+  if(selectedId) setActive(selectedId);
 }
 
 function selectSuite(id){
@@ -1227,7 +1459,12 @@ function selectSuite(id){
     switchView('sn');
     renderSNForm();
   } else {
+    _isQAChild = !!(s.env_type==='qa_vno');
     switchView('std');
+    var vbar=document.getElementById('vno-bar');
+    var rpanel=document.getElementById('resp-panel');
+    if(_isQAChild){ renderVNOBar(); } else { vbar.style.display='none'; }
+    if(rpanel) rpanel.style.display='none';
     // Restaurar log guardado para esta suite
     var term=document.getElementById('term');
     term.innerHTML='';
@@ -1309,8 +1546,9 @@ function executeSelected(){
   if(!s||s.group==='bloqueado') return;
   switchView('std');
   var v=_vnoParams();
+  var xparams=Object.assign({},v.params,s.env_type==='qa_vno'?{vno:_globalVNO}:{});
   var sRun=v.suffix?Object.assign({},s,{label:s.label+v.suffix}):s;
-  _doRun('/api/run/'+selectedId, v.params, sRun);
+  _doRun('/api/run/'+selectedId, xparams, sRun);
 }
 
 function run(id){
@@ -1321,8 +1559,13 @@ function run(id){
   setActive(id);
   if(id==='apim-parallel'){ _activeDefs=SN_VNO_DEFS;_activeParallelId='apim-parallel'; switchView('sn'); renderSNForm(); return; }
   if(id==='qa-fulfillment'){ _activeDefs=QA_VNO_DEFS;_activeParallelId='qa-fulfillment'; switchView('sn'); renderSNForm(); return; }
+  _isQAChild = !!(s.env_type==='qa_vno');
   switchView('std');
-  _doRun('/api/run/'+id, {}, s);
+  var _vbar=document.getElementById('vno-bar');
+  if(_isQAChild){ renderVNOBar(); } else { _vbar.style.display='none'; }
+  var _rp2=document.getElementById('resp-panel'); if(_rp2) _rp2.style.display='none';
+  var _runParams=_isQAChild?{vno:_globalVNO}:{};
+  _doRun('/api/run/'+id, _runParams, s);
 }
 
 function switchView(mode){
@@ -1430,7 +1673,8 @@ function renderSNForm(){
     termsCont.innerHTML=th;
   }
 
-  setTop('','Endpoints Services Now','Selecciona una fase y ejecuta');
+  var _snSuite=suites.find(function(x){return x.id===_activeParallelId;});
+  setTop('',_snSuite?_snSuite.label:'',_activeParallelId==='apim-parallel'?'Selecciona una fase y ejecuta':'Selecciona una VNO y ejecuta');
 }
 
 function checkApimConfig(){
@@ -1636,9 +1880,49 @@ function onDone(d,s){
   }
   document.getElementById('run-all').disabled=false;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=false;
+  if(_isQAChild){
+    fetch('/api/response/'+s.id)
+      .then(function(r){return r.json();})
+      .then(function(data){renderResponsePanel(data);})
+      .catch(function(){});
+  }
   if(queue.length){var nx=queue.shift();setTimeout(()=>run(nx),350);}
 }
 
+function renderVNOBar(){
+  var bar=document.getElementById('vno-bar');
+  var h='<span class="vno-bar-lbl">Ambiente:</span>';
+  ['00','02','03','05'].forEach(function(code){
+    var active=code===_globalVNO;
+    var clr=_QA_VNO_COLORS[code];
+    h+='<button class="vnobtn'+(active?' active':'')+'" id="vnobtn-'+code+'"'
+      +' style="border-color:'+(active?clr:'var(--brd)')+';color:'+(active?clr:'var(--txt2)')+';background:'+(active?clr+'22':'transparent')+'"'
+      +' onclick="setGlobalVNO(''+code+'')">'+esc(_QA_VNO_LABELS[code])+'</button>';
+  });
+  bar.innerHTML=h; bar.style.display='flex';
+}
+function setGlobalVNO(code){
+  _globalVNO=code; renderVNOBar();
+}
+function renderResponsePanel(data){
+  var panel=document.getElementById('resp-panel');
+  if(!data||!data.responses||!data.responses.length){panel.style.display='none';return;}
+  var h='';
+  data.responses.forEach(function(r){
+    var ok=r.code>=200&&r.code<300;
+    var scol=ok?'var(--ok)':'var(--err)';
+    var body=r.body_json?JSON.stringify(r.body_json,null,2):(r.body_raw||'(sin body)');
+    h+='<div class="resp-card">';
+    h+='<div class="resp-card-hdr" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block'">';
+    h+='<span class="resp-status" style="color:'+scol+'">'+r.code+'</span>';
+    h+='<span class="resp-name">'+esc(r.name)+'</span>';
+    h+='<span class="resp-time">'+r.time_ms+'ms</span>';
+    h+='</div>';
+    h+='<div class="resp-body"><pre>'+esc(body)+'</pre></div>';
+    h+='</div>';
+  });
+  panel.innerHTML=h; panel.style.display='block';
+}
 function stat(cls,n,lbl){
   return '<div class="sum-stat"><div class="sdot '+cls+'"></div><span class="sn">'+n+'</span><span class="sl">&nbsp;'+lbl+'</span></div>';
 }
