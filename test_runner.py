@@ -565,6 +565,13 @@ SUITES = [
         "report": str(QA_DIR / "reporte_qa_consultas.html"),
         "requires": str(QA_DIR / "02 QA_KAO.postman_environment.json"),
     },
+    {
+        "id": "qa-endpoints", "group": "disponible",
+        "label": "Endpoints QA",
+        "desc":  "FulFillment · Consultas · ejecución individual por VNO",
+        "type":  "ep-explorer",
+        "cmd": None, "cwd": None, "report": None, "requires": None,
+    },
     # ── QA FulFillment — endpoints individuales ──────────────────────
     {"id":"qa-ep-factibilidad",  "group":"qa-child","parent":"qa-fulfillment",
      "label":"Factibilidad",    "desc":"feasibility · chequeo de puerto OLT",
@@ -1192,6 +1199,18 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .rpt-btn:hover{border-color:var(--acc);color:var(--acc)}
 .clr-btn{padding:4px 11px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt3);font-size:.7rem;transition:all .12s;flex-shrink:0}
 .si-child{padding-left:28px!important;border-left:2px solid var(--brdl)}
+.ep-section{margin-bottom:14px}
+.ep-section-hdr{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);padding:4px 2px 8px;border-bottom:1px solid var(--brdl);margin-bottom:6px}
+.ep-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;border:1px solid var(--brdl);margin-bottom:5px;background:var(--card);transition:border-color .15s}
+.ep-row:hover{border-color:var(--brd)}
+.ep-row-ico{width:16px;height:16px;border-radius:50%;background:var(--brd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem}
+.ep-row-txt{flex:1;min-width:0}
+.ep-row-name{font-size:.74rem;font-weight:600;color:var(--txt1)}
+.ep-row-desc{font-size:.64rem;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-run-btn{padding:3px 11px;border-radius:4px;border:none;background:var(--acc);color:#0D1B3E;font-size:.68rem;font-weight:700;cursor:pointer;flex-shrink:0;transition:opacity .15s}
+.ep-run-btn:hover{opacity:.82}
+.ep-run-btn:disabled{opacity:.28;cursor:not-allowed}
+
 .si-child .si-name{font-size:.72rem}
 .si-child .si-desc{font-size:.64rem}
 .acc-toggle{background:none;border:none;color:var(--txt3);cursor:pointer;padding:0 4px;font-size:.65rem;flex-shrink:0;transition:color .15s}
@@ -1335,6 +1354,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="terminal" id="term"></div>
       <div class="resp-panel" id="resp-panel"></div>
     </div>
+    <!-- Vista Endpoints QA — acordeon individual -->
+    <div id="ep-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div class="vno-bar" id="ep-vno-bar"></div>
+      <div style="flex:1;overflow-y:auto;padding:10px 14px" id="ep-list"></div>
+    </div>
     <!-- Vista Services Now — doble terminal -->
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="sn-form" id="sn-form"></div>
@@ -1403,41 +1427,15 @@ function renderSB(){
     if(!items.length) return;
     var d=document.createElement('div'); d.className='grp'; d.textContent=g.lbl; el.appendChild(d);
     items.forEach(function(s){
-      var children=suites.filter(function(c){return c.parent===s.id;});
-      var hasKids=children.length>0;
-      var isOpen=!!_accordionOpen[s.id];
       var row=document.createElement('div');
       row.id='si-'+s.id;
       row.className='si'+(s.group==='bloqueado'?' si-blk':'');
       row.title=s.group==='bloqueado'?('Bloqueado: '+(s.blocker||'')):s.label;
-      if(hasKids){
-        row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
-          +'<div class="si-txt" style="flex:1;cursor:pointer">'
-          +'<div class="si-name">'+esc(s.label)+'</div>'
-          +'<div class="si-desc">'+esc(s.desc)+'</div></div>'
-          +'<button class="acc-toggle" title="Expandir endpoints">'
-          +(isOpen?'&#9660;':'&#9654;')+'</button>';
-        row.querySelector('.si-txt').onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
-        row.querySelector('.acc-toggle').onclick=(function(pid){return function(e){e.stopPropagation();toggleAccordion(pid);};})(s.id);
-      } else {
-        if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
-        row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
-          +'<div class="si-txt"><div class="si-name">'+esc(s.label)+'</div>'
-          +'<div class="si-desc">'+esc(s.desc)+'</div></div>';
-      }
+      if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
+      row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
+        +'<div class="si-txt"><div class="si-name">'+esc(s.label)+'</div>'
+        +'<div class="si-desc">'+esc(s.desc)+'</div></div>';
       el.appendChild(row);
-      if(hasKids&&isOpen){
-        children.forEach(function(c){
-          var crow=document.createElement('div');
-          crow.id='si-'+c.id; crow.className='si si-child';
-          crow.title=c.label;
-          crow.onclick=(function(cid){return function(){selectSuite(cid);};})(c.id);
-          crow.innerHTML='<div class="si-ico" id="ico-'+c.id+'">&#183;</div>'
-            +'<div class="si-txt"><div class="si-name">'+esc(c.label)+'</div>'
-            +'<div class="si-desc">'+esc(c.desc)+'</div></div>';
-          el.appendChild(crow);
-        });
-      }
     });
   });
 }
@@ -1452,6 +1450,14 @@ function selectSuite(id){
   if(!s||s.group==='bloqueado') return;
   selectedId=id;
   setActive(id);
+  if(id==='qa-endpoints'){
+    switchView('ep');
+    renderEPVNOBar();
+    renderEPView();
+    setTop('','Endpoints QA','Selecciona un endpoint y ejecuta');
+    var _eb=document.getElementById('exec-btn'); if(_eb) _eb.disabled=true;
+    return;
+  }
   if(id==='apim-parallel'){
     _activeDefs=SN_VNO_DEFS;_activeParallelId='apim-parallel';
     switchView('sn');
@@ -1559,6 +1565,7 @@ function run(id){
   if(!s||s.group==='bloqueado') return;
   selectedId=id;
   setActive(id);
+  if(id==='qa-endpoints'){ selectSuite(id); return; }
   if(id==='apim-parallel'){ _activeDefs=SN_VNO_DEFS;_activeParallelId='apim-parallel'; switchView('sn'); renderSNForm(); return; }
   if(id==='qa-fulfillment'){ _activeDefs=QA_VNO_DEFS;_activeParallelId='qa-fulfillment'; switchView('sn'); renderSNForm(); return; }
   _isQAChild = !!(s.env_type==='qa_vno');
@@ -1573,12 +1580,19 @@ function run(id){
 function switchView(mode){
   var std=document.getElementById('std-view');
   var sn=document.getElementById('sn-view');
+  var ep=document.getElementById('ep-view');
   if(mode==='sn'){
     std.style.display='none';
     sn.style.display='flex'; sn.style.flexDirection='column';
+    if(ep) ep.style.display='none';
+  } else if(mode==='ep'){
+    std.style.display='none';
+    sn.style.display='none';
+    if(ep){ ep.style.display='flex'; ep.style.flexDirection='column'; }
   } else {
     std.style.display='flex'; std.style.flexDirection='column';
     sn.style.display='none';
+    if(ep) ep.style.display='none';
   }
 }
 
@@ -1891,6 +1905,75 @@ function onDone(d,s){
   if(queue.length){var nx=queue.shift();setTimeout(()=>run(nx),350);}
 }
 
+function renderEPVNOBar(){
+  var bar=document.getElementById('ep-vno-bar');
+  if(!bar) return;
+  bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
+  ['00','02','03','05'].forEach(function(code){
+    var active=code===_globalVNO;
+    var clr=_QA_VNO_COLORS[code];
+    var btn=document.createElement('button');
+    btn.className='vnobtn'+(active?' active':'');
+    btn.id='ep-vnobtn-'+code;
+    btn.style.borderColor=active?clr:'var(--brd)';
+    btn.style.color=active?clr:'var(--txt2)';
+    btn.style.background=active?clr+'22':'transparent';
+    btn.style.fontWeight=active?'700':'400';
+    btn.textContent=_QA_VNO_LABELS[code];
+    btn.onclick=(function(c){return function(){_globalVNO=c;renderEPVNOBar();renderVNOBar();};})(code);
+    bar.appendChild(btn);
+  });
+  bar.style.display='flex';
+}
+function renderEPView(){
+  var list=document.getElementById('ep-list');
+  if(!list) return;
+  list.innerHTML='';
+  var sections=[
+    {label:'FulFillment',parent:'qa-fulfillment'},
+    {label:'Consultas',  parent:'qa-consultas'},
+  ];
+  sections.forEach(function(sec){
+    var children=suites.filter(function(s){return s.parent===sec.parent;});
+    if(!children.length) return;
+    var secDiv=document.createElement('div'); secDiv.className='ep-section';
+    var hdr=document.createElement('div'); hdr.className='ep-section-hdr';
+    hdr.textContent=sec.label+' ('+children.length+')';
+    secDiv.appendChild(hdr);
+    children.forEach(function(s){
+      var row=document.createElement('div'); row.className='ep-row'; row.id='ep-row-'+s.id;
+      var ico=document.createElement('div'); ico.className='ep-row-ico'; ico.id='ep-ico-'+s.id; ico.textContent='·';
+      var txt=document.createElement('div'); txt.className='ep-row-txt';
+      var nm=document.createElement('div'); nm.className='ep-row-name'; nm.textContent=s.label;
+      var ds=document.createElement('div'); ds.className='ep-row-desc'; ds.textContent=s.desc;
+      txt.appendChild(nm); txt.appendChild(ds);
+      var btn=document.createElement('button'); btn.className='ep-run-btn'; btn.textContent='▶ Correr';
+      btn.disabled=running;
+      btn.onclick=(function(sid,sb){return function(){runEndpoint(sid,sb);};})(s.id,btn);
+      row.appendChild(ico); row.appendChild(txt); row.appendChild(btn);
+      secDiv.appendChild(row);
+    });
+    list.appendChild(secDiv);
+  });
+}
+function runEndpoint(id,btn){
+  if(running) return;
+  var s=suites.find(function(x){return x.id===id;});
+  if(!s) return;
+  selectedId=id; _isQAChild=true;
+  // Update icon in ep-view
+  var eico=document.getElementById('ep-ico-'+id);
+  if(eico) eico.textContent='►';
+  // Disable all ep-run-btns
+  document.querySelectorAll('.ep-run-btn').forEach(function(b){b.disabled=true;});
+  // Switch to std view to show log
+  switchView('std');
+  renderVNOBar();
+  var rpanel=document.getElementById('resp-panel'); if(rpanel) rpanel.style.display='none';
+  suiteLogs[id]=[];
+  document.getElementById('term').innerHTML='';
+  _doRun('/api/run/'+id,{vno:_globalVNO},s);
+}
 function renderVNOBar(){
   var bar=document.getElementById('vno-bar');
   bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
