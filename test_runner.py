@@ -947,7 +947,15 @@ async def api_response(suite_id: str):
     for ex in data.get("run", {}).get("executions", []):
         item = ex.get("item", {})
         resp = ex.get("response") or {}
-        body = resp.get("body", "") or ""
+        # Newman json reporter stores body as stream Buffer, not plain "body"
+        stream = resp.get("stream") or {}
+        if isinstance(stream, dict) and stream.get("type") == "Buffer":
+            try:
+                body = bytes(stream["data"]).decode("utf-8", errors="replace")
+            except Exception:
+                body = ""
+        else:
+            body = resp.get("body", "") or ""
         try:
             body_json = json.loads(body) if body else None
         except Exception:
