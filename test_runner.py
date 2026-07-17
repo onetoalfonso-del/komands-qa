@@ -1378,23 +1378,31 @@ function renderSNForm(){
     }
   });
   h+='</div>';
-  h+='<div class="sn-phases">';
-  h+='<button class="sn-phase-btn ph-provisioning" data-phase="provisioning">';
-  h+='<span class="sn-phase-num">Fase 1</span>';
-  h+='<span class="sn-phase-name">&#9654; Provisioning</span>';
-  h+='<span class="sn-phase-desc">Factibilidad &rarr; Consulta &rarr; Asignaci&oacute;n &rarr; Activaci&oacute;n</span>';
-  h+='</button>';
-  h+='<button class="sn-phase-btn ph-operations" data-phase="operations">';
-  h+='<span class="sn-phase-num">Fase 2</span>';
-  h+='<span class="sn-phase-name">&#9654; Operaciones</span>';
-  h+='<span class="sn-phase-desc">DevMod Sync/Async &middot; Modification Sync/Async</span>';
-  h+='</button>';
-  h+='<button class="sn-phase-btn ph-baja" data-phase="baja">';
-  h+='<span class="sn-phase-num">Fase 3</span>';
-  h+='<span class="sn-phase-name">&#9654; Baja de Acceso</span>';
-  h+='<span class="sn-phase-desc">Desregistraci&oacute;n del acceso &mdash; irreversible</span>';
-  h+='</button>';
-  h+='</div>';
+  if(_activeParallelId==='apim-parallel'){
+    h+='<div class="sn-phases">';
+    h+='<button class="sn-phase-btn ph-provisioning" data-phase="provisioning">';
+    h+='<span class="sn-phase-num">Fase 1</span>';
+    h+='<span class="sn-phase-name">&#9654; Provisioning</span>';
+    h+='<span class="sn-phase-desc">Factibilidad &rarr; Consulta &rarr; Asignaci&oacute;n &rarr; Activaci&oacute;n</span>';
+    h+='</button>';
+    h+='<button class="sn-phase-btn ph-operations" data-phase="operations">';
+    h+='<span class="sn-phase-num">Fase 2</span>';
+    h+='<span class="sn-phase-name">&#9654; Operaciones</span>';
+    h+='<span class="sn-phase-desc">DevMod Sync/Async &middot; Modification Sync/Async</span>';
+    h+='</button>';
+    h+='<button class="sn-phase-btn ph-baja" data-phase="baja">';
+    h+='<span class="sn-phase-num">Fase 3</span>';
+    h+='<span class="sn-phase-name">&#9654; Baja de Acceso</span>';
+    h+='<span class="sn-phase-desc">Desregistraci&oacute;n del acceso &mdash; irreversible</span>';
+    h+='</button>';
+    h+='</div>';
+  } else {
+    h+='<div class="sn-phases">';
+    h+='<button class="sn-phase-btn ph-provisioning" data-phase="all">';
+    h+='<span class="sn-phase-name">&#9654; Ejecutar</span>';
+    h+='</button>';
+    h+='</div>';
+  }
   sf.innerHTML=h; sf.classList.add('show');
   sf.querySelectorAll('.sn-phase-btn').forEach(function(b){
     b.onclick=function(){executeSN(b.getAttribute('data-phase'));};
