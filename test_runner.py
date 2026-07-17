@@ -1893,15 +1893,22 @@ function onDone(d,s){
 
 function renderVNOBar(){
   var bar=document.getElementById('vno-bar');
-  var h='<span class="vno-bar-lbl">Ambiente:</span>';
+  bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
   ['00','02','03','05'].forEach(function(code){
     var active=code===_globalVNO;
     var clr=_QA_VNO_COLORS[code];
-    h+='<button class="vnobtn'+(active?' active':'')+'" id="vnobtn-'+code+'"'
-      +' style="border-color:'+(active?clr:'var(--brd)')+';color:'+(active?clr:'var(--txt2)')+';background:'+(active?clr+'22':'transparent')+'"'
-      +' onclick="setGlobalVNO(''+code+'')">'+esc(_QA_VNO_LABELS[code])+'</button>';
+    var btn=document.createElement('button');
+    btn.className='vnobtn'+(active?' active':'');
+    btn.id='vnobtn-'+code;
+    btn.style.borderColor=active?clr:'var(--brd)';
+    btn.style.color=active?clr:'var(--txt2)';
+    btn.style.background=active?clr+'22':'transparent';
+    btn.style.fontWeight=active?'700':'400';
+    btn.textContent=_QA_VNO_LABELS[code];
+    btn.onclick=(function(c){return function(){setGlobalVNO(c);};})(code);
+    bar.appendChild(btn);
   });
-  bar.innerHTML=h; bar.style.display='flex';
+  bar.style.display='flex';
 }
 function setGlobalVNO(code){
   _globalVNO=code; renderVNOBar();
@@ -1909,21 +1916,25 @@ function setGlobalVNO(code){
 function renderResponsePanel(data){
   var panel=document.getElementById('resp-panel');
   if(!data||!data.responses||!data.responses.length){panel.style.display='none';return;}
-  var h='';
+  panel.innerHTML='';
   data.responses.forEach(function(r){
     var ok=r.code>=200&&r.code<300;
-    var scol=ok?'var(--ok)':'var(--err)';
+    var card=document.createElement('div'); card.className='resp-card';
+    var hdr=document.createElement('div'); hdr.className='resp-card-hdr';
     var body=r.body_json?JSON.stringify(r.body_json,null,2):(r.body_raw||'(sin body)');
-    h+='<div class="resp-card">';
-    h+='<div class="resp-card-hdr" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block'">';
-    h+='<span class="resp-status" style="color:'+scol+'">'+r.code+'</span>';
-    h+='<span class="resp-name">'+esc(r.name)+'</span>';
-    h+='<span class="resp-time">'+r.time_ms+'ms</span>';
-    h+='</div>';
-    h+='<div class="resp-body"><pre>'+esc(body)+'</pre></div>';
-    h+='</div>';
+    var bdiv=document.createElement('div'); bdiv.className='resp-body';
+    var pre=document.createElement('pre'); pre.textContent=body;
+    bdiv.appendChild(pre);
+    hdr.onclick=function(){bdiv.style.display=bdiv.style.display==='block'?'none':'block';};
+    var st=document.createElement('span'); st.className='resp-status';
+    st.style.color=ok?'var(--ok)':'var(--err)'; st.textContent=r.code;
+    var nm=document.createElement('span'); nm.className='resp-name'; nm.textContent=r.name;
+    var tm=document.createElement('span'); tm.className='resp-time'; tm.textContent=r.time_ms+'ms';
+    hdr.appendChild(st); hdr.appendChild(nm); hdr.appendChild(tm);
+    card.appendChild(hdr); card.appendChild(bdiv);
+    panel.appendChild(card);
   });
-  panel.innerHTML=h; panel.style.display='block';
+  panel.style.display='block';
 }
 function stat(cls,n,lbl){
   return '<div class="sum-stat"><div class="sdot '+cls+'"></div><span class="sn">'+n+'</span><span class="sl">&nbsp;'+lbl+'</span></div>';
