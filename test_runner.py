@@ -435,7 +435,7 @@ SUITES = [
     },
     # ─── Suites QA OnnetFibra ──────────────────────────────────────────────────
     {
-        "id": "qa-tch", "group": "disponible",
+        "id": "qa-tch", "group": "hidden",
         "label": "QA FulFillment — VNO-00 TCH",
         "desc":  "TCH · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
@@ -461,7 +461,7 @@ SUITES = [
         ],
     },
     {
-        "id": "qa-kao", "group": "disponible",
+        "id": "qa-kao", "group": "hidden",
         "label": "QA FulFillment — VNO-02 KAO",
         "desc":  "KAO · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
@@ -487,7 +487,7 @@ SUITES = [
         ],
     },
     {
-        "id": "qa-b1", "group": "disponible",
+        "id": "qa-b1", "group": "hidden",
         "label": "QA FulFillment — VNO-03 B1/Entel",
         "desc":  "B1/Entel · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
@@ -513,7 +513,7 @@ SUITES = [
         ],
     },
     {
-        "id": "qa-dtv", "group": "disponible",
+        "id": "qa-dtv", "group": "hidden",
         "label": "QA FulFillment — VNO-05 DTV",
         "desc":  "DTV · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
@@ -539,7 +539,7 @@ SUITES = [
         ],
     },
     {
-        "id": "qa-fulfillment", "group": "hidden",
+        "id": "qa-fulfillment", "group": "disponible",
         "label": "QA FulFillment",
         "desc":  "VNO-00 TCH · VNO-02 KAO · VNO-03 B1/Entel · VNO-05 DTV · elige uno o varios",
         "note":  [
@@ -748,21 +748,30 @@ async def api_run_parallel(request: Request):
         if m:
             vno_enabled[m.group(1)] = params.pop(k).lower() != "false"
 
+    suite_type = params.pop("suite_type", "apim")
+    _QA_CODE_MAP = {'00': 'qa-tch', '02': 'qa-kao', '03': 'qa-b1', '05': 'qa-dtv'}
     to_run = []
     for code, enabled in vno_enabled.items():
         if not enabled:
             continue
-        suite = SUITE_MAP.get(f"apim-vno{code}")
+        if suite_type == "qa":
+            suite = SUITE_MAP.get(_QA_CODE_MAP.get(code, ''))
+            run_label = f"QA VNO-{code}"
+        else:
+            suite = SUITE_MAP.get(f"apim-vno{code}")
+            run_label = f"VNO-{code}"
         if not suite:
             continue
         overrides = {k[3:]: v for k, v in params.items() if k.startswith(f"{code}_")}
         overrides["run_phase"] = phase
-        to_run.append((suite, f"VNO-{code}", overrides))
+        to_run.append((suite, run_label, overrides))
 
     async def sse():
-        yield f"data: {json.dumps({'e':'start','id':'apim-parallel','label':'Endpoints Services Now'})}\n\n"
+        _par_id = 'qa-fulfillment' if suite_type == 'qa' else 'apim-parallel'
+        _par_label = 'QA FulFillment' if suite_type == 'qa' else 'Endpoints Services Now'
+        yield f"data: {json.dumps({'e':'start','id':_par_id,'label':_par_label})}\n\n"
 
-        apim_suite = SUITE_MAP.get("apim-parallel", {})
+        apim_suite = SUITE_MAP.get(_par_id, {})
         for note_line in apim_suite.get("note", []):
             yield f"data: {json.dumps({'e':'line','t':note_line})}\n\n"
 
@@ -825,7 +834,10 @@ async def api_run_parallel(request: Request):
             rp = s_item.get("report", "")
             reports[vno_code] = bool(rp and Path(rp).exists())
         has_rp = any(reports.values())
-        rp_id = next((f"apim-vno{c}" for c, ok in reports.items() if ok), "apim-parallel")
+        if suite_type == "qa":
+            rp_id = next((_QA_CODE_MAP.get(c,'') for c, ok in reports.items() if ok), _par_id)
+        else:
+            rp_id = next((f"apim-vno{c}" for c, ok in reports.items() if ok), "apim-parallel")
         yield f"data: {json.dumps({'e':'done','code':exit_code,'passed':passed,'failed':failed,'requests':requests,'has_report':has_rp,'report_id':rp_id,'reports':reports})}\n\n"
         await asyncio.sleep(0.15)
 
@@ -1165,6 +1177,14 @@ var SN_VNO_DEFS=[
   {code:'05',label:'DTV',     color:'#CE9178',suiteId:'apim-vno05'},
   {code:'00',label:'TCH',     color:'#569CD6',suiteId:'apim-vno00'},
 ];
+var QA_VNO_DEFS=[
+  {code:'00',label:'TCH',     color:'#569CD6',suiteId:'qa-tch'},
+  {code:'02',label:'KAO',     color:'#4EC9B0',suiteId:'qa-kao'},
+  {code:'03',label:'B1/Entel',color:'#C586C0',suiteId:'qa-b1'},
+  {code:'05',label:'DTV',     color:'#CE9178',suiteId:'qa-dtv'},
+];
+var _activeDefs=SN_VNO_DEFS;
+var _activeParallelId='apim-parallel';
 var snEnabled={};
 var suiteLogs={};      // { suiteId: [{text,cls}] }
 var suiteSummaries={}; // { suiteId: htmlString }
@@ -1220,6 +1240,11 @@ function selectSuite(id){
   selectedId=id;
   setActive(id);
   if(id==='apim-parallel'){
+    _activeDefs=SN_VNO_DEFS;_activeParallelId='apim-parallel';
+    switchView('sn');
+    renderSNForm();
+  }else if(id==='qa-fulfillment'){
+    _activeDefs=QA_VNO_DEFS;_activeParallelId='qa-fulfillment';
     switchView('sn');
     renderSNForm();
   } else {
@@ -1300,7 +1325,7 @@ function _vnoParams(){
 
 function executeSelected(){
   if(running||!selectedId) return;
-  if(selectedId==='apim-parallel'){ executeSN(); return; }
+  if(selectedId==='apim-parallel'||selectedId==='qa-fulfillment'){ executeSN(); return; }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -1315,7 +1340,8 @@ function run(id){
   if(!s||s.group==='bloqueado') return;
   selectedId=id;
   setActive(id);
-  if(id==='apim-parallel'){ switchView('sn'); renderSNForm(); return; }
+  if(id==='apim-parallel'){ _activeDefs=SN_VNO_DEFS;_activeParallelId='apim-parallel'; switchView('sn'); renderSNForm(); return; }
+  if(id==='qa-fulfillment'){ _activeDefs=QA_VNO_DEFS;_activeParallelId='qa-fulfillment'; switchView('sn'); renderSNForm(); return; }
   switchView('std');
   _doRun('/api/run/'+id, {}, s);
 }
@@ -1339,7 +1365,7 @@ function renderSNForm(){
   // Build card HTML for each VNO
   snEnabled={};
   var h='<div class="sn-cards">';
-  SN_VNO_DEFS.forEach(function(def){
+  _activeDefs.forEach(function(def){
     var s=suites.find(function(x){return x.id===def.suiteId;})||{params:[],id:def.suiteId};
     var locked=!!(s.locked);
     snEnabled[def.code]=!locked;
@@ -1394,7 +1420,7 @@ function renderSNForm(){
   sf.querySelectorAll('.sn-phase-btn').forEach(function(b){
     b.onclick=function(){executeSN(b.getAttribute('data-phase'));};
   });
-  SN_VNO_DEFS.forEach(function(def){
+  _activeDefs.forEach(function(def){
     if(snEnabled[def.code]){
       var tog=document.getElementById('sn-tog-'+def.code);
       if(tog) tog.onchange=function(){toggleVNO(def.code);};
@@ -1404,7 +1430,7 @@ function renderSNForm(){
   // Rebuild terminals (only for non-locked VNOs)
   if(termsCont){
     var th='';
-    SN_VNO_DEFS.forEach(function(def){
+    _activeDefs.forEach(function(def){
       if(!snEnabled[def.code]) return;
       th+='<div class="sn-term">';
       th+='<div class="sn-thdr" style="color:'+def.color+'">';
@@ -1464,10 +1490,10 @@ function toggleVNO(vno){
 
 function executeSN(phase){
   if(running) return;
-  var anyEnabled=SN_VNO_DEFS.some(function(def){return snEnabled[def.code];});
+  var anyEnabled=_activeDefs.some(function(def){return snEnabled[def.code];});
   if(!anyEnabled){alert('Habilita al menos un VNO');return;}
-  var params={phase:phase||'all'};
-  SN_VNO_DEFS.forEach(function(def){
+  var params={phase:phase||'all',suite_type:(_activeParallelId==='qa-fulfillment'?'qa':'apim')};
+  _activeDefs.forEach(function(def){
     params['run'+def.code]=snEnabled[def.code]?'true':'false';
     if(snEnabled[def.code]){
       var s=suites.find(function(x){return x.id===def.suiteId;});
@@ -1479,7 +1505,7 @@ function executeSN(phase){
       }
     }
   });
-  var sp=suites.find(function(x){return x.id==='apim-parallel';});
+  var sp=suites.find(function(x){return x.id===_activeParallelId;});
   var phaseLabels={provisioning:'Fase 1 — Provisioning',operations:'Fase 2 — Operaciones',baja:'Fase 3 — Baja',all:'Completo'};
   _doRunSN(params,sp,phaseLabels[params.phase]||params.phase);
 }
@@ -1492,7 +1518,7 @@ function _doRunSN(params,s,phaseLabel){
   document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=true;});
   document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
-  SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'running');});
+  _activeDefs.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'running');});
 
   var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
   var url='/api/run-parallel'+(qs?'?'+qs:'');
@@ -1507,21 +1533,21 @@ function _doRunSN(params,s,phaseLabel){
       if(d.vno){
         snTerm(d.vno.replace('VNO-',''),d.t);
       } else {
-        SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) snTerm(def.code,d.t);});
+        _activeDefs.forEach(function(def){if(snEnabled[def.code]) snTerm(def.code,d.t);});
       }
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       var ok=d.e==='done'&&d.code===0;
       if(d.e==='error'){
-        SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) snTerm(def.code,'ERROR: '+d.t);});
+        _activeDefs.forEach(function(def){if(snEnabled[def.code]) snTerm(def.code,'ERROR: '+d.t);});
       }
       onDone(d.e==='error'?{code:1,passed:0,failed:0,requests:0,has_report:false}:d, s);
-      SN_VNO_DEFS.forEach(function(def){
+      _activeDefs.forEach(function(def){
         if(snEnabled[def.code]) setSnIco(def.code,ok?'passed':'failed');
       });
       document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
       var reports=d.reports||{};
-      SN_VNO_DEFS.forEach(function(def){
+      _activeDefs.forEach(function(def){
         var rb=document.getElementById('rpt-sn'+def.code);
         if(rb){
           var hasRp=!!(reports[def.code]);
@@ -1534,10 +1560,10 @@ function _doRunSN(params,s,phaseLabel){
   es.onerror=function(){
     if(running&&currentEs===es){
       currentEs=null; es.close();
-      var first=SN_VNO_DEFS.find(function(def){return snEnabled[def.code];});
+      var first=_activeDefs.find(function(def){return snEnabled[def.code];});
       if(first) snTerm(first.code,'[Conexión interrumpida]');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
-      SN_VNO_DEFS.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'failed');});
+      _activeDefs.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'failed');});
       document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
     }
   };
