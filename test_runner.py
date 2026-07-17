@@ -1977,7 +1977,7 @@ var QA_FACTIBILIDAD_FOLDER={
 function renderEPFVNOBar(){
   var bar=document.getElementById("epf-vno-bar");
   if(!bar) return;
-  bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
+  bar.innerHTML='<span class="vno-bar-lbl">VNO:</span>';
   ['00','02','03','05'].forEach(function(code){
     var active=code===_globalVNO;
     var clr=_QA_VNO_COLORS[code];
@@ -2073,7 +2073,7 @@ function runFactibilidad(params){
 function renderEPVNOBar(){
   var bar=document.getElementById('ep-vno-bar');
   if(!bar) return;
-  bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
+  bar.innerHTML='<span class="vno-bar-lbl">VNO:</span>';
   ['00','02','03','05'].forEach(function(code){
     var active=code===_globalVNO;
     var clr=_QA_VNO_COLORS[code];
@@ -2123,7 +2123,7 @@ function runEndpoint(id,btn){
 }
 function renderVNOBar(){
   var bar=document.getElementById('vno-bar');
-  bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
+  bar.innerHTML='<span class="vno-bar-lbl">VNO:</span>';
   ['00','02','03','05'].forEach(function(code){
     var active=code===_globalVNO;
     var clr=_QA_VNO_COLORS[code];
