@@ -32,6 +32,12 @@ QA_VNO_ENV_MAP = {
     "03": "03-B1_vnoid03 QA.postman_environment.json",
     "05": "05 QA_DTV.postman_environment.json",
 }
+QA_FACTIBILIDAD_FOLDER_MAP = {
+    "00": "feasibility-TCH DIR",
+    "02": "feasibility-KAO",
+    "03": "feasibility-Entel",
+    "05": "feasibility-DTV",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -1200,6 +1206,22 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .clr-btn{padding:4px 11px;border-radius:5px;border:1px solid var(--brd);background:var(--side);color:var(--txt3);font-size:.7rem;transition:all .12s;flex-shrink:0}
 .si-child{padding-left:28px!important;border-left:2px solid var(--brdl)}
 .si-child-grp{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);padding:6px 10px 2px 28px}
+.epf-card{background:var(--card);border:1px solid var(--brdl);border-radius:7px;padding:20px 22px;max-width:500px}
+.epf-title{font-size:.88rem;font-weight:700;color:var(--txt1);margin-bottom:2px}
+.epf-folder{font-size:.65rem;color:var(--txt3);margin-bottom:18px;font-family:monospace}
+.epf-folder span{color:var(--acc)}
+.epf-field{margin-bottom:14px}
+.epf-label{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin-bottom:5px;display:block}
+.epf-readonly{font-size:.74rem;padding:6px 8px;border-radius:4px;background:var(--bg2);border:1px solid var(--brdl)}
+.epf-select{width:100%;background:var(--bg2);border:1px solid var(--brdl);border-radius:4px;padding:7px 8px;color:var(--txt1);font-size:.74rem;outline:none}
+.epf-input{width:100%;background:var(--bg2);border:1px solid var(--brdl);border-radius:4px;padding:7px 8px;color:var(--txt1);font-size:.74rem;box-sizing:border-box;outline:none}
+.epf-chips{display:flex;gap:6px}
+.epf-chip{padding:5px 14px;border-radius:4px;border:1px solid var(--brdl);background:transparent;color:var(--txt2);font-size:.72rem;cursor:pointer;transition:all .12s}
+.epf-chip.active{border-color:var(--acc);color:var(--acc);background:rgba(78,201,176,.1);font-weight:700}
+.epf-exec{margin-top:20px;padding:8px 22px;border-radius:5px;border:none;background:var(--acc);color:#0D1B3E;font-size:.76rem;font-weight:700;cursor:pointer;transition:opacity .12s}
+.epf-exec:hover{opacity:.85}
+.epf-exec:disabled{opacity:.28;cursor:not-allowed}
+
 .ep-section{margin-bottom:14px}
 .ep-section-hdr{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);padding:4px 2px 8px;border-bottom:1px solid var(--brdl);margin-bottom:6px}
 .ep-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;border:1px solid var(--brdl);margin-bottom:5px;background:var(--card);transition:border-color .15s}
@@ -1356,6 +1378,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="resp-panel" id="resp-panel"></div>
     </div>
     <!-- Vista Endpoints QA — acordeon individual -->
+    <!-- Vista formulario parametros endpoint -->
+    <div id="ep-form-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div class="vno-bar" id="epf-vno-bar"></div>
+      <div style="flex:1;overflow-y:auto;padding:16px 18px" id="epf-container"></div>
+    </div>
     <div id="ep-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="vno-bar" id="ep-vno-bar"></div>
       <div style="flex:1;overflow-y:auto;padding:10px 14px" id="ep-list"></div>
