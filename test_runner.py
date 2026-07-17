@@ -33,7 +33,7 @@ NEWMAN = shutil.which("newman") or "newman"
 # ─── Suites ──────────────────────────────────────────────────────────────────
 SUITES = [
     {
-        "id": "t1", "group": "disponible",
+        "id": "t1", "group": "hidden",
         "label": "T1 — Spec API + Regresión",
         "desc":  "675 casos pytest",
         "note":  [
@@ -60,7 +60,7 @@ SUITES = [
         "vno_support": True,
     },
     {
-        "id": "t1-contract", "group": "disponible",
+        "id": "t1-contract", "group": "hidden",
         "label": "T1-C — Contrato OpenAPI (Schemathesis)",
         "desc":  "docs/openapi.json v2.2.3 · genera casos automáticos · mock",
         "note":  [
@@ -78,7 +78,7 @@ SUITES = [
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_t1c.html"), "requires": None,
     },
     {
-        "id": "t1c-real", "group": "disponible",
+        "id": "t1c-real", "group": "hidden",
         "label": "T1-C — Contrato OpenAPI (Real)",
         "desc":  "Schemathesis → onf-komands.cl:9016 · servidor real",
         "note":  [
@@ -105,7 +105,7 @@ SUITES = [
         },
     },
     {
-        "id": "t2", "group": "disponible",
+        "id": "t2", "group": "hidden",
         "label": "T2 — Comandos CLI",
         "desc":  "Nokia/Huawei · comandos CLI",
         "note":  [
@@ -129,7 +129,7 @@ SUITES = [
         "vno_support": True,
     },
     {
-        "id": "t3", "group": "disponible",
+        "id": "t3", "group": "hidden",
         "label": "T3 — Respuesta OLT",
         "desc":  "Parseo Nokia + INDEX Huawei",
         "note":  [
@@ -152,7 +152,7 @@ SUITES = [
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_t3.html"), "requires": None,
     },
     {
-        "id": "newman-dev", "group": "disponible",
+        "id": "newman-dev", "group": "hidden",
         "label": "Endpoints Kommand Dev",
         "desc":  "Contrato API real · onf-komands.cl:9016",
         "note":  [
@@ -299,7 +299,7 @@ SUITES = [
         ],
     },
     {
-        "id": "apim-parallel", "group": "disponible",
+        "id": "apim-parallel", "group": "hidden",
         "label": "Endpoints Services Now",
         "desc":  "VNO-02 ClaroVTR · VNO-03 Entel · VNO-05 DTV · VNO-00 TCH · elige uno o varios",
         "note":  [
@@ -317,7 +317,7 @@ SUITES = [
         "parallel": ["apim-vno03", "apim-vno02", "apim-vno05", "apim-vno00"],
     },
     {
-        "id": "t7", "group": "disponible",
+        "id": "t7", "group": "hidden",
         "label": "T7 — Seguridad OWASP",
         "desc":  "JWT · Headers · Métodos HTTP · onf-komands.cl:9016",
         "note":  [
