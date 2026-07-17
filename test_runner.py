@@ -818,6 +818,68 @@ async def api_run(suite_id: str, request: Request):
             report=rp_out,
             requires=None,
         )
+    elif suite.get("env_type") == "qa_factibilidad":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code     = overrides.pop("vno", "02")
+        address_id   = overrides.pop("address_id", "DIR06762531")
+        address_mcd  = overrides.pop("address_mcd", "OSP")
+        service_type = overrides.pop("service_type", "FTTH")
+        env_file     = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        folder_name  = QA_FACTIBILIDAD_FOLDER_MAP.get(vno_code, "feasibility-KAO")
+        if vno_code == "03" and service_type == "SSAA":
+            folder_name = "feasibility-Entel SSAA"
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        # 1. Read credentials from env file
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        # 2. Get fresh Bearer token
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken] error: {_te}", flush=True)
+        # 3. Build temp collection with substituted body
+        col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp  = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_operation_type": "Direccion Exacta",
+            "u_address_id": address_id,
+            "u_address_mcd": address_mcd,
+            "u_service_type": service_type,
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Factibilidad" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == folder_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_fact_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", folder_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out],
+            report=rp_out,
+            requires=None,
+        )
 
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
