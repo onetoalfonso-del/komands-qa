@@ -867,6 +867,16 @@ async def api_run(suite_id: str, request: Request):
                             b["raw"] = new_body
         tmp_col = str(QA_DIR / f"_tmp_fact_{vno_code}.json")
         _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
         suite = dict(suite,
             cmd=[NEWMAN, "run", tmp_col,
                  "-e", env_file,
@@ -876,7 +886,9 @@ async def api_run(suite_id: str, request: Request):
                  "--insecure",
                  "--reporters", "cli,json,htmlextra",
                  "--reporter-json-export", json_out,
-                 "--reporter-htmlextra-export", rp_out],
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
             report=rp_out,
             requires=None,
         )
@@ -1179,6 +1191,10 @@ async def api_report(suite_id: str):
     if not suite:
         return JSONResponse({"error": "Suite no encontrada"}, status_code=404)
     rp = suite.get("report")
+    if not rp or not Path(rp).exists():
+        rp_fallback = str(QA_DIR / f"rp_{suite_id}.html")
+        if Path(rp_fallback).exists():
+            rp = rp_fallback
     if not rp or not Path(rp).exists():
         return JSONResponse({"error": "Reporte no generado aún."}, status_code=404)
     filename = f"reporte_{suite_id}.html"
