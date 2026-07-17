@@ -575,7 +575,7 @@ SUITES = [
     # ── QA FulFillment — endpoints individuales ──────────────────────
     {"id":"qa-ep-factibilidad",  "group":"qa-child","parent":"qa-fulfillment",
      "label":"Factibilidad",    "desc":"feasibility · chequeo de puerto OLT",
-     "env_type":"qa_vno","folder":"01-Factibilidad",
+     "env_type":"qa_factibilidad","folder":"01-Factibilidad",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_factibilidad.html"),"requires":None},
     {"id":"qa-ep-assignment",    "group":"qa-child","parent":"qa-fulfillment",
@@ -1482,6 +1482,15 @@ function selectSuite(id){
   if(!s||s.group==='bloqueado') return;
   selectedId=id;
   setActive(id);
+  if(id==='qa-ep-factibilidad'){
+    _isQAChild=true;
+    switchView('ep-form');
+    renderEPFVNOBar();
+    renderFactibilidadForm();
+    setTop('','Factibilidad','Configura los parámetros y ejecuta');
+    var _eb0=document.getElementById('exec-btn'); if(_eb0) _eb0.disabled=true;
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -1610,22 +1619,11 @@ function run(id){
 }
 
 function switchView(mode){
-  var std=document.getElementById('std-view');
-  var sn=document.getElementById('sn-view');
-  var ep=document.getElementById('ep-view');
-  if(mode==='sn'){
-    std.style.display='none';
-    sn.style.display='flex'; sn.style.flexDirection='column';
-    if(ep) ep.style.display='none';
-  } else if(mode==='ep'){
-    std.style.display='none';
-    sn.style.display='none';
-    if(ep){ ep.style.display='flex'; ep.style.flexDirection='column'; }
-  } else {
-    std.style.display='flex'; std.style.flexDirection='column';
-    sn.style.display='none';
-    if(ep) ep.style.display='none';
-  }
+  var _vs=["std-view","sn-view","ep-view","ep-form-view"];
+  _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view"}[mode]||"std-view";
+  var el=document.getElementById(target);
+  if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
 
 function renderSNForm(){
@@ -1937,6 +1935,114 @@ function onDone(d,s){
   if(queue.length){var nx=queue.shift();setTimeout(()=>run(nx),350);}
 }
 
+var QA_FACTIBILIDAD_ADDRESSES={
+  '00':['DIR00048870','DIR05088327'],
+  '02':['DIR06762531','DIR05088327','DIR00765048','DIR00048878','DIR00048884','DIR06469749','DIR00046860'],
+  '03':['DIR05088327','DIR00765048','DIR00046860'],
+  '05':['DIR00048870','DIR00046860'],
+};
+var QA_FACTIBILIDAD_FOLDER={
+  '00':'feasibility-TCH DIR',
+  '02':'feasibility-KAO',
+  '03':'feasibility-Entel',
+  '05':'feasibility-DTV',
+};
+function renderEPFVNOBar(){
+  var bar=document.getElementById("epf-vno-bar");
+  if(!bar) return;
+  bar.innerHTML='<span class="vno-bar-lbl">Ambiente:</span>';
+  ['00','02','03','05'].forEach(function(code){
+    var active=code===_globalVNO;
+    var clr=_QA_VNO_COLORS[code];
+    var btn=document.createElement("button");
+    btn.className="vnobtn"+(active?" active":"");
+    btn.style.borderColor=active?clr:"var(--brd)";
+    btn.style.color=active?clr:"var(--txt2)";
+    btn.style.background=active?clr+"22":"transparent";
+    btn.style.fontWeight=active?'700':'400';
+    btn.textContent=_QA_VNO_LABELS[code];
+    btn.onclick=(function(c){return function(){
+      _globalVNO=c;
+      renderEPFVNOBar();
+      renderVNOBar();
+      renderEPVNOBar();
+      renderFactibilidadForm();
+    };})(code);
+    bar.appendChild(btn);
+  });
+  bar.style.display="flex";
+}
+function renderFactibilidadForm(){
+  var container=document.getElementById("epf-container");
+  if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO;
+  var addrs=QA_FACTIBILIDAD_ADDRESSES[vno]||[];
+  var fldr=QA_FACTIBILIDAD_FOLDER[vno]||"";
+  var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Factibilidad";
+  var sf=document.createElement("div"); sf.className="epf-folder";
+  sf.innerHTML='Folder: <span>'+fldr+'</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  var f1=document.createElement("div"); f1.className="epf-field";
+  var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
+  var v1=document.createElement("div"); v1.className="epf-readonly";
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
+  f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
+  var f2=document.createElement("div"); f2.className="epf-field";
+  var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_address_id";
+  var sel=document.createElement("select"); sel.className="epf-select"; sel.id="epf-address";
+  addrs.forEach(function(a){var o=document.createElement("option");o.value=a;o.textContent=a;sel.appendChild(o);});
+  f2.appendChild(l2); f2.appendChild(sel); card.appendChild(f2);
+  var f3=document.createElement("div"); f3.className="epf-field";
+  var l3=document.createElement("label"); l3.className="epf-label"; l3.textContent="u_address_mcd";
+  var inp=document.createElement("input"); inp.type="text"; inp.className="epf-input"; inp.id="epf-mcd"; inp.value="OSP";
+  f3.appendChild(l3); f3.appendChild(inp); card.appendChild(f3);
+  var f4=document.createElement("div"); f4.className="epf-field";
+  var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_service_type";
+  var cg=document.createElement("div"); cg.className="epf-chips";
+  ['FTTH','SSAA'].forEach(function(st){
+    var ch=document.createElement("button"); ch.className="epf-chip"+(st==="FTTH"?" active":"");
+    ch.id="epf-svc-"+st; ch.textContent=st;
+    ch.onclick=function(){
+      document.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");});
+      ch.classList.add("active");
+    };
+    cg.appendChild(ch);
+  });
+  f4.appendChild(l4); f4.appendChild(cg); card.appendChild(f4);
+  var fop=document.createElement("div"); fop.className="epf-field";
+  var lop=document.createElement("label"); lop.className="epf-label"; lop.textContent="u_operation_type (fijo)";
+  var vop=document.createElement("div"); vop.className="epf-readonly";
+  vop.style.color="var(--txt3)"; vop.style.borderStyle="dashed";
+  vop.textContent="Direccion Exacta";
+  fop.appendChild(lop); fop.appendChild(vop); card.appendChild(fop);
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
+  eb.disabled=running;
+  eb.onclick=function(){
+    var addrEl=document.getElementById("epf-address");
+    var mcdEl=document.getElementById("epf-mcd");
+    var svcChip=document.querySelector(".epf-chip.active");
+    if(!addrEl||!mcdEl||!svcChip) return;
+    runFactibilidad({vno:_globalVNO,address_id:addrEl.value,address_mcd:mcdEl.value||"OSP",service_type:svcChip.textContent});
+  };
+  card.appendChild(eb);
+  container.appendChild(card);
+}
+function runFactibilidad(params){
+  if(running) return;
+  var sid="qa-ep-factibilidad";
+  var s=suites.find(function(x){return x.id===sid;});
+  if(!s) return;
+  selectedId=sid; _isQAChild=true;
+  switchView("std");
+  renderVNOBar();
+  var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
+  suiteLogs[sid]=[];
+  document.getElementById("term").innerHTML="";
+  _doRun("/api/run/"+sid,params,s);
+}
 function renderEPVNOBar(){
   var bar=document.getElementById('ep-vno-bar');
   if(!bar) return;
