@@ -1412,11 +1412,13 @@ function renderSB(){
       row.title=s.group==='bloqueado'?('Bloqueado: '+(s.blocker||'')):s.label;
       if(hasKids){
         row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
-          +'<div class="si-txt" style="flex:1;cursor:pointer" onclick="selectSuite(''+s.id+'')">'
+          +'<div class="si-txt" style="flex:1;cursor:pointer">'
           +'<div class="si-name">'+esc(s.label)+'</div>'
           +'<div class="si-desc">'+esc(s.desc)+'</div></div>'
-          +'<button class="acc-toggle" onclick="toggleAccordion(''+s.id+'')" title="Expandir endpoints">'
+          +'<button class="acc-toggle" title="Expandir endpoints">'
           +(isOpen?'&#9660;':'&#9654;')+'</button>';
+        row.querySelector('.si-txt').onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
+        row.querySelector('.acc-toggle').onclick=(function(pid){return function(e){e.stopPropagation();toggleAccordion(pid);};})(s.id);
       } else {
         if(s.group!=='bloqueado') row.onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
         row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
