@@ -558,7 +558,7 @@ SUITES = [
         "parallel": ["qa-tch", "qa-kao", "qa-b1", "qa-dtv"],
     },
     {
-        "id": "qa-consultas", "group": "disponible",
+        "id": "qa-consultas", "group": "hidden",
         "label": "QA Consultas",
         "desc":  "ConsultaDataONT · RetrieveAccess · DiagnosticoAcceso · EstadoVecino",
         "cmd":   [NEWMAN, "run",
