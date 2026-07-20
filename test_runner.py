@@ -1180,7 +1180,7 @@ async def api_run(suite_id: str, request: Request):
             "u_service_voip": service_voip,
             "u_service_iptv": service_iptv,
         }
-        if serial_number:
+        if serial_number and vno_code != "00":
             body_dict["u_serial_number"] = serial_number
         new_body = _j.dumps(body_dict, indent=4, ensure_ascii=False)
         for sec in col_tmp.get("item", []):
@@ -2756,12 +2756,14 @@ function renderActivacionForm(){
     s3.appendChild(o);
   });
   f3.appendChild(l3); f3.appendChild(s3); card.appendChild(f3);
-  // u_serial_number (text)
-  var f4=document.createElement("div"); f4.className="epf-field";
-  var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_serial_number";
-  var i4=document.createElement("input"); i4.type="text"; i4.className="epf-input"; i4.id="epf-activ-serial";
-  i4.placeholder="ej. ZTEGD719D911";
-  f4.appendChild(l4); f4.appendChild(i4); card.appendChild(f4);
+  // u_serial_number (text — solo VNOs distintos de 00)
+  if(vno!=='00'){
+    var f4=document.createElement("div"); f4.className="epf-field";
+    var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_serial_number";
+    var i4=document.createElement("input"); i4.type="text"; i4.className="epf-input"; i4.id="epf-activ-serial";
+    i4.placeholder="ej. ZTEGD719D911";
+    f4.appendChild(l4); f4.appendChild(i4); card.appendChild(f4);
+  }
   // u_service_ba / voip / iptv (select true/false)
   [['u_service_ba','epf-activ-ba'],['u_service_voip','epf-activ-voip'],['u_service_iptv','epf-activ-iptv']].forEach(function(pair){
     var fx=document.createElement("div"); fx.className="epf-field";
