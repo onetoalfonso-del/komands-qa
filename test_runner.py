@@ -606,6 +606,11 @@ SUITES = [
      "env_type":"qa_ia","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia.html"),"requires":None},
+    {"id":"qa-ep-ia-fin",        "group":"hidden","parent":"qa-fulfillment",
+     "label":"IA Finalización",  "desc":"03-Finalización Intervención Asegurada",
+     "env_type":"qa_ia_fin","folder":"03-IntervencionAsegurada",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia_fin.html"),"requires":None},
     {"id":"qa-ep-activacion",    "group":"qa-child","parent":"qa-fulfillment",
      "label":"Activación",      "desc":"activación ONT FTTH",
      "env_type":"qa_vno","folder":"04-Activacion",
@@ -1045,6 +1050,78 @@ async def api_run(suite_id: str, request: Request):
             cmd=[NEWMAN, "run", tmp_col,
                  "-e", env_file,
                  "--folder", "01-Inicio Intervención",
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_ia_fin":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        scenario      = overrides.pop("scenario", "Instalación")
+        service_type  = overrides.pop("service_type", "FTTH")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        vno_subfolder = QA_IA_VNO_SUBFOLDER.get(vno_code, "KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_scenario": scenario,
+            "u_service_type": service_type,
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Interven" in sec.get("name", ""):
+                sec["item"] = [sf for sf in sec.get("item", []) if sf.get("name", "") == vno_subfolder]
+                for subfolder in sec.get("item", []):
+                    for req in subfolder.get("item", []):
+                        nm = req.get("name", "")
+                        if "Finaliz" in nm and "Masiva" not in nm:
+                            b = req.get("request", {}).get("body", {})
+                            if b.get("mode") == "raw":
+                                b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_ia_fin_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", "03-Finalización Intervención",
                  "--env-var", f"Token={token}",
                  "--env-var", f"idvno={vno_code}",
                  "--insecure",
@@ -1665,6 +1742,7 @@ var QA_VNO_DEFS=[
 var _activeDefs=SN_VNO_DEFS;
 var _activeParallelId='apim-parallel';
 var _globalVNO='02';
+var _iaAction='inicio';
 var _QA_VNO_COLORS={'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'};
 var _QA_VNO_LABELS={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
 var _accordionOpen={};
@@ -2457,11 +2535,30 @@ function renderIAForm(){
   container.innerHTML="";
   var vno=_globalVNO;
   var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var isFin=(_iaAction==='fin');
+  var reqName=isFin?'03-Finalización Intervención':'01-Inicio Intervención';
   var card=document.createElement("div"); card.className="epf-card";
+  // título
   var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Intervención Asegurada";
+  card.appendChild(tt);
+  // selector Inicio / Finalización
+  var actBar=document.createElement("div");
+  actBar.style.cssText="display:flex;gap:8px;margin-bottom:14px";
+  [{key:'inicio',lbl:'01 Inicio'},{key:'fin',lbl:'03 Finalización'}].forEach(function(a){
+    var btn=document.createElement("button");
+    btn.style.cssText="padding:5px 14px;border-radius:5px;border:1px solid var(--brd);font-size:.72rem;font-weight:700;cursor:pointer;transition:all .15s;"
+      +(a.key===_iaAction
+        ? "background:var(--acc);color:#0D1B3E;border-color:var(--acc);"
+        : "background:transparent;color:var(--txt2);");
+    btn.textContent=a.lbl;
+    btn.onclick=(function(k){return function(){_iaAction=k;renderIAForm();};})(a.key);
+    actBar.appendChild(btn);
+  });
+  card.appendChild(actBar);
+  // folder info
   var sf=document.createElement("div"); sf.className="epf-folder";
-  sf.innerHTML='Folder: <span>03-IntervencionAsegurada / '+QA_IA_SUBFOLDER[vno]+' / 01-Inicio Intervención</span>';
-  card.appendChild(tt); card.appendChild(sf);
+  sf.innerHTML='Folder: <span>03-IntervencionAsegurada / '+QA_IA_SUBFOLDER[vno]+' / '+reqName+'</span>';
+  card.appendChild(sf);
   // u_id_vno (auto)
   var f1=document.createElement("div"); f1.className="epf-field";
   var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
@@ -2472,7 +2569,7 @@ function renderIAForm(){
   var f2=document.createElement("div"); f2.className="epf-field";
   var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_access_id_vno";
   var i2=document.createElement("input"); i2.type="text"; i2.className="epf-input"; i2.id="epf-ia-access";
-  i2.placeholder="ej. 02-QASM-2307-1";
+  i2.placeholder=isFin?"ej. 00QA-JOSEF-SM-01":"ej. 02-QASM-2307-1";
   f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
   // u_scenario (chips: Instalación / Reparación)
   var f3=document.createElement("div"); f3.className="epf-field";
@@ -2480,11 +2577,8 @@ function renderIAForm(){
   var cg3=document.createElement("div"); cg3.className="epf-chips";
   ['Instalación','Reparación'].forEach(function(sc,idx){
     var ch=document.createElement("button"); ch.className="epf-chip"+(idx===0?" active":"");
-    ch.id="epf-ia-sc-"+idx; ch.dataset.val=sc; ch.textContent=sc;
-    ch.onclick=function(){
-      cg3.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");});
-      ch.classList.add("active");
-    };
+    ch.dataset.val=sc; ch.textContent=sc;
+    ch.onclick=function(){cg3.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");}); ch.classList.add("active");};
     cg3.appendChild(ch);
   });
   f3.appendChild(l3); f3.appendChild(cg3); card.appendChild(f3);
@@ -2494,27 +2588,21 @@ function renderIAForm(){
   var cg4=document.createElement("div"); cg4.className="epf-chips";
   ['FTTH','SSAA'].forEach(function(st,idx){
     var ch=document.createElement("button"); ch.className="epf-chip"+(idx===0?" active":"");
-    ch.id="epf-ia-svc-"+idx; ch.dataset.val=st; ch.textContent=st;
-    ch.onclick=function(){
-      cg4.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");});
-      ch.classList.add("active");
-    };
+    ch.dataset.val=st; ch.textContent=st;
+    ch.onclick=function(){cg4.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");}); ch.classList.add("active");};
     cg4.appendChild(ch);
   });
   f4.appendChild(l4); f4.appendChild(cg4); card.appendChild(f4);
-  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
+  var eb=document.createElement("button"); eb.className="epf-exec";
+  eb.textContent=isFin?"▶ Ejecutar Finalización":"▶ Ejecutar Inicio";
   eb.disabled=running;
   eb.onclick=function(){
     var accessEl=document.getElementById("epf-ia-access");
     var scChip=cg3.querySelector(".epf-chip.active");
     var svcChip=cg4.querySelector(".epf-chip.active");
     if(!accessEl||!scChip||!svcChip) return;
-    runIA({
-      vno:_globalVNO,
-      access_id_vno:accessEl.value,
-      scenario:scChip.dataset.val,
-      service_type:svcChip.dataset.val,
-    });
+    var p={vno:_globalVNO,access_id_vno:accessEl.value,scenario:scChip.dataset.val,service_type:svcChip.dataset.val};
+    if(isFin) runIAFin(p); else runIA(p);
   };
   card.appendChild(eb);
   container.appendChild(card);
@@ -2525,11 +2613,20 @@ function runIA(params){
   var s=suites.find(function(x){return x.id===sid;});
   if(!s) return;
   selectedId=sid; _isQAChild=true;
-  switchView("std");
-  renderVNOBar();
+  switchView("std"); renderVNOBar();
   var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
-  suiteLogs[sid]=[];
-  document.getElementById("term").innerHTML="";
+  suiteLogs[sid]=[]; document.getElementById("term").innerHTML="";
+  _doRun("/api/run/"+sid,params,s);
+}
+function runIAFin(params){
+  if(running) return;
+  var sid="qa-ep-ia-fin";
+  var s=suites.find(function(x){return x.id===sid;});
+  if(!s) return;
+  selectedId=sid; _isQAChild=true;
+  switchView("std"); renderVNOBar();
+  var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
+  suiteLogs[sid]=[]; document.getElementById("term").innerHTML="";
   _doRun("/api/run/"+sid,params,s);
 }
 function renderEPVNOBar(){
