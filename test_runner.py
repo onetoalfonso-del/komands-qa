@@ -602,12 +602,12 @@ SUITES = [
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_assignment.html"),"requires":None},
     {"id":"qa-ep-ia",            "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Intervención Asegurada","desc":"inicio · finalización · cancela",
+     "label":"IA Inicio",          "desc":"assuredIntervention · inicio de intervención",
      "env_type":"qa_ia","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia.html"),"requires":None},
-    {"id":"qa-ep-ia-fin",        "group":"hidden","parent":"qa-fulfillment",
-     "label":"IA Finalización",  "desc":"03-Finalización Intervención Asegurada",
+    {"id":"qa-ep-ia-fin",        "group":"qa-child","parent":"qa-fulfillment",
+     "label":"IA Finalización",  "desc":"interventionFinalization · cierre de intervención",
      "env_type":"qa_ia_fin","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia_fin.html"),"requires":None},
@@ -1742,7 +1742,6 @@ var QA_VNO_DEFS=[
 var _activeDefs=SN_VNO_DEFS;
 var _activeParallelId='apim-parallel';
 var _globalVNO='02';
-var _iaAction='inicio';
 var _QA_VNO_COLORS={'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'};
 var _QA_VNO_LABELS={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
 var _accordionOpen={};
@@ -1860,8 +1859,17 @@ function selectSuite(id){
     switchView('ep-form');
     renderEPFVNOBar();
     renderIAForm();
-    setTop('','Intervención Asegurada','Configura los parámetros y ejecuta');
+    setTop('','IA Inicio','assuredIntervention · configura y ejecuta');
     var _eb0b=document.getElementById('exec-btn'); if(_eb0b) _eb0b.disabled=true;
+    return;
+  }
+  if(id==='qa-ep-ia-fin'){
+    _isQAChild=true;
+    switchView('ep-form');
+    renderEPFVNOBar();
+    renderIAFinForm();
+    setTop('','IA Finalización','interventionFinalization · configura y ejecuta');
+    var _eb0c=document.getElementById('exec-btn'); if(_eb0c) _eb0c.disabled=true;
     return;
   }
   if(id==='qa-endpoints'){
@@ -2342,6 +2350,7 @@ function renderEPFVNOBar(){
       renderEPVNOBar();
       if(selectedId==='qa-ep-assignment') renderAssignmentForm();
       else if(selectedId==='qa-ep-ia') renderIAForm();
+      else if(selectedId==='qa-ep-ia-fin') renderIAFinForm();
       else renderFactibilidadForm();
     };})(code);
     bar.appendChild(btn);
@@ -2529,36 +2538,17 @@ function runAssignment(params){
   _doRun("/api/run/"+sid,params,s);
 }
 var QA_IA_SUBFOLDER={'00':'TCH','02':'KAO','03':'ENTEL','05':'DTV'};
-function renderIAForm(){
+function _buildIACard(title, folderLabel, inputId, placeholder, runFn){
   var container=document.getElementById("epf-container");
   if(!container) return;
   container.innerHTML="";
   var vno=_globalVNO;
   var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
-  var isFin=(_iaAction==='fin');
-  var reqName=isFin?'03-Finalización Intervención':'01-Inicio Intervención';
   var card=document.createElement("div"); card.className="epf-card";
-  // título
-  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Intervención Asegurada";
-  card.appendChild(tt);
-  // selector Inicio / Finalización
-  var actBar=document.createElement("div");
-  actBar.style.cssText="display:flex;gap:8px;margin-bottom:14px";
-  [{key:'inicio',lbl:'01 Inicio'},{key:'fin',lbl:'03 Finalización'}].forEach(function(a){
-    var btn=document.createElement("button");
-    btn.style.cssText="padding:5px 14px;border-radius:5px;border:1px solid var(--brd);font-size:.72rem;font-weight:700;cursor:pointer;transition:all .15s;"
-      +(a.key===_iaAction
-        ? "background:var(--acc);color:#0D1B3E;border-color:var(--acc);"
-        : "background:transparent;color:var(--txt2);");
-    btn.textContent=a.lbl;
-    btn.onclick=(function(k){return function(){_iaAction=k;renderIAForm();};})(a.key);
-    actBar.appendChild(btn);
-  });
-  card.appendChild(actBar);
-  // folder info
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent=title;
   var sf=document.createElement("div"); sf.className="epf-folder";
-  sf.innerHTML='Folder: <span>03-IntervencionAsegurada / '+QA_IA_SUBFOLDER[vno]+' / '+reqName+'</span>';
-  card.appendChild(sf);
+  sf.innerHTML='Folder: <span>03-IntervencionAsegurada / '+QA_IA_SUBFOLDER[vno]+' / '+folderLabel+'</span>';
+  card.appendChild(tt); card.appendChild(sf);
   // u_id_vno (auto)
   var f1=document.createElement("div"); f1.className="epf-field";
   var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
@@ -2568,10 +2558,10 @@ function renderIAForm(){
   // u_access_id_vno (text)
   var f2=document.createElement("div"); f2.className="epf-field";
   var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_access_id_vno";
-  var i2=document.createElement("input"); i2.type="text"; i2.className="epf-input"; i2.id="epf-ia-access";
-  i2.placeholder=isFin?"ej. 00QA-JOSEF-SM-01":"ej. 02-QASM-2307-1";
+  var i2=document.createElement("input"); i2.type="text"; i2.className="epf-input"; i2.id=inputId;
+  i2.placeholder=placeholder;
   f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
-  // u_scenario (chips: Instalación / Reparación)
+  // u_scenario (chips)
   var f3=document.createElement("div"); f3.className="epf-field";
   var l3=document.createElement("label"); l3.className="epf-label"; l3.textContent="u_scenario";
   var cg3=document.createElement("div"); cg3.className="epf-chips";
@@ -2582,7 +2572,7 @@ function renderIAForm(){
     cg3.appendChild(ch);
   });
   f3.appendChild(l3); f3.appendChild(cg3); card.appendChild(f3);
-  // u_service_type (chips: FTTH / SSAA)
+  // u_service_type (chips)
   var f4=document.createElement("div"); f4.className="epf-field";
   var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_service_type";
   var cg4=document.createElement("div"); cg4.className="epf-chips";
@@ -2593,19 +2583,23 @@ function renderIAForm(){
     cg4.appendChild(ch);
   });
   f4.appendChild(l4); f4.appendChild(cg4); card.appendChild(f4);
-  var eb=document.createElement("button"); eb.className="epf-exec";
-  eb.textContent=isFin?"▶ Ejecutar Finalización":"▶ Ejecutar Inicio";
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
   eb.disabled=running;
   eb.onclick=function(){
-    var accessEl=document.getElementById("epf-ia-access");
+    var accessEl=document.getElementById(inputId);
     var scChip=cg3.querySelector(".epf-chip.active");
     var svcChip=cg4.querySelector(".epf-chip.active");
     if(!accessEl||!scChip||!svcChip) return;
-    var p={vno:_globalVNO,access_id_vno:accessEl.value,scenario:scChip.dataset.val,service_type:svcChip.dataset.val};
-    if(isFin) runIAFin(p); else runIA(p);
+    runFn({vno:_globalVNO,access_id_vno:accessEl.value,scenario:scChip.dataset.val,service_type:svcChip.dataset.val});
   };
   card.appendChild(eb);
   container.appendChild(card);
+}
+function renderIAForm(){
+  _buildIACard("IA Inicio","01-Inicio Intervención","epf-ia-access","ej. 02-QASM-2307-1",runIA);
+}
+function renderIAFinForm(){
+  _buildIACard("IA Finalización","03-Finalización Intervención","epf-ia-fin-access","ej. 00QA-JOSEF-SM-01",runIAFin);
 }
 function runIA(params){
   if(running) return;
