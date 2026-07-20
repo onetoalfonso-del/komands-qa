@@ -2792,7 +2792,7 @@ function renderActivacionForm(){
       vno:_globalVNO,
       access_id_vno:accessEl.value,
       speed_plan:speedEl.value,
-      serial_number:serialEl.value,
+      serial_number:serialEl?serialEl.value:"",
       service_ba:baEl.value,
       service_voip:voipEl.value,
       service_iptv:iptvEl.value,
