@@ -1331,15 +1331,15 @@ async def api_run(suite_id: str, request: Request):
             _results = []
 
             async def _run_tc(tr):
-                await _out_q.put(("L", f"▶ {tr['label']} iniciando…"))
+                await _out_q.put(("L", tr["tc"], "▶ " + tr["label"] + " iniciando…"))
                 async for _k, _v in _iter_proc(tr["cmd"], tr["cwd"], _env):
                     if _k == "L":
-                        await _out_q.put(("L", f"[{tr['tc']}] {_v}"))
+                        await _out_q.put(("L", tr["tc"], _v))
                     elif _k == "D":
                         await _out_q.put(("D", tr, _v))
                         return
                     elif _k == "E":
-                        await _out_q.put(("L", f"[{tr['tc']}] ERROR: {_v}"))
+                        await _out_q.put(("L", tr["tc"], "ERROR: " + _v))
                         await _out_q.put(("D", tr, -1))
                         return
 
@@ -1350,7 +1350,7 @@ async def api_run(suite_id: str, request: Request):
             while _remaining > 0:
                 _item = await _out_q.get()
                 if _item[0] == "L":
-                    yield f"data: {json.dumps({'e':'line','t':_item[1]})}\n\n"
+                    yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
                 elif _item[0] == "D":
                     _tr2, _code = _item[1], _item[2]
                     _remaining -= 1
@@ -1359,7 +1359,8 @@ async def api_run(suite_id: str, request: Request):
                     _results.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
                                      "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
                     _tc_msg = _sym + " " + _tr2["label"] + " — código " + str(_code)
-                    yield f"data: {json.dumps({'e':'line','t':_tc_msg})}\n\n"
+                    yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
+                    yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
 
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _n_ok   = sum(1 for r in _results if r["code"] == 0)
@@ -1911,6 +1912,24 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .olt-info-bar .oib-vendor{color:var(--txt2)}
 /* TERMINAL */
 .terminal{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px;background:var(--term);font-family:var(--mono);font-size:.76rem;line-height:1.6}
+/* ── Fact view: 4 consolas paralelas ───────────────────────────────────────── */
+#fact-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
+.fact-panel{display:flex;flex-direction:column;background:var(--term);border:1px solid var(--brd);border-radius:6px;overflow:hidden;min-height:0}
+.fp-hdr{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+.fp-dot{width:10px;height:10px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:background .25s}
+.fp-dot.running{background:var(--warn);animation:fpulse .9s ease-in-out infinite}
+.fp-dot.passed{background:var(--ok)}
+.fp-dot.failed{background:var(--err)}
+@keyframes fpulse{0%,100%{opacity:1}50%{opacity:.3}}
+.fp-name{font-size:.71rem;font-weight:700;color:var(--txt);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-badge{font-size:.63rem;font-weight:700;padding:1px 6px;border-radius:10px;flex-shrink:0}
+.fp-badge.idle{background:var(--brd);color:var(--txt3)}
+.fp-badge.running{background:rgba(255,179,71,.18);color:var(--warn)}
+.fp-badge.passed{background:var(--okd);color:var(--ok)}
+.fp-badge.failed{background:var(--errd);color:var(--err)}
+.fp-rpt{font-size:.63rem;color:var(--acc);text-decoration:none;padding:2px 6px;border:1px solid var(--acc);border-radius:4px;white-space:nowrap;flex-shrink:0;opacity:0;pointer-events:none;transition:opacity .2s}
+.fp-rpt.show{opacity:1;pointer-events:auto}
+.fact-term{flex:1;overflow-y:auto;overflow-x:hidden;padding:7px 10px;font-family:var(--mono);font-size:.68rem;line-height:1.5;min-height:0}
 .terminal::-webkit-scrollbar{width:4px}
 .terminal::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
 .terminal:empty::after{content:"Selecciona una suite del panel izquierdo para ejecutar";color:var(--txt3);font-family:var(--sans);font-size:.8rem}
@@ -1977,6 +1996,10 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <div id="ep-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="vno-bar" id="ep-vno-bar"></div>
       <div style="flex:1;overflow-y:auto;padding:10px 14px" id="ep-list"></div>
+    </div>
+    <!-- Vista Factibilidad — 4 consolas paralelas -->
+    <div id="fact-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="fact-grid"></div>
     </div>
     <!-- Vista Services Now — doble terminal -->
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -2148,6 +2171,14 @@ function selectSuite(id){
     var _eb0d=document.getElementById('exec-btn'); if(_eb0d) _eb0d.disabled=true;
     return;
   }
+  if(id==='qa-fact-suite'){
+    _isQAChild=false;
+    switchView('fact');
+    renderFactView();
+    setTop('','Suite: Factibilidad','TC-01..TC-04 · DIR02803636 · presiona Ejecutar');
+    var _ebfact=document.getElementById('exec-btn'); if(_ebfact) _ebfact.disabled=running;
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -2248,6 +2279,11 @@ function _vnoParams(){
 function executeSelected(){
   if(running||!selectedId) return;
   if(selectedId==='apim-parallel'||selectedId==='qa-fulfillment'){ executeSN(); return; }
+  if(selectedId==='qa-fact-suite'){
+    var _sf=suites.find(function(x){return x.id==='qa-fact-suite';});
+    if(_sf) _doRunFact(_sf);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -2266,6 +2302,13 @@ function run(id){
   if(id==='qa-endpoints'){ selectSuite(id); return; }
   if(id==='apim-parallel'){ _activeDefs=SN_VNO_DEFS;_activeParallelId='apim-parallel'; switchView('sn'); renderSNForm(); return; }
   if(id==='qa-fulfillment'){ _activeDefs=QA_VNO_DEFS;_activeParallelId='qa-fulfillment'; switchView('sn'); renderSNForm(); return; }
+  if(id==='qa-fact-suite'){
+    _isQAChild=false;
+    switchView('fact'); renderFactView();
+    setTop('','Suite: Factibilidad','TC-01..TC-04 · DIR02803636');
+    _doRunFact(s);
+    return;
+  }
   _isQAChild = !!(s.env_type==='qa_vno');
   switchView('std');
   var _vbar=document.getElementById('vno-bar');
@@ -2276,11 +2319,102 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
+}
+
+// ── Factibilidad: vista multi-consola ────────────────────────────────────────
+var _FACT_TC_META = [
+  {tc:'TC-01', label:'TC-01 · Entel', vno:'VNO 03', sid:'qa-fact-tc01', color:'#A8FF78'},
+  {tc:'TC-02', label:'TC-02 · KAO',   vno:'VNO 02', sid:'qa-fact-tc02', color:'#00C8D4'},
+  {tc:'TC-03', label:'TC-03 · DTV',   vno:'VNO 05', sid:'qa-fact-tc03', color:'#FFB347'},
+  {tc:'TC-04', label:'TC-04 · TCH',   vno:'VNO 00', sid:'qa-fact-tc04', color:'#6E8EFF'},
+];
+
+function renderFactView(){
+  var grid=document.getElementById('fact-grid'); if(!grid) return;
+  grid.innerHTML='';
+  _FACT_TC_META.forEach(function(m){
+    var p=document.createElement('div'); p.className='fact-panel'; p.id='fp-'+m.tc;
+    p.innerHTML=
+      '<div class="fp-hdr">'
+      +'<span class="fp-dot idle" id="fpd-'+m.tc+'"></span>'
+      +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
+      +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
+      +'<span class="fp-badge idle" id="fpb-'+m.tc+'">espera</span>'
+      +'<a class="fp-rpt" id="fpr-'+m.tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'</div>'
+      +'<div class="fact-term" id="ft-'+m.tc+'"></div>';
+    grid.appendChild(p);
+  });
+}
+
+function _factApp(tc, text, cls){
+  var el=document.getElementById('ft-'+tc); if(!el) return;
+  var sp=document.createElement('span');
+  sp.className='tl'+(cls?' '+cls:'');
+  sp.textContent=text+'\n';
+  el.appendChild(sp);
+  el.scrollTop=el.scrollHeight;
+}
+
+function _factSetState(tc, state){
+  var dot=document.getElementById('fpd-'+tc);
+  var badge=document.getElementById('fpb-'+tc);
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
+  if(dot){ dot.className='fp-dot '+state; }
+  if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
+}
+
+function _doRunFact(s){
+  if(running) return;
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando 4 VNOs en paralelo…');
+  setIco(s.id,'running'); setActive(s.id);
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  // Reset panels
+  _FACT_TC_META.forEach(function(m){
+    var ft=document.getElementById('ft-'+m.tc); if(ft) ft.innerHTML='';
+    var fpr=document.getElementById('fpr-'+m.tc); if(fpr) fpr.classList.remove('show');
+    _factSetState(m.tc,'idle');
+  });
+  if(currentEs){currentEs.close();currentEs=null;}
+  var es=new EventSource('/api/run/qa-fact-suite');
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      if(d.tc){
+        _factApp(d.tc, d.t, col(d.t));
+        _factSetState(d.tc,'running');
+      }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='tc_done'){
+      var ok=d.code===0;
+      _factSetState(d.tc, ok?'passed':'failed');
+      if(d.has_report){
+        var fpr=document.getElementById('fpr-'+d.tc);
+        if(fpr){fpr.href='/api/report/'+d.sid;fpr.classList.add('show');}
+      }
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error'){onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);}
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){
+      currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+    }
+  };
 }
 
 function renderSNForm(){
