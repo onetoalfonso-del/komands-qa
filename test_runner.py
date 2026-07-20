@@ -680,14 +680,14 @@ SUITES = [
      "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
      "env_type":"qa_asig_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"asignacion"/"index.html"),"requires":None},
-    {"id":"qa-asig-tc01","group":"hidden","label":"TC-01 Asignación Entel",
-     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-01.html")},
-    {"id":"qa-asig-tc02","group":"hidden","label":"TC-02 Asignación KAO",
-     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-02.html")},
-    {"id":"qa-asig-tc03","group":"hidden","label":"TC-03 Asignación DTV",
-     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-03.html")},
-    {"id":"qa-asig-tc04","group":"hidden","label":"TC-04 Asignación TCH",
-     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-04.html")},
+    {"id":"qa-asig-tc05","group":"hidden","label":"TC-05 Asignación Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-05.html")},
+    {"id":"qa-asig-tc06","group":"hidden","label":"TC-06 Asignación KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-06.html")},
+    {"id":"qa-asig-tc07","group":"hidden","label":"TC-07 Asignación DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-07.html")},
+    {"id":"qa-asig-tc08","group":"hidden","label":"TC-08 Asignación TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-08.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -1364,10 +1364,10 @@ async def api_run(suite_id: str, request: Request):
         _service_voip = overrides.get("service_voip", "true")
         _service_iptv = overrides.get("service_iptv", "true")
         _TC_DEFS_ALL_A = [
-            {"tc": "TC-01", "vno": "03", "vno_label": "Entel", "sid": "qa-asig-tc01"},
-            {"tc": "TC-02", "vno": "02", "vno_label": "KAO",   "sid": "qa-asig-tc02"},
-            {"tc": "TC-03", "vno": "05", "vno_label": "DTV",   "sid": "qa-asig-tc03"},
-            {"tc": "TC-04", "vno": "00", "vno_label": "TCH",   "sid": "qa-asig-tc04"},
+            {"tc": "TC-05", "vno": "03", "vno_label": "Entel", "sid": "qa-asig-tc05"},
+            {"tc": "TC-06", "vno": "02", "vno_label": "KAO",   "sid": "qa-asig-tc06"},
+            {"tc": "TC-07", "vno": "05", "vno_label": "DTV",   "sid": "qa-asig-tc07"},
+            {"tc": "TC-08", "vno": "00", "vno_label": "TCH",   "sid": "qa-asig-tc08"},
         ]
         _tcs_param_a  = overrides.get("tcs", "")
         _tcs_filter_a = set(_tcs_param_a.split(",")) if _tcs_param_a else {"TC-01","TC-02","TC-03","TC-04"}
@@ -2703,14 +2703,14 @@ function _doRunFact(s){
 
 // ── Asignación: vista multi-consola ─────────────────────────────────────────
 var _ASIG_TC_META = [
-  {tc:'TC-01', label:'TC-01 · Entel', vno:'VNO 03', sid:'qa-asig-tc01', color:'#98F5A4'},
-  {tc:'TC-02', label:'TC-02 · KAO',   vno:'VNO 02', sid:'qa-asig-tc02', color:'#7EC8E3'},
-  {tc:'TC-03', label:'TC-03 · DTV',   vno:'VNO 05', sid:'qa-asig-tc03', color:'#FFD580'},
-  {tc:'TC-04', label:'TC-04 · TCH',   vno:'VNO 00', sid:'qa-asig-tc04', color:'#B39DFF'},
+  {tc:'TC-05', label:'TC-05 · Entel', vno:'VNO 03', sid:'qa-asig-tc05', color:'#98F5A4'},
+  {tc:'TC-06', label:'TC-06 · KAO',   vno:'VNO 02', sid:'qa-asig-tc06', color:'#7EC8E3'},
+  {tc:'TC-07', label:'TC-07 · DTV',   vno:'VNO 05', sid:'qa-asig-tc07', color:'#FFD580'},
+  {tc:'TC-08', label:'TC-08 · TCH',   vno:'VNO 00', sid:'qa-asig-tc08', color:'#B39DFF'},
 ];
-var _asigSel={'TC-01':true,'TC-02':true,'TC-03':true,'TC-04':true};
+var _asigSel={'TC-05':true,'TC-06':true,'TC-07':true,'TC-08':true};
 
-var _VNO_CODES={'TC-01':'03','TC-02':'02','TC-03':'05','TC-04':'00'};
+var _VNO_CODES={'TC-05':'03','TC-06':'02','TC-07':'05','TC-08':'00'};
 var _VNO_KNOWN=['00','02','03','05'];
 
 function _resolveAccessId(raw, vnoCode){
