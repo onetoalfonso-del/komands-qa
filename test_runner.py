@@ -688,6 +688,36 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-07.html")},
     {"id":"qa-asig-tc08","group":"hidden","label":"TC-08 Asignación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-08.html")},
+    # ── QA Intervención Asegurada — suites paralelas ──────────────────────────
+    {"id":"qa-ia-par",        "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Suite Interv. Asegurada","desc":"Inicio · Fin · paralelo",
+     "cmd":None,"cwd":None,"report":None,"requires":None},
+    {"id":"qa-ia-inicio-suite","group":"qa-child","parent":"qa-ia-par",
+     "label":"▶ Inicio (4 VNOs · paralelo)",
+     "desc":"TC-09..TC-12 · 01-Inicio Intervención",
+     "env_type":"qa_ia_inicio_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"inicio_index.html"),"requires":None},
+    {"id":"qa-ia-fin-suite",  "group":"qa-child","parent":"qa-ia-par",
+     "label":"▶ Fin (4 VNOs · paralelo)",
+     "desc":"TC-13..TC-16 · 03-Finalización Intervención",
+     "env_type":"qa_ia_fin_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"fin_index.html"),"requires":None},
+    {"id":"qa-ia-tc09","group":"hidden","label":"TC-09 IA Inicio Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-09.html")},
+    {"id":"qa-ia-tc10","group":"hidden","label":"TC-10 IA Inicio KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-10.html")},
+    {"id":"qa-ia-tc11","group":"hidden","label":"TC-11 IA Inicio DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-11.html")},
+    {"id":"qa-ia-tc12","group":"hidden","label":"TC-12 IA Inicio TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-12.html")},
+    {"id":"qa-ia-tc13","group":"hidden","label":"TC-13 IA Fin Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-13.html")},
+    {"id":"qa-ia-tc14","group":"hidden","label":"TC-14 IA Fin KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-14.html")},
+    {"id":"qa-ia-tc15","group":"hidden","label":"TC-15 IA Fin DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-15.html")},
+    {"id":"qa-ia-tc16","group":"hidden","label":"TC-16 IA Fin TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-16.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -1443,6 +1473,113 @@ async def api_run(suite_id: str, request: Request):
                 "json_out": _json_out,
             })
 
+    elif suite.get("env_type") in ("qa_ia_inicio_suite", "qa_ia_fin_suite"):
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        _is_inicio   = suite.get("env_type") == "qa_ia_inicio_suite"
+        _ia_dir      = QA_DIR / "ia"
+        _ia_dir.mkdir(parents=True, exist_ok=True)
+        _logo_svg_ia = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri_ia  = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_ia).decode()
+        _access_ids_raw_ia = overrides.get("access_ids", "")
+        try:
+            _access_ids_map_ia = json.loads(_access_ids_raw_ia) if _access_ids_raw_ia else {}
+        except Exception:
+            _access_ids_map_ia = {}
+        _scenario    = overrides.get("scenario",     "Instalación")
+        _service_type = overrides.get("service_type", "FTTH")
+        _TC_DEFS_IA = [
+            {"tc": "TC-09" if _is_inicio else "TC-13", "vno": "03", "vno_label": "Entel",
+             "sid": "qa-ia-tc09" if _is_inicio else "qa-ia-tc13"},
+            {"tc": "TC-10" if _is_inicio else "TC-14", "vno": "02", "vno_label": "KAO",
+             "sid": "qa-ia-tc10" if _is_inicio else "qa-ia-tc14"},
+            {"tc": "TC-11" if _is_inicio else "TC-15", "vno": "05", "vno_label": "DTV",
+             "sid": "qa-ia-tc11" if _is_inicio else "qa-ia-tc15"},
+            {"tc": "TC-12" if _is_inicio else "TC-16", "vno": "00", "vno_label": "TCH",
+             "sid": "qa-ia-tc12" if _is_inicio else "qa-ia-tc16"},
+        ]
+        _tcs_param_ia  = overrides.get("tcs", "")
+        _tcs_filter_ia = set(_tcs_param_ia.split(",")) if _tcs_param_ia else {d["tc"] for d in _TC_DEFS_IA}
+        _TC_DEFS_IA = [d for d in _TC_DEFS_IA if d["tc"] in _tcs_filter_ia] or _TC_DEFS_IA
+        _tc_runs = []
+        for _tcd in _TC_DEFS_IA:
+            _vno          = _tcd["vno"]
+            _env_file     = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _vno_subfolder= QA_IA_VNO_SUBFOLDER.get(_vno, "KAO")
+            _rp_out       = str(_ia_dir / f"{_tcd['tc']}.html")
+            _json_out     = str(_ia_dir / f"{_tcd['tc']}.json")
+            _env_data     = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev           = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url     = _ev.get("apimURL", "")
+            _auth_b64     = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _token = ""
+            try:
+                _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _tok_req = _ur.Request(f"{_apim_url}/token", data=_body_b,
+                    headers={"Authorization": f"Basic {_auth_b64}",
+                             "Content-Type": "application/x-www-form-urlencoded"})
+                _ctx = _sl.create_default_context()
+                _ctx.check_hostname = False; _ctx.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_tok_req, context=_ctx, timeout=15) as _r:
+                    _token = _j.loads(_r.read()).get("access_token", "")
+            except Exception as _te:
+                print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
+            _col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+            _col_tmp  = _cp.deepcopy(_col_src)
+            _new_body = _j.dumps({
+                "u_id_vno":        _vno,
+                "u_access_id_vno": _access_ids_map_ia.get(_tcd["tc"], ""),
+                "u_scenario":      _scenario,
+                "u_service_type":  _service_type,
+            }, indent=4, ensure_ascii=False)
+            for _sec in _col_tmp.get("item", []):
+                if "Interven" in _sec.get("name", ""):
+                    _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _vno_subfolder]
+                    for _sf in _sec.get("item", []):
+                        for _req in _sf.get("item", []):
+                            _nm = _req.get("name", "")
+                            if _is_inicio:
+                                _match = _nm in ("01-Inicio Intervención", "01-Inicio Intervencion")
+                            else:
+                                _match = "Finaliz" in _nm and "Masiva" not in _nm
+                            if _match:
+                                _b = _req.get("request", {}).get("body", {})
+                                if _b.get("mode") == "raw":
+                                    _b["raw"] = _new_body
+            _pfx = "inicio" if _is_inicio else "fin"
+            _tmp_col = str(QA_DIR / f"_tmp_ia_{_pfx}_{_vno}.json")
+            _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _nf = "01-Inicio Intervención" if _is_inicio else "03-Finalización Intervención"
+            _op_lbl = "IA Inicio" if _is_inicio else "IA Fin"
+            _tc_runs.append({
+                "tc":      _tcd["tc"],
+                "vno":     _vno,
+                "vno_lbl": _tcd["vno_label"],
+                "sid":     _tcd["sid"],
+                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "cmd":     [NEWMAN, "run", _tmp_col,
+                            "-e", _env_file,
+                            "--folder", _nf,
+                            "--env-var", f"Token={_token}",
+                            "--env-var", f"idvno={_vno}",
+                            "--insecure",
+                            "--reporters", "cli,json,htmlextra",
+                            "--reporter-json-export", _json_out,
+                            "--reporter-htmlextra-export", _rp_out,
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} {_op_lbl} · {_tcd['vno_label']} – OnnetFibra",
+                            "--reporter-htmlextra-logo", _logo_uri_ia],
+                "cwd":     str(QA_DIR),
+                "rp_out":  _rp_out,
+                "json_out": _json_out,
+            })
+
     if _tc_runs is not None:
         async def sse_parallel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
@@ -2089,9 +2226,18 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #asig-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
 .aap-item{font-size:.62rem;font-family:var(--mono);display:flex;align-items:center;gap:4px}
 .aap-vno{color:var(--txt3);font-size:.58rem}.aap-id{color:var(--acc)}.aap-empty{color:var(--txt3);font-style:italic}
-#asig-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
-#asig-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
-#asig-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
+#asig-sel-bar,#ia-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
+#asig-sel-bar .fsb-lbl,#ia-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+#asig-grid,#ia-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
+#ia-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
+#ia-form-bar .afb-lbl{font-size:.6rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+#ia-form-bar input,#ia-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
+#ia-form-bar input:focus,#ia-form-bar select:focus{border-color:var(--acc)}
+#ia-form-bar input.wide{width:170px}
+#ia-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+.ia-mode-badge{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px}
+.ia-mode-badge.inicio{background:rgba(255,159,139,.18);color:#FF9F8B}
+.ia-mode-badge.fin{background:rgba(183,147,255,.18);color:#B793FF}
 .fact-panel{display:flex;flex-direction:column;background:var(--term);border:1px solid var(--brd);border-radius:6px;overflow:hidden;min-height:0}
 .fp-hdr{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
 .fp-dot{width:10px;height:10px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:background .25s}
@@ -2188,6 +2334,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="fact-sel-bar"></div>
       <div id="fact-grid"></div>
     </div>
+    <!-- Vista Intervención Asegurada — 4 consolas paralelas -->
+    <div id="ia-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="ia-form-bar"></div>
+      <div id="ia-access-preview"></div>
+      <div id="ia-sel-bar"></div>
+      <div id="ia-grid"></div>
+    </div>
     <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="asig-form-bar"></div>
@@ -2281,7 +2434,7 @@ function renderSB(){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
             :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'}]
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -2380,8 +2533,21 @@ function selectSuite(id){
     renderAsigFormBar();
     renderAsigSelBar();
     renderAsigView();
-    setTop('','Suite: Asignación','TC-01..TC-04 · presiona Ejecutar');
+    setTop('','Suite: Asignación','TC-05..TC-08 · presiona Ejecutar');
     _syncAsigExecBtn();
+    return;
+  }
+  if(id==='qa-ia-inicio-suite'||id==='qa-ia-fin-suite'){
+    _isQAChild=false;
+    _iaMode=id==='qa-ia-inicio-suite'?'inicio':'fin';
+    switchView('ia');
+    renderIAFormBar();
+    renderIASelBar();
+    renderIAView();
+    var _iaTcs=_iaMode==='inicio'?'TC-09..TC-12':'TC-13..TC-16';
+    var _iaLbl=_iaMode==='inicio'?'IA Inicio':'IA Fin';
+    setTop('','Suite: '+_iaLbl,_iaTcs+' · presiona Ejecutar');
+    _syncIAExecBtn();
     return;
   }
   if(id==='qa-endpoints'){
@@ -2494,6 +2660,11 @@ function executeSelected(){
     if(_sa) _doRunAsig(_sa);
     return;
   }
+  if(selectedId==='qa-ia-inicio-suite'||selectedId==='qa-ia-fin-suite'){
+    var _si=suites.find(function(x){return x.id===selectedId;});
+    if(_si) _doRunIA(_si);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -2529,9 +2700,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -2936,6 +3107,214 @@ function _doRunAsig(s){
       currentEs=null; es.close();
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
     }
+  };
+}
+
+// ── Intervención Asegurada: vista multi-consola ──────────────────────────────
+var _iaMode = 'inicio';
+var _IA_INICIO_META = [
+  {tc:'TC-09', label:'TC-09 · Entel', vno:'VNO 03', sid:'qa-ia-tc09', color:'#FF9F8B'},
+  {tc:'TC-10', label:'TC-10 · KAO',   vno:'VNO 02', sid:'qa-ia-tc10', color:'#85E89D'},
+  {tc:'TC-11', label:'TC-11 · DTV',   vno:'VNO 05', sid:'qa-ia-tc11', color:'#FFD580'},
+  {tc:'TC-12', label:'TC-12 · TCH',   vno:'VNO 00', sid:'qa-ia-tc12', color:'#79C8FF'},
+];
+var _IA_FIN_META = [
+  {tc:'TC-13', label:'TC-13 · Entel', vno:'VNO 03', sid:'qa-ia-tc13', color:'#C7CEEA'},
+  {tc:'TC-14', label:'TC-14 · KAO',   vno:'VNO 02', sid:'qa-ia-tc14', color:'#B5EAD7'},
+  {tc:'TC-15', label:'TC-15 · DTV',   vno:'VNO 05', sid:'qa-ia-tc15', color:'#FFDAC1'},
+  {tc:'TC-16', label:'TC-16 · TCH',   vno:'VNO 00', sid:'qa-ia-tc16', color:'#B39DFF'},
+];
+var _iaSel={};
+(function(){ _IA_INICIO_META.concat(_IA_FIN_META).forEach(function(m){ _iaSel[m.tc]=true; }); })();
+var _IA_VNO_CODES={'TC-09':'03','TC-10':'02','TC-11':'05','TC-12':'00',
+                   'TC-13':'03','TC-14':'02','TC-15':'05','TC-16':'00'};
+
+function _iaMeta(){ return _iaMode==='inicio'?_IA_INICIO_META:_IA_FIN_META; }
+function _iaSuiteId(){ return _iaMode==='inicio'?'qa-ia-inicio-suite':'qa-ia-fin-suite'; }
+
+function renderIAFormBar(){
+  var bar=document.getElementById('ia-form-bar'); if(!bar) return;
+  var modeLabel=_iaMode==='inicio'
+    ?'<span class="ia-mode-badge inicio">Inicio</span>'
+    :'<span class="ia-mode-badge fin">Fin</span>';
+  bar.innerHTML=
+    '<span class="afb-lbl">Modo:</span>'+modeLabel
+    +'<span class="afb-lbl" style="margin-left:8px">Access ID:</span>'
+    +'<input class="wide" id="ia-access" placeholder="ej: 02-XXXXX-01" />'
+    +'<span class="afb-lbl">Escenario:</span>'
+    +'<select id="ia-scenario">'
+    +'<option value="Instalación" selected>Instalación</option>'
+    +'<option value="Reparación">Reparación</option>'
+    +'</select>'
+    +'<span class="afb-lbl">Servicio:</span>'
+    +'<select id="ia-svctype">'
+    +'<option value="FTTH" selected>FTTH</option>'
+    +'<option value="SSAA">SSAA</option>'
+    +'</select>';
+  var inp=document.getElementById('ia-access');
+  if(inp) inp.oninput=_updateIAAccessPreview;
+  _updateIAAccessPreview();
+}
+
+function _updateIAAccessPreview(){
+  var el=document.getElementById('ia-access-preview'); if(!el) return;
+  var raw=(document.getElementById('ia-access')||{}).value||'';
+  if(!raw.trim()){
+    el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
+    return;
+  }
+  var h='';
+  _iaMeta().forEach(function(m){
+    var resolved=_resolveAccessId(raw.trim(),_IA_VNO_CODES[m.tc]);
+    h+='<span class="aap-item"><span class="aap-vno">'+esc(m.label)+':</span>'
+      +'<span class="aap-id">'+esc(resolved)+'</span></span>';
+  });
+  el.innerHTML=h;
+}
+
+function renderIASelBar(){
+  var bar=document.getElementById('ia-sel-bar'); if(!bar) return;
+  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
+  _iaMeta().forEach(function(m){
+    var on=_iaSel[m.tc]?'on':'';
+    h+='<button class="tc-sel-btn '+on+'" id="iasb-'+m.tc+'">'+esc(m.label)+'</button>';
+  });
+  h+='<span class="fsb-sep"></span>'
+    +'<button class="fsb-all" id="iasb-all">Todos</button>'
+    +'<button class="fsb-all" id="iasb-none">Ninguno</button>';
+  bar.innerHTML=h;
+  _iaMeta().forEach(function(m){
+    document.getElementById('iasb-'+m.tc).onclick=(function(tc){
+      return function(){ _iaSel[tc]=!_iaSel[tc];
+        var btn=document.getElementById('iasb-'+tc);
+        if(btn) btn.className='tc-sel-btn'+(_iaSel[tc]?' on':'');
+        renderIAView(); _syncIAExecBtn(); };
+    })(m.tc);
+  });
+  document.getElementById('iasb-all').onclick=function(){
+    _iaMeta().forEach(function(m){ _iaSel[m.tc]=true; }); renderIASelBar(); renderIAView(); _syncIAExecBtn(); };
+  document.getElementById('iasb-none').onclick=function(){
+    _iaMeta().forEach(function(m){ _iaSel[m.tc]=false; }); renderIASelBar(); renderIAView(); _syncIAExecBtn(); };
+}
+
+function _syncIAExecBtn(){
+  var anyOn=_iaMeta().some(function(m){ return _iaSel[m.tc]; });
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=running||!anyOn;
+}
+
+function renderIAView(){
+  var grid=document.getElementById('ia-grid'); if(!grid) return;
+  grid.innerHTML='';
+  var _sel=_iaMeta().filter(function(m){ return _iaSel[m.tc]; });
+  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  _sel.forEach(function(m){
+    var p=document.createElement('div'); p.className='fact-panel'; p.id='ip-'+m.tc;
+    var _tc=m.tc;
+    p.innerHTML=
+      '<div class="fp-hdr">'
+      +'<span class="fp-dot idle" id="ipd-'+_tc+'"></span>'
+      +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
+      +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
+      +'<span class="fp-badge idle" id="ipb-'+_tc+'">espera</span>'
+      +'<a class="fp-rpt" id="ipr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'</div>'
+      +'<div class="fact-term" id="it-'+_tc+'"></div>'
+      +'<div class="fp-resp-bar" id="ifrb-'+_tc+'">'
+      +'<span class="fr-label">Response</span>'
+      +'<span id="ifrs-'+_tc+'"></span>'
+      +'</div>'
+      +'<div class="fp-resp" id="ifr-'+_tc+'"><span class="fr-empty">—</span></div>';
+    grid.appendChild(p);
+  });
+}
+
+function _iaApp(tc,text,cls){
+  var el=document.getElementById('it-'+tc); if(!el) return;
+  var sp=document.createElement('span');
+  sp.className='tl'+(cls?' '+cls:'');
+  sp.textContent=text+'\\n';
+  el.appendChild(sp); el.scrollTop=el.scrollHeight;
+}
+
+function _iaSetState(tc,state){
+  var dot=document.getElementById('ipd-'+tc);
+  var badge=document.getElementById('ipb-'+tc);
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
+  if(dot){ dot.className='fp-dot '+state; }
+  if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
+}
+
+function _iaSetResponse(tc,responses){
+  var el=document.getElementById('ifr-'+tc);
+  var bar=document.getElementById('ifrs-'+tc);
+  if(!el||!responses||!responses.length) return;
+  var r=responses[responses.length-1];
+  var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+  if(bar){
+    bar.innerHTML='<span class="fr-scode '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-stime">'+r.time_ms+'ms</span>'
+      +'<span class="fr-sname">'+esc(r.name||'')+'</span>';
+  }
+  var bodyTxt=r.body||'';
+  if(bodyTxt){ try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){} }
+  el.innerHTML=bodyTxt?'<pre>'+esc(bodyTxt)+'</pre>':'<span class="fr-empty">Sin body</span>';
+}
+
+function _doRunIA(s){
+  if(running) return;
+  var accessEl=document.getElementById('ia-access');
+  if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
+  accessEl.style.borderColor='';
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
+  setIco(s.id,'running'); setActive(s.id);
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  _iaMeta().forEach(function(m){
+    var it=document.getElementById('it-'+m.tc); if(it) it.innerHTML='';
+    var ifr=document.getElementById('ifr-'+m.tc); if(ifr) ifr.innerHTML='<span class="fr-empty">—</span>';
+    var ifrs=document.getElementById('ifrs-'+m.tc); if(ifrs) ifrs.innerHTML='';
+    var ipr=document.getElementById('ipr-'+m.tc); if(ipr) ipr.classList.remove('show');
+    _iaSetState(m.tc,'idle');
+  });
+  if(currentEs){currentEs.close();currentEs=null;}
+  var _rawAccess=accessEl.value.trim();
+  var _selTcs=_iaMeta().filter(function(m){return _iaSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var _accessMap={};
+  _iaMeta().forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_IA_VNO_CODES[m.tc]); });
+  var _sc=(document.getElementById('ia-scenario')||{}).value||'Instalación';
+  var _sv=(document.getElementById('ia-svctype')||{}).value||'FTTH';
+  var _params='tcs='+encodeURIComponent(_selTcs)
+    +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
+    +'&scenario='+encodeURIComponent(_sc)
+    +'&service_type='+encodeURIComponent(_sv);
+  var es=new EventSource('/api/run/'+_iaSuiteId()+'?'+_params);
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      if(d.tc){ _iaApp(d.tc,d.t,col(d.t)); _iaSetState(d.tc,'running'); }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='tc_done'){
+      _iaSetState(d.tc,d.code===0?'passed':'failed');
+      if(d.has_report){
+        var ipr=document.getElementById('ipr-'+d.tc);
+        if(ipr){ipr.href='/api/report/'+d.sid;ipr.classList.add('show');}
+      }
+    } else if(d.e==='tc_response'){
+      _iaSetResponse(d.tc,d.responses);
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){ currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
 }
 
