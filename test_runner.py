@@ -38,6 +38,12 @@ QA_FACTIBILIDAD_FOLDER_MAP = {
     "03": "feasibility-Entel",
     "05": "feasibility-DTV",
 }
+QA_ASSIGNMENT_FOLDER_MAP = {
+    "00": "assigment-TCH",
+    "02": "assigment- KAO",
+    "03": "assigment-Entel",
+    "05": "assigment-DTV",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -586,7 +592,7 @@ SUITES = [
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_factibilidad.html"),"requires":None},
     {"id":"qa-ep-assignment",    "group":"qa-child","parent":"qa-fulfillment",
      "label":"Assignment",      "desc":"asignación de recursos ONT",
-     "env_type":"qa_vno","folder":"02-Assignment",
+     "env_type":"qa_assignment","folder":"02-Assignment",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_assignment.html"),"requires":None},
     {"id":"qa-ep-ia",            "group":"qa-child","parent":"qa-fulfillment",
@@ -866,6 +872,85 @@ async def api_run(suite_id: str, request: Request):
                         if b.get("mode") == "raw":
                             b["raw"] = new_body
         tmp_col = str(QA_DIR / f"_tmp_fact_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", folder_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_assignment":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        address_id    = overrides.pop("address_id", "")
+        speed_plan    = overrides.pop("speed_plan", "600/600")
+        service_ba    = overrides.pop("service_ba", "true") == "true"
+        service_voip  = overrides.pop("service_voip", "true") == "true"
+        service_iptv  = overrides.pop("service_iptv", "true") == "true"
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        folder_name   = QA_ASSIGNMENT_FOLDER_MAP.get(vno_code, "assigment- KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_access_id_vno": access_id_vno,
+            "u_id_vno": vno_code,
+            "u_operation_type": "Alta",
+            "u_scenario": "Alta de acceso",
+            "u_speed_plan": speed_plan,
+            "u_address_id": address_id,
+            "u_address_mcd": "OSP",
+            "u_service_ba": service_ba,
+            "u_service_voip": service_voip,
+            "u_service_iptv": service_iptv,
+            "u_service_type": "FTTH",
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Assignment" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == folder_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_asig_{vno_code}.json")
         _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
         _logo_svg = (
             b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
@@ -1604,6 +1689,15 @@ function selectSuite(id){
     var _eb0=document.getElementById('exec-btn'); if(_eb0) _eb0.disabled=true;
     return;
   }
+  if(id==='qa-ep-assignment'){
+    _isQAChild=true;
+    switchView('ep-form');
+    renderEPFVNOBar();
+    renderAssignmentForm();
+    setTop('','Assignment','Configura los parámetros y ejecuta');
+    var _eb0a=document.getElementById('exec-btn'); if(_eb0a) _eb0a.disabled=true;
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -2080,7 +2174,8 @@ function renderEPFVNOBar(){
       renderEPFVNOBar();
       renderVNOBar();
       renderEPVNOBar();
-      renderFactibilidadForm();
+      if(selectedId==='qa-ep-assignment') renderAssignmentForm();
+      else renderFactibilidadForm();
     };})(code);
     bar.appendChild(btn);
   });
@@ -2147,6 +2242,115 @@ function renderFactibilidadForm(){
 function runFactibilidad(params){
   if(running) return;
   var sid="qa-ep-factibilidad";
+  var s=suites.find(function(x){return x.id===sid;});
+  if(!s) return;
+  selectedId=sid; _isQAChild=true;
+  switchView("std");
+  renderVNOBar();
+  var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
+  suiteLogs[sid]=[];
+  document.getElementById("term").innerHTML="";
+  _doRun("/api/run/"+sid,params,s);
+}
+var QA_ASSIGNMENT_FOLDER={
+  '00':'assigment-TCH',
+  '02':'assigment- KAO',
+  '03':'assigment-Entel',
+  '05':'assigment-DTV',
+};
+var QA_SPEED_PLANS=['100/100','300/300','400/400','600/600','800/800','1000/1000'];
+function renderAssignmentForm(){
+  var container=document.getElementById("epf-container");
+  if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO;
+  var fldr=QA_ASSIGNMENT_FOLDER[vno]||"";
+  var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Assignment";
+  var sf=document.createElement("div"); sf.className="epf-folder";
+  sf.innerHTML='Folder: <span>'+fldr+'</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  // u_id_vno (auto)
+  var f1=document.createElement("div"); f1.className="epf-field";
+  var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
+  var v1=document.createElement("div"); v1.className="epf-readonly";
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
+  f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
+  // u_access_id_vno (text)
+  var f2=document.createElement("div"); f2.className="epf-field";
+  var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_access_id_vno";
+  var i2=document.createElement("input"); i2.type="text"; i2.className="epf-input"; i2.id="epf-asig-access";
+  i2.placeholder="ej. 02-AOQACAP-01";
+  f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
+  // u_address_id (text)
+  var f3=document.createElement("div"); f3.className="epf-field";
+  var l3=document.createElement("label"); l3.className="epf-label"; l3.textContent="u_address_id";
+  var i3=document.createElement("input"); i3.type="text"; i3.className="epf-input"; i3.id="epf-asig-addr";
+  i3.placeholder="ej. DIR02796497";
+  f3.appendChild(l3); f3.appendChild(i3); card.appendChild(f3);
+  // u_speed_plan (select)
+  var f4=document.createElement("div"); f4.className="epf-field";
+  var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_speed_plan";
+  var s4=document.createElement("select"); s4.className="epf-select"; s4.id="epf-asig-speed";
+  QA_SPEED_PLANS.forEach(function(sp){
+    var o=document.createElement("option"); o.value=sp; o.textContent=sp;
+    if(sp==="600/600") o.selected=true;
+    s4.appendChild(o);
+  });
+  f4.appendChild(l4); f4.appendChild(s4); card.appendChild(f4);
+  // u_service_ba (select true/false)
+  var f5=document.createElement("div"); f5.className="epf-field";
+  var l5=document.createElement("label"); l5.className="epf-label"; l5.textContent="u_service_ba";
+  var s5=document.createElement("select"); s5.className="epf-select"; s5.id="epf-asig-ba";
+  ['true','false'].forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;if(v==="true")o.selected=true;s5.appendChild(o);});
+  f5.appendChild(l5); f5.appendChild(s5); card.appendChild(f5);
+  // u_service_voip (select true/false)
+  var f6=document.createElement("div"); f6.className="epf-field";
+  var l6=document.createElement("label"); l6.className="epf-label"; l6.textContent="u_service_voip";
+  var s6=document.createElement("select"); s6.className="epf-select"; s6.id="epf-asig-voip";
+  ['true','false'].forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;if(v==="true")o.selected=true;s6.appendChild(o);});
+  f6.appendChild(l6); f6.appendChild(s6); card.appendChild(f6);
+  // u_service_iptv (select true/false)
+  var f7=document.createElement("div"); f7.className="epf-field";
+  var l7=document.createElement("label"); l7.className="epf-label"; l7.textContent="u_service_iptv";
+  var s7=document.createElement("select"); s7.className="epf-select"; s7.id="epf-asig-iptv";
+  ['true','false'].forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;if(v==="true")o.selected=true;s7.appendChild(o);});
+  f7.appendChild(l7); f7.appendChild(s7); card.appendChild(f7);
+  // fixed fields
+  [['u_operation_type','Alta'],['u_scenario','Alta de acceso'],['u_address_mcd','OSP'],['u_service_type','FTTH']].forEach(function(pair){
+    var fx=document.createElement("div"); fx.className="epf-field";
+    var lx=document.createElement("label"); lx.className="epf-label"; lx.textContent=pair[0]+" (fijo)";
+    var vx=document.createElement("div"); vx.className="epf-readonly";
+    vx.style.color="var(--txt3)"; vx.style.borderStyle="dashed"; vx.textContent=pair[1];
+    fx.appendChild(lx); fx.appendChild(vx); card.appendChild(fx);
+  });
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
+  eb.disabled=running;
+  eb.onclick=function(){
+    var accessEl=document.getElementById("epf-asig-access");
+    var addrEl=document.getElementById("epf-asig-addr");
+    var speedEl=document.getElementById("epf-asig-speed");
+    var baEl=document.getElementById("epf-asig-ba");
+    var voipEl=document.getElementById("epf-asig-voip");
+    var iptvEl=document.getElementById("epf-asig-iptv");
+    if(!accessEl||!addrEl||!speedEl) return;
+    runAssignment({
+      vno:_globalVNO,
+      access_id_vno:accessEl.value,
+      address_id:addrEl.value,
+      speed_plan:speedEl.value,
+      service_ba:baEl.value,
+      service_voip:voipEl.value,
+      service_iptv:iptvEl.value,
+    });
+  };
+  card.appendChild(eb);
+  container.appendChild(card);
+}
+function runAssignment(params){
+  if(running) return;
+  var sid="qa-ep-assignment";
   var s=suites.find(function(x){return x.id===sid;});
   if(!s) return;
   selectedId=sid; _isQAChild=true;
