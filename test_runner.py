@@ -657,6 +657,20 @@ SUITES = [
      "env_type":"qa_vno","folder":"12-APIS TCH PRE-CUTOVER",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_precutovertch.html"),"requires":None},
+    # ── Suite Factibilidad — casos de prueba TC-01..TC-04 ──────────────────────
+    {"id":"qa-fact-suite",  "group":"qa-child","parent":"qa-fact",
+     "label":"▶ Ejecutar (4 VNOs · paralelo)",
+     "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
+     "env_type":"qa_fact_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"factibilidad"/"index.html"),"requires":None},
+    {"id":"qa-fact-tc01","group":"hidden","label":"TC-01 Factibilidad Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-01.html")},
+    {"id":"qa-fact-tc02","group":"hidden","label":"TC-02 Factibilidad KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-02.html")},
+    {"id":"qa-fact-tc03","group":"hidden","label":"TC-03 Factibilidad DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-03.html")},
+    {"id":"qa-fact-tc04","group":"hidden","label":"TC-04 Factibilidad TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-04.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -824,6 +838,7 @@ async def api_run(suite_id: str, request: Request):
         return JSONResponse({"error": "Suite bloqueada: " + suite.get("blocker", "")}, status_code=400)
 
     overrides = dict(request.query_params)
+    _tc_runs = None  # set by qa_fact_suite handler; triggers parallel SSE path
 
     if suite.get("env_type") == "qa_vno":
         vno_code = overrides.pop("vno", "02")
@@ -1217,6 +1232,170 @@ async def api_run(suite_id: str, request: Request):
             report=rp_out,
             requires=None,
         )
+
+    elif suite.get("env_type") == "qa_fact_suite":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        _fact_dir = QA_DIR / "factibilidad"
+        _fact_dir.mkdir(parents=True, exist_ok=True)
+        _ADDR_ID = "DIR02803636"
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        _TC_DEFS = [
+            {"tc": "TC-01", "vno": "03", "vno_label": "Entel",  "sid": "qa-fact-tc01"},
+            {"tc": "TC-02", "vno": "02", "vno_label": "KAO",    "sid": "qa-fact-tc02"},
+            {"tc": "TC-03", "vno": "05", "vno_label": "DTV",    "sid": "qa-fact-tc03"},
+            {"tc": "TC-04", "vno": "00", "vno_label": "TCH",    "sid": "qa-fact-tc04"},
+        ]
+        _tc_runs = []
+        for _tcd in _TC_DEFS:
+            _vno       = _tcd["vno"]
+            _env_file  = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _folder    = QA_FACTIBILIDAD_FOLDER_MAP.get(_vno, "feasibility-KAO")
+            _rp_out    = str(_fact_dir / f"{_tcd['tc']}.html")
+            _json_out  = str(_fact_dir / f"{_tcd['tc']}.json")
+            _env_data  = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev        = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url  = _ev.get("apimURL", "")
+            _auth_b64  = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _token = ""
+            try:
+                _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _tok_req = _ur.Request(f"{_apim_url}/token", data=_body_b,
+                    headers={"Authorization": f"Basic {_auth_b64}",
+                             "Content-Type": "application/x-www-form-urlencoded"})
+                _ctx = _sl.create_default_context()
+                _ctx.check_hostname = False; _ctx.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_tok_req, context=_ctx, timeout=15) as _r:
+                    _token = _j.loads(_r.read()).get("access_token", "")
+            except Exception as _te:
+                print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
+            _col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+            _col_tmp  = _cp.deepcopy(_col_src)
+            _new_body = _j.dumps({
+                "u_id_vno": _vno,
+                "u_operation_type": "Direccion Exacta",
+                "u_address_id": _ADDR_ID,
+                "u_address_mcd": "OSP",
+                "u_service_type": "FTTH",
+            }, indent=4, ensure_ascii=False)
+            for _sec in _col_tmp.get("item", []):
+                if "Factibilidad" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw":
+                                _b["raw"] = _new_body
+            _tmp_col = str(QA_DIR / f"_tmp_fact_suite_{_vno}.json")
+            _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _tc_runs.append({
+                "tc":      _tcd["tc"],
+                "vno":     _vno,
+                "vno_lbl": _tcd["vno_label"],
+                "sid":     _tcd["sid"],
+                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "cmd":     [NEWMAN, "run", _tmp_col,
+                            "-e", _env_file,
+                            "--folder", _folder,
+                            "--env-var", f"Token={_token}",
+                            "--env-var", f"idvno={_vno}",
+                            "--insecure",
+                            "--reporters", "cli,json,htmlextra",
+                            "--reporter-json-export", _json_out,
+                            "--reporter-htmlextra-export", _rp_out,
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']} – OnnetFibra",
+                            "--reporter-htmlextra-logo", _logo_uri],
+                "cwd":     str(QA_DIR),
+                "rp_out":  _rp_out,
+            })
+
+    if _tc_runs is not None:
+        async def sse_parallel():
+            yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'QA Factibilidad — {len(_tc_runs)} TCs en paralelo — DIR02803636'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+
+            _env = {**os.environ,
+                    "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
+                    "PYTHONUNBUFFERED": "1",
+                    "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
+            _out_q = asyncio.Queue()
+            _results = []
+
+            async def _run_tc(tr):
+                await _out_q.put(("L", f"▶ {tr['label']} iniciando…"))
+                async for _k, _v in _iter_proc(tr["cmd"], tr["cwd"], _env):
+                    if _k == "L":
+                        await _out_q.put(("L", f"[{tr['tc']}] {_v}"))
+                    elif _k == "D":
+                        await _out_q.put(("D", tr, _v))
+                        return
+                    elif _k == "E":
+                        await _out_q.put(("L", f"[{tr['tc']}] ERROR: {_v}"))
+                        await _out_q.put(("D", tr, -1))
+                        return
+
+            for _tr in _tc_runs:
+                asyncio.create_task(_run_tc(_tr))
+
+            _remaining = len(_tc_runs)
+            while _remaining > 0:
+                _item = await _out_q.get()
+                if _item[0] == "L":
+                    yield f"data: {json.dumps({'e':'line','t':_item[1]})}\n\n"
+                elif _item[0] == "D":
+                    _tr2, _code = _item[1], _item[2]
+                    _remaining -= 1
+                    _has_rp = bool(Path(_tr2["rp_out"]).exists())
+                    _sym = "✓" if _code == 0 else "✗"
+                    _results.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                                     "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                    yield f"data: {json.dumps({'e':'line','t':f\"{_sym} {_tr2['label']} — código {_code}\"})}\n\n"
+
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _n_ok   = sum(1 for r in _results if r["code"] == 0)
+            _n_fail = len(_results) - _n_ok
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok}/{len(_results)} TCs OK'})}\n\n"
+
+            _rows = ""
+            for _r in sorted(_results, key=lambda x: x["tc"]):
+                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                          if _r["has_rp"] else "—")
+                _rows += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                          f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+
+            _idx_html = (
+                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                '<title>QA Factibilidad</title>'
+                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                '</style></head><body>'
+                '<h1>QA Factibilidad</h1>'
+                f'<p>Dirección: DIR02803636 &nbsp;·&nbsp; {_n_ok}/{len(_results)} TCs OK</p>'
+                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                f'{_rows}</table></body></html>'
+            )
+            (QA_DIR / "factibilidad" / "index.html").write_text(_idx_html, encoding="utf-8")
+            _has_idx = (QA_DIR / "factibilidad" / "index.html").exists()
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id})}\n\n"
+            await asyncio.sleep(0.15)
+
+        return StreamingResponse(sse_parallel(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-transform",
+                     "X-Accel-Buffering": "no",
+                     "Connection": "keep-alive"})
 
     async def sse():
         yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
@@ -1870,19 +2049,22 @@ function renderSB(){
       row.id='si-'+s.id;
       row.className='si'+(s.group==='bloqueado'?' si-blk':'');
       row.title=s.group==='bloqueado'?('Bloqueado: '+(s.blocker||'')):s.label;
-      if(s.id==='qa-endpoints'){
+      if(s.id==='qa-endpoints'||s.id==='qa-fulfillment'){
         var isOpen=!!_accordionOpen[s.id];
+        var _accTitle=s.id==='qa-endpoints'?'Expandir endpoints':'Expandir suites de prueba';
         row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
           +'<div class="si-txt" style="flex:1">'
           +'<div class="si-name">'+esc(s.label)+'</div>'
           +'<div class="si-desc">'+esc(s.desc)+'</div></div>'
-          +'<button class="acc-toggle" title="Expandir endpoints">'
+          +'<button class="acc-toggle" title="'+_accTitle+'">'
           +(isOpen?'&#9660;':'&#9654;')+'</button>';
         row.querySelector('.si-txt').onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
         row.querySelector('.acc-toggle').onclick=(function(pid){return function(e){e.stopPropagation();toggleAccordion(pid);};})(s.id);
         el.appendChild(row);
         if(isOpen){
-          var _sections=[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}];
+          var _sections=s.id==='qa-endpoints'
+            ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
+            :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
             if(!kids.length) return;
