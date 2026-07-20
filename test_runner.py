@@ -68,6 +68,12 @@ QA_RETRIEVE_REQUEST_MAP = {
     "03": "RetrieveAcces KAO",
     "05": "RetrieveAcces KAO",
 }
+QA_DM_REQUEST_MAP = {
+    "00": "DeviceModification TCH",
+    "02": "DeviceModification KAO",
+    "03": "DeviceModification LASER",
+    "05": "DeviceModification DTV",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -747,6 +753,23 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-19.html")},
     {"id":"qa-activ-tc20","group":"hidden","label":"TC-20 Activación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-20.html")},
+    # ── QA Device Modification — suite paralela ─────────────────────────────────
+    {"id":"qa-dm-par",   "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Suite Device Modification","desc":"TC-21..TC-24 · 6 pasos por VNO · paralelo",
+     "cmd":None,"cwd":None,"report":None,"requires":None},
+    {"id":"qa-dm-suite", "group":"qa-child","parent":"qa-dm-par",
+     "label":"▶ Device Modification (4 VNOs · paralelo)",
+     "desc":"TC-21..TC-24 · Activación + Device Modification + Consulta Acceso",
+     "env_type":"qa_dm_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"device_mod"/"index.html"),"requires":None},
+    {"id":"qa-dm-tc21","group":"hidden","label":"TC-21 Device Mod Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-21.html")},
+    {"id":"qa-dm-tc22","group":"hidden","label":"TC-22 Device Mod KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-22.html")},
+    {"id":"qa-dm-tc23","group":"hidden","label":"TC-23 Device Mod DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-23.html")},
+    {"id":"qa-dm-tc24","group":"hidden","label":"TC-24 Device Mod TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-24.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -1937,6 +1960,357 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
+    # ── Suite Device Modification — cadena completa 7 pasos por VNO en paralelo ─
+    _dm_runs = None
+    if suite.get("env_type") == "qa_dm_suite":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+
+        def _find_req_in_col(col, req_name):
+            for it in col.get("item", []):
+                if it.get("name") == req_name and "request" in it:
+                    return it
+                if "item" in it:
+                    found = _find_req_in_col(it, req_name)
+                    if found:
+                        return found
+            return None
+
+        _logo_svg_dm = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri_dm = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_dm).decode()
+        _access_ids_raw_dm = overrides.get("access_ids", "")
+        try:
+            _access_ids_map_dm = _j.loads(_access_ids_raw_dm) if _access_ids_raw_dm else {}
+        except Exception:
+            _access_ids_map_dm = {}
+        _dm_speed_plan    = overrides.get("speed_plan", "600/600")
+        _dm_serial_suffix = overrides.get("serial_suffix", "0000")
+        _dm_new_suffix    = overrides.get("serial_dm_suffix", "0000")
+        _dm_svc_ba   = overrides.get("service_ba",   "true").lower() != "false"
+        _dm_svc_voip = overrides.get("service_voip", "true").lower() != "false"
+        _dm_svc_iptv = overrides.get("service_iptv", "true").lower() != "false"
+        _TC_DEFS_DM = [
+            {"tc":"TC-21","vno":"03","vno_label":"Entel","sid":"qa-dm-tc21"},
+            {"tc":"TC-22","vno":"02","vno_label":"KAO",  "sid":"qa-dm-tc22"},
+            {"tc":"TC-23","vno":"05","vno_label":"DTV",  "sid":"qa-dm-tc23"},
+            {"tc":"TC-24","vno":"00","vno_label":"TCH",  "sid":"qa-dm-tc24"},
+        ]
+        _tcs_param_dm  = overrides.get("tcs", "")
+        _tcs_filter_dm = set(_tcs_param_dm.split(",")) if _tcs_param_dm else {d["tc"] for d in _TC_DEFS_DM}
+        _TC_DEFS_DM    = [d for d in _TC_DEFS_DM if d["tc"] in _tcs_filter_dm] or _TC_DEFS_DM
+        _dm_dir = QA_DIR / "device_mod"
+        _dm_dir.mkdir(parents=True, exist_ok=True)
+        _col_ff_dm  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        _col_con_dm = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        _ADDR_ID_DM = "DIR02803636"
+        _dm_runs = []
+        for _tcd in _TC_DEFS_DM:
+            _vno          = _tcd["vno"]
+            _env_file     = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _access_id    = _access_ids_map_dm.get(_tcd["tc"], "")
+            _fact_folder  = QA_FACTIBILIDAD_FOLDER_MAP.get(_vno, "feasibility-KAO")
+            _asig_folder  = QA_ASSIGNMENT_FOLDER_MAP.get(_vno, "assigment- KAO")
+            _ia_subfolder = QA_IA_VNO_SUBFOLDER.get(_vno, "KAO")
+            _activ_req_nm = QA_ACTIVACION_REQUEST_MAP.get(_vno, "Activation KAO")
+            _dm_req_nm    = QA_DM_REQUEST_MAP.get(_vno, "DeviceModification KAO")
+            _env_data     = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev           = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url     = _ev.get("apimURL", "")
+            _auth_b64     = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _token = ""
+            try:
+                _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _tok_req = _ur.Request(f"{_apim_url}/token", data=_body_b,
+                    headers={"Authorization": f"Basic {_auth_b64}",
+                             "Content-Type": "application/x-www-form-urlencoded"})
+                _ctx = _sl.create_default_context()
+                _ctx.check_hostname = False; _ctx.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_tok_req, context=_ctx, timeout=15) as _r:
+                    _token = _j.loads(_r.read()).get("access_token", "")
+            except Exception as _te:
+                print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
+
+            _base_cmd_dm = [NEWMAN, "run", "",
+                            "-e", _env_file,
+                            "--env-var", f"Token={_token}",
+                            "--env-var", f"idvno={_vno}",
+                            "--insecure",
+                            "--reporters", "cli,json,htmlextra",
+                            "--reporter-htmlextra-logo", _logo_uri_dm]
+
+            # ── Paso 1: Factibilidad ────────────────────────────────────────────
+            _col_fact_dm = _cp.deepcopy(_col_ff_dm)
+            _fact_body_dm = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
+                                      "u_address_id": _ADDR_ID_DM, "u_address_mcd": "OSP",
+                                      "u_service_type": "FTTH"}, indent=4, ensure_ascii=False)
+            for _sec in _col_fact_dm.get("item", []):
+                if "Factibilidad" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _fact_folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw": _b["raw"] = _fact_body_dm
+            _tmp_fact_dm = str(QA_DIR / f"_tmp_dm_fact_{_vno}.json")
+            _j.dump(_col_fact_dm, open(_tmp_fact_dm, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_fact_dm = str(_dm_dir / f"{_tcd['tc']}_fact.html")
+            _js_fact_dm = str(_dm_dir / f"{_tcd['tc']}_fact.json")
+            _cmd_fact_dm = list(_base_cmd_dm); _cmd_fact_dm[2] = _tmp_fact_dm
+            _cmd_fact_dm += ["--folder", _fact_folder,
+                             "--reporter-json-export", _js_fact_dm,
+                             "--reporter-htmlextra-export", _rp_fact_dm,
+                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
+
+            # ── Paso 2: Asignación ──────────────────────────────────────────────
+            _col_asig_dm = _cp.deepcopy(_col_ff_dm)
+            _asig_body_dm = _j.dumps({
+                "u_access_id_vno": _access_id, "u_id_vno": _vno,
+                "u_operation_type": "Alta", "u_scenario": "Alta de acceso",
+                "u_speed_plan": _dm_speed_plan, "u_address_id": _ADDR_ID_DM,
+                "u_address_mcd": "OSP",
+                "u_service_ba": _dm_svc_ba, "u_service_voip": _dm_svc_voip,
+                "u_service_iptv": _dm_svc_iptv, "u_service_type": "FTTH",
+            }, indent=4, ensure_ascii=False)
+            for _sec in _col_asig_dm.get("item", []):
+                if "Assignment" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _asig_folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw": _b["raw"] = _asig_body_dm
+            _tmp_asig_dm = str(QA_DIR / f"_tmp_dm_asig_{_vno}.json")
+            _j.dump(_col_asig_dm, open(_tmp_asig_dm, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_asig_dm = str(_dm_dir / f"{_tcd['tc']}_asig.html")
+            _js_asig_dm = str(_dm_dir / f"{_tcd['tc']}_asig.json")
+            _cmd_asig_dm = list(_base_cmd_dm); _cmd_asig_dm[2] = _tmp_asig_dm
+            _cmd_asig_dm += ["--folder", _asig_folder,
+                             "--reporter-json-export", _js_asig_dm,
+                             "--reporter-htmlextra-export", _rp_asig_dm,
+                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
+
+            # ── Paso 3: IA Inicio ───────────────────────────────────────────────
+            _col_ia_dm = _cp.deepcopy(_col_ff_dm)
+            _ia_body_dm = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
+                                     "u_scenario": "Instalación", "u_service_type": "FTTH"},
+                                    indent=4, ensure_ascii=False)
+            for _sec in _col_ia_dm.get("item", []):
+                if "Interven" in _sec.get("name", ""):
+                    _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_subfolder]
+                    for _sf in _sec.get("item", []):
+                        for _req in _sf.get("item", []):
+                            if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
+                                _b = _req.get("request", {}).get("body", {})
+                                if _b.get("mode") == "raw": _b["raw"] = _ia_body_dm
+            _tmp_ia_dm = str(QA_DIR / f"_tmp_dm_ia_{_vno}.json")
+            _j.dump(_col_ia_dm, open(_tmp_ia_dm, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_ia_dm = str(_dm_dir / f"{_tcd['tc']}_ia.html")
+            _js_ia_dm = str(_dm_dir / f"{_tcd['tc']}_ia.json")
+            _cmd_ia_dm = list(_base_cmd_dm); _cmd_ia_dm[2] = _tmp_ia_dm
+            _cmd_ia_dm += ["--folder", "01-Inicio Intervención",
+                           "--reporter-json-export", _js_ia_dm,
+                           "--reporter-htmlextra-export", _rp_ia_dm,
+                           "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
+
+            # ── Pasos 4+5: Activación × 2 en mismo Newman run ──────────────────
+            _activ_body_dm = _j.dumps({
+                "u_id_vno": _vno, "u_access_id_vno": _access_id,
+                "u_operation_type": "A", "u_speed_plan": _dm_speed_plan,
+                "u_service_ba": _dm_svc_ba, "u_service_voip": _dm_svc_voip,
+                "u_service_iptv": _dm_svc_iptv,
+                **( {"u_serial_number": QA_ACTIV_SERIAL_BASE[_vno] + _dm_serial_suffix}
+                    if _vno in QA_ACTIV_SERIAL_BASE else {} )
+            }, indent=4, ensure_ascii=False)
+            _act_req_dm = _find_req_in_col(_cp.deepcopy(_col_ff_dm), _activ_req_nm)
+            if _act_req_dm:
+                _b = _act_req_dm.get("request", {}).get("body", {})
+                if _b.get("mode") == "raw": _b["raw"] = _activ_body_dm
+            _act_req_dm2 = _cp.deepcopy(_act_req_dm) if _act_req_dm else None
+            if _act_req_dm2: _act_req_dm2["name"] = _act_req_dm2.get("name","") + " (idempotencia)"
+            _tmp_act_dm = str(QA_DIR / f"_tmp_dm_act_{_vno}.json")
+            _act_items_dm = [i for i in [_act_req_dm, _act_req_dm2] if i]
+            _j.dump({"info": _col_ff_dm.get("info", {}), "item": _act_items_dm},
+                    open(_tmp_act_dm, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_act_dm  = str(_dm_dir / f"{_tcd['tc']}_act.html")
+            _js_act_dm  = str(_dm_dir / f"{_tcd['tc']}_act.json")
+            _cmd_act_dm = list(_base_cmd_dm); _cmd_act_dm[2] = _tmp_act_dm
+            _cmd_act_dm += ["--reporter-json-export", _js_act_dm,
+                            "--reporter-htmlextra-export", _rp_act_dm,
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación × 2 · {_tcd['vno_label']}"]
+
+            # ── Paso 6: Device Modification (una sola vez) ─────────────────────
+            _dm_new_serial = QA_ACTIV_SERIAL_BASE[_vno] + _dm_new_suffix if _vno in QA_ACTIV_SERIAL_BASE else None
+            _dm_body_j = _j.dumps({
+                "u_id_vno": _vno, "u_access_id_vno": _access_id,
+                **( {"u_serial_number": _dm_new_serial} if _dm_new_serial else {} )
+            }, indent=4, ensure_ascii=False)
+            _dm_req = _find_req_in_col(_cp.deepcopy(_col_ff_dm), _dm_req_nm)
+            if _dm_req:
+                _b = _dm_req.get("request", {}).get("body", {})
+                if _b.get("mode") == "raw": _b["raw"] = _dm_body_j
+            _tmp_dm_req = str(QA_DIR / f"_tmp_dm_dm_{_vno}.json")
+            _j.dump({"info": _col_ff_dm.get("info", {}), "item": [_dm_req] if _dm_req else []},
+                    open(_tmp_dm_req, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_dm  = str(_dm_dir / f"{_tcd['tc']}.html")
+            _js_dm  = str(_dm_dir / f"{_tcd['tc']}.json")
+            _cmd_dm = list(_base_cmd_dm); _cmd_dm[2] = _tmp_dm_req
+            _cmd_dm += ["--reporter-json-export", _js_dm,
+                        "--reporter-htmlextra-export", _rp_dm,
+                        "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Device Modification · {_tcd['vno_label']}"]
+
+            # ── Paso 8: Consulta Acceso (GET) ───────────────────────────────────
+            _ca_req = _find_req_in_col(_cp.deepcopy(_col_con_dm), "Consulta Acceso")
+            _tmp_ca = str(QA_DIR / f"_tmp_dm_ca_{_vno}.json")
+            _j.dump({"info": _col_con_dm.get("info", {}), "item": [_ca_req] if _ca_req else []},
+                    open(_tmp_ca, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_ca  = str(_dm_dir / f"{_tcd['tc']}_ca.html")
+            _js_ca  = str(_dm_dir / f"{_tcd['tc']}_ca.json")
+            _cmd_ca = list(_base_cmd_dm); _cmd_ca[2] = _tmp_ca
+            _cmd_ca += ["--env-var", f"access_id_vno={_access_id}",
+                        "--reporter-json-export", _js_ca,
+                        "--reporter-htmlextra-export", _rp_ca,
+                        "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Consulta Acceso · {_tcd['vno_label']}"]
+
+            _dm_runs.append({
+                "tc":       _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
+                "sid":      _tcd["sid"],
+                "label":    f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "act_serial": (QA_ACTIV_SERIAL_BASE.get(_vno,"") + _dm_serial_suffix) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)",
+                "dm_serial":  (_dm_new_serial or "(sin serial)"),
+                "steps": [
+                    ("1/7 Factibilidad",     _cmd_fact_dm, _js_fact_dm),
+                    ("2/7 Asignación",       _cmd_asig_dm, _js_asig_dm),
+                    ("3/7 IA Inicio",        _cmd_ia_dm,   _js_ia_dm),
+                    ("4+5/7 Activación × 2", _cmd_act_dm,  _js_act_dm),
+                    ("6/7 Device Modif.",    _cmd_dm,      _js_dm),
+                    ("7/7 Consulta Acceso",  _cmd_ca,      _js_ca),
+                ],
+                "cwd":    str(QA_DIR),
+                "rp_out": _rp_dm,
+            })
+
+    if _dm_runs is not None:
+        async def sse_dm():
+            yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 7 pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _env_dm = {**os.environ,
+                       "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
+                       "PYTHONUNBUFFERED": "1",
+                       "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
+            _out_q_dm = asyncio.Queue()
+            _results_dm = []
+
+            async def _run_dm(tr):
+                await _out_q_dm.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
+                _last_json = None
+                _overall   = 1
+                for _step_lbl, _step_cmd, _step_json in tr["steps"]:
+                    if "6/7" in _step_lbl:
+                        await _out_q_dm.put(("L", tr["tc"], f"── Serial actual (activación): {tr['act_serial']} ──"))
+                        await _out_q_dm.put(("L", tr["tc"], f"── Serial nuevo (DM): {tr['dm_serial']} ──"))
+                    await _out_q_dm.put(("L", tr["tc"], f"── Paso {_step_lbl} ──"))
+                    _step_code = 1
+                    async for _k, _v in _iter_proc(_step_cmd, tr["cwd"], _env_dm):
+                        if _k == "L":
+                            await _out_q_dm.put(("L", tr["tc"], _v))
+                        elif _k == "D":
+                            _step_code = _v
+                    if _step_json:
+                        _last_json = _step_json
+                    # Paso 4+5 (Activación × 2) puede fallar por idempotencia — no detiene el TC
+                    if "4+5" not in _step_lbl and _step_code != 0:
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {_step_lbl} falló (código {_step_code}) — deteniendo"))
+                        await _out_q_dm.put(("D", tr, 1, _last_json))
+                        return
+                    if "4+5" in _step_lbl:
+                        _overall = 0
+                await _out_q_dm.put(("D", tr, _overall, _last_json))
+
+            _tasks_dm = [asyncio.create_task(_run_dm(tr)) for tr in _dm_runs]
+            _remaining_dm = len(_dm_runs)
+            while _remaining_dm > 0:
+                _item = await _out_q_dm.get()
+                if _item[0] == "L":
+                    yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
+                elif _item[0] == "D":
+                    _remaining_dm -= 1
+                    _tr2, _code, _last_json = _item[1], _item[2], _item[3]
+                    _has_rp = bool(Path(_tr2["rp_out"]).exists())
+                    _sym = "✓" if _code == 0 else "✗"
+                    _results_dm.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                                        "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                    _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
+                    yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
+                    yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
+                    try:
+                        _jp = Path(_last_json) if _last_json else None
+                        if _jp and _jp.exists():
+                            _jdata = _j.loads(_jp.read_text(encoding="utf-8"))
+                            _rsps = []
+                            for _ex in _jdata.get("run", {}).get("executions", []):
+                                _resp  = _ex.get("response") or {}
+                                _stream = _resp.get("stream") or {}
+                                if isinstance(_stream, dict) and _stream.get("type") == "Buffer":
+                                    try: _rbody = bytes(_stream["data"]).decode("utf-8", errors="replace")
+                                    except Exception: _rbody = ""
+                                else:
+                                    _rbody = _resp.get("body", "") or ""
+                                _req2  = _ex.get("request") or {}
+                                _url2  = _req2.get("url") or {}
+                                _url_r = _url2.get("raw", "") if isinstance(_url2, dict) else str(_url2)
+                                _rsps.append({
+                                    "name":    _ex.get("item", {}).get("name", ""),
+                                    "method":  _req2.get("method", "GET"),
+                                    "url":     _url_r[:200],
+                                    "code":    _resp.get("code", 0),
+                                    "status":  _resp.get("status", ""),
+                                    "time_ms": _resp.get("responseTime", 0),
+                                    "body":    _rbody[:6144],
+                                })
+                            if _rsps:
+                                yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                    except Exception:
+                        pass
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _n_ok_dm   = sum(1 for r in _results_dm if r["code"] == 0)
+            _n_fail_dm = len(_results_dm) - _n_ok_dm
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_dm}/{len(_results_dm)} TCs OK'})}\n\n"
+            _rows_dm = ""
+            for _r in sorted(_results_dm, key=lambda x: x["tc"]):
+                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                          if _r["has_rp"] else "—")
+                _rows_dm += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                             f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+            _idx_dm = (
+                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                '<title>QA Device Modification</title>'
+                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                '</style></head><body>'
+                '<h1>QA Device Modification</h1>'
+                f'<p>{_n_ok_dm}/{len(_results_dm)} TCs OK</p>'
+                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                f'{_rows_dm}</table></body></html>'
+            )
+            (_dm_dir / "index.html").write_text(_idx_dm, encoding="utf-8")
+            _has_idx_dm = (_dm_dir / "index.html").exists()
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id})}\n\n"
+            await asyncio.sleep(0.15)
+
+        return StreamingResponse(sse_dm(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-transform",
+                     "X-Accel-Buffering": "no",
+                     "Connection": "keep-alive"})
+
     if _tc_runs is not None:
         async def sse_parallel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
@@ -2712,6 +3086,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="activ-sel-bar"></div>
       <div id="activ-grid"></div>
     </div>
+    <!-- Vista Device Modification — 4 consolas paralelas -->
+    <div id="dm-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="dm-form-bar"></div>
+      <div id="dm-access-preview"></div>
+      <div id="dm-sel-bar"></div>
+      <div id="dm-grid"></div>
+    </div>
     <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="asig-form-bar"></div>
@@ -2805,7 +3186,7 @@ function renderSB(){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
             :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'}]
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -2931,6 +3312,16 @@ function selectSuite(id){
     _syncActivExecBtn();
     return;
   }
+  if(id==='qa-dm-suite'){
+    _isQAChild=false;
+    switchView('dm');
+    renderDmFormBar();
+    renderDmSelBar();
+    renderDmView();
+    setTop('','Suite: Device Modification','TC-21..TC-24 · presiona Ejecutar');
+    _syncDmExecBtn();
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -3051,6 +3442,11 @@ function executeSelected(){
     if(_sac) _doRunActiv(_sac);
     return;
   }
+  if(selectedId==='qa-dm-suite'){
+    var _sdm=suites.find(function(x){return x.id==='qa-dm-suite';});
+    if(_sdm) _doRunDm(_sdm);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -3086,9 +3482,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -3891,6 +4287,207 @@ function _doRunActiv(s){
       }
     } else if(d.e==='tc_response'){
       _activSetResponse(d.tc,d.responses);
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){ currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
+  };
+}
+
+\ ── Suite Device Modification: vista multi-consola ──────────────────────────
+var _DM_META = [
+  {tc:'TC-21', label:'TC-21 · Entel', vno:'VNO 03', sid:'qa-dm-tc21', color:'#FF9F8B'},
+  {tc:'TC-22', label:'TC-22 · KAO',   vno:'VNO 02', sid:'qa-dm-tc22', color:'#85E89D'},
+  {tc:'TC-23', label:'TC-23 · DTV',   vno:'VNO 05', sid:'qa-dm-tc23', color:'#FFD580'},
+  {tc:'TC-24', label:'TC-24 · TCH',   vno:'VNO 00', sid:'qa-dm-tc24', color:'#79C8FF'},
+];
+var _dmSel={};
+(function(){ _DM_META.forEach(function(m){ _dmSel[m.tc]=true; }); })();
+var _DM_VNO_CODES={'TC-21':'03','TC-22':'02','TC-23':'05','TC-24':'00'};
+var _DM_SERIAL_BASE={'TC-21':'ZTEG1104','TC-22':'ZTEGD719','TC-23':'HTWC000A'};
+
+function renderDmFormBar(){
+  var bar=document.getElementById('dm-form-bar'); if(!bar) return;
+  bar.innerHTML=
+    '<span class="afb-lbl">Access ID:</span>'
+    +'<input class="wide" id="dm-access" placeholder="ej: 03-AOQACAP-03" />'
+    +'<span class="afb-lbl">Speed Plan:</span>'
+    +'<input id="dm-speed" style="width:90px" placeholder="600/600" value="600/600" />'
+    +'<span class="afb-lbl">Servicios:</span>'
+    +'<label class="activ-svc"><input type="checkbox" id="dm-sba" checked> BA</label>'
+    +'<label class="activ-svc"><input type="checkbox" id="dm-svoip" checked> VoIP</label>'
+    +'<label class="activ-svc"><input type="checkbox" id="dm-siptv" checked> IPTV</label>'
+    +'<span class="afb-lbl" style="margin-left:8px">Serial Activ. (últ. 4):</span>'
+    +'<input id="dm-serial-activ" style="width:60px" maxlength="4" placeholder="0000" />'
+    +'<span class="afb-lbl" style="margin-left:8px">Serial DM (últ. 4):</span>'
+    +'<input id="dm-serial-dm" style="width:60px" maxlength="4" placeholder="0000" />';
+  document.getElementById('dm-access').oninput=_updateDmAccessPreview;
+  document.getElementById('dm-serial-activ').oninput=_updateDmAccessPreview;
+  document.getElementById('dm-serial-dm').oninput=_updateDmAccessPreview;
+  _updateDmAccessPreview();
+}
+
+function _updateDmAccessPreview(){
+  var el=document.getElementById('dm-access-preview'); if(!el) return;
+  var raw=(document.getElementById('dm-access')||{}).value||'';
+  var sActiv=(document.getElementById('dm-serial-activ')||{}).value||'';
+  var sDm=(document.getElementById('dm-serial-dm')||{}).value||'';
+  var h='';
+  _DM_META.forEach(function(m){
+    var resolved=_resolveAccessId(raw.trim(),_DM_VNO_CODES[m.tc]);
+    var serActiv=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+esc(sActiv)):'(sin serial)';
+    var serDm=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+esc(sDm)):'(sin serial)';
+    h+='<span class="aap-item"><span class="aap-vno">'+esc(m.label)+':</span>'
+      +'<span class="aap-id">'+esc(resolved)+'</span>'
+      +'<span class="aap-serial">&#128273; '+serActiv+'</span>'
+      +'<span class="aap-serial" style="color:#C8A0FF">&#8594; '+serDm+'</span></span>';
+  });
+  el.innerHTML=h||'<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
+}
+
+function renderDmSelBar(){
+  var bar=document.getElementById('dm-sel-bar'); if(!bar) return;
+  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
+  _DM_META.forEach(function(m){
+    var on=_dmSel[m.tc]?'on':'';
+    h+='<button class="tc-sel-btn '+on+'" id="dmsb-'+m.tc+'">'+esc(m.label)+'</button>';
+  });
+  h+='<span class="fsb-sep"></span>'
+    +'<button class="fsb-all" id="dmsb-all">Todos</button>'
+    +'<button class="fsb-all" id="dmsb-none">Ninguno</button>';
+  bar.innerHTML=h;
+  _DM_META.forEach(function(m){
+    document.getElementById('dmsb-'+m.tc).onclick=(function(tc){
+      return function(){ _dmSel[tc]=!_dmSel[tc];
+        var btn=document.getElementById('dmsb-'+tc);
+        if(btn) btn.className='tc-sel-btn'+(_dmSel[tc]?' on':'');
+        renderDmView(); _syncDmExecBtn(); };
+    })(m.tc);
+  });
+  document.getElementById('dmsb-all').onclick=function(){
+    _DM_META.forEach(function(m){ _dmSel[m.tc]=true; }); renderDmSelBar(); renderDmView(); _syncDmExecBtn(); };
+  document.getElementById('dmsb-none').onclick=function(){
+    _DM_META.forEach(function(m){ _dmSel[m.tc]=false; }); renderDmSelBar(); renderDmView(); _syncDmExecBtn(); };
+}
+
+function _syncDmExecBtn(){
+  var anyOn=_DM_META.some(function(m){ return _dmSel[m.tc]; });
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=running||!anyOn;
+}
+
+function renderDmView(){
+  var grid=document.getElementById('dm-grid'); if(!grid) return;
+  grid.innerHTML='';
+  var _sel=_DM_META.filter(function(m){ return _dmSel[m.tc]; });
+  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  _sel.forEach(function(m){
+    var p=document.createElement('div'); p.className='fact-panel'; p.id='dmp-'+m.tc;
+    var _tc=m.tc;
+    p.innerHTML=
+      '<div class="fp-hdr">'
+      +'<span class="fp-dot idle" id="dmpd-'+_tc+'"></span>'
+      +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
+      +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
+      +'<span class="fp-badge idle" id="dmpb-'+_tc+'">espera</span>'
+      +'<a class="fp-rpt" id="dmpr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'</div>'
+      +'<div class="fact-term" id="dmt-'+_tc+'"></div>'
+      +'<div class="fp-resp-bar" id="dmfrb-'+_tc+'">'
+      +'<span class="fr-label">Response</span>'
+      +'<span id="dmfrs-'+_tc+'"></span>'
+      +'</div>'
+      +'<div class="fp-resp" id="dmfr-'+_tc+'"><span class="fr-empty">—</span></div>';
+    grid.appendChild(p);
+  });
+}
+
+function _dmApp(tc,text,cls){
+  var el=document.getElementById('dmt-'+tc); if(!el) return;
+  var sp=document.createElement('span');
+  sp.className='tl'+(cls?' '+cls:'');
+  sp.textContent=text+'\\n';
+  el.appendChild(sp); el.scrollTop=el.scrollHeight;
+}
+
+function _dmSetState(tc,state){
+  var dot=document.getElementById('dmpd-'+tc);
+  var badge=document.getElementById('dmpb-'+tc);
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
+  if(dot){ dot.className='fp-dot '+state; }
+  if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
+}
+
+function _dmSetResponse(tc,responses){
+  var el=document.getElementById('dmfr-'+tc);
+  var bar=document.getElementById('dmfrs-'+tc);
+  if(!el||!responses||!responses.length) return;
+  var r=responses[responses.length-1];
+  var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+  if(bar){
+    bar.innerHTML='<span class="fr-scode '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-stime">'+r.time_ms+'ms</span>'
+      +'<span class="fr-sname">'+esc(r.name||'')+'</span>';
+  }
+  var bodyTxt=r.body||'';
+  if(bodyTxt){ try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){} }
+  el.innerHTML=bodyTxt?'<pre>'+esc(bodyTxt)+'</pre>':'<span class="fr-empty">Sin body</span>';
+}
+
+function _doRunDm(s){
+  if(running) return;
+  var accessEl=document.getElementById('dm-access');
+  if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
+  accessEl.style.borderColor='';
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  _DM_META.forEach(function(m){
+    var dt=document.getElementById('dmt-'+m.tc); if(dt) dt.innerHTML='';
+    var dfr=document.getElementById('dmfr-'+m.tc); if(dfr) dfr.innerHTML='<span class="fr-empty">—</span>';
+    var dfrs=document.getElementById('dmfrs-'+m.tc); if(dfrs) dfrs.innerHTML='';
+    _dmSetState(m.tc,'idle');
+    var pr=document.getElementById('dmpr-'+m.tc); if(pr){ pr.href='#'; pr.classList.remove('show'); }
+  });
+  if(currentEs){currentEs.close();currentEs=null;}
+  var _rawAccess=accessEl.value.trim();
+  var _selTcs=_DM_META.filter(function(m){return _dmSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var _accessMap={};
+  _DM_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_DM_VNO_CODES[m.tc]); });
+  var _speed=(document.getElementById('dm-speed')||{}).value||'600/600';
+  var _sActiv=(document.getElementById('dm-serial-activ')||{}).value||'0000';
+  var _sDm=(document.getElementById('dm-serial-dm')||{}).value||'0000';
+  var _sba=(document.getElementById('dm-sba')||{}).checked!==false;
+  var _svoip=(document.getElementById('dm-svoip')||{}).checked!==false;
+  var _siptv=(document.getElementById('dm-siptv')||{}).checked!==false;
+  var _params='tcs='+encodeURIComponent(_selTcs)
+    +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
+    +'&speed_plan='+encodeURIComponent(_speed)
+    +'&serial_suffix='+encodeURIComponent(_sActiv)
+    +'&serial_dm_suffix='+encodeURIComponent(_sDm)
+    +'&service_ba='+(_sba?'true':'false')
+    +'&service_voip='+(_svoip?'true':'false')
+    +'&service_iptv='+(_siptv?'true':'false');
+  var es=new EventSource('/api/run/qa-dm-suite?'+_params);
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      if(d.tc){ _dmApp(d.tc,d.t,col(d.t)); _dmSetState(d.tc,'running'); }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='tc_done'){
+      _dmSetState(d.tc,d.code===0?'passed':'failed');
+      if(d.has_report){
+        var dmpr=document.getElementById('dmpr-'+d.tc);
+        if(dmpr){dmpr.href='/api/report/'+d.sid;dmpr.classList.add('show');}
+      }
+    } else if(d.e==='tc_response'){
+      _dmSetResponse(d.tc,d.responses);
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
