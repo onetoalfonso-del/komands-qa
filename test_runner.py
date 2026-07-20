@@ -2410,11 +2410,11 @@ function showFpTab(tc, tab){
   var tabRsp=document.getElementById('fpt-rsp-'+tc);
   if(!logEl||!rspEl) return;
   if(tab==='log'){
-    logEl.style.display=''; rspEl.style.display='none';
+    logEl.style.display='block'; rspEl.style.display='none';
     if(tabLog) tabLog.classList.add('active');
     if(tabRsp) tabRsp.classList.remove('active');
   } else {
-    logEl.style.display='none'; rspEl.style.display='';
+    logEl.style.display='none'; rspEl.style.display='block';
     if(tabLog) tabLog.classList.remove('active');
     if(tabRsp) tabRsp.classList.add('active');
   }
