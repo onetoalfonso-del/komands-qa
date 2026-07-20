@@ -1358,7 +1358,8 @@ async def api_run(suite_id: str, request: Request):
                     _sym = "✓" if _code == 0 else "✗"
                     _results.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
                                      "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
-                    yield f"data: {json.dumps({'e':'line','t':f\"{_sym} {_tr2['label']} — código {_code}\"})}\n\n"
+                    _tc_msg = _sym + " " + _tr2["label"] + " — código " + str(_code)
+                    yield f"data: {json.dumps({'e':'line','t':_tc_msg})}\n\n"
 
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _n_ok   = sum(1 for r in _results if r["code"] == 0)
