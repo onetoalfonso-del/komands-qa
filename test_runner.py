@@ -1314,6 +1314,7 @@ async def api_run(suite_id: str, request: Request):
                             "--reporter-htmlextra-logo", _logo_uri],
                 "cwd":     str(QA_DIR),
                 "rp_out":  _rp_out,
+                "json_out": _json_out,
             })
 
     if _tc_runs is not None:
@@ -1361,6 +1362,38 @@ async def api_run(suite_id: str, request: Request):
                     _tc_msg = _sym + " " + _tr2["label"] + " — código " + str(_code)
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
+                    # Emitir respuestas HTTP del TC
+                    try:
+                        _jpath = Path(_tr2["json_out"])
+                        if _jpath.exists():
+                            _jdata = _j.loads(_jpath.read_text(encoding="utf-8"))
+                            _rsps = []
+                            for _ex in _jdata.get("run", {}).get("executions", []):
+                                _resp = _ex.get("response") or {}
+                                _stream = _resp.get("stream") or {}
+                                if isinstance(_stream, dict) and _stream.get("type") == "Buffer":
+                                    try:
+                                        _rbody = bytes(_stream["data"]).decode("utf-8", errors="replace")
+                                    except Exception:
+                                        _rbody = ""
+                                else:
+                                    _rbody = _resp.get("body", "") or ""
+                                _req = _ex.get("request") or {}
+                                _url_obj = _req.get("url") or {}
+                                _url_raw = _url_obj.get("raw", "") if isinstance(_url_obj, dict) else str(_url_obj)
+                                _rsps.append({
+                                    "name":    _ex.get("item", {}).get("name", ""),
+                                    "method":  _req.get("method", "GET"),
+                                    "url":     _url_raw[:200],
+                                    "code":    _resp.get("code", 0),
+                                    "status":  _resp.get("status", ""),
+                                    "time_ms": _resp.get("responseTime", 0),
+                                    "body":    _rbody[:6144],
+                                })
+                            if _rsps:
+                                yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                    except Exception:
+                        pass
 
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _n_ok   = sum(1 for r in _results if r["code"] == 0)
@@ -1929,7 +1962,19 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .fp-badge.failed{background:var(--errd);color:var(--err)}
 .fp-rpt{font-size:.63rem;color:var(--acc);text-decoration:none;padding:2px 6px;border:1px solid var(--acc);border-radius:4px;white-space:nowrap;flex-shrink:0;opacity:0;pointer-events:none;transition:opacity .2s}
 .fp-rpt.show{opacity:1;pointer-events:auto}
+.fp-tab{font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:3px;border:1px solid var(--brd);background:transparent;color:var(--txt3);cursor:pointer;flex-shrink:0;transition:background .15s,color .15s}
+.fp-tab.active{background:var(--acc);color:#fff;border-color:var(--acc)}
 .fact-term{flex:1;overflow-y:auto;overflow-x:hidden;padding:7px 10px;font-family:var(--mono);font-size:.68rem;line-height:1.5;min-height:0}
+.fp-resp{flex:1;overflow-y:auto;overflow-x:hidden;padding:7px 10px;min-height:0;display:none}
+.fr-empty{color:var(--txt3);font-size:.7rem;font-family:var(--sans);padding:8px 0}
+.fr-req{margin-bottom:10px;border:1px solid var(--brd);border-radius:5px;overflow:hidden}
+.fr-req-hdr{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--card);flex-shrink:0}
+.fr-method{font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--acc);color:#fff;flex-shrink:0}
+.fr-code{font-size:.65rem;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0}
+.fr-code.ok{background:var(--okd);color:var(--ok)}.fr-code.err{background:var(--errd);color:var(--err)}.fr-code.warn{background:rgba(255,179,71,.15);color:var(--warn)}
+.fr-time{font-size:.6rem;color:var(--txt3);flex-shrink:0}
+.fr-name{font-size:.6rem;color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fr-pre{margin:0;padding:7px 8px;font-family:var(--mono);font-size:.64rem;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--txt);background:var(--term);max-height:180px;overflow-y:auto}
 .terminal::-webkit-scrollbar{width:4px}
 .terminal::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
 .terminal:empty::after{content:"Selecciona una suite del panel izquierdo para ejecutar";color:var(--txt3);font-family:var(--sans);font-size:.8rem}
@@ -2337,17 +2382,64 @@ function renderFactView(){
   grid.innerHTML='';
   _FACT_TC_META.forEach(function(m){
     var p=document.createElement('div'); p.className='fact-panel'; p.id='fp-'+m.tc;
+    var _tc=m.tc;
     p.innerHTML=
       '<div class="fp-hdr">'
-      +'<span class="fp-dot idle" id="fpd-'+m.tc+'"></span>'
+      +'<span class="fp-dot idle" id="fpd-'+_tc+'"></span>'
       +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
       +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
-      +'<span class="fp-badge idle" id="fpb-'+m.tc+'">espera</span>'
-      +'<a class="fp-rpt" id="fpr-'+m.tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'<span class="fp-badge idle" id="fpb-'+_tc+'">espera</span>'
+      +'<button class="fp-tab active" id="fpt-log-'+_tc+'" onclick="showFpTab(\''+_tc+'\',\'log\')">Consola</button>'
+      +'<button class="fp-tab" id="fpt-rsp-'+_tc+'" onclick="showFpTab(\''+_tc+'\',\'rsp\')">Response</button>'
+      +'<a class="fp-rpt" id="fpr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
       +'</div>'
-      +'<div class="fact-term" id="ft-'+m.tc+'"></div>';
+      +'<div class="fact-term" id="ft-'+_tc+'"></div>'
+      +'<div class="fp-resp" id="fr-'+_tc+'"><div class="fr-empty">Sin datos aún — ejecuta la suite primero</div></div>';
     grid.appendChild(p);
   });
+}
+
+function showFpTab(tc, tab){
+  var logEl=document.getElementById('ft-'+tc);
+  var rspEl=document.getElementById('fr-'+tc);
+  var tabLog=document.getElementById('fpt-log-'+tc);
+  var tabRsp=document.getElementById('fpt-rsp-'+tc);
+  if(!logEl||!rspEl) return;
+  if(tab==='log'){
+    logEl.style.display=''; rspEl.style.display='none';
+    if(tabLog) tabLog.classList.add('active');
+    if(tabRsp) tabRsp.classList.remove('active');
+  } else {
+    logEl.style.display='none'; rspEl.style.display='';
+    if(tabLog) tabLog.classList.remove('active');
+    if(tabRsp) tabRsp.classList.add('active');
+  }
+}
+
+function _factSetResponse(tc, responses){
+  var el=document.getElementById('fr-'+tc);
+  if(!el||!responses||!responses.length) return;
+  var html='';
+  responses.forEach(function(r){
+    var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+    var bodyTxt=r.body||'';
+    if(bodyTxt){
+      try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){}
+    }
+    html+='<div class="fr-req">'
+      +'<div class="fr-req-hdr">'
+      +'<span class="fr-method">'+esc(r.method||'GET')+'</span>'
+      +'<span class="fr-code '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-time">'+r.time_ms+'ms</span>'
+      +'<span class="fr-name">'+esc(r.name||'')+'</span>'
+      +'</div>'
+      +(bodyTxt?'<pre class="fr-pre">'+esc(bodyTxt)+'</pre>':'')
+      +'</div>';
+  });
+  el.innerHTML=html||'<div class="fr-empty">Sin respuesta</div>';
+  // Tab badge: activar si está disponible
+  var tabRsp=document.getElementById('fpt-rsp-'+tc);
+  if(tabRsp) tabRsp.textContent='Response ✓';
 }
 
 function _factApp(tc, text, cls){
@@ -2380,7 +2472,11 @@ function _doRunFact(s){
   // Reset panels
   _FACT_TC_META.forEach(function(m){
     var ft=document.getElementById('ft-'+m.tc); if(ft) ft.innerHTML='';
+    var fr=document.getElementById('fr-'+m.tc);
+    if(fr) fr.innerHTML='<div class="fr-empty">Sin datos aún — ejecuta la suite primero</div>';
     var fpr=document.getElementById('fpr-'+m.tc); if(fpr) fpr.classList.remove('show');
+    var tabRsp=document.getElementById('fpt-rsp-'+m.tc); if(tabRsp) tabRsp.textContent='Response';
+    showFpTab(m.tc,'log');
     _factSetState(m.tc,'idle');
   });
   if(currentEs){currentEs.close();currentEs=null;}
@@ -2401,6 +2497,8 @@ function _doRunFact(s){
         var fpr=document.getElementById('fpr-'+d.tc);
         if(fpr){fpr.href='/api/report/'+d.sid;fpr.classList.add('show');}
       }
+    } else if(d.e==='tc_response'){
+      _factSetResponse(d.tc, d.responses);
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       if(d.e==='error'){onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);}
