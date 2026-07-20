@@ -56,6 +56,18 @@ QA_ACTIVACION_REQUEST_MAP = {
     "03": "Activation Entel",
     "05": "Activation DTV",
 }
+QA_ACTIV_SERIAL_BASE = {
+    "03": "ZTEG1104",
+    "02": "ZTEGD719",
+    "05": "HTWC000A",
+    # "00" TCH no usa serial
+}
+QA_RETRIEVE_REQUEST_MAP = {
+    "00": "RetrieveAcces (TCH)",
+    "02": "RetrieveAcces KAO",
+    "03": "RetrieveAcces KAO",
+    "05": "RetrieveAcces KAO",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -718,6 +730,23 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-15.html")},
     {"id":"qa-ia-tc16","group":"hidden","label":"TC-16 IA Fin TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-16.html")},
+    # ── QA Activación — suite paralela ─────────────────────────────────────────
+    {"id":"qa-activ-par",  "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Suite Activación","desc":"TC-17..TC-20 · 3 pasos por VNO · paralelo",
+     "cmd":None,"cwd":None,"report":None,"requires":None},
+    {"id":"qa-activ-suite","group":"qa-child","parent":"qa-activ-par",
+     "label":"▶ Activación (4 VNOs · paralelo)",
+     "desc":"TC-17..TC-20 · Activation + Idempotencia + Retrieve",
+     "env_type":"qa_activ_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"activacion"/"index.html"),"requires":None},
+    {"id":"qa-activ-tc17","group":"hidden","label":"TC-17 Activación Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-17.html")},
+    {"id":"qa-activ-tc18","group":"hidden","label":"TC-18 Activación KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-18.html")},
+    {"id":"qa-activ-tc19","group":"hidden","label":"TC-19 Activación DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-19.html")},
+    {"id":"qa-activ-tc20","group":"hidden","label":"TC-20 Activación TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-20.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -1580,6 +1609,268 @@ async def api_run(suite_id: str, request: Request):
                 "json_out": _json_out,
             })
 
+    # ── Suite Activación (3 pasos por VNO en secuencia, 4 VNOs en paralelo) ────
+    _activ_runs = None
+    if suite.get("env_type") == "qa_activ_suite":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+
+        def _find_req_in_col(col, req_name):
+            for it in col.get("item", []):
+                if it.get("name") == req_name and "request" in it:
+                    return it
+                if "item" in it:
+                    found = _find_req_in_col(it, req_name)
+                    if found:
+                        return found
+            return None
+
+        _logo_svg_activ = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri_activ = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_activ).decode()
+        _access_ids_raw_activ = overrides.get("access_ids", "")
+        try:
+            _access_ids_map_activ = _j.loads(_access_ids_raw_activ) if _access_ids_raw_activ else {}
+        except Exception:
+            _access_ids_map_activ = {}
+        _speed_plan   = overrides.get("speed_plan", "600/600")
+        _serial_suffix = overrides.get("serial_suffix", "0000")
+        _svc_ba   = overrides.get("service_ba",   "true").lower() != "false"
+        _svc_voip = overrides.get("service_voip", "true").lower() != "false"
+        _svc_iptv = overrides.get("service_iptv", "true").lower() != "false"
+        _TC_DEFS_ACTIV = [
+            {"tc":"TC-17","vno":"03","vno_label":"Entel","sid":"qa-activ-tc17"},
+            {"tc":"TC-18","vno":"02","vno_label":"KAO",  "sid":"qa-activ-tc18"},
+            {"tc":"TC-19","vno":"05","vno_label":"DTV",  "sid":"qa-activ-tc19"},
+            {"tc":"TC-20","vno":"00","vno_label":"TCH",  "sid":"qa-activ-tc20"},
+        ]
+        _tcs_param_activ  = overrides.get("tcs", "")
+        _tcs_filter_activ = set(_tcs_param_activ.split(",")) if _tcs_param_activ else {d["tc"] for d in _TC_DEFS_ACTIV}
+        _TC_DEFS_ACTIV    = [d for d in _TC_DEFS_ACTIV if d["tc"] in _tcs_filter_activ] or _TC_DEFS_ACTIV
+        _activ_dir = QA_DIR / "activacion"
+        _activ_dir.mkdir(parents=True, exist_ok=True)
+        _col_ff  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        _col_con = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        _activ_runs = []
+        for _tcd in _TC_DEFS_ACTIV:
+            _vno       = _tcd["vno"]
+            _env_file  = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _rp_out    = str(_activ_dir / f"{_tcd['tc']}.html")
+            _json_out  = str(_activ_dir / f"{_tcd['tc']}.json")
+            _rp_s2     = str(_activ_dir / f"{_tcd['tc']}_s2.html")
+            _rp_s3     = str(_activ_dir / f"{_tcd['tc']}_s3.html")
+            _json_s3   = str(_activ_dir / f"{_tcd['tc']}_s3.json")
+            _env_data  = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev        = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url  = _ev.get("apimURL", "")
+            _auth_b64  = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _token = ""
+            try:
+                _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _tok_req = _ur.Request(f"{_apim_url}/token", data=_body_b,
+                    headers={"Authorization": f"Basic {_auth_b64}",
+                             "Content-Type": "application/x-www-form-urlencoded"})
+                _ctx = _sl.create_default_context()
+                _ctx.check_hostname = False; _ctx.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_tok_req, context=_ctx, timeout=15) as _r:
+                    _token = _j.loads(_r.read()).get("access_token", "")
+            except Exception as _te:
+                print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
+            # Body activación
+            _access_id_activ = _access_ids_map_activ.get(_tcd["tc"], "")
+            _activ_body = {
+                "u_id_vno":        _vno,
+                "u_access_id_vno": _access_id_activ,
+                "u_operation_type": "A",
+                "u_speed_plan":    _speed_plan,
+                "u_service_ba":    _svc_ba,
+                "u_service_voip":  _svc_voip,
+                "u_service_iptv":  _svc_iptv,
+            }
+            if _vno in QA_ACTIV_SERIAL_BASE:
+                _activ_body["u_serial_number"] = QA_ACTIV_SERIAL_BASE[_vno] + _serial_suffix
+            # Body retrieve access
+            _retrieve_body = {
+                "u_id_vno":        _vno,
+                "u_access_id_vno": _access_id_activ,
+                "u_flag_scope":    "0",
+            }
+            # Colección temp activación (pasos 1 y 2 usan el mismo cmd)
+            _activ_req_name = QA_ACTIVACION_REQUEST_MAP.get(_vno, "Activation KAO")
+            _activ_req_item = _find_req_in_col(_cp.deepcopy(_col_ff), _activ_req_name)
+            if _activ_req_item:
+                _b = _activ_req_item.get("request", {}).get("body", {})
+                if _b.get("mode") == "raw":
+                    _b["raw"] = _j.dumps(_activ_body, indent=4, ensure_ascii=False)
+            _tmp_activ = str(QA_DIR / f"_tmp_activ_{_vno}.json")
+            _j.dump({"info": _col_ff.get("info", {}), "item": [_activ_req_item] if _activ_req_item else []},
+                    open(_tmp_activ, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            # Colección temp retrieve access
+            _retrieve_req_name = QA_RETRIEVE_REQUEST_MAP.get(_vno, "RetrieveAcces KAO")
+            _retrieve_req_item = _find_req_in_col(_cp.deepcopy(_col_con), _retrieve_req_name)
+            if _retrieve_req_item:
+                _b2 = _retrieve_req_item.get("request", {}).get("body", {})
+                if _b2.get("mode") == "raw":
+                    _b2["raw"] = _j.dumps(_retrieve_body, indent=4, ensure_ascii=False)
+            _tmp_retrieve = str(QA_DIR / f"_tmp_retrieve_{_vno}.json")
+            _j.dump({"info": _col_con.get("info", {}), "item": [_retrieve_req_item] if _retrieve_req_item else []},
+                    open(_tmp_retrieve, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _base_cmd = [NEWMAN, "run", "",
+                         "-e", _env_file,
+                         "--env-var", f"Token={_token}",
+                         "--env-var", f"idvno={_vno}",
+                         "--insecure",
+                         "--reporters", "cli,json,htmlextra",
+                         "--reporter-htmlextra-logo", _logo_uri_activ]
+            _cmd_s1 = list(_base_cmd); _cmd_s1[2] = _tmp_activ
+            _cmd_s1 += ["--reporter-json-export",    _json_out,
+                        "--reporter-htmlextra-export", _rp_out,
+                        "--reporter-htmlextra-title",  f"Reporte QA – {_tcd['tc']} Activación · {_tcd['vno_label']} – OnnetFibra"]
+            _cmd_s2 = list(_base_cmd); _cmd_s2[2] = _tmp_activ
+            _cmd_s2 += ["--reporter-json-export",    str(_activ_dir / f"{_tcd['tc']}_s2.json"),
+                        "--reporter-htmlextra-export", _rp_s2,
+                        "--reporter-htmlextra-title",  f"Reporte QA – {_tcd['tc']} Idempotencia · {_tcd['vno_label']} – OnnetFibra"]
+            _cmd_s3 = list(_base_cmd); _cmd_s3[2] = _tmp_retrieve
+            _cmd_s3 += ["--reporter-json-export",    _json_s3,
+                        "--reporter-htmlextra-export", _rp_s3,
+                        "--reporter-htmlextra-title",  f"Reporte QA – {_tcd['tc']} RetrieveAccess · {_tcd['vno_label']} – OnnetFibra"]
+            _activ_runs.append({
+                "tc":      _tcd["tc"],
+                "vno":     _vno,
+                "vno_lbl": _tcd["vno_label"],
+                "sid":     _tcd["sid"],
+                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "cmd_s1":  _cmd_s1,
+                "cmd_s2":  _cmd_s2,
+                "cmd_s3":  _cmd_s3,
+                "cwd":     str(QA_DIR),
+                "rp_out":  _rp_out,
+                "json_out": _json_out,
+                "json_s3":  _json_s3,
+            })
+
+    if _activ_runs is not None:
+        async def sse_activ():
+            yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · 3 pasos c/u'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _env_activ = {**os.environ,
+                          "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
+                          "PYTHONUNBUFFERED": "1",
+                          "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
+            _out_q_activ = asyncio.Queue()
+            _results_activ = []
+
+            async def _run_activ(tr):
+                await _out_q_activ.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
+                _codes = []
+                _last_json = None
+                for _step_idx, (_step_lbl, _step_cmd, _step_json) in enumerate([
+                    ("Paso 1: Activation",    tr["cmd_s1"], tr["json_out"]),
+                    ("Paso 2: Idempotencia",  tr["cmd_s2"], None),
+                    ("Paso 3: Retrieve",      tr["cmd_s3"], tr["json_s3"]),
+                ], 1):
+                    await _out_q_activ.put(("L", tr["tc"], f"── {_step_lbl} ──"))
+                    _step_code = 1
+                    async for _k, _v in _iter_proc(_step_cmd, tr["cwd"], _env_activ):
+                        if _k == "L":
+                            await _out_q_activ.put(("L", tr["tc"], _v))
+                        elif _k == "D":
+                            _step_code = _v
+                    _codes.append(_step_code)
+                    if _step_json:
+                        _last_json = _step_json
+                # Paso 2 puede fallar por diseño (error 21 esperado), no cuenta como fallo del TC
+                _overall = 0 if (_codes[0] == 0) else 1
+                await _out_q_activ.put(("D", tr, _overall, _last_json))
+
+            _tasks_activ = [asyncio.create_task(_run_activ(tr)) for tr in _activ_runs]
+            _remaining_activ = len(_activ_runs)
+            while _remaining_activ > 0:
+                _item = await _out_q_activ.get()
+                if _item[0] == "L":
+                    yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
+                elif _item[0] == "D":
+                    _remaining_activ -= 1
+                    _tr2, _code, _last_json = _item[1], _item[2], _item[3]
+                    _has_rp = bool(Path(_tr2["rp_out"]).exists())
+                    _sym = "✓" if _code == 0 else "✗"
+                    _results_activ.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                                           "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                    _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
+                    yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
+                    yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
+                    try:
+                        _jp = Path(_last_json) if _last_json else None
+                        if _jp and _jp.exists():
+                            _jdata = _j.loads(_jp.read_text(encoding="utf-8"))
+                            _rsps = []
+                            for _ex in _jdata.get("run", {}).get("executions", []):
+                                _resp  = _ex.get("response") or {}
+                                _stream = _resp.get("stream") or {}
+                                if isinstance(_stream, dict) and _stream.get("type") == "Buffer":
+                                    try: _rbody = bytes(_stream["data"]).decode("utf-8", errors="replace")
+                                    except Exception: _rbody = ""
+                                else:
+                                    _rbody = _resp.get("body", "") or ""
+                                _req2  = _ex.get("request") or {}
+                                _url2  = _req2.get("url") or {}
+                                _url_r = _url2.get("raw", "") if isinstance(_url2, dict) else str(_url2)
+                                _rsps.append({
+                                    "name":    _ex.get("item", {}).get("name", ""),
+                                    "method":  _req2.get("method", "GET"),
+                                    "url":     _url_r[:200],
+                                    "code":    _resp.get("code", 0),
+                                    "status":  _resp.get("status", ""),
+                                    "time_ms": _resp.get("responseTime", 0),
+                                    "body":    _rbody[:6144],
+                                })
+                            if _rsps:
+                                yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                    except Exception:
+                        pass
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _n_ok_activ   = sum(1 for r in _results_activ if r["code"] == 0)
+            _n_fail_activ = len(_results_activ) - _n_ok_activ
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_activ}/{len(_results_activ)} TCs OK'})}\n\n"
+            _rows_activ = ""
+            for _r in sorted(_results_activ, key=lambda x: x["tc"]):
+                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                          if _r["has_rp"] else "—")
+                _rows_activ += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                                f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+            _idx_activ = (
+                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                '<title>QA Activación</title>'
+                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                '</style></head><body>'
+                '<h1>QA Activación</h1>'
+                f'<p>{_n_ok_activ}/{len(_results_activ)} TCs OK</p>'
+                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                f'{_rows_activ}</table></body></html>'
+            )
+            (_activ_dir / "index.html").write_text(_idx_activ, encoding="utf-8")
+            _has_idx_activ = (_activ_dir / "index.html").exists()
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id})}\n\n"
+            await asyncio.sleep(0.15)
+
+        return StreamingResponse(sse_activ(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-transform",
+                     "X-Accel-Buffering": "no",
+                     "Connection": "keep-alive"})
+
     if _tc_runs is not None:
         async def sse_parallel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
@@ -2226,15 +2517,22 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #asig-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
 .aap-item{font-size:.62rem;font-family:var(--mono);display:flex;align-items:center;gap:4px}
 .aap-vno{color:var(--txt3);font-size:.58rem}.aap-id{color:var(--acc)}.aap-empty{color:var(--txt3);font-style:italic}
-#asig-sel-bar,#ia-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
-#asig-sel-bar .fsb-lbl,#ia-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
-#asig-grid,#ia-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
-#ia-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
+#asig-sel-bar,#ia-sel-bar,#activ-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
+#asig-sel-bar .fsb-lbl,#ia-sel-bar .fsb-lbl,#activ-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+#asig-grid,#ia-grid,#activ-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
+#ia-form-bar,#activ-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
+#ia-access-preview,#activ-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+#activ-form-bar input,#activ-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
+#activ-form-bar input:focus{border-color:var(--acc)}
+#activ-form-bar input.wide{width:170px}
+.aap-serial{color:var(--txt3);font-size:.58rem;margin-left:2px}
+.activ-svc{font-size:.65rem;color:var(--txt);display:flex;align-items:center;gap:3px;cursor:pointer}
 #ia-form-bar .afb-lbl{font-size:.6rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 #ia-form-bar input,#ia-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
 #ia-form-bar input:focus,#ia-form-bar select:focus{border-color:var(--acc)}
 #ia-form-bar input.wide{width:170px}
 #ia-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+#activ-form-bar label.activ-svc input{width:auto;padding:0;border:none;background:none}
 .ia-mode-badge{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px}
 .ia-mode-badge.inicio{background:rgba(255,159,139,.18);color:#FF9F8B}
 .ia-mode-badge.fin{background:rgba(183,147,255,.18);color:#B793FF}
@@ -2341,6 +2639,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="ia-sel-bar"></div>
       <div id="ia-grid"></div>
     </div>
+    <!-- Vista Activación — 4 consolas paralelas -->
+    <div id="activ-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="activ-form-bar"></div>
+      <div id="activ-access-preview"></div>
+      <div id="activ-sel-bar"></div>
+      <div id="activ-grid"></div>
+    </div>
     <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="asig-form-bar"></div>
@@ -2434,7 +2739,7 @@ function renderSB(){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
             :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'}]
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -2548,6 +2853,16 @@ function selectSuite(id){
     var _iaLbl=_iaMode==='inicio'?'IA Inicio':'IA Fin';
     setTop('','Suite: '+_iaLbl,_iaTcs+' · presiona Ejecutar');
     _syncIAExecBtn();
+    return;
+  }
+  if(id==='qa-activ-suite'){
+    _isQAChild=false;
+    switchView('activ');
+    renderActivFormBar();
+    renderActivSelBar();
+    renderActivView();
+    setTop('','Suite: Activación','TC-17..TC-20 · presiona Ejecutar');
+    _syncActivExecBtn();
     return;
   }
   if(id==='qa-endpoints'){
@@ -2665,6 +2980,11 @@ function executeSelected(){
     if(_si) _doRunIA(_si);
     return;
   }
+  if(selectedId==='qa-activ-suite'){
+    var _sac=suites.find(function(x){return x.id==='qa-activ-suite';});
+    if(_sac) _doRunActiv(_sac);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -2700,9 +3020,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -3306,6 +3626,205 @@ function _doRunIA(s){
       }
     } else if(d.e==='tc_response'){
       _iaSetResponse(d.tc,d.responses);
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){ currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
+  };
+}
+
+// ── Suite Activación: vista multi-consola ────────────────────────────────────
+var _ACTIV_META = [
+  {tc:'TC-17', label:'TC-17 · Entel', vno:'VNO 03', sid:'qa-activ-tc17', color:'#FF9F8B'},
+  {tc:'TC-18', label:'TC-18 · KAO',   vno:'VNO 02', sid:'qa-activ-tc18', color:'#85E89D'},
+  {tc:'TC-19', label:'TC-19 · DTV',   vno:'VNO 05', sid:'qa-activ-tc19', color:'#FFD580'},
+  {tc:'TC-20', label:'TC-20 · TCH',   vno:'VNO 00', sid:'qa-activ-tc20', color:'#79C8FF'},
+];
+var _activSel={};
+(function(){ _ACTIV_META.forEach(function(m){ _activSel[m.tc]=true; }); })();
+var _ACTIV_VNO_CODES={'TC-17':'03','TC-18':'02','TC-19':'05','TC-20':'00'};
+var _ACTIV_SERIAL_BASE={'TC-17':'ZTEG1104','TC-18':'ZTEGD719','TC-19':'HTWC000A'};
+
+function renderActivFormBar(){
+  var bar=document.getElementById('activ-form-bar'); if(!bar) return;
+  bar.innerHTML=
+    '<span class="afb-lbl">Access ID:</span>'
+    +'<input class="wide" id="activ-access" placeholder="ej: 03-AOQACAP-03" />'
+    +'<span class="afb-lbl">Speed Plan:</span>'
+    +'<input id="activ-speed" style="width:90px" placeholder="600/600" value="600/600" />'
+    +'<span class="afb-lbl">Servicios:</span>'
+    +'<label class="activ-svc"><input type="checkbox" id="activ-sba" checked> BA</label>'
+    +'<label class="activ-svc"><input type="checkbox" id="activ-svoip" checked> VoIP</label>'
+    +'<label class="activ-svc"><input type="checkbox" id="activ-siptv" checked> IPTV</label>'
+    +'<span class="afb-lbl" style="margin-left:8px">Serial (últ. 4):</span>'
+    +'<input id="activ-serial" style="width:60px" maxlength="4" placeholder="0000" />';
+  var inp=document.getElementById('activ-access');
+  if(inp) inp.oninput=_updateActivAccessPreview;
+  var sinp=document.getElementById('activ-serial');
+  if(sinp) sinp.oninput=_updateActivAccessPreview;
+  _updateActivAccessPreview();
+}
+
+function _updateActivAccessPreview(){
+  var el=document.getElementById('activ-access-preview'); if(!el) return;
+  var raw=(document.getElementById('activ-access')||{}).value||'';
+  var suffix=(document.getElementById('activ-serial')||{}).value||'';
+  var h='';
+  _ACTIV_META.forEach(function(m){
+    var resolved=_resolveAccessId(raw.trim(),_ACTIV_VNO_CODES[m.tc]);
+    var serial=_ACTIV_SERIAL_BASE[m.tc]?(esc(_ACTIV_SERIAL_BASE[m.tc])+esc(suffix)):'(sin serial)';
+    h+='<span class="aap-item"><span class="aap-vno">'+esc(m.label)+':</span>'
+      +'<span class="aap-id">'+esc(resolved)+'</span>'
+      +'<span class="aap-serial">&#128273; '+serial+'</span></span>';
+  });
+  el.innerHTML=h||'<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
+}
+
+function renderActivSelBar(){
+  var bar=document.getElementById('activ-sel-bar'); if(!bar) return;
+  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
+  _ACTIV_META.forEach(function(m){
+    var on=_activSel[m.tc]?'on':'';
+    h+='<button class="tc-sel-btn '+on+'" id="actsb-'+m.tc+'">'+esc(m.label)+'</button>';
+  });
+  h+='<span class="fsb-sep"></span>'
+    +'<button class="fsb-all" id="actsb-all">Todos</button>'
+    +'<button class="fsb-all" id="actsb-none">Ninguno</button>';
+  bar.innerHTML=h;
+  _ACTIV_META.forEach(function(m){
+    document.getElementById('actsb-'+m.tc).onclick=(function(tc){
+      return function(){ _activSel[tc]=!_activSel[tc];
+        var btn=document.getElementById('actsb-'+tc);
+        if(btn) btn.className='tc-sel-btn'+(_activSel[tc]?' on':'');
+        renderActivView(); _syncActivExecBtn(); };
+    })(m.tc);
+  });
+  document.getElementById('actsb-all').onclick=function(){
+    _ACTIV_META.forEach(function(m){ _activSel[m.tc]=true; }); renderActivSelBar(); renderActivView(); _syncActivExecBtn(); };
+  document.getElementById('actsb-none').onclick=function(){
+    _ACTIV_META.forEach(function(m){ _activSel[m.tc]=false; }); renderActivSelBar(); renderActivView(); _syncActivExecBtn(); };
+}
+
+function _syncActivExecBtn(){
+  var anyOn=_ACTIV_META.some(function(m){ return _activSel[m.tc]; });
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=running||!anyOn;
+}
+
+function renderActivView(){
+  var grid=document.getElementById('activ-grid'); if(!grid) return;
+  grid.innerHTML='';
+  var _sel=_ACTIV_META.filter(function(m){ return _activSel[m.tc]; });
+  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  _sel.forEach(function(m){
+    var p=document.createElement('div'); p.className='fact-panel'; p.id='acp-'+m.tc;
+    var _tc=m.tc;
+    p.innerHTML=
+      '<div class="fp-hdr">'
+      +'<span class="fp-dot idle" id="acpd-'+_tc+'"></span>'
+      +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
+      +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
+      +'<span class="fp-badge idle" id="acpb-'+_tc+'">espera</span>'
+      +'<a class="fp-rpt" id="acpr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'</div>'
+      +'<div class="fact-term" id="act-'+_tc+'"></div>'
+      +'<div class="fp-resp-bar" id="acfrb-'+_tc+'">'
+      +'<span class="fr-label">Response</span>'
+      +'<span id="acfrs-'+_tc+'"></span>'
+      +'</div>'
+      +'<div class="fp-resp" id="acfr-'+_tc+'"><span class="fr-empty">—</span></div>';
+    grid.appendChild(p);
+  });
+}
+
+function _activApp(tc,text,cls){
+  var el=document.getElementById('act-'+tc); if(!el) return;
+  var sp=document.createElement('span');
+  sp.className='tl'+(cls?' '+cls:'');
+  sp.textContent=text+'\\n';
+  el.appendChild(sp); el.scrollTop=el.scrollHeight;
+}
+
+function _activSetState(tc,state){
+  var dot=document.getElementById('acpd-'+tc);
+  var badge=document.getElementById('acpb-'+tc);
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
+  if(dot){ dot.className='fp-dot '+state; }
+  if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
+}
+
+function _activSetResponse(tc,responses){
+  var el=document.getElementById('acfr-'+tc);
+  var bar=document.getElementById('acfrs-'+tc);
+  if(!el||!responses||!responses.length) return;
+  var r=responses[responses.length-1];
+  var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+  if(bar){
+    bar.innerHTML='<span class="fr-scode '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-stime">'+r.time_ms+'ms</span>'
+      +'<span class="fr-sname">'+esc(r.name||'')+'</span>';
+  }
+  var bodyTxt=r.body||'';
+  if(bodyTxt){ try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){} }
+  el.innerHTML=bodyTxt?'<pre>'+esc(bodyTxt)+'</pre>':'<span class="fr-empty">Sin body</span>';
+}
+
+function _doRunActiv(s){
+  if(running) return;
+  var accessEl=document.getElementById('activ-access');
+  if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
+  accessEl.style.borderColor='';
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
+  setIco(s.id,'running'); setActive(s.id);
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  _ACTIV_META.forEach(function(m){
+    var at=document.getElementById('act-'+m.tc); if(at) at.innerHTML='';
+    var afr=document.getElementById('acfr-'+m.tc); if(afr) afr.innerHTML='<span class="fr-empty">—</span>';
+    var afrs=document.getElementById('acfrs-'+m.tc); if(afrs) afrs.innerHTML='';
+    var acpr=document.getElementById('acpr-'+m.tc); if(acpr) acpr.classList.remove('show');
+    _activSetState(m.tc,'idle');
+  });
+  if(currentEs){currentEs.close();currentEs=null;}
+  var _rawAccess=accessEl.value.trim();
+  var _selTcs=_ACTIV_META.filter(function(m){return _activSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var _accessMap={};
+  _ACTIV_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_ACTIV_VNO_CODES[m.tc]); });
+  var _speed=(document.getElementById('activ-speed')||{}).value||'600/600';
+  var _serial=(document.getElementById('activ-serial')||{}).value||'0000';
+  var _sba=(document.getElementById('activ-sba')||{}).checked!==false;
+  var _svoip=(document.getElementById('activ-svoip')||{}).checked!==false;
+  var _siptv=(document.getElementById('activ-siptv')||{}).checked!==false;
+  var _params='tcs='+encodeURIComponent(_selTcs)
+    +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
+    +'&speed_plan='+encodeURIComponent(_speed)
+    +'&serial_suffix='+encodeURIComponent(_serial)
+    +'&service_ba='+(_sba?'true':'false')
+    +'&service_voip='+(_svoip?'true':'false')
+    +'&service_iptv='+(_siptv?'true':'false');
+  var es=new EventSource('/api/run/qa-activ-suite?'+_params);
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      if(d.tc){ _activApp(d.tc,d.t,col(d.t)); _activSetState(d.tc,'running'); }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='tc_done'){
+      _activSetState(d.tc,d.code===0?'passed':'failed');
+      if(d.has_report){
+        var acpr=document.getElementById('acpr-'+d.tc);
+        if(acpr){acpr.href='/api/report/'+d.sid;acpr.classList.add('show');}
+      }
+    } else if(d.e==='tc_response'){
+      _activSetResponse(d.tc,d.responses);
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
