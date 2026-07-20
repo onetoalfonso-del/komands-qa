@@ -4292,7 +4292,7 @@ function _doRunActiv(s){
   };
 }
 
-\ ── Suite Device Modification: vista multi-consola ──────────────────────────
+// ── Suite Device Modification: vista multi-consola ─────────────────────────
 var _DM_META = [
   {tc:'TC-21', label:'TC-21 · Entel', vno:'VNO 03', sid:'qa-dm-tc21', color:'#FF9F8B'},
   {tc:'TC-22', label:'TC-22 · KAO',   vno:'VNO 02', sid:'qa-dm-tc22', color:'#85E89D'},
