@@ -4306,19 +4306,26 @@ var _DM_SERIAL_BASE={'TC-21':'ZTEG1104','TC-22':'ZTEGD719','TC-23':'HTWC000A'};
 
 function renderDmFormBar(){
   var bar=document.getElementById('dm-form-bar'); if(!bar) return;
+  bar.style.cssText='display:flex;flex-direction:column;gap:0;padding:0;';
   bar.innerHTML=
-    '<span class="afb-lbl">Access ID:</span>'
-    +'<input class="wide" id="dm-access" placeholder="ej: 03-AOQACAP-03" />'
-    +'<span class="afb-lbl">Speed Plan:</span>'
-    +'<input id="dm-speed" style="width:90px" placeholder="600/600" value="600/600" />'
-    +'<span class="afb-lbl">Servicios:</span>'
+    '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;flex-wrap:nowrap;border-bottom:1px solid var(--border)">'
+    +'<span class="afb-lbl">Access ID:</span>'
+    +'<input style="flex:1;min-width:120px;max-width:210px" id="dm-access" placeholder="ej: 03-AOQACAP-03" />'
+    +'<span class="afb-lbl" style="margin-left:6px">Speed Plan:</span>'
+    +'<input id="dm-speed" style="width:82px" placeholder="600/600" value="600/600" />'
+    +'<span class="afb-lbl" style="margin-left:6px">Servicios:</span>'
     +'<label class="activ-svc"><input type="checkbox" id="dm-sba" checked> BA</label>'
     +'<label class="activ-svc"><input type="checkbox" id="dm-svoip" checked> VoIP</label>'
     +'<label class="activ-svc"><input type="checkbox" id="dm-siptv" checked> IPTV</label>'
-    +'<span class="afb-lbl" style="margin-left:8px">Serial Activ. (últ. 4):</span>'
-    +'<input id="dm-serial-activ" style="width:60px" maxlength="4" placeholder="0000" />'
-    +'<span class="afb-lbl" style="margin-left:8px">Serial DM (últ. 4):</span>'
-    +'<input id="dm-serial-dm" style="width:60px" maxlength="4" placeholder="0000" />';
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg3,var(--bg2));flex-wrap:nowrap">'
+    +'<span style="font-size:.7rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-right:2px">Seriales</span>'
+    +'<span class="afb-lbl">Activ. (últ. 4):</span>'
+    +'<input id="dm-serial-activ" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
+    +'<span style="font-size:.85rem;color:var(--txt3);padding:0 4px">&#8594;</span>'
+    +'<span class="afb-lbl">DM nuevo (últ. 4):</span>'
+    +'<input id="dm-serial-dm" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
+    +'</div>';
   document.getElementById('dm-access').oninput=_updateDmAccessPreview;
   document.getElementById('dm-serial-activ').oninput=_updateDmAccessPreview;
   document.getElementById('dm-serial-dm').oninput=_updateDmAccessPreview;
@@ -4330,17 +4337,22 @@ function _updateDmAccessPreview(){
   var raw=(document.getElementById('dm-access')||{}).value||'';
   var sActiv=(document.getElementById('dm-serial-activ')||{}).value||'';
   var sDm=(document.getElementById('dm-serial-dm')||{}).value||'';
-  var h='';
+  if(!raw.trim()){ el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>'; return; }
+  var h='<div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px">';
   _DM_META.forEach(function(m){
     var resolved=_resolveAccessId(raw.trim(),_DM_VNO_CODES[m.tc]);
-    var serActiv=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+esc(sActiv)):'(sin serial)';
-    var serDm=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+esc(sDm)):'(sin serial)';
-    h+='<span class="aap-item"><span class="aap-vno">'+esc(m.label)+':</span>'
-      +'<span class="aap-id">'+esc(resolved)+'</span>'
-      +'<span class="aap-serial">&#128273; '+serActiv+'</span>'
-      +'<span class="aap-serial" style="color:#C8A0FF">&#8594; '+serDm+'</span></span>';
+    var serActiv=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+'<b>'+esc(sActiv)+'</b>'):'<i style="color:var(--txt3)">sin serial</i>';
+    var serDm=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+'<b>'+esc(sDm)+'</b>'):'<i style="color:var(--txt3)">sin serial</i>';
+    h+='<span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg3,var(--bg2));border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:.72rem">'
+      +'<span style="color:'+m.color+';font-weight:600">'+esc(m.label)+'</span>'
+      +'<span style="color:var(--txt3)">'+esc(resolved)+'</span>'
+      +'<span style="color:var(--txt2)">&#128273; '+serActiv+'</span>'
+      +'<span style="color:var(--txt3);font-size:.8em">&#8594;</span>'
+      +'<span style="color:#C8A0FF">&#128273; '+serDm+'</span>'
+      +'</span>';
   });
-  el.innerHTML=h||'<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
+  h+='</div>';
+  el.innerHTML=h;
 }
 
 function renderDmSelBar(){
@@ -4377,7 +4389,8 @@ function renderDmView(){
   var grid=document.getElementById('dm-grid'); if(!grid) return;
   grid.innerHTML='';
   var _sel=_DM_META.filter(function(m){ return _dmSel[m.tc]; });
-  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  var cols=_sel.length<=1?'minmax(0,680px)':_sel.length<=2?'1fr 1fr':'1fr 1fr';
+  grid.style.cssText='display:grid;grid-template-columns:'+cols+';gap:8px;padding:8px;overflow-y:auto;align-content:start;';
   _sel.forEach(function(m){
     var p=document.createElement('div'); p.className='fact-panel'; p.id='dmp-'+m.tc;
     var _tc=m.tc;
