@@ -1962,19 +1962,15 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .fp-badge.failed{background:var(--errd);color:var(--err)}
 .fp-rpt{font-size:.63rem;color:var(--acc);text-decoration:none;padding:2px 6px;border:1px solid var(--acc);border-radius:4px;white-space:nowrap;flex-shrink:0;opacity:0;pointer-events:none;transition:opacity .2s}
 .fp-rpt.show{opacity:1;pointer-events:auto}
-.fp-tab{font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:3px;border:1px solid var(--brd);background:transparent;color:var(--txt3);cursor:pointer;flex-shrink:0;transition:background .15s,color .15s}
-.fp-tab.active{background:var(--acc);color:#fff;border-color:var(--acc)}
-.fact-term{flex:1;overflow-y:auto;overflow-x:hidden;padding:7px 10px;font-family:var(--mono);font-size:.68rem;line-height:1.5;min-height:0}
-.fp-resp{flex:1;overflow-y:auto;overflow-x:hidden;padding:7px 10px;min-height:0;display:none}
-.fr-empty{color:var(--txt3);font-size:.7rem;font-family:var(--sans);padding:8px 0}
-.fr-req{margin-bottom:10px;border:1px solid var(--brd);border-radius:5px;overflow:hidden}
-.fr-req-hdr{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--card);flex-shrink:0}
-.fr-method{font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--acc);color:#fff;flex-shrink:0}
-.fr-code{font-size:.65rem;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0}
-.fr-code.ok{background:var(--okd);color:var(--ok)}.fr-code.err{background:var(--errd);color:var(--err)}.fr-code.warn{background:rgba(255,179,71,.15);color:var(--warn)}
-.fr-time{font-size:.6rem;color:var(--txt3);flex-shrink:0}
-.fr-name{font-size:.6rem;color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fr-pre{margin:0;padding:7px 8px;font-family:var(--mono);font-size:.64rem;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--txt);background:var(--term);max-height:180px;overflow-y:auto}
+.fact-term{flex:1 1 0;overflow-y:auto;overflow-x:hidden;padding:7px 10px;font-family:var(--mono);font-size:.68rem;line-height:1.5;min-height:40px}
+.fp-resp-bar{display:flex;align-items:center;gap:6px;padding:3px 8px;background:var(--card);border-top:1px solid var(--brd);flex-shrink:0;font-size:.6rem}
+.fp-resp-bar .fr-label{color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.fp-resp-bar .fr-scode{font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0}
+.fp-resp-bar .fr-scode.ok{background:var(--okd);color:var(--ok)}.fp-resp-bar .fr-scode.err{background:var(--errd);color:var(--err)}.fp-resp-bar .fr-scode.warn{background:rgba(255,179,71,.15);color:var(--warn)}
+.fp-resp-bar .fr-stime{color:var(--txt3)}.fp-resp-bar .fr-sname{color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-resp{flex:0 0 130px;overflow-y:auto;overflow-x:hidden;padding:6px 8px;background:var(--term);font-family:var(--mono);font-size:.64rem;line-height:1.5}
+.fp-resp .fr-empty{color:var(--txt3);font-size:.68rem;font-family:var(--sans)}
+.fp-resp pre{margin:0;white-space:pre-wrap;word-break:break-all;color:var(--txt)}
 .terminal::-webkit-scrollbar{width:4px}
 .terminal::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
 .terminal:empty::after{content:"Selecciona una suite del panel izquierdo para ejecutar";color:var(--txt3);font-family:var(--sans);font-size:.8rem}
@@ -2389,61 +2385,34 @@ function renderFactView(){
       +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
       +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
       +'<span class="fp-badge idle" id="fpb-'+_tc+'">espera</span>'
-      +'<button class="fp-tab active" id="fpt-log-'+_tc+'">Consola</button>'
-      +'<button class="fp-tab" id="fpt-rsp-'+_tc+'">Response</button>'
       +'<a class="fp-rpt" id="fpr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
       +'</div>'
       +'<div class="fact-term" id="ft-'+_tc+'"></div>'
-      +'<div class="fp-resp" id="fr-'+_tc+'"><div class="fr-empty">Sin datos aún — ejecuta la suite primero</div></div>';
+      +'<div class="fp-resp-bar" id="frb-'+_tc+'">'
+      +'<span class="fr-label">Response</span>'
+      +'<span id="frs-'+_tc+'"></span>'
+      +'</div>'
+      +'<div class="fp-resp" id="fr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
-    (function(tc){
-      document.getElementById('fpt-log-'+tc).onclick=function(){showFpTab(tc,'log');};
-      document.getElementById('fpt-rsp-'+tc).onclick=function(){showFpTab(tc,'rsp');};
-    })(_tc);
   });
-}
-
-function showFpTab(tc, tab){
-  var logEl=document.getElementById('ft-'+tc);
-  var rspEl=document.getElementById('fr-'+tc);
-  var tabLog=document.getElementById('fpt-log-'+tc);
-  var tabRsp=document.getElementById('fpt-rsp-'+tc);
-  if(!logEl||!rspEl) return;
-  if(tab==='log'){
-    logEl.style.display='block'; rspEl.style.display='none';
-    if(tabLog) tabLog.classList.add('active');
-    if(tabRsp) tabRsp.classList.remove('active');
-  } else {
-    logEl.style.display='none'; rspEl.style.display='block';
-    if(tabLog) tabLog.classList.remove('active');
-    if(tabRsp) tabRsp.classList.add('active');
-  }
 }
 
 function _factSetResponse(tc, responses){
   var el=document.getElementById('fr-'+tc);
+  var bar=document.getElementById('frs-'+tc);
   if(!el||!responses||!responses.length) return;
-  var html='';
-  responses.forEach(function(r){
-    var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
-    var bodyTxt=r.body||'';
-    if(bodyTxt){
-      try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){}
-    }
-    html+='<div class="fr-req">'
-      +'<div class="fr-req-hdr">'
-      +'<span class="fr-method">'+esc(r.method||'GET')+'</span>'
-      +'<span class="fr-code '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
-      +'<span class="fr-time">'+r.time_ms+'ms</span>'
-      +'<span class="fr-name">'+esc(r.name||'')+'</span>'
-      +'</div>'
-      +(bodyTxt?'<pre class="fr-pre">'+esc(bodyTxt)+'</pre>':'')
-      +'</div>';
-  });
-  el.innerHTML=html||'<div class="fr-empty">Sin respuesta</div>';
-  // Tab badge: activar si está disponible
-  var tabRsp=document.getElementById('fpt-rsp-'+tc);
-  if(tabRsp) tabRsp.textContent='Response ✓';
+  var r=responses[responses.length-1];
+  var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+  if(bar){
+    bar.innerHTML='<span class="fr-scode '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-stime">'+r.time_ms+'ms</span>'
+      +'<span class="fr-sname">'+esc(r.name||'')+'</span>';
+  }
+  var bodyTxt=r.body||'';
+  if(bodyTxt){
+    try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){}
+  }
+  el.innerHTML=bodyTxt?'<pre>'+esc(bodyTxt)+'</pre>':'<span class="fr-empty">Sin body</span>';
 }
 
 function _factApp(tc, text, cls){
@@ -2476,11 +2445,9 @@ function _doRunFact(s){
   // Reset panels
   _FACT_TC_META.forEach(function(m){
     var ft=document.getElementById('ft-'+m.tc); if(ft) ft.innerHTML='';
-    var fr=document.getElementById('fr-'+m.tc);
-    if(fr) fr.innerHTML='<div class="fr-empty">Sin datos aún — ejecuta la suite primero</div>';
+    var fr=document.getElementById('fr-'+m.tc); if(fr) fr.innerHTML='<span class="fr-empty">—</span>';
+    var frs=document.getElementById('frs-'+m.tc); if(frs) frs.innerHTML='';
     var fpr=document.getElementById('fpr-'+m.tc); if(fpr) fpr.classList.remove('show');
-    var tabRsp=document.getElementById('fpt-rsp-'+m.tc); if(tabRsp) tabRsp.textContent='Response';
-    showFpTab(m.tc,'log');
     _factSetState(m.tc,'idle');
   });
   if(currentEs){currentEs.close();currentEs=null;}
