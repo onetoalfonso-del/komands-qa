@@ -2115,7 +2115,7 @@ async def api_run(suite_id: str, request: Request):
                            "--reporter-htmlextra-export", _rp_ia_dm,
                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
 
-            # ── Pasos 4+5: Activación × 2 en mismo Newman run ──────────────────
+            # ── Paso 4: Activación (una sola vez) ──────────────────────────────
             _activ_body_dm = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
                 "u_operation_type": "A", "u_speed_plan": _dm_speed_plan,
@@ -2128,18 +2128,15 @@ async def api_run(suite_id: str, request: Request):
             if _act_req_dm:
                 _b = _act_req_dm.get("request", {}).get("body", {})
                 if _b.get("mode") == "raw": _b["raw"] = _activ_body_dm
-            _act_req_dm2 = _cp.deepcopy(_act_req_dm) if _act_req_dm else None
-            if _act_req_dm2: _act_req_dm2["name"] = _act_req_dm2.get("name","") + " (idempotencia)"
             _tmp_act_dm = str(QA_DIR / f"_tmp_dm_act_{_vno}.json")
-            _act_items_dm = [i for i in [_act_req_dm, _act_req_dm2] if i]
-            _j.dump({"info": _col_ff_dm.get("info", {}), "item": _act_items_dm},
+            _j.dump({"info": _col_ff_dm.get("info", {}), "item": [_act_req_dm] if _act_req_dm else []},
                     open(_tmp_act_dm, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
             _rp_act_dm  = str(_dm_dir / f"{_tcd['tc']}_act.html")
             _js_act_dm  = str(_dm_dir / f"{_tcd['tc']}_act.json")
             _cmd_act_dm = list(_base_cmd_dm); _cmd_act_dm[2] = _tmp_act_dm
             _cmd_act_dm += ["--reporter-json-export", _js_act_dm,
                             "--reporter-htmlextra-export", _rp_act_dm,
-                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación × 2 · {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación · {_tcd['vno_label']}"]
 
             # ── Paso 6: Device Modification (una sola vez) ─────────────────────
             _dm_new_serial = QA_ACTIV_SERIAL_BASE[_vno] + _dm_new_suffix if _vno in QA_ACTIV_SERIAL_BASE else None
@@ -2181,12 +2178,12 @@ async def api_run(suite_id: str, request: Request):
                 "act_serial": (QA_ACTIV_SERIAL_BASE.get(_vno,"") + _dm_serial_suffix) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)",
                 "dm_serial":  (_dm_new_serial or "(sin serial)"),
                 "steps": [
-                    ("1/7 Factibilidad",     _cmd_fact_dm, _js_fact_dm),
-                    ("2/7 Asignación",       _cmd_asig_dm, _js_asig_dm),
-                    ("3/7 IA Inicio",        _cmd_ia_dm,   _js_ia_dm),
-                    ("4+5/7 Activación × 2", _cmd_act_dm,  _js_act_dm),
-                    ("6/7 Device Modif.",    _cmd_dm,      _js_dm),
-                    ("7/7 Consulta Acceso",  _cmd_ca,      _js_ca),
+                    ("1/6 Factibilidad",    _cmd_fact_dm, _js_fact_dm),
+                    ("2/6 Asignación",      _cmd_asig_dm, _js_asig_dm),
+                    ("3/6 IA Inicio",       _cmd_ia_dm,   _js_ia_dm),
+                    ("4/6 Activación",      _cmd_act_dm,  _js_act_dm),
+                    ("5/6 Device Modif.",   _cmd_dm,      _js_dm),
+                    ("6/6 Consulta Acceso", _cmd_ca,      _js_ca),
                 ],
                 "cwd":    str(QA_DIR),
                 "rp_out": _rp_dm,
@@ -2196,7 +2193,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_dm():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 7 pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 6 pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_dm = {**os.environ,
                        "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2208,9 +2205,8 @@ async def api_run(suite_id: str, request: Request):
             async def _run_dm(tr):
                 await _out_q_dm.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
                 _last_json = None
-                _overall   = 1
                 for _step_lbl, _step_cmd, _step_json in tr["steps"]:
-                    if "6/7" in _step_lbl:
+                    if "5/6" in _step_lbl:
                         await _out_q_dm.put(("L", tr["tc"], f"── Serial actual (activación): {tr['act_serial']} ──"))
                         await _out_q_dm.put(("L", tr["tc"], f"── Serial nuevo (DM): {tr['dm_serial']} ──"))
                     await _out_q_dm.put(("L", tr["tc"], f"── Paso {_step_lbl} ──"))
@@ -2222,14 +2218,11 @@ async def api_run(suite_id: str, request: Request):
                             _step_code = _v
                     if _step_json:
                         _last_json = _step_json
-                    # Paso 4+5 (Activación × 2) puede fallar por idempotencia — no detiene el TC
-                    if "4+5" not in _step_lbl and _step_code != 0:
+                    if _step_code != 0:
                         await _out_q_dm.put(("L", tr["tc"], f"✗ {_step_lbl} falló (código {_step_code}) — deteniendo"))
                         await _out_q_dm.put(("D", tr, 1, _last_json))
                         return
-                    if "4+5" in _step_lbl:
-                        _overall = 0
-                await _out_q_dm.put(("D", tr, _overall, _last_json))
+                await _out_q_dm.put(("D", tr, 0, _last_json))
 
             _tasks_dm = [asyncio.create_task(_run_dm(tr)) for tr in _dm_runs]
             _remaining_dm = len(_dm_runs)
