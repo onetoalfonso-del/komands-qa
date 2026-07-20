@@ -2389,13 +2389,17 @@ function renderFactView(){
       +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
       +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
       +'<span class="fp-badge idle" id="fpb-'+_tc+'">espera</span>'
-      +'<button class="fp-tab active" id="fpt-log-'+_tc+'" onclick="showFpTab(\''+_tc+'\',\'log\')">Consola</button>'
-      +'<button class="fp-tab" id="fpt-rsp-'+_tc+'" onclick="showFpTab(\''+_tc+'\',\'rsp\')">Response</button>'
+      +'<button class="fp-tab active" id="fpt-log-'+_tc+'">Consola</button>'
+      +'<button class="fp-tab" id="fpt-rsp-'+_tc+'">Response</button>'
       +'<a class="fp-rpt" id="fpr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
       +'</div>'
       +'<div class="fact-term" id="ft-'+_tc+'"></div>'
       +'<div class="fp-resp" id="fr-'+_tc+'"><div class="fr-empty">Sin datos aún — ejecuta la suite primero</div></div>';
     grid.appendChild(p);
+    (function(tc){
+      document.getElementById('fpt-log-'+tc).onclick=function(){showFpTab(tc,'log');};
+      document.getElementById('fpt-rsp-'+tc).onclick=function(){showFpTab(tc,'rsp');};
+    })(_tc);
   });
 }
 
