@@ -1353,7 +1353,11 @@ async def api_run(suite_id: str, request: Request):
             b'</svg>'
         )
         _logo_uri_a = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_a).decode()
-        _access_id  = overrides.get("access_id", "")
+        _access_ids_raw = overrides.get("access_ids", "")
+        try:
+            _access_ids_map = json.loads(_access_ids_raw) if _access_ids_raw else {}
+        except Exception:
+            _access_ids_map = {}
         _address_id = overrides.get("address_id", "")
         _speed_plan = overrides.get("speed_plan", "600/600")
         _service_ba   = overrides.get("service_ba",   "true")
@@ -1396,7 +1400,7 @@ async def api_run(suite_id: str, request: Request):
             _col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
             _col_tmp  = _cp.deepcopy(_col_src)
             _new_body = _j.dumps({
-                "u_access_id_vno": _access_id,
+                "u_access_id_vno": _access_ids_map.get(_tcd["tc"], ""),
                 "u_id_vno": _vno,
                 "u_operation_type": "Alta",
                 "u_scenario": "Alta de acceso",
@@ -2081,7 +2085,10 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #asig-form-bar .afb-lbl{font-size:.6rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 #asig-form-bar input,#asig-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
 #asig-form-bar input:focus,#asig-form-bar select:focus{border-color:var(--acc)}
-#asig-form-bar input.wide{width:160px}#asig-form-bar input.med{width:110px}
+#asig-form-bar input.wide{width:170px}#asig-form-bar input.med{width:110px}
+#asig-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+.aap-item{font-size:.62rem;font-family:var(--mono);display:flex;align-items:center;gap:4px}
+.aap-vno{color:var(--txt3);font-size:.58rem}.aap-id{color:var(--acc)}.aap-empty{color:var(--txt3);font-style:italic}
 #asig-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
 #asig-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
 #asig-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
@@ -2184,6 +2191,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="asig-form-bar"></div>
+      <div id="asig-access-preview"></div>
       <div id="asig-sel-bar"></div>
       <div id="asig-grid"></div>
     </div>
@@ -2702,11 +2710,41 @@ var _ASIG_TC_META = [
 ];
 var _asigSel={'TC-01':true,'TC-02':true,'TC-03':true,'TC-04':true};
 
+var _VNO_CODES={'TC-01':'03','TC-02':'02','TC-03':'05','TC-04':'00'};
+var _VNO_KNOWN=['00','02','03','05'];
+
+function _resolveAccessId(raw, vnoCode){
+  if(!raw) return '';
+  var m=raw.match(/^(\d{2})-(.+)$/);
+  if(m && _VNO_KNOWN.indexOf(m[1])!==-1){
+    return vnoCode+'-'+m[2];
+  }
+  return raw;
+}
+
+function _updateAsigAccessPreview(){
+  var el=document.getElementById('asig-access-preview'); if(!el) return;
+  var raw=(document.getElementById('asig-access')||{}).value||'';
+  if(!raw.trim()){
+    el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
+    return;
+  }
+  var h='';
+  _ASIG_TC_META.forEach(function(m){
+    var resolved=_resolveAccessId(raw.trim(), _VNO_CODES[m.tc]);
+    h+='<span class="aap-item">'
+      +'<span class="aap-vno">'+esc(m.label)+':</span>'
+      +'<span class="aap-id">'+esc(resolved)+'</span>'
+      +'</span>';
+  });
+  el.innerHTML=h;
+}
+
 function renderAsigFormBar(){
   var bar=document.getElementById('asig-form-bar'); if(!bar) return;
   bar.innerHTML=
     '<span class="afb-lbl">Access ID:</span>'
-    +'<input class="wide" id="asig-access" placeholder="u_access_id_vno" />'
+    +'<input class="wide" id="asig-access" placeholder="ej: 02-XXXXX-01" />'
     +'<span class="afb-lbl">Address ID:</span>'
     +'<input class="med" id="asig-addr" placeholder="DIR..." />'
     +'<span class="afb-lbl">Plan:</span>'
@@ -2724,6 +2762,9 @@ function renderAsigFormBar(){
     +'<select id="asig-voip"><option value="true" selected>Si</option><option value="false">No</option></select>'
     +'<span class="afb-lbl">IPTV:</span>'
     +'<select id="asig-iptv"><option value="true" selected>Si</option><option value="false">No</option></select>';
+  var inp=document.getElementById('asig-access');
+  if(inp) inp.oninput=_updateAsigAccessPreview;
+  _updateAsigAccessPreview();
 }
 
 function renderAsigSelBar(){
@@ -2857,9 +2898,12 @@ function _doRunAsig(s){
     _asigSetState(m.tc,'idle');
   });
   if(currentEs){currentEs.close();currentEs=null;}
+  var _rawAccess=accessId?accessId.value.trim():'';
   var _selTcs=_ASIG_TC_META.filter(function(m){return _asigSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var _accessMap={};
+  _ASIG_TC_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_VNO_CODES[m.tc]); });
   var _params='tcs='+encodeURIComponent(_selTcs)
-    +'&access_id='+encodeURIComponent(accessId?accessId.value.trim():'')
+    +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&address_id='+encodeURIComponent(addrId?addrId.value.trim():'')
     +'&speed_plan='+encodeURIComponent(speed?speed.value:'600/600')
     +'&service_ba='+encodeURIComponent(ba?ba.value:'true')
