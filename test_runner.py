@@ -44,6 +44,12 @@ QA_ASSIGNMENT_FOLDER_MAP = {
     "03": "assigment-Entel",
     "05": "assigment-DTV",
 }
+QA_IA_VNO_SUBFOLDER = {
+    "00": "TCH",
+    "02": "KAO",
+    "03": "ENTEL",
+    "05": "DTV",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -597,7 +603,7 @@ SUITES = [
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_assignment.html"),"requires":None},
     {"id":"qa-ep-ia",            "group":"qa-child","parent":"qa-fulfillment",
      "label":"Intervención Asegurada","desc":"inicio · finalización · cancela",
-     "env_type":"qa_vno","folder":"03-IntervencionAsegurada",
+     "env_type":"qa_ia","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia.html"),"requires":None},
     {"id":"qa-ep-activacion",    "group":"qa-child","parent":"qa-fulfillment",
@@ -966,6 +972,79 @@ async def api_run(suite_id: str, request: Request):
             cmd=[NEWMAN, "run", tmp_col,
                  "-e", env_file,
                  "--folder", folder_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_ia":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        scenario      = overrides.pop("scenario", "Instalación")
+        service_type  = overrides.pop("service_type", "FTTH")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        vno_subfolder = QA_IA_VNO_SUBFOLDER.get(vno_code, "KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_scenario": scenario,
+            "u_service_type": service_type,
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Interven" in sec.get("name", ""):
+                # Keep only the target VNO subfolder, substitute 01-Inicio body
+                sec["item"] = [sf for sf in sec.get("item", []) if sf.get("name", "") == vno_subfolder]
+                for subfolder in sec.get("item", []):
+                    for req in subfolder.get("item", []):
+                        nm = req.get("name", "")
+                        if nm == "01-Inicio Intervención" or nm == "01-Inicio Intervencion":
+                            b = req.get("request", {}).get("body", {})
+                            if b.get("mode") == "raw":
+                                b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_ia_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", "01-Inicio Intervención",
                  "--env-var", f"Token={token}",
                  "--env-var", f"idvno={vno_code}",
                  "--insecure",
@@ -1698,6 +1777,15 @@ function selectSuite(id){
     var _eb0a=document.getElementById('exec-btn'); if(_eb0a) _eb0a.disabled=true;
     return;
   }
+  if(id==='qa-ep-ia'){
+    _isQAChild=true;
+    switchView('ep-form');
+    renderEPFVNOBar();
+    renderIAForm();
+    setTop('','Intervención Asegurada','Configura los parámetros y ejecuta');
+    var _eb0b=document.getElementById('exec-btn'); if(_eb0b) _eb0b.disabled=true;
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -2175,6 +2263,7 @@ function renderEPFVNOBar(){
       renderVNOBar();
       renderEPVNOBar();
       if(selectedId==='qa-ep-assignment') renderAssignmentForm();
+      else if(selectedId==='qa-ep-ia') renderIAForm();
       else renderFactibilidadForm();
     };})(code);
     bar.appendChild(btn);
@@ -2351,6 +2440,88 @@ function renderAssignmentForm(){
 function runAssignment(params){
   if(running) return;
   var sid="qa-ep-assignment";
+  var s=suites.find(function(x){return x.id===sid;});
+  if(!s) return;
+  selectedId=sid; _isQAChild=true;
+  switchView("std");
+  renderVNOBar();
+  var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
+  suiteLogs[sid]=[];
+  document.getElementById("term").innerHTML="";
+  _doRun("/api/run/"+sid,params,s);
+}
+var QA_IA_SUBFOLDER={'00':'TCH','02':'KAO','03':'ENTEL','05':'DTV'};
+function renderIAForm(){
+  var container=document.getElementById("epf-container");
+  if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO;
+  var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Intervención Asegurada";
+  var sf=document.createElement("div"); sf.className="epf-folder";
+  sf.innerHTML='Folder: <span>03-IntervencionAsegurada / '+QA_IA_SUBFOLDER[vno]+' / 01-Inicio Intervención</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  // u_id_vno (auto)
+  var f1=document.createElement("div"); f1.className="epf-field";
+  var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
+  var v1=document.createElement("div"); v1.className="epf-readonly";
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
+  f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
+  // u_access_id_vno (text)
+  var f2=document.createElement("div"); f2.className="epf-field";
+  var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_access_id_vno";
+  var i2=document.createElement("input"); i2.type="text"; i2.className="epf-input"; i2.id="epf-ia-access";
+  i2.placeholder="ej. 02-QASM-2307-1";
+  f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
+  // u_scenario (chips: Instalación / Reparación)
+  var f3=document.createElement("div"); f3.className="epf-field";
+  var l3=document.createElement("label"); l3.className="epf-label"; l3.textContent="u_scenario";
+  var cg3=document.createElement("div"); cg3.className="epf-chips";
+  ['Instalación','Reparación'].forEach(function(sc,idx){
+    var ch=document.createElement("button"); ch.className="epf-chip"+(idx===0?" active":"");
+    ch.id="epf-ia-sc-"+idx; ch.dataset.val=sc; ch.textContent=sc;
+    ch.onclick=function(){
+      cg3.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");});
+      ch.classList.add("active");
+    };
+    cg3.appendChild(ch);
+  });
+  f3.appendChild(l3); f3.appendChild(cg3); card.appendChild(f3);
+  // u_service_type (chips: FTTH / SSAA)
+  var f4=document.createElement("div"); f4.className="epf-field";
+  var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_service_type";
+  var cg4=document.createElement("div"); cg4.className="epf-chips";
+  ['FTTH','SSAA'].forEach(function(st,idx){
+    var ch=document.createElement("button"); ch.className="epf-chip"+(idx===0?" active":"");
+    ch.id="epf-ia-svc-"+idx; ch.dataset.val=st; ch.textContent=st;
+    ch.onclick=function(){
+      cg4.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");});
+      ch.classList.add("active");
+    };
+    cg4.appendChild(ch);
+  });
+  f4.appendChild(l4); f4.appendChild(cg4); card.appendChild(f4);
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
+  eb.disabled=running;
+  eb.onclick=function(){
+    var accessEl=document.getElementById("epf-ia-access");
+    var scChip=cg3.querySelector(".epf-chip.active");
+    var svcChip=cg4.querySelector(".epf-chip.active");
+    if(!accessEl||!scChip||!svcChip) return;
+    runIA({
+      vno:_globalVNO,
+      access_id_vno:accessEl.value,
+      scenario:scChip.dataset.val,
+      service_type:svcChip.dataset.val,
+    });
+  };
+  card.appendChild(eb);
+  container.appendChild(card);
+}
+function runIA(params){
+  if(running) return;
+  var sid="qa-ep-ia";
   var s=suites.find(function(x){return x.id===sid;});
   if(!s) return;
   selectedId=sid; _isQAChild=true;
