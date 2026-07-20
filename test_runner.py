@@ -671,6 +671,23 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-03.html")},
     {"id":"qa-fact-tc04","group":"hidden","label":"TC-04 Factibilidad TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-04.html")},
+    # ── QA Asignación — suite paralela ────────────────────────────────────────
+    {"id":"qa-asig",       "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Suite Asignación","desc":"TC-01..TC-04 · paralelo",
+     "cmd":None,"cwd":None,"report":None,"requires":None},
+    {"id":"qa-asig-suite", "group":"qa-child","parent":"qa-asig",
+     "label":"▶ Ejecutar (4 VNOs · paralelo)",
+     "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
+     "env_type":"qa_asig_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"asignacion"/"index.html"),"requires":None},
+    {"id":"qa-asig-tc01","group":"hidden","label":"TC-01 Asignación Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-01.html")},
+    {"id":"qa-asig-tc02","group":"hidden","label":"TC-02 Asignación KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-02.html")},
+    {"id":"qa-asig-tc03","group":"hidden","label":"TC-03 Asignación DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-03.html")},
+    {"id":"qa-asig-tc04","group":"hidden","label":"TC-04 Asignación TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-04.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -1322,11 +1339,112 @@ async def api_run(suite_id: str, request: Request):
                 "json_out": _json_out,
             })
 
+    elif suite.get("env_type") == "qa_asig_suite":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        _asig_dir = QA_DIR / "asignacion"
+        _asig_dir.mkdir(parents=True, exist_ok=True)
+        _logo_svg_a = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri_a = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_a).decode()
+        _access_id  = overrides.get("access_id", "")
+        _address_id = overrides.get("address_id", "")
+        _speed_plan = overrides.get("speed_plan", "600/600")
+        _service_ba   = overrides.get("service_ba",   "true")
+        _service_voip = overrides.get("service_voip", "true")
+        _service_iptv = overrides.get("service_iptv", "true")
+        _TC_DEFS_ALL_A = [
+            {"tc": "TC-01", "vno": "03", "vno_label": "Entel", "sid": "qa-asig-tc01"},
+            {"tc": "TC-02", "vno": "02", "vno_label": "KAO",   "sid": "qa-asig-tc02"},
+            {"tc": "TC-03", "vno": "05", "vno_label": "DTV",   "sid": "qa-asig-tc03"},
+            {"tc": "TC-04", "vno": "00", "vno_label": "TCH",   "sid": "qa-asig-tc04"},
+        ]
+        _tcs_param_a  = overrides.get("tcs", "")
+        _tcs_filter_a = set(_tcs_param_a.split(",")) if _tcs_param_a else {"TC-01","TC-02","TC-03","TC-04"}
+        _TC_DEFS_A = [d for d in _TC_DEFS_ALL_A if d["tc"] in _tcs_filter_a]
+        if not _TC_DEFS_A:
+            _TC_DEFS_A = _TC_DEFS_ALL_A
+        _tc_runs = []
+        for _tcd in _TC_DEFS_A:
+            _vno      = _tcd["vno"]
+            _env_file = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _folder   = QA_ASSIGNMENT_FOLDER_MAP.get(_vno, "assigment- KAO")
+            _rp_out   = str(_asig_dir / f"{_tcd['tc']}.html")
+            _json_out = str(_asig_dir / f"{_tcd['tc']}.json")
+            _env_data = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev       = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url = _ev.get("apimURL", "")
+            _auth_b64 = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _token = ""
+            try:
+                _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _tok_req = _ur.Request(f"{_apim_url}/token", data=_body_b,
+                    headers={"Authorization": f"Basic {_auth_b64}",
+                             "Content-Type": "application/x-www-form-urlencoded"})
+                _ctx = _sl.create_default_context()
+                _ctx.check_hostname = False; _ctx.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_tok_req, context=_ctx, timeout=15) as _r:
+                    _token = _j.loads(_r.read()).get("access_token", "")
+            except Exception as _te:
+                print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
+            _col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+            _col_tmp  = _cp.deepcopy(_col_src)
+            _new_body = _j.dumps({
+                "u_access_id_vno": _access_id,
+                "u_id_vno": _vno,
+                "u_operation_type": "Alta",
+                "u_scenario": "Alta de acceso",
+                "u_speed_plan": _speed_plan,
+                "u_address_id": _address_id,
+                "u_address_mcd": "OSP",
+                "u_service_ba":   _service_ba,
+                "u_service_voip": _service_voip,
+                "u_service_iptv": _service_iptv,
+                "u_service_type": "FTTH",
+            }, indent=4, ensure_ascii=False)
+            for _sec in _col_tmp.get("item", []):
+                if "Assignment" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw":
+                                _b["raw"] = _new_body
+            _tmp_col = str(QA_DIR / f"_tmp_asig_suite_{_vno}.json")
+            _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _tc_runs.append({
+                "tc":      _tcd["tc"],
+                "vno":     _vno,
+                "vno_lbl": _tcd["vno_label"],
+                "sid":     _tcd["sid"],
+                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "cmd":     [NEWMAN, "run", _tmp_col,
+                            "-e", _env_file,
+                            "--folder", _folder,
+                            "--env-var", f"Token={_token}",
+                            "--env-var", f"idvno={_vno}",
+                            "--insecure",
+                            "--reporters", "cli,json,htmlextra",
+                            "--reporter-json-export", _json_out,
+                            "--reporter-htmlextra-export", _rp_out,
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']} – OnnetFibra",
+                            "--reporter-htmlextra-logo", _logo_uri_a],
+                "cwd":     str(QA_DIR),
+                "rp_out":  _rp_out,
+                "json_out": _json_out,
+            })
+
     if _tc_runs is not None:
         async def sse_parallel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'QA Factibilidad — {len(_tc_runs)} TCs en paralelo — DIR02803636'})}\n\n"
+            _suite_lbl = suite.get("label","Suite")
+            yield f"data: {json.dumps({'e':'line','t':f'{_suite_lbl} — {len(_tc_runs)} TCs en paralelo'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
 
             _env = {**os.environ,
@@ -1959,6 +2077,14 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .fsb-all{font-size:.61rem;padding:2px 7px;border-radius:10px;border:1px solid var(--brd);background:transparent;color:var(--txt3);cursor:pointer}
 .fsb-all:hover{color:var(--txt);border-color:var(--txt2)}
 #fact-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
+#asig-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
+#asig-form-bar .afb-lbl{font-size:.6rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+#asig-form-bar input,#asig-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
+#asig-form-bar input:focus,#asig-form-bar select:focus{border-color:var(--acc)}
+#asig-form-bar input.wide{width:160px}#asig-form-bar input.med{width:110px}
+#asig-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
+#asig-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+#asig-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
 .fact-panel{display:flex;flex-direction:column;background:var(--term);border:1px solid var(--brd);border-radius:6px;overflow:hidden;min-height:0}
 .fp-hdr{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
 .fp-dot{width:10px;height:10px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:background .25s}
@@ -2055,6 +2181,12 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="fact-sel-bar"></div>
       <div id="fact-grid"></div>
     </div>
+    <!-- Vista Asignación — 4 consolas paralelas -->
+    <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="asig-form-bar"></div>
+      <div id="asig-sel-bar"></div>
+      <div id="asig-grid"></div>
+    </div>
     <!-- Vista Services Now — doble terminal -->
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="sn-form" id="sn-form"></div>
@@ -2140,6 +2272,8 @@ function renderSB(){
         if(isOpen){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
+            :s.id==='qa-fulfillment'
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -2230,6 +2364,16 @@ function selectSuite(id){
     renderFactView();
     setTop('','Suite: Factibilidad','TC-01..TC-04 · DIR02803636 · presiona Ejecutar');
     _syncExecBtn();
+    return;
+  }
+  if(id==='qa-asig-suite'){
+    _isQAChild=false;
+    switchView('asig');
+    renderAsigFormBar();
+    renderAsigSelBar();
+    renderAsigView();
+    setTop('','Suite: Asignación','TC-01..TC-04 · presiona Ejecutar');
+    _syncAsigExecBtn();
     return;
   }
   if(id==='qa-endpoints'){
@@ -2337,6 +2481,11 @@ function executeSelected(){
     if(_sf) _doRunFact(_sf);
     return;
   }
+  if(selectedId==='qa-asig-suite'){
+    var _sa=suites.find(function(x){return x.id==='qa-asig-suite';});
+    if(_sa) _doRunAsig(_sa);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -2372,9 +2521,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -2530,6 +2679,208 @@ function _doRunFact(s){
       }
     } else if(d.e==='tc_response'){
       _factSetResponse(d.tc, d.responses);
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error'){onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);}
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){
+      currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+    }
+  };
+}
+
+// ── Asignación: vista multi-consola ─────────────────────────────────────────
+var _ASIG_TC_META = [
+  {tc:'TC-01', label:'TC-01 · Entel', vno:'VNO 03', sid:'qa-asig-tc01', color:'#98F5A4'},
+  {tc:'TC-02', label:'TC-02 · KAO',   vno:'VNO 02', sid:'qa-asig-tc02', color:'#7EC8E3'},
+  {tc:'TC-03', label:'TC-03 · DTV',   vno:'VNO 05', sid:'qa-asig-tc03', color:'#FFD580'},
+  {tc:'TC-04', label:'TC-04 · TCH',   vno:'VNO 00', sid:'qa-asig-tc04', color:'#B39DFF'},
+];
+var _asigSel={'TC-01':true,'TC-02':true,'TC-03':true,'TC-04':true};
+
+function renderAsigFormBar(){
+  var bar=document.getElementById('asig-form-bar'); if(!bar) return;
+  bar.innerHTML=
+    '<span class="afb-lbl">Access ID:</span>'
+    +'<input class="wide" id="asig-access" placeholder="u_access_id_vno" />'
+    +'<span class="afb-lbl">Address ID:</span>'
+    +'<input class="med" id="asig-addr" placeholder="DIR..." />'
+    +'<span class="afb-lbl">Plan:</span>'
+    +'<select id="asig-speed">'
+    +'<option value="100/100">100/100</option>'
+    +'<option value="300/300">300/300</option>'
+    +'<option value="400/400">400/400</option>'
+    +'<option value="600/600" selected>600/600</option>'
+    +'<option value="800/800">800/800</option>'
+    +'<option value="1000/1000">1000/1000</option>'
+    +'</select>'
+    +'<span class="afb-lbl">BA:</span>'
+    +'<select id="asig-ba"><option value="true" selected>Si</option><option value="false">No</option></select>'
+    +'<span class="afb-lbl">VoIP:</span>'
+    +'<select id="asig-voip"><option value="true" selected>Si</option><option value="false">No</option></select>'
+    +'<span class="afb-lbl">IPTV:</span>'
+    +'<select id="asig-iptv"><option value="true" selected>Si</option><option value="false">No</option></select>';
+}
+
+function renderAsigSelBar(){
+  var bar=document.getElementById('asig-sel-bar'); if(!bar) return;
+  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
+  _ASIG_TC_META.forEach(function(m){
+    var on=_asigSel[m.tc]?'on':'';
+    h+='<button class="tc-sel-btn '+on+'" id="asb-'+m.tc+'">'+esc(m.label)+'</button>';
+  });
+  h+='<span class="fsb-sep"></span>'
+    +'<button class="fsb-all" id="asb-all">Todos</button>'
+    +'<button class="fsb-all" id="asb-none">Ninguno</button>';
+  bar.innerHTML=h;
+  _ASIG_TC_META.forEach(function(m){
+    document.getElementById('asb-'+m.tc).onclick=(function(tc){
+      return function(){ _toggleAsigTC(tc); };
+    })(m.tc);
+  });
+  document.getElementById('asb-all').onclick=function(){ _selectAllAsig(true); };
+  document.getElementById('asb-none').onclick=function(){ _selectAllAsig(false); };
+}
+
+function _toggleAsigTC(tc){
+  _asigSel[tc]=!_asigSel[tc];
+  var btn=document.getElementById('asb-'+tc);
+  if(btn) btn.className='tc-sel-btn'+(_asigSel[tc]?' on':'');
+  renderAsigView();
+  _syncAsigExecBtn();
+}
+
+function _selectAllAsig(val){
+  _ASIG_TC_META.forEach(function(m){ _asigSel[m.tc]=val; });
+  renderAsigSelBar();
+  renderAsigView();
+  _syncAsigExecBtn();
+}
+
+function _syncAsigExecBtn(){
+  var anyOn=_ASIG_TC_META.some(function(m){ return _asigSel[m.tc]; });
+  var eb=document.getElementById('exec-btn');
+  if(eb) eb.disabled=running||!anyOn;
+}
+
+function renderAsigView(){
+  var grid=document.getElementById('asig-grid'); if(!grid) return;
+  grid.innerHTML='';
+  var _sel=_ASIG_TC_META.filter(function(m){ return _asigSel[m.tc]; });
+  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  _sel.forEach(function(m){
+    var p=document.createElement('div'); p.className='fact-panel'; p.id='ap-'+m.tc;
+    var _tc=m.tc;
+    p.innerHTML=
+      '<div class="fp-hdr">'
+      +'<span class="fp-dot idle" id="apd-'+_tc+'"></span>'
+      +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
+      +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
+      +'<span class="fp-badge idle" id="apb-'+_tc+'">espera</span>'
+      +'<a class="fp-rpt" id="apr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'</div>'
+      +'<div class="fact-term" id="at-'+_tc+'"></div>'
+      +'<div class="fp-resp-bar" id="afrb-'+_tc+'">'
+      +'<span class="fr-label">Response</span>'
+      +'<span id="afrs-'+_tc+'"></span>'
+      +'</div>'
+      +'<div class="fp-resp" id="afr-'+_tc+'"><span class="fr-empty">—</span></div>';
+    grid.appendChild(p);
+  });
+}
+
+function _asigApp(tc, text, cls){
+  var el=document.getElementById('at-'+tc); if(!el) return;
+  var sp=document.createElement('span');
+  sp.className='tl'+(cls?' '+cls:'');
+  sp.textContent=text+'\\n';
+  el.appendChild(sp);
+  el.scrollTop=el.scrollHeight;
+}
+
+function _asigSetState(tc, state){
+  var dot=document.getElementById('apd-'+tc);
+  var badge=document.getElementById('apb-'+tc);
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
+  if(dot){ dot.className='fp-dot '+state; }
+  if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
+}
+
+function _asigSetResponse(tc, responses){
+  var el=document.getElementById('afr-'+tc);
+  var bar=document.getElementById('afrs-'+tc);
+  if(!el||!responses||!responses.length) return;
+  var r=responses[responses.length-1];
+  var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+  if(bar){
+    bar.innerHTML='<span class="fr-scode '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-stime">'+r.time_ms+'ms</span>'
+      +'<span class="fr-sname">'+esc(r.name||'')+'</span>';
+  }
+  var bodyTxt=r.body||'';
+  if(bodyTxt){
+    try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){}
+  }
+  el.innerHTML=bodyTxt?'<pre>'+esc(bodyTxt)+'</pre>':'<span class="fr-empty">Sin body</span>';
+}
+
+function _doRunAsig(s){
+  if(running) return;
+  var accessId=document.getElementById('asig-access');
+  var addrId=document.getElementById('asig-addr');
+  var speed=document.getElementById('asig-speed');
+  var ba=document.getElementById('asig-ba');
+  var voip=document.getElementById('asig-voip');
+  var iptv=document.getElementById('asig-iptv');
+  if(!accessId||!accessId.value.trim()){
+    accessId&&(accessId.style.borderColor='var(--err)');
+    return;
+  }
+  if(accessId) accessId.style.borderColor='';
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
+  setIco(s.id,'running'); setActive(s.id);
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  _ASIG_TC_META.forEach(function(m){
+    var at=document.getElementById('at-'+m.tc); if(at) at.innerHTML='';
+    var afr=document.getElementById('afr-'+m.tc); if(afr) afr.innerHTML='<span class="fr-empty">—</span>';
+    var afrs=document.getElementById('afrs-'+m.tc); if(afrs) afrs.innerHTML='';
+    var apr=document.getElementById('apr-'+m.tc); if(apr) apr.classList.remove('show');
+    _asigSetState(m.tc,'idle');
+  });
+  if(currentEs){currentEs.close();currentEs=null;}
+  var _selTcs=_ASIG_TC_META.filter(function(m){return _asigSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var _params='tcs='+encodeURIComponent(_selTcs)
+    +'&access_id='+encodeURIComponent(accessId?accessId.value.trim():'')
+    +'&address_id='+encodeURIComponent(addrId?addrId.value.trim():'')
+    +'&speed_plan='+encodeURIComponent(speed?speed.value:'600/600')
+    +'&service_ba='+encodeURIComponent(ba?ba.value:'true')
+    +'&service_voip='+encodeURIComponent(voip?voip.value:'true')
+    +'&service_iptv='+encodeURIComponent(iptv?iptv.value:'true');
+  var es=new EventSource('/api/run/qa-asig-suite?'+_params);
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      if(d.tc){ _asigApp(d.tc,d.t,col(d.t)); _asigSetState(d.tc,'running'); }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='tc_done'){
+      var ok=d.code===0;
+      _asigSetState(d.tc,ok?'passed':'failed');
+      if(d.has_report){
+        var apr=document.getElementById('apr-'+d.tc);
+        if(apr){apr.href='/api/report/'+d.sid;apr.classList.add('show');}
+      }
+    } else if(d.e==='tc_response'){
+      _asigSetResponse(d.tc,d.responses);
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       if(d.e==='error'){onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);}
