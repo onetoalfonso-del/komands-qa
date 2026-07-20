@@ -1609,7 +1609,7 @@ async def api_run(suite_id: str, request: Request):
                 "json_out": _json_out,
             })
 
-    # ── Suite Activación (3 pasos por VNO en secuencia, 4 VNOs en paralelo) ────
+    # ── Suite Activación — cadena completa 6 pasos por VNO en paralelo ─────────
     _activ_runs = None
     if suite.get("env_type") == "qa_activ_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
@@ -1657,19 +1657,21 @@ async def api_run(suite_id: str, request: Request):
         _activ_dir.mkdir(parents=True, exist_ok=True)
         _col_ff  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         _col_con = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        _ADDR_ID_ACTIV = "DIR02803636"
         _activ_runs = []
         for _tcd in _TC_DEFS_ACTIV:
-            _vno       = _tcd["vno"]
-            _env_file  = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
-            _rp_out    = str(_activ_dir / f"{_tcd['tc']}.html")
-            _json_out  = str(_activ_dir / f"{_tcd['tc']}.json")
-            _rp_s2     = str(_activ_dir / f"{_tcd['tc']}_s2.html")
-            _rp_s3     = str(_activ_dir / f"{_tcd['tc']}_s3.html")
-            _json_s3   = str(_activ_dir / f"{_tcd['tc']}_s3.json")
-            _env_data  = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
-            _ev        = {v["key"]: v["value"] for v in _env_data["values"]}
-            _apim_url  = _ev.get("apimURL", "")
-            _auth_b64  = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _vno          = _tcd["vno"]
+            _env_file     = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _access_id    = _access_ids_map_activ.get(_tcd["tc"], "")
+            _fact_folder  = QA_FACTIBILIDAD_FOLDER_MAP.get(_vno, "feasibility-KAO")
+            _asig_folder  = QA_ASSIGNMENT_FOLDER_MAP.get(_vno, "assigment- KAO")
+            _ia_subfolder = QA_IA_VNO_SUBFOLDER.get(_vno, "KAO")
+            _activ_req_nm = QA_ACTIVACION_REQUEST_MAP.get(_vno, "Activation KAO")
+            _ret_req_nm   = QA_RETRIEVE_REQUEST_MAP.get(_vno, "RetrieveAcces KAO")
+            _env_data     = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev           = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url     = _ev.get("apimURL", "")
+            _auth_b64     = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
             _token = ""
             try:
                 _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
@@ -1682,45 +1684,7 @@ async def api_run(suite_id: str, request: Request):
                     _token = _j.loads(_r.read()).get("access_token", "")
             except Exception as _te:
                 print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
-            # Body activación
-            _access_id_activ = _access_ids_map_activ.get(_tcd["tc"], "")
-            _activ_body = {
-                "u_id_vno":        _vno,
-                "u_access_id_vno": _access_id_activ,
-                "u_operation_type": "A",
-                "u_speed_plan":    _speed_plan,
-                "u_service_ba":    _svc_ba,
-                "u_service_voip":  _svc_voip,
-                "u_service_iptv":  _svc_iptv,
-            }
-            if _vno in QA_ACTIV_SERIAL_BASE:
-                _activ_body["u_serial_number"] = QA_ACTIV_SERIAL_BASE[_vno] + _serial_suffix
-            # Body retrieve access
-            _retrieve_body = {
-                "u_id_vno":        _vno,
-                "u_access_id_vno": _access_id_activ,
-                "u_flag_scope":    "0",
-            }
-            # Colección temp activación (pasos 1 y 2 usan el mismo cmd)
-            _activ_req_name = QA_ACTIVACION_REQUEST_MAP.get(_vno, "Activation KAO")
-            _activ_req_item = _find_req_in_col(_cp.deepcopy(_col_ff), _activ_req_name)
-            if _activ_req_item:
-                _b = _activ_req_item.get("request", {}).get("body", {})
-                if _b.get("mode") == "raw":
-                    _b["raw"] = _j.dumps(_activ_body, indent=4, ensure_ascii=False)
-            _tmp_activ = str(QA_DIR / f"_tmp_activ_{_vno}.json")
-            _j.dump({"info": _col_ff.get("info", {}), "item": [_activ_req_item] if _activ_req_item else []},
-                    open(_tmp_activ, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-            # Colección temp retrieve access
-            _retrieve_req_name = QA_RETRIEVE_REQUEST_MAP.get(_vno, "RetrieveAcces KAO")
-            _retrieve_req_item = _find_req_in_col(_cp.deepcopy(_col_con), _retrieve_req_name)
-            if _retrieve_req_item:
-                _b2 = _retrieve_req_item.get("request", {}).get("body", {})
-                if _b2.get("mode") == "raw":
-                    _b2["raw"] = _j.dumps(_retrieve_body, indent=4, ensure_ascii=False)
-            _tmp_retrieve = str(QA_DIR / f"_tmp_retrieve_{_vno}.json")
-            _j.dump({"info": _col_con.get("info", {}), "item": [_retrieve_req_item] if _retrieve_req_item else []},
-                    open(_tmp_retrieve, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+
             _base_cmd = [NEWMAN, "run", "",
                          "-e", _env_file,
                          "--env-var", f"Token={_token}",
@@ -1728,38 +1692,140 @@ async def api_run(suite_id: str, request: Request):
                          "--insecure",
                          "--reporters", "cli,json,htmlextra",
                          "--reporter-htmlextra-logo", _logo_uri_activ]
-            _cmd_s1 = list(_base_cmd); _cmd_s1[2] = _tmp_activ
-            _cmd_s1 += ["--reporter-json-export",    _json_out,
-                        "--reporter-htmlextra-export", _rp_out,
-                        "--reporter-htmlextra-title",  f"Reporte QA – {_tcd['tc']} Activación · {_tcd['vno_label']} – OnnetFibra"]
-            _cmd_s2 = list(_base_cmd); _cmd_s2[2] = _tmp_activ
-            _cmd_s2 += ["--reporter-json-export",    str(_activ_dir / f"{_tcd['tc']}_s2.json"),
-                        "--reporter-htmlextra-export", _rp_s2,
-                        "--reporter-htmlextra-title",  f"Reporte QA – {_tcd['tc']} Idempotencia · {_tcd['vno_label']} – OnnetFibra"]
-            _cmd_s3 = list(_base_cmd); _cmd_s3[2] = _tmp_retrieve
-            _cmd_s3 += ["--reporter-json-export",    _json_s3,
-                        "--reporter-htmlextra-export", _rp_s3,
-                        "--reporter-htmlextra-title",  f"Reporte QA – {_tcd['tc']} RetrieveAccess · {_tcd['vno_label']} – OnnetFibra"]
+
+            # ── Paso 1: Factibilidad ────────────────────────────────────────────
+            _col_fact = _cp.deepcopy(_col_ff)
+            _fact_body = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
+                                   "u_address_id": _ADDR_ID_ACTIV, "u_address_mcd": "OSP",
+                                   "u_service_type": "FTTH"}, indent=4, ensure_ascii=False)
+            for _sec in _col_fact.get("item", []):
+                if "Factibilidad" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _fact_folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw": _b["raw"] = _fact_body
+            _tmp_fact = str(QA_DIR / f"_tmp_activ_fact_{_vno}.json")
+            _j.dump(_col_fact, open(_tmp_fact, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_fact = str(_activ_dir / f"{_tcd['tc']}_fact.html")
+            _js_fact = str(_activ_dir / f"{_tcd['tc']}_fact.json")
+            _cmd_fact = list(_base_cmd); _cmd_fact[2] = _tmp_fact
+            _cmd_fact += ["--folder", _fact_folder,
+                          "--reporter-json-export", _js_fact,
+                          "--reporter-htmlextra-export", _rp_fact,
+                          "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
+
+            # ── Paso 2: Asignación ──────────────────────────────────────────────
+            _col_asig = _cp.deepcopy(_col_ff)
+            _asig_body = _j.dumps({
+                "u_access_id_vno": _access_id, "u_id_vno": _vno,
+                "u_operation_type": "Alta", "u_scenario": "Alta de acceso",
+                "u_speed_plan": _speed_plan, "u_address_id": _ADDR_ID_ACTIV,
+                "u_address_mcd": "OSP",
+                "u_service_ba": _svc_ba, "u_service_voip": _svc_voip,
+                "u_service_iptv": _svc_iptv, "u_service_type": "FTTH",
+            }, indent=4, ensure_ascii=False)
+            for _sec in _col_asig.get("item", []):
+                if "Assignment" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _asig_folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw": _b["raw"] = _asig_body
+            _tmp_asig = str(QA_DIR / f"_tmp_activ_asig_{_vno}.json")
+            _j.dump(_col_asig, open(_tmp_asig, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_asig = str(_activ_dir / f"{_tcd['tc']}_asig.html")
+            _js_asig = str(_activ_dir / f"{_tcd['tc']}_asig.json")
+            _cmd_asig = list(_base_cmd); _cmd_asig[2] = _tmp_asig
+            _cmd_asig += ["--folder", _asig_folder,
+                          "--reporter-json-export", _js_asig,
+                          "--reporter-htmlextra-export", _rp_asig,
+                          "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
+
+            # ── Paso 3: IA Inicio ───────────────────────────────────────────────
+            _col_ia = _cp.deepcopy(_col_ff)
+            _ia_body = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
+                                  "u_scenario": "Instalación", "u_service_type": "FTTH"},
+                                 indent=4, ensure_ascii=False)
+            for _sec in _col_ia.get("item", []):
+                if "Interven" in _sec.get("name", ""):
+                    _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_subfolder]
+                    for _sf in _sec.get("item", []):
+                        for _req in _sf.get("item", []):
+                            if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
+                                _b = _req.get("request", {}).get("body", {})
+                                if _b.get("mode") == "raw": _b["raw"] = _ia_body
+            _tmp_ia = str(QA_DIR / f"_tmp_activ_ia_{_vno}.json")
+            _j.dump(_col_ia, open(_tmp_ia, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_ia = str(_activ_dir / f"{_tcd['tc']}_ia.html")
+            _js_ia = str(_activ_dir / f"{_tcd['tc']}_ia.json")
+            _cmd_ia = list(_base_cmd); _cmd_ia[2] = _tmp_ia
+            _cmd_ia += ["--folder", "01-Inicio Intervención",
+                        "--reporter-json-export", _js_ia,
+                        "--reporter-htmlextra-export", _rp_ia,
+                        "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
+
+            # ── Pasos 4+5: Activación × 2 en mismo Newman run ──────────────────
+            _activ_body_j = _j.dumps({
+                "u_id_vno": _vno, "u_access_id_vno": _access_id,
+                "u_operation_type": "A", "u_speed_plan": _speed_plan,
+                "u_service_ba": _svc_ba, "u_service_voip": _svc_voip,
+                "u_service_iptv": _svc_iptv,
+                **( {"u_serial_number": QA_ACTIV_SERIAL_BASE[_vno] + _serial_suffix}
+                    if _vno in QA_ACTIV_SERIAL_BASE else {} )
+            }, indent=4, ensure_ascii=False)
+            _act_req = _find_req_in_col(_cp.deepcopy(_col_ff), _activ_req_nm)
+            if _act_req:
+                _b = _act_req.get("request", {}).get("body", {})
+                if _b.get("mode") == "raw": _b["raw"] = _activ_body_j
+            _act_req2 = _cp.deepcopy(_act_req) if _act_req else None
+            if _act_req2: _act_req2["name"] = _act_req2.get("name","") + " (idempotencia)"
+            _tmp_act = str(QA_DIR / f"_tmp_activ_act_{_vno}.json")
+            _act_items = [i for i in [_act_req, _act_req2] if i]
+            _j.dump({"info": _col_ff.get("info", {}), "item": _act_items},
+                    open(_tmp_act, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_act  = str(_activ_dir / f"{_tcd['tc']}.html")
+            _js_act  = str(_activ_dir / f"{_tcd['tc']}.json")
+            _cmd_act = list(_base_cmd); _cmd_act[2] = _tmp_act
+            _cmd_act += ["--reporter-json-export", _js_act,
+                         "--reporter-htmlextra-export", _rp_act,
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación × 2 · {_tcd['vno_label']}"]
+
+            # ── Paso 6: Retrieve Access ─────────────────────────────────────────
+            _ret_req = _find_req_in_col(_cp.deepcopy(_col_con), _ret_req_nm)
+            _ret_body_j = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
+                                     "u_flag_scope": "0"}, indent=4, ensure_ascii=False)
+            if _ret_req:
+                _b = _ret_req.get("request", {}).get("body", {})
+                if _b.get("mode") == "raw": _b["raw"] = _ret_body_j
+            _tmp_ret = str(QA_DIR / f"_tmp_activ_ret_{_vno}.json")
+            _j.dump({"info": _col_con.get("info", {}), "item": [_ret_req] if _ret_req else []},
+                    open(_tmp_ret, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_ret  = str(_activ_dir / f"{_tcd['tc']}_ret.html")
+            _js_ret  = str(_activ_dir / f"{_tcd['tc']}_ret.json")
+            _cmd_ret = list(_base_cmd); _cmd_ret[2] = _tmp_ret
+            _cmd_ret += ["--reporter-json-export", _js_ret,
+                         "--reporter-htmlextra-export", _rp_ret,
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Retrieve Access · {_tcd['vno_label']}"]
+
             _activ_runs.append({
-                "tc":      _tcd["tc"],
-                "vno":     _vno,
-                "vno_lbl": _tcd["vno_label"],
+                "tc":      _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":     _tcd["sid"],
                 "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
-                "cmd_s1":  _cmd_s1,
-                "cmd_s2":  _cmd_s2,
-                "cmd_s3":  _cmd_s3,
-                "cwd":     str(QA_DIR),
-                "rp_out":  _rp_out,
-                "json_out": _json_out,
-                "json_s3":  _json_s3,
+                "steps": [
+                    ("1/6 Factibilidad",     _cmd_fact, _js_fact),
+                    ("2/6 Asignación",       _cmd_asig, _js_asig),
+                    ("3/6 IA Inicio",        _cmd_ia,   _js_ia),
+                    ("4+5/6 Activación × 2", _cmd_act,  _js_act),
+                    ("6/6 Retrieve Access",  _cmd_ret,  _js_ret),
+                ],
+                "cwd":    str(QA_DIR),
+                "rp_out": _rp_act,
             })
 
     if _activ_runs is not None:
         async def sse_activ():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · 3 pasos c/u'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · cadena completa 6 pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_activ = {**os.environ,
                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -1770,25 +1836,25 @@ async def api_run(suite_id: str, request: Request):
 
             async def _run_activ(tr):
                 await _out_q_activ.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
-                _codes = []
                 _last_json = None
-                for _step_idx, (_step_lbl, _step_cmd, _step_json) in enumerate([
-                    ("Paso 1: Activation",    tr["cmd_s1"], tr["json_out"]),
-                    ("Paso 2: Idempotencia",  tr["cmd_s2"], None),
-                    ("Paso 3: Retrieve",      tr["cmd_s3"], tr["json_s3"]),
-                ], 1):
-                    await _out_q_activ.put(("L", tr["tc"], f"── {_step_lbl} ──"))
+                _overall   = 1
+                for _step_lbl, _step_cmd, _step_json in tr["steps"]:
+                    await _out_q_activ.put(("L", tr["tc"], f"── Paso {_step_lbl} ──"))
                     _step_code = 1
                     async for _k, _v in _iter_proc(_step_cmd, tr["cwd"], _env_activ):
                         if _k == "L":
                             await _out_q_activ.put(("L", tr["tc"], _v))
                         elif _k == "D":
                             _step_code = _v
-                    _codes.append(_step_code)
                     if _step_json:
                         _last_json = _step_json
-                # Paso 2 puede fallar por diseño (error 21 esperado), no cuenta como fallo del TC
-                _overall = 0 if (_codes[0] == 0) else 1
+                    # Paso 4+5 puede tener código ≠ 0 por el error 21 esperado — no es fallo del TC
+                    if "4+5" not in _step_lbl and _step_code != 0:
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {_step_lbl} falló (código {_step_code}) — deteniendo"))
+                        await _out_q_activ.put(("D", tr, 1, _last_json))
+                        return
+                    if "4+5" in _step_lbl:
+                        _overall = 0   # si llegamos hasta aquí Activación OK
                 await _out_q_activ.put(("D", tr, _overall, _last_json))
 
             _tasks_activ = [asyncio.create_task(_run_activ(tr)) for tr in _activ_runs]
