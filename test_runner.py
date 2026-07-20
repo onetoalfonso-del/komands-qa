@@ -2011,13 +2011,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
   </main>
 </div>
-
+<script>window.onerror=function(msg,src,line,col){var el=document.getElementById('sb-list');if(el)el.innerHTML='<div style="padding:8px;color:#e06c75;font-size:.65rem">JS ERR L'+line+': '+msg+'</div>';return false;};</script>
 <script>
-window.onerror=function(msg,src,line,col,err){
-  var el=document.getElementById('sb-list');
-  if(el)el.innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem;white-space:pre-wrap">JS ERROR L'+line+': '+msg+'</div>';
-  return false;
-};
 var suites=[], currentEs=null, running=false, queue=[], tStart=0, selectedId=null, runningId=null;
 var SN_VNO_DEFS=[
   {code:'03',label:'Entel',   color:'#C586C0',suiteId:'apim-vno03'},
@@ -2052,10 +2047,11 @@ function loadSuites(attempt){
   }).then(function(data){
     suites=data;
     if(!suites||!suites.length){
-      document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">ERROR: /api/suites devolvió vacío</div>';
+      document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">API devolvió vacío</div>';
       return;
     }
-    renderSB();
+    try{ renderSB(); }
+    catch(e){ document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">renderSB error: '+e.message+'</div>'; }
   }).catch(function(err){
     var msg='Error API /suites (intento '+attempt+'): '+err.message;
     document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem;white-space:pre-wrap">'+msg+'</div>';
