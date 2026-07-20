@@ -1248,12 +1248,17 @@ async def api_run(suite_id: str, request: Request):
             b'</svg>'
         )
         _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
-        _TC_DEFS = [
+        _TC_DEFS_ALL = [
             {"tc": "TC-01", "vno": "03", "vno_label": "Entel",  "sid": "qa-fact-tc01"},
             {"tc": "TC-02", "vno": "02", "vno_label": "KAO",    "sid": "qa-fact-tc02"},
             {"tc": "TC-03", "vno": "05", "vno_label": "DTV",    "sid": "qa-fact-tc03"},
             {"tc": "TC-04", "vno": "00", "vno_label": "TCH",    "sid": "qa-fact-tc04"},
         ]
+        _tcs_param = overrides.get("tcs", "")
+        _tcs_filter = set(_tcs_param.split(",")) if _tcs_param else {"TC-01","TC-02","TC-03","TC-04"}
+        _TC_DEFS = [d for d in _TC_DEFS_ALL if d["tc"] in _tcs_filter]
+        if not _TC_DEFS:
+            _TC_DEFS = _TC_DEFS_ALL
         _tc_runs = []
         for _tcd in _TC_DEFS:
             _vno       = _tcd["vno"]
@@ -1946,6 +1951,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 /* TERMINAL */
 .terminal{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px;background:var(--term);font-family:var(--mono);font-size:.76rem;line-height:1.6}
 /* ── Fact view: 4 consolas paralelas ───────────────────────────────────────── */
+#fact-sel-bar{display:flex;align-items:center;gap:6px;padding:6px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
+#fact-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+.tc-sel-btn{font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid var(--brd);background:transparent;color:var(--txt3);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+.tc-sel-btn.on{border-color:var(--acc);background:rgba(0,200,255,.12);color:var(--acc)}
+.fsb-sep{width:1px;height:16px;background:var(--brd);margin:0 2px}
+.fsb-all{font-size:.61rem;padding:2px 7px;border-radius:10px;border:1px solid var(--brd);background:transparent;color:var(--txt3);cursor:pointer}
+.fsb-all:hover{color:var(--txt);border-color:var(--txt2)}
 #fact-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
 .fact-panel{display:flex;flex-direction:column;background:var(--term);border:1px solid var(--brd);border-radius:6px;overflow:hidden;min-height:0}
 .fp-hdr{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
@@ -2040,6 +2052,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Factibilidad — 4 consolas paralelas -->
     <div id="fact-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="fact-sel-bar"></div>
       <div id="fact-grid"></div>
     </div>
     <!-- Vista Services Now — doble terminal -->
@@ -2213,9 +2226,10 @@ function selectSuite(id){
   if(id==='qa-fact-suite'){
     _isQAChild=false;
     switchView('fact');
+    renderFactSelBar();
     renderFactView();
     setTop('','Suite: Factibilidad','TC-01..TC-04 · DIR02803636 · presiona Ejecutar');
-    var _ebfact=document.getElementById('exec-btn'); if(_ebfact) _ebfact.disabled=running;
+    _syncExecBtn();
     return;
   }
   if(id==='qa-endpoints'){
@@ -2373,10 +2387,55 @@ var _FACT_TC_META = [
   {tc:'TC-04', label:'TC-04 · TCH',   vno:'VNO 00', sid:'qa-fact-tc04', color:'#6E8EFF'},
 ];
 
+var _factSel={'TC-01':true,'TC-02':true,'TC-03':true,'TC-04':true};
+
+function renderFactSelBar(){
+  var bar=document.getElementById('fact-sel-bar'); if(!bar) return;
+  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
+  _FACT_TC_META.forEach(function(m){
+    var on=_factSel[m.tc]?'on':'';
+    h+='<button class="tc-sel-btn '+on+'" id="tcsb-'+m.tc+'">'+esc(m.label)+'</button>';
+  });
+  h+='<span class="fsb-sep"></span>'
+    +'<button class="fsb-all" id="fsb-all">Todos</button>'
+    +'<button class="fsb-all" id="fsb-none">Ninguno</button>';
+  bar.innerHTML=h;
+  _FACT_TC_META.forEach(function(m){
+    document.getElementById('tcsb-'+m.tc).onclick=(function(tc){
+      return function(){ toggleFactTC(tc); };
+    })(m.tc);
+  });
+  document.getElementById('fsb-all').onclick=function(){ selectAllFact(true); };
+  document.getElementById('fsb-none').onclick=function(){ selectAllFact(false); };
+}
+
+function toggleFactTC(tc){
+  _factSel[tc]=!_factSel[tc];
+  var btn=document.getElementById('tcsb-'+tc);
+  if(btn) btn.className='tc-sel-btn'+(_factSel[tc]?' on':'');
+  renderFactView();
+  _syncExecBtn();
+}
+
+function selectAllFact(val){
+  _FACT_TC_META.forEach(function(m){ _factSel[m.tc]=val; });
+  renderFactSelBar();
+  renderFactView();
+  _syncExecBtn();
+}
+
+function _syncExecBtn(){
+  var anyOn=_FACT_TC_META.some(function(m){ return _factSel[m.tc]; });
+  var eb=document.getElementById('exec-btn');
+  if(eb) eb.disabled=running||!anyOn;
+}
+
 function renderFactView(){
   var grid=document.getElementById('fact-grid'); if(!grid) return;
   grid.innerHTML='';
-  _FACT_TC_META.forEach(function(m){
+  var _sel=_FACT_TC_META.filter(function(m){ return _factSel[m.tc]; });
+  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  _sel.forEach(function(m){
     var p=document.createElement('div'); p.className='fact-panel'; p.id='fp-'+m.tc;
     var _tc=m.tc;
     p.innerHTML=
@@ -2451,7 +2510,8 @@ function _doRunFact(s){
     _factSetState(m.tc,'idle');
   });
   if(currentEs){currentEs.close();currentEs=null;}
-  var es=new EventSource('/api/run/qa-fact-suite');
+  var _selTcs=_FACT_TC_META.filter(function(m){return _factSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var es=new EventSource('/api/run/qa-fact-suite?tcs='+encodeURIComponent(_selTcs));
   currentEs=es;
   es.onmessage=function(ev){
     var d=JSON.parse(ev.data);
