@@ -74,6 +74,13 @@ QA_DM_REQUEST_MAP = {
     "03": "DeviceModification LASER",
     "05": "DeviceModification DTV",
 }
+QA_CANCEL_REQUEST_MAP = {
+    "00": "cancel service order TCH",
+    "02": "cancel service order KAO",
+    "03": "cancel service order LASER",
+    "05": "cancel service order DTV",
+}
+QA_CANCEL_COLLECTION = "08-CancelOrdenServicio.postman_collection.json"
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -770,6 +777,23 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-23.html")},
     {"id":"qa-dm-tc24","group":"hidden","label":"TC-24 Device Mod TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-24.html")},
+    # ── QA Cancelación — suite paralela ────────────────────────────────────────
+    {"id":"qa-cancel-par",   "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Suite Cancelación","desc":"TC-25..TC-28 · 1 paso por VNO · paralelo",
+     "cmd":None,"cwd":None,"report":None,"requires":None},
+    {"id":"qa-cancel-suite", "group":"qa-child","parent":"qa-cancel-par",
+     "label":"▶ Cancelación (4 VNOs · paralelo)",
+     "desc":"TC-25..TC-28 · Cancel Service Order",
+     "env_type":"qa_cancel_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"cancelacion"/"index.html"),"requires":None},
+    {"id":"qa-cancel-tc25","group":"hidden","label":"TC-25 Cancelación Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-25.html")},
+    {"id":"qa-cancel-tc26","group":"hidden","label":"TC-26 Cancelación KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-26.html")},
+    {"id":"qa-cancel-tc27","group":"hidden","label":"TC-27 Cancelación DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-27.html")},
+    {"id":"qa-cancel-tc28","group":"hidden","label":"TC-28 Cancelación TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-28.html")},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -2304,6 +2328,420 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
+    # ── Suite Cancelación — cadena completa 5 pasos por VNO en paralelo ─────────
+    _cancel_runs = None
+    if suite.get("env_type") == "qa_cancel_suite":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+
+        def _find_req_in_col(col, req_name):
+            for it in col.get("item", []):
+                if it.get("name") == req_name and "request" in it:
+                    return it
+                if "item" in it:
+                    found = _find_req_in_col(it, req_name)
+                    if found:
+                        return found
+            return None
+
+        _logo_svg_cancel = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri_cancel   = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_cancel).decode()
+        _svc_type_cancel   = overrides.get("service_type", "FTTH")
+        _cancel_speed_plan = overrides.get("speed_plan", "100/10")
+        _cancel_svc_ba     = overrides.get("svc_ba",   "true")  == "true"
+        _cancel_svc_voip   = overrides.get("svc_voip", "false") == "true"
+        _cancel_svc_iptv   = overrides.get("svc_iptv", "false") == "true"
+        _cancel_serial_sfx = overrides.get("serial_suffix", "0000")
+        _TC_DEFS_CANCEL = [
+            {"tc":"TC-25","vno":"03","vno_label":"Entel","sid":"qa-cancel-tc25"},
+            {"tc":"TC-26","vno":"02","vno_label":"KAO",  "sid":"qa-cancel-tc26"},
+            {"tc":"TC-27","vno":"05","vno_label":"DTV",  "sid":"qa-cancel-tc27"},
+            {"tc":"TC-28","vno":"00","vno_label":"TCH",  "sid":"qa-cancel-tc28"},
+        ]
+        _tcs_param_cancel  = overrides.get("tcs", "")
+        _tcs_filter_cancel = set(_tcs_param_cancel.split(",")) if _tcs_param_cancel else {d["tc"] for d in _TC_DEFS_CANCEL}
+        _TC_DEFS_CANCEL    = [d for d in _TC_DEFS_CANCEL if d["tc"] in _tcs_filter_cancel] or _TC_DEFS_CANCEL
+        _cancel_dir = QA_DIR / "cancelacion"
+        _cancel_dir.mkdir(parents=True, exist_ok=True)
+        _ADDR_ID_CANCEL = "DIR02803636"
+        _col_ff_cancel  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        _col_cancel_col = _j.load(open(QA_DIR / QA_CANCEL_COLLECTION, encoding="utf-8"))
+        _cancel_runs = []
+        for _tcd in _TC_DEFS_CANCEL:
+            _vno           = _tcd["vno"]
+            _env_file      = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _fact_folder   = QA_FACTIBILIDAD_FOLDER_MAP.get(_vno, "feasibility-KAO")
+            _asig_folder   = QA_ASSIGNMENT_FOLDER_MAP.get(_vno, "assigment- KAO")
+            _ia_subfolder  = QA_IA_VNO_SUBFOLDER.get(_vno, "KAO")
+            _activ_req_nm  = QA_ACTIVACION_REQUEST_MAP.get(_vno, "Activation KAO")
+            _cancel_req_nm = QA_CANCEL_REQUEST_MAP.get(_vno, "cancel service order KAO")
+            _env_data      = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev            = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url      = _ev.get("apimURL", "")
+            _auth_b64      = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _token = ""
+            try:
+                _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _tok_req = _ur.Request(f"{_apim_url}/token", data=_body_b,
+                    headers={"Authorization": f"Basic {_auth_b64}",
+                             "Content-Type": "application/x-www-form-urlencoded"})
+                _ctx = _sl.create_default_context()
+                _ctx.check_hostname = False; _ctx.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_tok_req, context=_ctx, timeout=15) as _r:
+                    _token = _j.loads(_r.read()).get("access_token", "")
+            except Exception as _te:
+                print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
+
+            _base_cmd_cancel = [NEWMAN, "run", "",
+                                "-e", _env_file,
+                                "--env-var", f"Token={_token}",
+                                "--env-var", f"idvno={_vno}",
+                                "--insecure",
+                                "--reporters", "cli,json,htmlextra",
+                                "--reporter-htmlextra-logo", _logo_uri_cancel]
+
+            # ── Paso 1: Factibilidad ─────────────────────────────────────────────
+            _col_fact_c = _cp.deepcopy(_col_ff_cancel)
+            _fact_body_c = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
+                                     "u_address_id": _ADDR_ID_CANCEL, "u_address_mcd": "OSP",
+                                     "u_service_type": "FTTH"}, indent=4, ensure_ascii=False)
+            for _sec in _col_fact_c.get("item", []):
+                if "Factibilidad" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _fact_folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw": _b["raw"] = _fact_body_c
+            _tmp_fact_c = str(QA_DIR / f"_tmp_cancel_fact_{_vno}.json")
+            _j.dump(_col_fact_c, open(_tmp_fact_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_fact_c  = str(_cancel_dir / f"{_tcd['tc']}_fact.html")
+            _js_fact_c  = str(_cancel_dir / f"{_tcd['tc']}_fact.json")
+            _cmd_fact_c = list(_base_cmd_cancel); _cmd_fact_c[2] = _tmp_fact_c
+            _cmd_fact_c += ["--folder", _fact_folder,
+                            "--reporter-json-export", _js_fact_c,
+                            "--reporter-htmlextra-export", _rp_fact_c,
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
+
+            # ── Paso 2: Asignación (sin u_access_id_vno — API lo asigna) ────────
+            _col_asig_c = _cp.deepcopy(_col_ff_cancel)
+            _asig_body_c = _j.dumps({
+                "u_id_vno": _vno, "u_operation_type": "Alta",
+                "u_scenario": "Alta de acceso", "u_speed_plan": _cancel_speed_plan,
+                "u_address_id": _ADDR_ID_CANCEL, "u_address_mcd": "OSP",
+                "u_service_ba": _cancel_svc_ba, "u_service_voip": _cancel_svc_voip,
+                "u_service_iptv": _cancel_svc_iptv, "u_service_type": _svc_type_cancel,
+            }, indent=4, ensure_ascii=False)
+            for _sec in _col_asig_c.get("item", []):
+                if "Assignment" in _sec.get("name", ""):
+                    for _req in _sec.get("item", []):
+                        if _req.get("name", "") == _asig_folder:
+                            _b = _req.get("request", {}).get("body", {})
+                            if _b.get("mode") == "raw": _b["raw"] = _asig_body_c
+            _tmp_asig_c = str(QA_DIR / f"_tmp_cancel_asig_{_vno}.json")
+            _j.dump(_col_asig_c, open(_tmp_asig_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_asig_c  = str(_cancel_dir / f"{_tcd['tc']}_asig.html")
+            _js_asig_c  = str(_cancel_dir / f"{_tcd['tc']}_asig.json")
+            _cmd_asig_c = list(_base_cmd_cancel); _cmd_asig_c[2] = _tmp_asig_c
+            _cmd_asig_c += ["--folder", _asig_folder,
+                            "--reporter-json-export", _js_asig_c,
+                            "--reporter-htmlextra-export", _rp_asig_c,
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
+
+            _cancel_runs.append({
+                "tc":          _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
+                "sid":         _tcd["sid"],
+                "label":       f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "cmd_fact":    _cmd_fact_c,  "js_fact":  _js_fact_c,
+                "cmd_asig":    _cmd_asig_c,  "js_asig":  _js_asig_c,
+                "base_cmd":    _base_cmd_cancel,
+                "col_ff":      _col_ff_cancel,
+                "col_cancel":  _col_cancel_col,
+                "ia_subfolder": _ia_subfolder,
+                "activ_req_nm": _activ_req_nm,
+                "cancel_req_nm": _cancel_req_nm,
+                "speed_plan":  _cancel_speed_plan,
+                "svc_ba":      _cancel_svc_ba,
+                "svc_voip":    _cancel_svc_voip,
+                "svc_iptv":    _cancel_svc_iptv,
+                "svc_type":    _svc_type_cancel,
+                "serial_sfx":  _cancel_serial_sfx,
+                "cancel_dir":  str(_cancel_dir),
+                "cwd":         str(QA_DIR),
+                "rp_out":      str(_cancel_dir / f"{_tcd['tc']}.html"),
+            })
+
+    if _cancel_runs is not None:
+        async def sse_cancel():
+            yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación — {len(_cancel_runs)} TCs · cadena completa 5 pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _env_cancel = {**os.environ,
+                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
+                           "PYTHONUNBUFFERED": "1",
+                           "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
+            _out_q_cancel = asyncio.Queue()
+            _results_cancel = []
+
+            def _read_rsp(js_path):
+                try:
+                    _jd = _j.loads(open(js_path, encoding="utf-8").read())
+                    for _ex in _jd.get("run", {}).get("executions", []):
+                        _r2 = _ex.get("response") or {}
+                        _st2 = _r2.get("stream") or {}
+                        if isinstance(_st2, dict) and _st2.get("type") == "Buffer":
+                            try: _rb = bytes(_st2["data"]).decode("utf-8", errors="replace")
+                            except Exception: _rb = ""
+                        else:
+                            _rb = _r2.get("body", "") or ""
+                        return _r2.get("code", 0), _r2.get("status", ""), _rb[:1500]
+                except Exception:
+                    pass
+                return 0, "", ""
+
+            async def _run_cancel(tr):
+                _tc = tr["tc"]; _vno = tr["vno"]
+                await _out_q_cancel.put(("L", _tc, f"▶ {tr['label']} iniciando…"))
+
+                # ── Paso 1/5: Factibilidad ────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 1/5 Factibilidad ──"))
+                _sc = 1
+                async for _k, _v in _iter_proc(tr["cmd_fact"], tr["cwd"], _env_cancel):
+                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
+                    elif _k == "D": _sc = _v
+                _hc, _hs, _rb = _read_rsp(tr["js_fact"])
+                await _out_q_cancel.put(("L", _tc, f"── Response Factibilidad: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
+                if _sc != 0:
+                    await _out_q_cancel.put(("L", _tc, f"✗ Factibilidad falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
+                    return
+
+                # ── Paso 2/5: Asignación ──────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 2/5 Asignación ──"))
+                _sc = 1
+                async for _k, _v in _iter_proc(tr["cmd_asig"], tr["cwd"], _env_cancel):
+                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
+                    elif _k == "D": _sc = _v
+                _hc, _hs, _rb = _read_rsp(tr["js_asig"])
+                await _out_q_cancel.put(("L", _tc, f"── Response Asignación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
+                if _sc != 0:
+                    await _out_q_cancel.put(("L", _tc, f"✗ Asignación falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
+                    return
+
+                # ── Extraer u_access_id_vno de la respuesta de Asignación ─────────
+                _aid = ""
+                try:
+                    _jd2 = _j.loads(open(tr["js_asig"], encoding="utf-8").read())
+                    for _ex2 in _jd2.get("run", {}).get("executions", []):
+                        _r2 = _ex2.get("response") or {}
+                        _s2 = _r2.get("stream") or {}
+                        if isinstance(_s2, dict) and _s2.get("type") == "Buffer":
+                            try: _rb2 = bytes(_s2["data"]).decode("utf-8", errors="replace")
+                            except Exception: _rb2 = ""
+                        else:
+                            _rb2 = _r2.get("body", "") or ""
+                        try:
+                            _rj2 = _j.loads(_rb2)
+                            _aid = (_rj2.get("result") or {}).get("u_access_id_vno", "")
+                            if _aid: break
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                await _out_q_cancel.put(("L", _tc, f"── Access ID asignado por API: {_aid or '(no encontrado)'} ──"))
+                if not _aid:
+                    await _out_q_cancel.put(("L", _tc, "✗ No se pudo extraer u_access_id_vno — deteniendo"))
+                    await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
+                    return
+
+                _cdir  = Path(tr["cancel_dir"])
+                _base  = list(tr["base_cmd"])
+
+                # ── Paso 3/5: IA Inicio ───────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 3/5 IA Inicio ──"))
+                _col_ia_c = _cp.deepcopy(tr["col_ff"])
+                _ia_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
+                                        "u_scenario": "Instalación",
+                                        "u_service_type": tr["svc_type"]},
+                                       indent=4, ensure_ascii=False)
+                _ia_sub = tr["ia_subfolder"]
+                for _sec in _col_ia_c.get("item", []):
+                    if "Interven" in _sec.get("name", ""):
+                        _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_sub]
+                        for _sf in _sec.get("item", []):
+                            for _req in _sf.get("item", []):
+                                if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
+                                    _b = _req.get("request", {}).get("body", {})
+                                    if _b.get("mode") == "raw": _b["raw"] = _ia_body_c
+                _tmp_ia_c  = str(QA_DIR / f"_tmp_cancel_ia_{_vno}.json")
+                _j.dump(_col_ia_c, open(_tmp_ia_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+                _rp_ia_c   = str(_cdir / f"{_tc}_ia.html")
+                _js_ia_c   = str(_cdir / f"{_tc}_ia.json")
+                _cmd_ia_c  = list(_base); _cmd_ia_c[2] = _tmp_ia_c
+                _cmd_ia_c += ["--folder", "01-Inicio Intervención",
+                              "--reporter-json-export", _js_ia_c,
+                              "--reporter-htmlextra-export", _rp_ia_c,
+                              "--reporter-htmlextra-title", f"Reporte QA – {_tc} IA Inicio · {tr['vno_lbl']}"]
+                _sc = 1
+                async for _k, _v in _iter_proc(_cmd_ia_c, tr["cwd"], _env_cancel):
+                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
+                    elif _k == "D": _sc = _v
+                _hc, _hs, _rb = _read_rsp(_js_ia_c)
+                await _out_q_cancel.put(("L", _tc, f"── Response IA Inicio: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
+                if _sc != 0:
+                    await _out_q_cancel.put(("L", _tc, f"✗ IA Inicio falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
+                    return
+
+                # ── Paso 4/5: Activación ──────────────────────────────────────────
+                _serial_log = (QA_ACTIV_SERIAL_BASE.get(_vno, "") + tr["serial_sfx"]) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)"
+                await _out_q_cancel.put(("L", _tc, f"── Paso 4/5 Activación (serial: {_serial_log}) ──"))
+                _activ_body_c = _j.dumps({
+                    "u_id_vno": _vno, "u_access_id_vno": _aid,
+                    "u_operation_type": "A", "u_speed_plan": tr["speed_plan"],
+                    "u_service_ba": tr["svc_ba"], "u_service_voip": tr["svc_voip"],
+                    "u_service_iptv": tr["svc_iptv"],
+                    **( {"u_serial_number": QA_ACTIV_SERIAL_BASE[_vno] + tr["serial_sfx"]}
+                        if _vno in QA_ACTIV_SERIAL_BASE else {} )
+                }, indent=4, ensure_ascii=False)
+                _act_req_c = _find_req_in_col(_cp.deepcopy(tr["col_ff"]), tr["activ_req_nm"])
+                if _act_req_c:
+                    _b = _act_req_c.get("request", {}).get("body", {})
+                    if _b.get("mode") == "raw": _b["raw"] = _activ_body_c
+                _tmp_act_c = str(QA_DIR / f"_tmp_cancel_act_{_vno}.json")
+                _j.dump({"info": tr["col_ff"].get("info", {}), "item": [_act_req_c] if _act_req_c else []},
+                        open(_tmp_act_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+                _rp_act_c  = str(_cdir / f"{_tc}_act.html")
+                _js_act_c  = str(_cdir / f"{_tc}_act.json")
+                _cmd_act_c = list(_base); _cmd_act_c[2] = _tmp_act_c
+                _cmd_act_c += ["--reporter-json-export", _js_act_c,
+                               "--reporter-htmlextra-export", _rp_act_c,
+                               "--reporter-htmlextra-title", f"Reporte QA – {_tc} Activación · {tr['vno_lbl']}"]
+                _sc = 1
+                async for _k, _v in _iter_proc(_cmd_act_c, tr["cwd"], _env_cancel):
+                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
+                    elif _k == "D": _sc = _v
+                _hc, _hs, _rb = _read_rsp(_js_act_c)
+                await _out_q_cancel.put(("L", _tc, f"── Response Activación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
+                if _sc != 0:
+                    await _out_q_cancel.put(("L", _tc, f"✗ Activación falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("D", tr, 1, _js_act_c))
+                    return
+
+                # ── Paso 5/5: Cancelación ─────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 5/5 Cancelación ──"))
+                _cancel_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
+                                            "u_service_type": tr["svc_type"]},
+                                           indent=4, ensure_ascii=False)
+                _cancel_req_c = _find_req_in_col(_cp.deepcopy(tr["col_cancel"]), tr["cancel_req_nm"])
+                if _cancel_req_c:
+                    _b = _cancel_req_c.get("request", {}).get("body", {})
+                    if _b.get("mode") == "raw": _b["raw"] = _cancel_body_c
+                _tmp_cancel_c = str(QA_DIR / f"_tmp_cancel_cancel_{_vno}.json")
+                _j.dump({"info": tr["col_cancel"].get("info", {}), "item": [_cancel_req_c] if _cancel_req_c else []},
+                        open(_tmp_cancel_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+                _rp_cancel_c = str(_cdir / f"{_tc}.html")
+                _js_cancel_c = str(_cdir / f"{_tc}.json")
+                _cmd_cancel_c = list(_base); _cmd_cancel_c[2] = _tmp_cancel_c
+                _cmd_cancel_c += ["--reporter-json-export", _js_cancel_c,
+                                  "--reporter-htmlextra-export", _rp_cancel_c,
+                                  "--reporter-htmlextra-title", f"Reporte QA – {_tc} Cancelación · {tr['vno_lbl']}"]
+                _sc = 1
+                async for _k, _v in _iter_proc(_cmd_cancel_c, tr["cwd"], _env_cancel):
+                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
+                    elif _k == "D": _sc = _v
+                _hc, _hs, _rb = _read_rsp(_js_cancel_c)
+                await _out_q_cancel.put(("L", _tc, f"── Response Cancelación: HTTP {_hc} {_hs} — {_rb[:600]} ──"))
+                await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
+
+            [asyncio.create_task(_run_cancel(tr)) for tr in _cancel_runs]
+            _remaining_cancel = len(_cancel_runs)
+            while _remaining_cancel > 0:
+                _item = await _out_q_cancel.get()
+                if _item[0] == "L":
+                    yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
+                elif _item[0] == "D":
+                    _remaining_cancel -= 1
+                    _tr2, _code, _last_json = _item[1], _item[2], _item[3]
+                    _has_rp = bool(Path(_tr2["rp_out"]).exists())
+                    _sym = "✓" if _code == 0 else "✗"
+                    _results_cancel.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                    _tc_msg_c = f"{_sym} {_tr2['label']} — código {_code}"
+                    yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg_c})}\n\n"
+                    yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
+                    if _last_json:
+                        try:
+                            _jp = Path(_last_json)
+                            if _jp.exists():
+                                _jdata = _j.loads(_jp.read_text(encoding="utf-8"))
+                                _rsps = []
+                                for _ex in _jdata.get("run", {}).get("executions", []):
+                                    _resp  = _ex.get("response") or {}
+                                    _stream = _resp.get("stream") or {}
+                                    if isinstance(_stream, dict) and _stream.get("type") == "Buffer":
+                                        try: _rbody = bytes(_stream["data"]).decode("utf-8", errors="replace")
+                                        except Exception: _rbody = ""
+                                    else:
+                                        _rbody = _resp.get("body", "") or ""
+                                    _req2  = _ex.get("request") or {}
+                                    _url2  = _req2.get("url") or {}
+                                    _url_r = _url2.get("raw", "") if isinstance(_url2, dict) else str(_url2)
+                                    _rsps.append({
+                                        "name":    _ex.get("item", {}).get("name", ""),
+                                        "method":  _req2.get("method", "POST"),
+                                        "url":     _url_r[:200],
+                                        "code":    _resp.get("code", 0),
+                                        "status":  _resp.get("status", ""),
+                                        "time_ms": _resp.get("responseTime", 0),
+                                        "body":    _rbody[:6144],
+                                    })
+                                if _rsps:
+                                    yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                        except Exception:
+                            pass
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _n_ok_c   = sum(1 for r in _results_cancel if r["code"] == 0)
+            _n_fail_c = len(_results_cancel) - _n_ok_c
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_c}/{len(_results_cancel)} TCs OK'})}\n\n"
+            _rows_c = ""
+            for _r in sorted(_results_cancel, key=lambda x: x["tc"]):
+                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                          if _r["has_rp"] else "—")
+                _rows_c += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                            f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+            _idx_c = (
+                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                '<title>QA Cancelación</title>'
+                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                '</style></head><body>'
+                '<h1>QA Cancelación</h1>'
+                f'<p>{_n_ok_c}/{len(_results_cancel)} TCs OK</p>'
+                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                f'{_rows_c}</table></body></html>'
+            )
+            (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
+            _has_idx_c = (_cancel_dir / "index.html").exists()
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id})}\n\n"
+            await asyncio.sleep(0.15)
+
+        return StreamingResponse(sse_cancel(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-transform",
+                     "X-Accel-Buffering": "no",
+                     "Connection": "keep-alive"})
+
     if _tc_runs is not None:
         async def sse_parallel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
@@ -2950,9 +3388,12 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #asig-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
 .aap-item{font-size:.62rem;font-family:var(--mono);display:flex;align-items:center;gap:4px}
 .aap-vno{color:var(--txt3);font-size:.58rem}.aap-id{color:var(--acc)}.aap-empty{color:var(--txt3);font-style:italic}
-#asig-sel-bar,#ia-sel-bar,#activ-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
-#asig-sel-bar .fsb-lbl,#ia-sel-bar .fsb-lbl,#activ-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
-#asig-grid,#ia-grid,#activ-grid,#dm-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
+#asig-sel-bar,#ia-sel-bar,#activ-sel-bar,#dm-sel-bar,#cancel-sel-bar{display:flex;align-items:center;gap:6px;padding:5px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
+#asig-sel-bar .fsb-lbl,#ia-sel-bar .fsb-lbl,#activ-sel-bar .fsb-lbl,#dm-sel-bar .fsb-lbl,#cancel-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+#cancel-form-bar input,#cancel-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
+#cancel-form-bar input:focus,#cancel-form-bar select:focus{border-color:var(--acc)}
+#cancel-serial-preview{padding:4px 12px 5px;min-height:20px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+#asig-grid,#ia-grid,#activ-grid,#dm-grid,#cancel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
 #ia-form-bar,#activ-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
 #ia-access-preview,#activ-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
 #activ-form-bar input,#activ-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
@@ -3079,6 +3520,13 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="activ-sel-bar"></div>
       <div id="activ-grid"></div>
     </div>
+    <!-- Vista Cancelación — 4 consolas paralelas -->
+    <div id="cancel-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="cancel-form-bar"></div>
+      <div id="cancel-access-preview"></div>
+      <div id="cancel-sel-bar"></div>
+      <div id="cancel-grid"></div>
+    </div>
     <!-- Vista Device Modification — 4 consolas paralelas -->
     <div id="dm-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="dm-form-bar"></div>
@@ -3179,7 +3627,7 @@ function renderSB(){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
             :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'}]
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'},{lbl:'Cancelación',par:'qa-cancel-par'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -3315,6 +3763,16 @@ function selectSuite(id){
     _syncDmExecBtn();
     return;
   }
+  if(id==='qa-cancel-suite'){
+    _isQAChild=false;
+    switchView('cancel');
+    renderCancelFormBar();
+    renderCancelSelBar();
+    renderCancelView();
+    setTop('','Suite: Cancelación','TC-25..TC-28 · presiona Ejecutar');
+    _syncCancelExecBtn();
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -3440,6 +3898,11 @@ function executeSelected(){
     if(_sdm) _doRunDm(_sdm);
     return;
   }
+  if(selectedId==='qa-cancel-suite'){
+    var _sc2=suites.find(function(x){return x.id==='qa-cancel-suite';});
+    if(_sc2) _doRunCancel(_sc2);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -3475,9 +3938,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -4493,6 +4956,201 @@ function _doRunDm(s){
       }
     } else if(d.e==='tc_response'){
       _dmSetResponse(d.tc,d.responses);
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){ currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
+  };
+}
+
+// ── Suite Cancelación: vista multi-consola ───────────────────────────────────
+var _CANCEL_META = [
+  {tc:'TC-25', label:'TC-25 · Entel', vno:'VNO 03', sid:'qa-cancel-tc25', color:'#C586C0'},
+  {tc:'TC-26', label:'TC-26 · KAO',   vno:'VNO 02', sid:'qa-cancel-tc26', color:'#4EC9B0'},
+  {tc:'TC-27', label:'TC-27 · DTV',   vno:'VNO 05', sid:'qa-cancel-tc27', color:'#CE9178'},
+  {tc:'TC-28', label:'TC-28 · TCH',   vno:'VNO 00', sid:'qa-cancel-tc28', color:'#569CD6'},
+];
+var _cancelSel={};
+(function(){ _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=true; }); })();
+var _CANCEL_SERIAL_BASE={'TC-25':'ZTEG1104','TC-26':'ZTEGD719','TC-27':'HTWC000A'};
+
+function renderCancelFormBar(){
+  var bar=document.getElementById('cancel-form-bar'); if(!bar) return;
+  bar.style.cssText='display:flex;flex-direction:column;gap:0;padding:0;border-bottom:1px solid var(--brd);background:var(--card)';
+  bar.innerHTML=
+    '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;flex-wrap:nowrap">'
+    +'<span class="afb-lbl">Speed Plan:</span>'
+    +'<input id="cancel-speed" style="width:82px" placeholder="100/10" value="100/10" />'
+    +'<span class="afb-lbl" style="margin-left:6px">Tipo:</span>'
+    +'<select id="cancel-stype" style="padding:3px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt)">'
+    +'<option value="FTTH">FTTH</option>'
+    +'<option value="SSAA">SSAA</option>'
+    +'</select>'
+    +'<span class="afb-lbl" style="margin-left:6px">Servicios:</span>'
+    +'<label class="activ-svc"><input type="checkbox" id="cancel-sba" checked> BA</label>'
+    +'<label class="activ-svc"><input type="checkbox" id="cancel-svoip"> VoIP</label>'
+    +'<label class="activ-svc"><input type="checkbox" id="cancel-siptv"> IPTV</label>'
+    +'<span class="afb-lbl" style="margin-left:10px">Serial (últ. 4):</span>'
+    +'<input id="cancel-serial" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
+    +'</div>'
+    +'<div id="cancel-serial-preview" style="padding:4px 12px 5px;min-height:20px"></div>';
+  document.getElementById('cancel-serial').oninput=_updateCancelPreview;
+  _updateCancelPreview();
+}
+
+function _updateCancelPreview(){
+  var el=document.getElementById('cancel-serial-preview'); if(!el) return;
+  var sfx=(document.getElementById('cancel-serial')||{}).value||'';
+  if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa los últimos 4 dígitos del serial</span>'; return; }
+  var h='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  _CANCEL_META.forEach(function(m){
+    var base=_CANCEL_SERIAL_BASE[m.tc];
+    var serTxt=base?('<span style="color:var(--txt3)">'+esc(base)+'</span><b>'+esc(sfx)+'</b>'):'<i style="color:var(--txt3)">sin serial</i>';
+    h+='<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3,var(--bg2));border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:.71rem">'
+      +'<span style="color:'+m.color+';font-weight:600">'+esc(m.label)+'</span>'
+      +'<span style="color:var(--txt3)">&#128273; '+serTxt+'</span>'
+      +'</span>';
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+function renderCancelSelBar(){
+  var bar=document.getElementById('cancel-sel-bar'); if(!bar) return;
+  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
+  _CANCEL_META.forEach(function(m){
+    var on=_cancelSel[m.tc]?'on':'';
+    h+='<button class="tc-sel-btn '+on+'" id="cancelsb-'+m.tc+'">'+esc(m.label)+'</button>';
+  });
+  h+='<span class="fsb-sep"></span>'
+    +'<button class="fsb-all" id="cancelsb-all">Todos</button>'
+    +'<button class="fsb-all" id="cancelsb-none">Ninguno</button>';
+  bar.innerHTML=h;
+  _CANCEL_META.forEach(function(m){
+    document.getElementById('cancelsb-'+m.tc).onclick=(function(tc){
+      return function(){ _cancelSel[tc]=!_cancelSel[tc];
+        var btn=document.getElementById('cancelsb-'+tc);
+        if(btn) btn.className='tc-sel-btn'+(_cancelSel[tc]?' on':'');
+        renderCancelView(); _syncCancelExecBtn(); };
+    })(m.tc);
+  });
+  document.getElementById('cancelsb-all').onclick=function(){
+    _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=true; }); renderCancelSelBar(); renderCancelView(); _syncCancelExecBtn(); };
+  document.getElementById('cancelsb-none').onclick=function(){
+    _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=false; }); renderCancelSelBar(); renderCancelView(); _syncCancelExecBtn(); };
+}
+
+function _syncCancelExecBtn(){
+  var anyOn=_CANCEL_META.some(function(m){ return _cancelSel[m.tc]; });
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=running||!anyOn;
+}
+
+function renderCancelView(){
+  var grid=document.getElementById('cancel-grid'); if(!grid) return;
+  grid.innerHTML='';
+  var _sel=_CANCEL_META.filter(function(m){ return _cancelSel[m.tc]; });
+  grid.style.gridTemplateColumns=_sel.length===1?'1fr':'1fr 1fr';
+  _sel.forEach(function(m){
+    var p=document.createElement('div'); p.className='fact-panel'; p.id='cancelp-'+m.tc;
+    var _tc=m.tc;
+    p.innerHTML=
+      '<div class="fp-hdr">'
+      +'<span class="fp-dot idle" id="cancelpd-'+_tc+'"></span>'
+      +'<span class="fp-name" style="color:'+m.color+'">'+esc(m.label)+'</span>'
+      +'<span style="font-size:.65rem;color:var(--txt3)">'+esc(m.vno)+'</span>'
+      +'<span class="fp-badge idle" id="cancelpb-'+_tc+'">espera</span>'
+      +'<a class="fp-rpt" id="cancelpr-'+_tc+'" href="#" target="_blank">&#128196; Ver</a>'
+      +'</div>'
+      +'<div class="fact-term" id="cancelt-'+_tc+'"></div>'
+      +'<div class="fp-resp-bar" id="cancelfrb-'+_tc+'">'
+      +'<span class="fr-label">Response</span>'
+      +'<span id="cancelfrs-'+_tc+'"></span>'
+      +'</div>'
+      +'<div class="fp-resp" id="cancelfr-'+_tc+'"><span class="fr-empty">—</span></div>';
+    grid.appendChild(p);
+  });
+}
+
+function _cancelApp(tc,text,cls){
+  var el=document.getElementById('cancelt-'+tc); if(!el) return;
+  var sp=document.createElement('span');
+  sp.className='tl'+(cls?' '+cls:'');
+  sp.textContent=text+'\\n';
+  el.appendChild(sp); el.scrollTop=el.scrollHeight;
+}
+
+function _cancelSetState(tc,state){
+  var dot=document.getElementById('cancelpd-'+tc);
+  var badge=document.getElementById('cancelpb-'+tc);
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
+  if(dot){ dot.className='fp-dot '+state; }
+  if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
+}
+
+function _cancelSetResponse(tc,responses){
+  var el=document.getElementById('cancelfr-'+tc);
+  var bar=document.getElementById('cancelfrs-'+tc);
+  if(!el||!responses||!responses.length) return;
+  var r=responses[responses.length-1];
+  var cls=r.code>=200&&r.code<300?'ok':r.code>=400?'err':'warn';
+  if(bar){
+    bar.innerHTML='<span class="fr-scode '+cls+'">'+r.code+' '+esc(r.status||'')+'</span>'
+      +'<span class="fr-stime">'+r.time_ms+'ms</span>'
+      +'<span class="fr-sname">'+esc(r.name||'')+'</span>';
+  }
+  var bodyTxt=r.body||'';
+  if(bodyTxt){ try{ bodyTxt=JSON.stringify(JSON.parse(bodyTxt),null,2); }catch(e){} }
+  el.innerHTML=bodyTxt?'<pre>'+esc(bodyTxt)+'</pre>':'<span class="fr-empty">Sin body</span>';
+}
+
+function _doRunCancel(s){
+  if(running) return;
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  _CANCEL_META.forEach(function(m){
+    var ct=document.getElementById('cancelt-'+m.tc); if(ct) ct.innerHTML='';
+    var cfr=document.getElementById('cancelfr-'+m.tc); if(cfr) cfr.innerHTML='<span class="fr-empty">—</span>';
+    var cfrs=document.getElementById('cancelfrs-'+m.tc); if(cfrs) cfrs.innerHTML='';
+    _cancelSetState(m.tc,'idle');
+    var pr=document.getElementById('cancelpr-'+m.tc); if(pr){ pr.href='#'; pr.classList.remove('show'); }
+  });
+  if(currentEs){currentEs.close();currentEs=null;}
+  var _selTcs=_CANCEL_META.filter(function(m){return _cancelSel[m.tc];}).map(function(m){return m.tc;}).join(',');
+  var _speed=(document.getElementById('cancel-speed')||{}).value||'100/10';
+  var _stype=(document.getElementById('cancel-stype')||{}).value||'FTTH';
+  var _sba=(document.getElementById('cancel-sba')||{}).checked!==false;
+  var _svoip=!!(document.getElementById('cancel-svoip')||{}).checked;
+  var _siptv=!!(document.getElementById('cancel-siptv')||{}).checked;
+  var _serial=(document.getElementById('cancel-serial')||{}).value||'0000';
+  var _params='tcs='+encodeURIComponent(_selTcs)
+    +'&speed_plan='+encodeURIComponent(_speed)
+    +'&service_type='+encodeURIComponent(_stype)
+    +'&svc_ba='+(_sba?'true':'false')
+    +'&svc_voip='+(_svoip?'true':'false')
+    +'&svc_iptv='+(_siptv?'true':'false')
+    +'&serial_suffix='+encodeURIComponent(_serial);
+  var es=new EventSource('/api/run/qa-cancel-suite?'+_params);
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      if(d.tc){ _cancelApp(d.tc,d.t,col(d.t)); _cancelSetState(d.tc,'running'); }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='tc_done'){
+      _cancelSetState(d.tc,d.code===0?'passed':'failed');
+      if(d.has_report){
+        var cpr=document.getElementById('cancelpr-'+d.tc);
+        if(cpr){cpr.href='/api/report/'+d.sid;cpr.classList.add('show');}
+      }
+    } else if(d.e==='tc_response'){
+      _cancelSetResponse(d.tc,d.responses);
     } else if(d.e==='done'||d.e==='error'){
       currentEs=null; es.close();
       if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
