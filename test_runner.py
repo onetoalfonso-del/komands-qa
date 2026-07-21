@@ -3276,6 +3276,47 @@ async def api_report(suite_id: str):
     })
 
 
+@app.get("/api/historial")
+async def api_historial():
+    try:
+        import openpyxl
+    except ImportError:
+        return JSONResponse({"error": "openpyxl no instalado"}, status_code=500)
+    xl = QA_DIR / "u_core_use_case.xlsx"
+    if not xl.exists():
+        return JSONResponse({"error": f"Archivo no encontrado: {xl}"}, status_code=404)
+    wb = openpyxl.load_workbook(str(xl), read_only=True, data_only=True)
+    ws = wb["Page 1"]
+    rows = []
+    for i, row in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0:
+            continue
+        created_val = row[4]
+        updated_val = row[12]
+        created_str = created_val.strftime("%Y-%m-%d %H:%M:%S") if hasattr(created_val, "strftime") else (str(created_val) if created_val else "")
+        updated_str = updated_val.strftime("%Y-%m-%d %H:%M:%S") if hasattr(updated_val, "strftime") else (str(updated_val) if updated_val else "")
+        tiempo = row[11]
+        if isinstance(tiempo, str):
+            try: tiempo = int(tiempo)
+            except Exception: tiempo = None
+        rows.append({
+            "access_id":      row[0] or "",
+            "customer_order": row[1] or "",
+            "vno":            row[2] or "",
+            "class_name":     row[5] or "",
+            "svc_flow":       row[6] or "",
+            "estado":         row[8] or "",
+            "codigo":         row[9] if row[9] is not None else "",
+            "descripcion":    row[10] or "",
+            "created":        created_str,
+            "updated":        updated_str,
+            "tiempo_ms":      tiempo,
+            "punto_quiebre":  row[16] or "",
+        })
+    wb.close()
+    return rows
+
+
 # ─── UI ───────────────────────────────────────────────────────────────────────
 HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -3341,9 +3382,9 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .si-txt{flex:1;overflow:hidden}
 .si-name{font-size:.77rem;font-weight:500;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .si-desc{font-size:.66rem;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.run-all{margin:10px 12px 12px;padding:7px;border-radius:6px;background:var(--acc);border:none;color:#0D1B3E;font-size:.76rem;font-weight:700;transition:opacity .15s;flex-shrink:0}
-.run-all:hover{opacity:.85}
-.run-all:disabled{opacity:.35;cursor:not-allowed}
+.hist-btn{margin:10px 12px 12px;padding:7px 10px;border-radius:6px;background:var(--card);border:1px solid var(--brd);color:var(--txt2);font-size:.76rem;font-weight:600;transition:background .15s,color .15s;flex-shrink:0;text-align:left;display:flex;align-items:center;gap:6px}
+.hist-btn:hover{background:var(--sideh);color:var(--txt)}
+.hist-btn.active{background:var(--accd);border-color:var(--acc);color:var(--acc)}
 
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -3560,6 +3601,20 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sn{font-weight:700;font-variant-numeric:tabular-nums}.sl{color:var(--txt2)}
 .st{margin-left:auto;font-size:.68rem;color:var(--txt3)}
 .sum-idle{font-size:.72rem;color:var(--txt3)}
+
+/* HISTORIAL TABLE */
+.hist-table{width:100%;border-collapse:collapse;font-size:.72rem;table-layout:auto}
+.hist-table th{position:sticky;top:0;background:var(--card);color:var(--txt2);font-weight:700;text-transform:uppercase;font-size:.62rem;letter-spacing:.05em;padding:7px 10px;border-bottom:2px solid var(--brd);text-align:left;cursor:pointer;user-select:none;white-space:nowrap}
+.hist-table th:hover{color:var(--acc)}
+.hist-table th .sort-ico{margin-left:4px;opacity:.45;font-size:.6rem}
+.hist-table td{padding:5px 10px;border-bottom:1px solid var(--brdl);vertical-align:middle;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-table tr:hover td{background:var(--sideh)}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.62rem;font-weight:700;white-space:nowrap}
+.hist-badge.ok{background:var(--okd);color:var(--ok)}
+.hist-badge.err{background:var(--errd);color:var(--err)}
+.hist-badge.warn{background:rgba(255,179,71,.15);color:var(--warn)}
+.hist-empty{padding:40px;text-align:center;color:var(--txt3);font-size:.8rem}
 </style>
 </head>
 <body>
@@ -3573,7 +3628,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="sb-sub">Pruebas de Regresión</div>
     </div>
     <div class="sb-list" id="sb-list"></div>
-    <button class="run-all" id="run-all" onclick="runAll()">&#9654;&nbsp; Ejecutar todos</button>
+    <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;&nbsp; Historial de ejecuciones</button>
   </aside>
   <main class="main">
     <div class="topbar">
@@ -3639,6 +3694,15 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="cancel-access-preview"></div>
       <div id="cancel-sel-bar"></div>
       <div id="cancel-grid"></div>
+    </div>
+    <!-- Vista Historial -->
+    <div id="historial-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="historial-header" style="padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--brd);background:var(--card);display:flex;align-items:center;gap:12px">
+        <span style="font-size:.9rem;font-weight:700;color:var(--txt)">&#128203; Historial de ejecuciones</span>
+        <input id="historial-filter" type="text" placeholder="Filtrar…" oninput="_filterHistorial()" style="margin-left:auto;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:160px">
+        <button onclick="loadHistorial()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer">&#8635; Actualizar</button>
+      </div>
+      <div id="historial-body" style="flex:1;overflow:auto;padding:12px 14px"></div>
     </div>
     <!-- Vista Device Modification — 4 consolas paralelas -->
     <div id="dm-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -3779,6 +3843,7 @@ function selectSuite(id){
   if(!s||s.group==='bloqueado') return;
   selectedId=id;
   setActive(id);
+  var _hb=document.getElementById('hist-btn'); if(_hb) _hb.classList.remove('active');
   if(id==='qa-ep-factibilidad'){
     _isQAChild=true;
     switchView('ep-form');
@@ -4064,9 +4129,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -4191,7 +4256,6 @@ function _doRunFact(s){
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando 4 VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   // Reset panels
   _FACT_TC_META.forEach(function(m){
@@ -4423,7 +4487,6 @@ function _doRunAsig(s){
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _ASIG_TC_META.forEach(function(m){
     var at=document.getElementById('at-'+m.tc); if(at) at.innerHTML='';
@@ -4635,7 +4698,6 @@ function _doRunIA(s){
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _iaMeta().forEach(function(m){
     var it=document.getElementById('it-'+m.tc); if(it) it.innerHTML='';
@@ -4828,7 +4890,6 @@ function _doRunActiv(s){
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _ACTIV_META.forEach(function(m){
     var at=document.getElementById('act-'+m.tc); if(at) at.innerHTML='';
@@ -5039,7 +5100,6 @@ function _doRunDm(s){
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _DM_META.forEach(function(m){
     var dt=document.getElementById('dmt-'+m.tc); if(dt) dt.innerHTML='';
@@ -5127,7 +5187,6 @@ function _doRunTeardown(s){
   ta.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   var con=document.getElementById('teardown-console'); if(con) con.innerHTML='';
   if(currentEs){currentEs.close();currentEs=null;}
@@ -5305,7 +5364,6 @@ function _doRunCancel(s){
   if(running) return;
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _CANCEL_META.forEach(function(m){
     var ct=document.getElementById('cancelt-'+m.tc); if(ct) ct.innerHTML='';
@@ -5523,7 +5581,6 @@ function _doRunSN(params,s,phaseLabel){
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',topLabel,'Ejecutando'); setIco(s.id,'running');
   document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=true;});
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _activeDefs.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'running');});
 
@@ -5603,7 +5660,6 @@ function _doRun(url, params, s){
   document.getElementById('dl-btn').classList.remove('show');
   document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando'); setIco(s.id,'running'); setActive(s.id);
-  document.getElementById('run-all').disabled=true;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   app('▶ '+s.label,'acc bold'); app('','');
 
@@ -5654,7 +5710,6 @@ function onDone(d,s){
     var db=document.getElementById('dl-btn');db.classList.add('show');db.dataset.rid=d.report_id;
     suiteReports[s.id]=d.report_id;
   }
-  document.getElementById('run-all').disabled=false;
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=false;
   if(_isQAChild){
     fetch('/api/response/'+s.id)
@@ -6167,12 +6222,92 @@ function renderResponsePanel(data){
 function stat(cls,n,lbl){
   return '<div class="sum-stat"><div class="sdot '+cls+'"></div><span class="sn">'+n+'</span><span class="sl">&nbsp;'+lbl+'</span></div>';
 }
-function runAll(){
-  if(running) return;
-  var ids=suites.filter(s=>s.group==='disponible'&&s.id!=='apim-parallel'&&s.id!=='qa-fulfillment').map(s=>s.id);
-  if(!ids.length) return;
-  ids.forEach(id=>setIco(id,'idle'));
-  queue=ids.slice(1); run(ids[0]);
+// ── Historial ───────────────────────────────────────────────────────────────
+var _histData=[];
+var _histSort={col:8,asc:false}; // col 8 = Created (desc by default)
+var _HIST_COLS=[
+  {k:'access_id',     lbl:'AccessID VNO'},
+  {k:'customer_order',lbl:'Customer Order'},
+  {k:'vno',           lbl:'VNO'},
+  {k:'class_name',    lbl:'Tipo'},
+  {k:'svc_flow',      lbl:'Servicio'},
+  {k:'estado',        lbl:'Estado'},
+  {k:'codigo',        lbl:'Cód. retorno'},
+  {k:'descripcion',   lbl:'Descripción'},
+  {k:'created',       lbl:'Creado'},
+  {k:'tiempo_ms',     lbl:'Tiempo (ms)'},
+  {k:'punto_quiebre', lbl:'Punto quiebre'},
+];
+function showHistorial(){
+  switchView('historial');
+  document.getElementById('hist-btn').classList.add('active');
+  setTop('','Historial de ejecuciones','');
+  if(!_histData.length) loadHistorial();
+}
+function loadHistorial(){
+  var body=document.getElementById('historial-body');
+  body.innerHTML='<div class="hist-empty">Cargando…</div>';
+  fetch('/api/historial').then(function(r){return r.json();}).then(function(rows){
+    _histData=rows;
+    _renderHistorialTable();
+  }).catch(function(e){
+    body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';
+  });
+}
+function _filterHistorial(){
+  _renderHistorialTable();
+}
+function _histSortBy(ci){
+  if(_histSort.col===ci) _histSort.asc=!_histSort.asc;
+  else{_histSort.col=ci;_histSort.asc=ci!==8;}
+  _renderHistorialTable();
+}
+function _renderHistorialTable(){
+  var q=(document.getElementById('historial-filter')||{}).value||'';
+  q=q.toLowerCase();
+  var rows=_histData.filter(function(r){
+    if(!q) return true;
+    return _HIST_COLS.some(function(c){return (r[c.k]||'').toString().toLowerCase().indexOf(q)>=0;});
+  });
+  var ci=_histSort.col; var asc=_histSort.asc;
+  rows=rows.slice().sort(function(a,b){
+    var av=(a[_HIST_COLS[ci].k]||'').toString();
+    var bv=(b[_HIST_COLS[ci].k]||'').toString();
+    var n=av.localeCompare(bv,undefined,{numeric:true});
+    return asc?n:-n;
+  });
+  var body=document.getElementById('historial-body');
+  if(!rows.length){body.innerHTML='<div class="hist-empty">Sin registros'+(q?' para "'+esc(q)+'"':'')+'</div>';return;}
+  var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
+  _HIST_COLS.forEach(function(c,i){
+    var ico=_histSort.col===i?(_histSort.asc?'▲':'▼'):'⇅';
+    h+='<th onclick="_histSortBy('+i+')">'+esc(c.lbl)+' <span class="sort-ico">'+ico+'</span></th>';
+  });
+  h+='</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var estado=r.estado||'';
+    var bc=estado.indexOf('xito')>=0?'ok':(estado.indexOf('rechazada')>=0||estado.indexOf('Pendiente')>=0?'err':'warn');
+    var codigo=r.codigo!=null?r.codigo:'';
+    var codigobc=codigo===0||codigo==='0'?'ok':(codigo===''?'':'err');
+    h+='<tr>';
+    h+='<td style="font-weight:600;color:var(--acc)">'+esc(r.access_id||'')+'</td>';
+    h+='<td style="color:var(--txt2)">'+esc(r.customer_order||'—')+'</td>';
+    h+='<td><span style="font-weight:700;color:'+(_histVnoColor(r.vno))+'">'+esc(r.vno||'')+'</span></td>';
+    h+='<td>'+esc(r.class_name||'')+'</td>';
+    h+='<td style="color:var(--txt2);font-size:.68rem">'+esc(r.svc_flow||'')+'</td>';
+    h+='<td><span class="hist-badge '+bc+'">'+esc(estado)+'</span></td>';
+    h+='<td><span class="hist-badge '+codigobc+'">'+esc(codigo.toString())+'</span></td>';
+    h+='<td style="color:var(--txt2);max-width:220px" title="'+esc(r.descripcion||'')+'">'+esc(r.descripcion||'')+'</td>';
+    h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.created||'')+'</td>';
+    h+='<td style="font-variant-numeric:tabular-nums;text-align:right">'+esc(r.tiempo_ms!=null?r.tiempo_ms.toString():'')+'</td>';
+    h+='<td style="color:var(--warn);font-size:.68rem">'+esc(r.punto_quiebre||'')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  body.innerHTML=h;
+}
+function _histVnoColor(v){
+  return {'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'}[v]||'var(--txt2)';
 }
 function openReport(){
   var rid=document.getElementById('rpt-btn').dataset.rid;
