@@ -6247,8 +6247,15 @@ function showHistorial(){
 function loadHistorial(){
   var body=document.getElementById('historial-body');
   body.innerHTML='<div class="hist-empty">Cargando…</div>';
-  fetch('/api/historial').then(function(r){return r.json();}).then(function(rows){
-    _histData=rows;
+  fetch('/api/historial').then(function(r){
+    return r.json().then(function(j){return {ok:r.ok,status:r.status,data:j};});
+  }).then(function(res){
+    if(!res.ok||!Array.isArray(res.data)){
+      var msg=res.data&&res.data.error?res.data.error:('Respuesta inesperada (HTTP '+res.status+')');
+      body.innerHTML='<div class="hist-empty" style="color:var(--err)">'+esc(msg)+'</div>';
+      return;
+    }
+    _histData=res.data;
     _renderHistorialTable();
   }).catch(function(e){
     body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';
