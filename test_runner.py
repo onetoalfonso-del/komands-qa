@@ -2372,7 +2372,7 @@ async def api_run(suite_id: str, request: Request):
         _cancel_dir.mkdir(parents=True, exist_ok=True)
         _ADDR_ID_CANCEL = "DIR02803636"
         _col_ff_cancel  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
-        _col_cancel_col = _j.load(open(QA_DIR / QA_CANCEL_COLLECTION, encoding="utf-8"))
+        _col_cancel_col = _col_ff_cancel  # los requests de cancel están dentro de 01-FulFillment
         _cancel_runs = []
         for _tcd in _TC_DEFS_CANCEL:
             _vno           = _tcd["vno"]
