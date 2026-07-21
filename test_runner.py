@@ -794,6 +794,15 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-27.html")},
     {"id":"qa-cancel-tc28","group":"hidden","label":"TC-28 Cancelación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-28.html")},
+    # ── Teardown Masivo — cancelación bulk de access IDs ───────────────────────
+    {"id":"qa-teardown-par",   "group":"qa-child","parent":"qa-fulfillment",
+     "label":"Teardown Masivo","desc":"Cancela access IDs activos via oossCancellation",
+     "cmd":None,"cwd":None,"report":None,"requires":None},
+    {"id":"qa-teardown-masivo","group":"qa-child","parent":"qa-teardown-par",
+     "label":"▶ Teardown Masivo (bulk cancel)",
+     "desc":"Cancela una lista de access IDs directamente sin cadena completa",
+     "env_type":"qa_teardown_masivo",
+     "cmd":None,"cwd":str(QA_DIR),"report":None,"requires":None},
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
@@ -2742,6 +2751,105 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
+    # ── Teardown Masivo — cancela access IDs directamente via HTTP ───────────────
+    if suite.get("env_type") == "qa_teardown_masivo":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64
+
+        _td_svc_type = overrides.get("service_type", "FTTH")
+        _td_raw      = overrides.get("access_ids", "")
+        _td_all      = [a.strip() for a in _td_raw.replace(",", "\n").split("\n") if a.strip()]
+        _seen_td = set(); _td_dedup = []
+        for _a in _td_all:
+            if _a not in _seen_td: _seen_td.add(_a); _td_dedup.append(_a)
+
+        # agrupar por VNO (primeros 2 chars)
+        _td_by_vno: dict = {}
+        for _a in _td_dedup:
+            _v = _a[:2]
+            _td_by_vno.setdefault(_v, []).append(_a)
+
+        # obtener tokens una vez por VNO
+        _td_tokens: dict = {}; _td_urls: dict = {}
+        for _v in _td_by_vno:
+            _ef = QA_VNO_ENV_MAP.get(_v, QA_VNO_ENV_MAP["02"])
+            try:
+                _ev2 = {x["key"]: x["value"]
+                        for x in _j.load(open(QA_DIR / _ef, encoding="utf-8"))["values"]}
+                _aurl = _ev2.get("apimURL", "")
+                _ab64 = _b64.b64encode(f"{_ev2.get('consumerKey','')}:{_ev2.get('consumerSecret','')}".encode()).decode()
+                _tb   = _up.urlencode({"grant_type": "client_credentials"}).encode()
+                _ctx2 = _sl.create_default_context(); _ctx2.check_hostname=False; _ctx2.verify_mode=_sl.CERT_NONE
+                with _ur.urlopen(_ur.Request(f"{_aurl}/token", data=_tb,
+                        headers={"Authorization": f"Basic {_ab64}",
+                                 "Content-Type": "application/x-www-form-urlencoded"}),
+                        context=_ctx2, timeout=15) as _rr:
+                    _td_tokens[_v] = _j.loads(_rr.read()).get("access_token", "")
+                _td_urls[_v] = _aurl
+            except Exception as _te2:
+                print(f"[Teardown token VNO {_v}] {_te2}", flush=True)
+
+        async def sse_teardown():
+            yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Teardown Masivo — {len(_td_dedup)} access IDs · tipo: {_td_svc_type}'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _td_q = asyncio.Queue()
+            _td_results = []
+
+            async def _cancel_one(aid, vno, token, apim_url):
+                _body_c = _j.dumps({"u_id_vno": vno, "u_access_id_vno": aid,
+                                     "u_service_type": _td_svc_type}).encode()
+                _endpoint = f"{apim_url}/fullFillment-cancelServiceOrder/v1/oossCancellation"
+                _code_c = 0; _resp_c = ""
+                try:
+                    _ctx3 = _sl.create_default_context(); _ctx3.check_hostname=False; _ctx3.verify_mode=_sl.CERT_NONE
+                    _req3 = _ur.Request(_endpoint, data=_body_c,
+                        headers={"Authorization": f"Bearer {token}",
+                                 "Content-Type": "application/json"})
+                    with _ur.urlopen(_req3, context=_ctx3, timeout=20) as _r3:
+                        _raw_c = _r3.read().decode("utf-8", errors="replace")
+                        _code_c = _r3.getcode()
+                        try:
+                            _rj3 = _j.loads(_raw_c)
+                            _rc3 = (_rj3.get("result") or {}).get("u_return_code", "?")
+                            _rd3 = (_rj3.get("result") or {}).get("u_return_code_desc", "")
+                            _resp_c = f"HTTP {_code_c} · code={_rc3} · {_rd3}"
+                            _ok3 = _rc3 in ("0", 0)
+                        except Exception:
+                            _resp_c = f"HTTP {_code_c} · {_raw_c[:200]}"
+                            _ok3 = _code_c == 200
+                except Exception as _ce:
+                    _resp_c = f"Error: {_ce}"
+                    _ok3 = False
+                await _td_q.put((aid, vno, _ok3, _resp_c))
+
+            [asyncio.create_task(_cancel_one(_a, _a[:2], _td_tokens.get(_a[:2], ""), _td_urls.get(_a[:2], "")))
+             for _a in _td_dedup if _td_tokens.get(_a[:2])]
+
+            _missing = [_a for _a in _td_dedup if not _td_tokens.get(_a[:2])]
+            for _ma in _missing:
+                yield f"data: {json.dumps({'e':'line','t':f'⚠ Sin token para VNO {_ma[:2]} — omitiendo {_ma}'})}\n\n"
+
+            _rem_td = len(_td_dedup) - len(_missing)
+            while _rem_td > 0:
+                _aid2, _vno2, _ok2, _msg2 = await _td_q.get()
+                _rem_td -= 1
+                _sym2 = "✓" if _ok2 else "✗"
+                _td_results.append({"aid": _aid2, "vno": _vno2, "ok": _ok2, "msg": _msg2})
+                yield f"data: {json.dumps({'e':'line','t':f'{_sym2} VNO {_vno2}  {_aid2}  — {_msg2}'})}\n\n"
+
+            yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
+            _n_ok_td   = sum(1 for r in _td_results if r["ok"])
+            _n_fail_td = len(_td_results) - _n_ok_td
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_td}/{len(_td_results)} OK · {_n_fail_td} fallidos'})}\n\n"
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_td==0 else 1,'passed':_n_ok_td,'failed':_n_fail_td,'requests':len(_td_results),'has_report':False,'report_id':suite_id})}\n\n"
+            await asyncio.sleep(0.1)
+
+        return StreamingResponse(sse_teardown(), media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-transform",
+                     "X-Accel-Buffering": "no",
+                     "Connection": "keep-alive"})
+
     if _tc_runs is not None:
         async def sse_parallel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
@@ -3520,6 +3628,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="activ-sel-bar"></div>
       <div id="activ-grid"></div>
     </div>
+    <!-- Vista Teardown Masivo -->
+    <div id="teardown-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div id="teardown-form-bar" style="display:flex;align-items:center;gap:10px;padding:8px 14px;flex-shrink:0;border-bottom:1px solid var(--brd);background:var(--card);flex-wrap:wrap"></div>
+      <div id="teardown-console" style="flex:1;overflow-y:auto;padding:10px 14px;font-family:monospace;font-size:.75rem;background:var(--bg2);white-space:pre-wrap;word-break:break-all"></div>
+    </div>
     <!-- Vista Cancelación — 4 consolas paralelas -->
     <div id="cancel-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="cancel-form-bar"></div>
@@ -3627,7 +3740,7 @@ function renderSB(){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
             :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'},{lbl:'Cancelación',par:'qa-cancel-par'}]
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'},{lbl:'Cancelación',par:'qa-cancel-par'},{lbl:'Teardown',par:'qa-teardown-par'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -3773,6 +3886,14 @@ function selectSuite(id){
     _syncCancelExecBtn();
     return;
   }
+  if(id==='qa-teardown-masivo'){
+    _isQAChild=false;
+    switchView('teardown');
+    renderTeardownFormBar();
+    setTop('','Teardown Masivo','Cancela access IDs activos · presiona Ejecutar');
+    _syncTeardownExecBtn();
+    return;
+  }
   if(id==='qa-endpoints'){
     switchView('ep');
     renderEPVNOBar();
@@ -3903,6 +4024,11 @@ function executeSelected(){
     if(_sc2) _doRunCancel(_sc2);
     return;
   }
+  if(selectedId==='qa-teardown-masivo'){
+    var _std=suites.find(function(x){return x.id==='qa-teardown-masivo';});
+    if(_std) _doRunTeardown(_std);
+    return;
+  }
   var s=suites.find(function(x){return x.id===selectedId;});
   if(!s||s.group==='bloqueado') return;
   switchView('std');
@@ -3938,9 +4064,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
 }
@@ -4966,6 +5092,71 @@ function _doRunDm(s){
     if(running&&currentEs===es){ currentEs=null; es.close();
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
+}
+
+// ── Teardown Masivo ───────────────────────────────────────────────────────────
+function renderTeardownFormBar(){
+  var bar=document.getElementById('teardown-form-bar'); if(!bar) return;
+  bar.innerHTML=
+    '<span style="font-size:.7rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Access IDs:</span>'
+    +'<textarea id="td-ids" rows="4" style="flex:1;min-width:200px;max-width:520px;font-family:monospace;font-size:.72rem;padding:5px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);resize:vertical" placeholder="Un access ID por línea (o separados por coma)"></textarea>'
+    +'<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<div style="display:flex;align-items:center;gap:6px">'
+    +'<span style="font-size:.68rem;color:var(--txt3)">Tipo:</span>'
+    +'<select id="td-stype" style="padding:3px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt);font-size:.72rem">'
+    +'<option value="FTTH">FTTH</option><option value="SSAA">SSAA</option>'
+    +'</select>'
+    +'</div>'
+    +'<span style="font-size:.63rem;color:var(--txt3);max-width:160px">El VNO se detecta automáticamente del prefijo (02-xxx → VNO 02)</span>'
+    +'</div>';
+}
+
+function _syncTeardownExecBtn(){
+  var eb=document.getElementById('exec-btn');
+  var ta=document.getElementById('td-ids');
+  var hasIds=ta&&ta.value.trim().length>0;
+  if(eb) eb.disabled=running||!hasIds;
+}
+
+function _doRunTeardown(s){
+  if(running) return;
+  var ta=document.getElementById('td-ids');
+  if(!ta||!ta.value.trim()){ if(ta) ta.style.borderColor='var(--err)'; return; }
+  ta.style.borderColor='';
+  running=true; runningId=s.id; tStart=Date.now();
+  suiteLogs[s.id]=[];
+  document.getElementById('run-all').disabled=true;
+  var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
+  var con=document.getElementById('teardown-console'); if(con) con.innerHTML='';
+  if(currentEs){currentEs.close();currentEs=null;}
+  var _ids=ta.value.trim();
+  var _stype=(document.getElementById('td-stype')||{}).value||'FTTH';
+  var _params='access_ids='+encodeURIComponent(_ids)+'&service_type='+encodeURIComponent(_stype);
+  var es=new EventSource('/api/run/qa-teardown-masivo?'+_params);
+  currentEs=es;
+  es.onmessage=function(ev){
+    var d=JSON.parse(ev.data);
+    if(d.e==='line'){
+      var con2=document.getElementById('teardown-console');
+      if(con2){
+        var sp=document.createElement('span');
+        sp.className='tl'+' '+col(d.t);
+        sp.textContent=d.t+'\\n';
+        con2.appendChild(sp); con2.scrollTop=con2.scrollHeight;
+      }
+      suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
+    } else if(d.e==='done'||d.e==='error'){
+      currentEs=null; es.close();
+      if(d.e==='error') onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
+      else onDone(d,s);
+    }
+  };
+  es.onerror=function(){
+    if(running&&currentEs===es){ currentEs=null; es.close();
+      onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
+  };
+  // habilitar botón cuando cambia el textarea
+  if(ta) ta.oninput=_syncTeardownExecBtn;
 }
 
 // ── Suite Cancelación: vista multi-consola ───────────────────────────────────
