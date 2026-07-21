@@ -3276,45 +3276,39 @@ async def api_report(suite_id: str):
     })
 
 
+_HISTORIAL_FILE = QA_DIR / "historial.json"
+_historial_lock = __import__("asyncio").Lock()
+
+def _load_historial_sync():
+    if not _HISTORIAL_FILE.exists():
+        return []
+    try:
+        return json.loads(_HISTORIAL_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+def _save_historial_sync(records):
+    try:
+        _HISTORIAL_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _HISTORIAL_FILE.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"[historial] error al guardar: {e}")
+
 @app.get("/api/historial")
 async def api_historial():
-    try:
-        import openpyxl
-    except ImportError:
-        return JSONResponse({"error": "openpyxl no instalado"}, status_code=500)
-    xl = QA_DIR / "u_core_use_case.xlsx"
-    if not xl.exists():
-        return JSONResponse({"error": f"Archivo no encontrado: {xl}"}, status_code=404)
-    wb = openpyxl.load_workbook(str(xl), read_only=True, data_only=True)
-    ws = wb["Page 1"]
-    rows = []
-    for i, row in enumerate(ws.iter_rows(values_only=True)):
-        if i == 0:
-            continue
-        created_val = row[4]
-        updated_val = row[12]
-        created_str = created_val.strftime("%Y-%m-%d %H:%M:%S") if hasattr(created_val, "strftime") else (str(created_val) if created_val else "")
-        updated_str = updated_val.strftime("%Y-%m-%d %H:%M:%S") if hasattr(updated_val, "strftime") else (str(updated_val) if updated_val else "")
-        tiempo = row[11]
-        if isinstance(tiempo, str):
-            try: tiempo = int(tiempo)
-            except Exception: tiempo = None
-        rows.append({
-            "access_id":      row[0] or "",
-            "customer_order": row[1] or "",
-            "vno":            row[2] or "",
-            "class_name":     row[5] or "",
-            "svc_flow":       row[6] or "",
-            "estado":         row[8] or "",
-            "codigo":         row[9] if row[9] is not None else "",
-            "descripcion":    row[10] or "",
-            "created":        created_str,
-            "updated":        updated_str,
-            "tiempo_ms":      tiempo,
-            "punto_quiebre":  row[16] or "",
-        })
-    wb.close()
-    return rows
+    records = _load_historial_sync()
+    return records
+
+@app.post("/api/historial")
+async def api_historial_post(request: Request):
+    async with _historial_lock:
+        body = await request.json()
+        records = _load_historial_sync()
+        records.insert(0, body)   # más reciente primero
+        if len(records) > 500:    # límite de 500 registros
+            records = records[:500]
+        _save_historial_sync(records)
+    return {"ok": True}
 
 
 # ─── UI ───────────────────────────────────────────────────────────────────────
@@ -5689,8 +5683,31 @@ function _doRun(url, params, s){
   };
 }
 
+function _saveHistorialRecord(d,s){
+  var now=new Date();
+  var ts=now.toISOString().slice(0,19).replace('T',' ');
+  var tiempo_ms=Math.round(Date.now()-tStart);
+  var vno=_globalVNO||'';
+  var resultado=d.code===0?'ok':'error';
+  var suite_label=s.label||s.id;
+  var record={
+    ts:ts,
+    suite_id:s.id,
+    suite_label:suite_label,
+    vno:vno,
+    resultado:resultado,
+    code:d.code,
+    passed:d.passed||0,
+    failed:d.failed||0,
+    requests:d.requests||0,
+    tiempo_ms:tiempo_ms,
+  };
+  fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)})
+    .catch(function(){});
+}
 function onDone(d,s){
   running=false; runningId=null;
+  _saveHistorialRecord(d,s);
   var elapsed=((Date.now()-tStart)/1000).toFixed(1)+'s';
   var ok=d.code===0;
   app('',''); app('── Fin: '+s.label+' '+'─'.repeat(30),'dim');
@@ -6224,19 +6241,16 @@ function stat(cls,n,lbl){
 }
 // ── Historial ───────────────────────────────────────────────────────────────
 var _histData=[];
-var _histSort={col:8,asc:false}; // col 8 = Created (desc by default)
+var _histSort={col:0,asc:false}; // col 0 = ts (más reciente primero)
 var _HIST_COLS=[
-  {k:'access_id',     lbl:'AccessID VNO'},
-  {k:'customer_order',lbl:'Customer Order'},
-  {k:'vno',           lbl:'VNO'},
-  {k:'class_name',    lbl:'Tipo'},
-  {k:'svc_flow',      lbl:'Servicio'},
-  {k:'estado',        lbl:'Estado'},
-  {k:'codigo',        lbl:'Cód. retorno'},
-  {k:'descripcion',   lbl:'Descripción'},
-  {k:'created',       lbl:'Creado'},
-  {k:'tiempo_ms',     lbl:'Tiempo (ms)'},
-  {k:'punto_quiebre', lbl:'Punto quiebre'},
+  {k:'ts',           lbl:'Fecha'},
+  {k:'suite_label',  lbl:'Suite'},
+  {k:'vno',          lbl:'VNO'},
+  {k:'resultado',    lbl:'Resultado'},
+  {k:'passed',       lbl:'Pasados'},
+  {k:'failed',       lbl:'Fallidos'},
+  {k:'requests',     lbl:'Requests'},
+  {k:'tiempo_ms',    lbl:'Tiempo (ms)'},
 ];
 function showHistorial(){
   switchView('historial');
@@ -6284,7 +6298,7 @@ function _renderHistorialTable(){
     return asc?n:-n;
   });
   var body=document.getElementById('historial-body');
-  if(!rows.length){body.innerHTML='<div class="hist-empty">Sin registros'+(q?' para "'+esc(q)+'"':'')+'</div>';return;}
+  if(!rows.length){body.innerHTML='<div class="hist-empty">'+(q?'Sin registros para "'+esc(q)+'"':'Aún no hay ejecuciones registradas. Ejecuta una suite para ver su historial aquí.')+'</div>';return;}
   var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
   _HIST_COLS.forEach(function(c,i){
     var ico=_histSort.col===i?(_histSort.asc?'▲':'▼'):'⇅';
@@ -6292,22 +6306,18 @@ function _renderHistorialTable(){
   });
   h+='</tr></thead><tbody>';
   rows.forEach(function(r){
-    var estado=r.estado||'';
-    var bc=estado.indexOf('xito')>=0?'ok':(estado.indexOf('rechazada')>=0||estado.indexOf('Pendiente')>=0?'err':'warn');
-    var codigo=r.codigo!=null?r.codigo:'';
-    var codigobc=codigo===0||codigo==='0'?'ok':(codigo===''?'':'err');
+    var res=r.resultado||'';
+    var bc=res==='ok'?'ok':'err';
+    var vno=r.vno||'';
     h+='<tr>';
-    h+='<td style="font-weight:600;color:var(--acc)">'+esc(r.access_id||'')+'</td>';
-    h+='<td style="color:var(--txt2)">'+esc(r.customer_order||'—')+'</td>';
-    h+='<td><span style="font-weight:700;color:'+(_histVnoColor(r.vno))+'">'+esc(r.vno||'')+'</span></td>';
-    h+='<td>'+esc(r.class_name||'')+'</td>';
-    h+='<td style="color:var(--txt2);font-size:.68rem">'+esc(r.svc_flow||'')+'</td>';
-    h+='<td><span class="hist-badge '+bc+'">'+esc(estado)+'</span></td>';
-    h+='<td><span class="hist-badge '+codigobc+'">'+esc(codigo.toString())+'</span></td>';
-    h+='<td style="color:var(--txt2);max-width:220px" title="'+esc(r.descripcion||'')+'">'+esc(r.descripcion||'')+'</td>';
-    h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.created||'')+'</td>';
-    h+='<td style="font-variant-numeric:tabular-nums;text-align:right">'+esc(r.tiempo_ms!=null?r.tiempo_ms.toString():'')+'</td>';
-    h+='<td style="color:var(--warn);font-size:.68rem">'+esc(r.punto_quiebre||'')+'</td>';
+    h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.ts||'')+'</td>';
+    h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
+    h+='<td><span style="font-weight:700;color:'+(_histVnoColor(vno))+'">'+esc(vno||'—')+'</span></td>';
+    h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
+    h+='<td style="text-align:right;color:var(--ok);font-variant-numeric:tabular-nums">'+esc((r.passed||0).toString())+'</td>';
+    h+='<td style="text-align:right;color:var(--err);font-variant-numeric:tabular-nums">'+esc((r.failed||0).toString())+'</td>';
+    h+='<td style="text-align:right;color:var(--txt2);font-variant-numeric:tabular-nums">'+esc((r.requests||0).toString())+'</td>';
+    h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+esc(r.tiempo_ms!=null?r.tiempo_ms.toString():'')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
