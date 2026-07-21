@@ -5109,6 +5109,8 @@ function renderTeardownFormBar(){
     +'</div>'
     +'<span style="font-size:.63rem;color:var(--txt3);max-width:160px">El VNO se detecta automáticamente del prefijo (02-xxx → VNO 02)</span>'
     +'</div>';
+  var ta=document.getElementById('td-ids');
+  if(ta) ta.oninput=_syncTeardownExecBtn;
 }
 
 function _syncTeardownExecBtn(){
