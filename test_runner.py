@@ -5777,7 +5777,7 @@ function _saveHistorialRecord(d,s){
 function _doAutoTeardown(accessIds){
   app('','');
   app('── Teardown automático · '+accessIds.length+' acceso'+(accessIds.length===1?'':'s')+' ──────────────','dim');
-  var _es2=new EventSource('/api/run/qa-teardown-masivo?access_ids='+encodeURIComponent(accessIds.join('\n'))+'&service_type=FTTH');
+  var _es2=new EventSource('/api/run/qa-teardown-masivo?access_ids='+encodeURIComponent(accessIds.join('\\n'))+'&service_type=FTTH');
   _es2.onmessage=function(ev){
     var d2=JSON.parse(ev.data);
     if(d2.e==='start') return;
