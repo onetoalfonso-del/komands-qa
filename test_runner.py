@@ -2003,6 +2003,7 @@ async def api_run(suite_id: str, request: Request):
             _vnos_activ = sorted({r.get("vno","") for r in _results_activ if r.get("vno")})
             _tc_results_activ = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                                    "code":r["code"],"direccion":r.get("access_id",""),
+                                   "access_id":r.get("access_id",""),
                                    "escenario":r.get("tc_label","")}
                                   for r in _results_activ]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
@@ -2358,6 +2359,7 @@ async def api_run(suite_id: str, request: Request):
             _vnos_dm = sorted({r.get("vno","") for r in _results_dm if r.get("vno")})
             _tc_results_dm = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                                 "code":r["code"],"direccion":r.get("access_id",""),
+                                "access_id":r.get("access_id",""),
                                 "escenario":r.get("tc_label","")}
                                for r in _results_dm]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
@@ -3009,6 +3011,7 @@ async def api_run(suite_id: str, request: Request):
             _vnos = sorted({r.get("vno","") for r in _results if r.get("vno")})
             _tc_results = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                             "code":r["code"],"direccion":r.get("address_id","") or r.get("access_id",""),
+                            "access_id":r.get("access_id",""),
                             "escenario":r.get("tc_label","")}
                            for r in _results]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos,'tc_results':_tc_results})}\n\n"
@@ -4407,7 +4410,9 @@ function renderAsigFormBar(){
     +'<span class="afb-lbl">VoIP:</span>'
     +'<select id="asig-voip"><option value="true" selected>Si</option><option value="false">No</option></select>'
     +'<span class="afb-lbl">IPTV:</span>'
-    +'<select id="asig-iptv"><option value="true" selected>Si</option><option value="false">No</option></select>';
+    +'<select id="asig-iptv"><option value="true" selected>Si</option><option value="false">No</option></select>'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
+    +'<input type="checkbox" id="asig-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
   var inp=document.getElementById('asig-access');
   if(inp) inp.oninput=_updateAsigAccessPreview;
   _updateAsigAccessPreview();
@@ -4815,7 +4820,9 @@ function renderActivFormBar(){
     +'<label class="activ-svc"><input type="checkbox" id="activ-svoip" checked> VoIP</label>'
     +'<label class="activ-svc"><input type="checkbox" id="activ-siptv" checked> IPTV</label>'
     +'<span class="afb-lbl" style="margin-left:8px">Serial (últ. 4):</span>'
-    +'<input id="activ-serial" style="width:60px" maxlength="4" placeholder="0000" />';
+    +'<input id="activ-serial" style="width:60px" maxlength="4" placeholder="0000" />'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
+    +'<input type="checkbox" id="activ-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
   var inp=document.getElementById('activ-access');
   if(inp) inp.oninput=_updateActivAccessPreview;
   var sinp=document.getElementById('activ-serial');
@@ -5014,6 +5021,8 @@ function renderDmFormBar(){
     +'<label class="activ-svc"><input type="checkbox" id="dm-sba" checked> BA</label>'
     +'<label class="activ-svc"><input type="checkbox" id="dm-svoip" checked> VoIP</label>'
     +'<label class="activ-svc"><input type="checkbox" id="dm-siptv" checked> IPTV</label>'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
+    +'<input type="checkbox" id="dm-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>'
     +'</div>'
     +'<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg3,var(--bg2));flex-wrap:nowrap">'
     +'<span style="font-size:.7rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-right:2px">Seriales</span>'
@@ -5765,6 +5774,21 @@ function _saveHistorialRecord(d,s){
     fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)}).catch(function(){});
   }
 }
+function _doAutoTeardown(accessIds){
+  app('','');
+  app('── Teardown automático · '+accessIds.length+' acceso'+(accessIds.length===1?'':'s')+' ──────────────','dim');
+  var _es2=new EventSource('/api/run/qa-teardown-masivo?access_ids='+encodeURIComponent(accessIds.join('\n'))+'&service_type=FTTH');
+  _es2.onmessage=function(ev){
+    var d2=JSON.parse(ev.data);
+    if(d2.e==='start') return;
+    if(d2.e==='line') app(d2.t,col(d2.t));
+    else if(d2.e==='done'){
+      app('── Teardown: '+(d2.code===0?'✓ accesos liberados':'✗ finalizó con errores'),d2.code===0?'ok bold':'err bold');
+      _es2.close();
+    } else if(d2.e==='error'){app('── Teardown error: '+(d2.msg||''),'err');_es2.close();}
+  };
+  _es2.onerror=function(){app('── Teardown: error de conexión','err');_es2.close();};
+}
 function onDone(d,s){
   running=false; runningId=null;
   _saveHistorialRecord(d,s);
@@ -5795,6 +5819,15 @@ function onDone(d,s){
       .catch(function(){});
   }
   if(queue.length){var nx=queue.shift();setTimeout(()=>run(nx),350);}
+  var _tdMap={'qa-asig-suite':'asig-teardown','qa-activ-suite':'activ-teardown','qa-dm-suite':'dm-teardown'};
+  var _tdCbId=_tdMap[s.id];
+  if(_tdCbId){
+    var _tdCb=document.getElementById(_tdCbId);
+    if(_tdCb&&_tdCb.checked&&Array.isArray(d.tc_results)){
+      var _tdAids=d.tc_results.map(function(tc){return tc.access_id||'';}).filter(Boolean);
+      if(_tdAids.length) _doAutoTeardown(_tdAids);
+    }
+  }
 }
 
 // Direcciones de Factibilidad por VNO 17-07-2026
