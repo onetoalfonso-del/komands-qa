@@ -1996,7 +1996,10 @@ async def api_run(suite_id: str, request: Request):
             _has_idx_activ = (_activ_dir / "index.html").exists()
             _dirs_activ = list({r.get("access_id") for r in _results_activ if r.get("access_id")})
             _vnos_activ = sorted({r.get("vno","") for r in _results_activ if r.get("vno")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ})}\n\n"
+            _tc_results_activ = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
+                                   "code":r["code"],"direccion":r.get("access_id","")}
+                                  for r in _results_activ]
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_activ(), media_type="text/event-stream",
@@ -2345,7 +2348,10 @@ async def api_run(suite_id: str, request: Request):
             _has_idx_dm = (_dm_dir / "index.html").exists()
             _dirs_dm = list({r.get("access_id") for r in _results_dm if r.get("access_id")})
             _vnos_dm = sorted({r.get("vno","") for r in _results_dm if r.get("vno")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm})}\n\n"
+            _tc_results_dm = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
+                                "code":r["code"],"direccion":r.get("access_id","")}
+                               for r in _results_dm]
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_dm(), media_type="text/event-stream",
@@ -2765,7 +2771,10 @@ async def api_run(suite_id: str, request: Request):
             _has_idx_c = (_cancel_dir / "index.html").exists()
             _dirs_cancel = list({r.get("access_id") for r in _results_cancel if r.get("access_id")})
             _vnos_cancel = sorted({r.get("vno","") for r in _results_cancel if r.get("vno")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel})}\n\n"
+            _tc_results_cancel = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
+                                    "code":r["code"],"direccion":r.get("access_id","")}
+                                   for r in _results_cancel]
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_cancel(), media_type="text/event-stream",
@@ -2985,7 +2994,10 @@ async def api_run(suite_id: str, request: Request):
             _has_idx = (QA_DIR / "factibilidad" / "index.html").exists()
             _dirs = list({r.get("address_id") or r.get("access_id") for r in _results if r.get("address_id") or r.get("access_id")})
             _vnos = sorted({r.get("vno","") for r in _results if r.get("vno")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos})}\n\n"
+            _tc_results = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
+                            "code":r["code"],"direccion":r.get("address_id","") or r.get("access_id","")}
+                           for r in _results]
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos,'tc_results':_tc_results})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_parallel(), media_type="text/event-stream",
@@ -5714,25 +5726,28 @@ function _saveHistorialRecord(d,s){
   var now=new Date();
   var ts=now.toISOString().slice(0,19).replace('T',' ');
   var tiempo_ms=Math.round(Date.now()-tStart);
-  var dirs=Array.isArray(d.direcciones)&&d.direcciones.length?d.direcciones:[];
-  var vnos=Array.isArray(d.vnos)&&d.vnos.length?d.vnos:[_globalVNO||''];
-  var resultado=d.code===0?'ok':'error';
   var suite_label=s.label||s.id;
-  var record={
-    ts:ts,
-    suite_id:s.id,
-    suite_label:suite_label,
-    vnos:vnos,
-    resultado:resultado,
-    code:d.code,
-    passed:d.passed||0,
-    failed:d.failed||0,
-    requests:d.requests||0,
-    tiempo_ms:tiempo_ms,
-    direcciones:dirs,
-  };
-  fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)})
-    .catch(function(){});
+  if(Array.isArray(d.tc_results)&&d.tc_results.length){
+    d.tc_results.forEach(function(tc){
+      var record={
+        ts:ts,suite_id:s.id,suite_label:suite_label,
+        tc:tc.tc||'',vno:tc.vno||'',vno_lbl:tc.vno_lbl||'',
+        direccion:tc.direccion||'',
+        resultado:tc.code===0?'ok':'error',
+        code:tc.code,tiempo_ms:tiempo_ms
+      };
+      fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)}).catch(function(){});
+    });
+  } else {
+    var record={
+      ts:ts,suite_id:s.id,suite_label:suite_label,
+      tc:'',vno:(Array.isArray(d.vnos)&&d.vnos[0])||_globalVNO||'',vno_lbl:'',
+      direccion:(Array.isArray(d.direcciones)&&d.direcciones[0])||'',
+      resultado:d.code===0?'ok':'error',
+      code:d.code,tiempo_ms:tiempo_ms
+    };
+    fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)}).catch(function(){});
+  }
 }
 function onDone(d,s){
   running=false; runningId=null;
@@ -6272,14 +6287,13 @@ function stat(cls,n,lbl){
 var _histData=[];
 var _histSort={col:0,asc:false}; // col 0 = ts (más reciente primero)
 var _HIST_COLS=[
-  {k:'ts',           lbl:'Fecha'},
-  {k:'suite_label',  lbl:'Suite'},
-  {k:'vnos',         lbl:'VNOs'},
-  {k:'direcciones',  lbl:'Dirección / Access ID'},
-  {k:'resultado',    lbl:'Resultado'},
-  {k:'passed',       lbl:'Pasados'},
-  {k:'failed',       lbl:'Fallidos'},
-  {k:'tiempo_ms',    lbl:'Tiempo (ms)'},
+  {k:'ts',          lbl:'Fecha'},
+  {k:'suite_label', lbl:'Suite'},
+  {k:'tc',          lbl:'TC'},
+  {k:'vno_lbl',     lbl:'VNO'},
+  {k:'direccion',   lbl:'Dirección / Access ID'},
+  {k:'resultado',   lbl:'Resultado'},
+  {k:'tiempo_ms',   lbl:'Tiempo'},
 ];
 function showHistorial(){
   switchView('historial');
@@ -6309,7 +6323,7 @@ function _filterHistorial(){
 }
 function _histSortBy(ci){
   if(_histSort.col===ci) _histSort.asc=!_histSort.asc;
-  else{_histSort.col=ci;_histSort.asc=ci!==8;}
+  else{_histSort.col=ci;_histSort.asc=false;}
   _renderHistorialTable();
 }
 function _renderHistorialTable(){
@@ -6317,10 +6331,8 @@ function _renderHistorialTable(){
   q=q.toLowerCase();
   var rows=_histData.filter(function(r){
     if(!q) return true;
-    var dirs=(Array.isArray(r.direcciones)?r.direcciones:[]).join(' ').toLowerCase();
-    return dirs.indexOf(q)>=0||_HIST_COLS.some(function(c){
-      var v=r[c.k]; if(Array.isArray(v)) return false;
-      return (v||'').toString().toLowerCase().indexOf(q)>=0;
+    return _HIST_COLS.some(function(c){
+      return (r[c.k]||'').toString().toLowerCase().indexOf(q)>=0;
     });
   });
   var ci=_histSort.col; var asc=_histSort.asc;
@@ -6341,23 +6353,22 @@ function _renderHistorialTable(){
   rows.forEach(function(r){
     var res=r.resultado||'';
     var bc=res==='ok'?'ok':'err';
-    var vnos=Array.isArray(r.vnos)&&r.vnos.length?r.vnos:(r.vno?[r.vno]:[]);
-    var vnosHtml=vnos.length
-      ?vnos.map(function(v){return '<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(v)+'">'+esc(v)+'</span>';}).join('<span style="color:var(--txt3);margin:0 2px">,</span>')
+    var vno=r.vno_lbl||r.vno||'';
+    var vnoHtml=vno
+      ?'<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</span>'
       :'<span style="color:var(--txt3)">—</span>';
-    var dirs=Array.isArray(r.direcciones)&&r.direcciones.length?r.direcciones:[];
-    var dirsHtml=dirs.length
-      ?dirs.map(function(d){return '<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;margin-right:3px;white-space:nowrap">'+esc(d)+'</span>';}).join('')
+    var dir=r.direccion||'';
+    var dirHtml=dir
+      ?'<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;white-space:nowrap">'+esc(dir)+'</span>'
       :'<span style="color:var(--txt3);font-size:.68rem">—</span>';
     var tiempoSeg=r.tiempo_ms!=null?((r.tiempo_ms/1000).toFixed(1)+'s'):'';
     h+='<tr>';
     h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.ts||'')+'</td>';
     h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
-    h+='<td>'+vnosHtml+'</td>';
-    h+='<td>'+dirsHtml+'</td>';
+    h+='<td style="font-size:.7rem">'+esc(r.tc||'')+'</td>';
+    h+='<td>'+vnoHtml+'</td>';
+    h+='<td>'+dirHtml+'</td>';
     h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
-    h+='<td style="text-align:right;color:var(--ok);font-variant-numeric:tabular-nums">'+esc((r.passed||0).toString())+'</td>';
-    h+='<td style="text-align:right;color:var(--err);font-variant-numeric:tabular-nums">'+esc((r.failed||0).toString())+'</td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+esc(tiempoSeg)+'</td>';
     h+='</tr>';
   });
