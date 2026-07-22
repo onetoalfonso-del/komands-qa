@@ -1931,7 +1931,8 @@ async def api_run(suite_id: str, request: Request):
                     _tr2, _code, _last_json = _item[1], _item[2], _item[3]
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
-                    _results_activ.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                    _results_activ.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
+                                           "vno_lbl": _tr2["vno_lbl"],
                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                            "access_id": _tr2.get("access_id", "")})
                     _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
@@ -1994,7 +1995,8 @@ async def api_run(suite_id: str, request: Request):
             (_activ_dir / "index.html").write_text(_idx_activ, encoding="utf-8")
             _has_idx_activ = (_activ_dir / "index.html").exists()
             _dirs_activ = list({r.get("access_id") for r in _results_activ if r.get("access_id")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ})}\n\n"
+            _vnos_activ = sorted({r.get("vno","") for r in _results_activ if r.get("vno")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_activ(), media_type="text/event-stream",
@@ -2278,7 +2280,8 @@ async def api_run(suite_id: str, request: Request):
                     _tr2, _code, _last_json = _item[1], _item[2], _item[3]
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
-                    _results_dm.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                    _results_dm.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
+                                        "vno_lbl": _tr2["vno_lbl"],
                                         "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                         "access_id": _tr2.get("access_id", "")})
                     _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
@@ -2341,7 +2344,8 @@ async def api_run(suite_id: str, request: Request):
             (_dm_dir / "index.html").write_text(_idx_dm, encoding="utf-8")
             _has_idx_dm = (_dm_dir / "index.html").exists()
             _dirs_dm = list({r.get("access_id") for r in _results_dm if r.get("access_id")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm})}\n\n"
+            _vnos_dm = sorted({r.get("vno","") for r in _results_dm if r.get("vno")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_dm(), media_type="text/event-stream",
@@ -2695,7 +2699,8 @@ async def api_run(suite_id: str, request: Request):
                     _tr2, _code, _last_json = _item[1], _item[2], _item[3]
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
-                    _results_cancel.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                    _results_cancel.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
+                                            "vno_lbl": _tr2["vno_lbl"],
                                             "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                             "access_id": _cancel_aids.get(_tr2["tc"], "")})
                     _tc_msg_c = f"{_sym} {_tr2['label']} — código {_code}"
@@ -2759,7 +2764,8 @@ async def api_run(suite_id: str, request: Request):
             (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
             _has_idx_c = (_cancel_dir / "index.html").exists()
             _dirs_cancel = list({r.get("access_id") for r in _results_cancel if r.get("access_id")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel})}\n\n"
+            _vnos_cancel = sorted({r.get("vno","") for r in _results_cancel if r.get("vno")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_cancel(), media_type="text/event-stream",
@@ -2907,7 +2913,8 @@ async def api_run(suite_id: str, request: Request):
                     _remaining -= 1
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
-                    _results.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
+                    _results.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
+                                     "vno_lbl": _tr2["vno_lbl"],
                                      "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                      "address_id": _tr2.get("address_id", ""),
                                      "access_id": _tr2.get("access_id", "")})
@@ -2977,7 +2984,8 @@ async def api_run(suite_id: str, request: Request):
             (QA_DIR / "factibilidad" / "index.html").write_text(_idx_html, encoding="utf-8")
             _has_idx = (QA_DIR / "factibilidad" / "index.html").exists()
             _dirs = list({r.get("address_id") or r.get("access_id") for r in _results if r.get("address_id") or r.get("access_id")})
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs})}\n\n"
+            _vnos = sorted({r.get("vno","") for r in _results if r.get("vno")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_parallel(), media_type="text/event-stream",
@@ -5706,15 +5714,15 @@ function _saveHistorialRecord(d,s){
   var now=new Date();
   var ts=now.toISOString().slice(0,19).replace('T',' ');
   var tiempo_ms=Math.round(Date.now()-tStart);
-  var vno=_globalVNO||'';
+  var dirs=Array.isArray(d.direcciones)&&d.direcciones.length?d.direcciones:[];
+  var vnos=Array.isArray(d.vnos)&&d.vnos.length?d.vnos:[_globalVNO||''];
   var resultado=d.code===0?'ok':'error';
   var suite_label=s.label||s.id;
-  var dirs=Array.isArray(d.direcciones)&&d.direcciones.length?d.direcciones:[];
   var record={
     ts:ts,
     suite_id:s.id,
     suite_label:suite_label,
-    vno:vno,
+    vnos:vnos,
     resultado:resultado,
     code:d.code,
     passed:d.passed||0,
@@ -6266,7 +6274,7 @@ var _histSort={col:0,asc:false}; // col 0 = ts (más reciente primero)
 var _HIST_COLS=[
   {k:'ts',           lbl:'Fecha'},
   {k:'suite_label',  lbl:'Suite'},
-  {k:'vno',          lbl:'VNO'},
+  {k:'vnos',         lbl:'VNOs'},
   {k:'direcciones',  lbl:'Dirección / Access ID'},
   {k:'resultado',    lbl:'Resultado'},
   {k:'passed',       lbl:'Pasados'},
@@ -6333,7 +6341,10 @@ function _renderHistorialTable(){
   rows.forEach(function(r){
     var res=r.resultado||'';
     var bc=res==='ok'?'ok':'err';
-    var vno=r.vno||'';
+    var vnos=Array.isArray(r.vnos)&&r.vnos.length?r.vnos:(r.vno?[r.vno]:[]);
+    var vnosHtml=vnos.length
+      ?vnos.map(function(v){return '<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(v)+'">'+esc(v)+'</span>';}).join('<span style="color:var(--txt3);margin:0 2px">,</span>')
+      :'<span style="color:var(--txt3)">—</span>';
     var dirs=Array.isArray(r.direcciones)&&r.direcciones.length?r.direcciones:[];
     var dirsHtml=dirs.length
       ?dirs.map(function(d){return '<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;margin-right:3px;white-space:nowrap">'+esc(d)+'</span>';}).join('')
@@ -6342,7 +6353,7 @@ function _renderHistorialTable(){
     h+='<tr>';
     h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.ts||'')+'</td>';
     h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
-    h+='<td><span style="font-weight:700;color:'+(_histVnoColor(vno))+'">'+esc(vno||'—')+'</span></td>';
+    h+='<td>'+vnosHtml+'</td>';
     h+='<td>'+dirsHtml+'</td>';
     h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
     h+='<td style="text-align:right;color:var(--ok);font-variant-numeric:tabular-nums">'+esc((r.passed||0).toString())+'</td>';
