@@ -1850,7 +1850,7 @@ async def api_run(suite_id: str, request: Request):
             _rp_act  = str(_activ_dir / f"{_tcd['tc']}.html")
             _js_act  = str(_activ_dir / f"{_tcd['tc']}.json")
             _cmd_act = list(_base_cmd); _cmd_act[2] = _tmp_act
-            _cmd_act += ["--delay-request", "5000",
+            _cmd_act += ["--delay-request", "15000",
                          "--reporter-json-export", _js_act,
                          "--reporter-htmlextra-export", _rp_act,
                          "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación × 2 · {_tcd['vno_label']}"]
@@ -1893,7 +1893,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_activ():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · cadena completa 6 pasos · delay idempotencia 5s'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · cadena completa 6 pasos · delay idempotencia 15s'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_activ = {**os.environ,
                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
