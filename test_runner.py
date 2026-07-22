@@ -1433,12 +1433,14 @@ async def api_run(suite_id: str, request: Request):
             _tmp_col = str(QA_DIR / f"_tmp_fact_suite_{_vno}.json")
             _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
             _tc_runs.append({
-                "tc":      _tcd["tc"],
-                "vno":     _vno,
-                "vno_lbl": _tcd["vno_label"],
-                "sid":     _tcd["sid"],
-                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
-                "cmd":     [NEWMAN, "run", _tmp_col,
+                "tc":         _tcd["tc"],
+                "vno":        _vno,
+                "vno_lbl":    _tcd["vno_label"],
+                "sid":        _tcd["sid"],
+                "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "address_id": _ADDR_ID,
+                "access_id":  "",
+                "cmd":        [NEWMAN, "run", _tmp_col,
                             "-e", _env_file,
                             "--folder", _folder,
                             "--env-var", f"Token={_token}",
@@ -1537,12 +1539,14 @@ async def api_run(suite_id: str, request: Request):
             _tmp_col = str(QA_DIR / f"_tmp_asig_suite_{_vno}.json")
             _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
             _tc_runs.append({
-                "tc":      _tcd["tc"],
-                "vno":     _vno,
-                "vno_lbl": _tcd["vno_label"],
-                "sid":     _tcd["sid"],
-                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
-                "cmd":     [NEWMAN, "run", _tmp_col,
+                "tc":         _tcd["tc"],
+                "vno":        _vno,
+                "vno_lbl":    _tcd["vno_label"],
+                "sid":        _tcd["sid"],
+                "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "address_id": _address_id,
+                "access_id":  _access_ids_map.get(_tcd["tc"], ""),
+                "cmd":        [NEWMAN, "run", _tmp_col,
                             "-e", _env_file,
                             "--folder", _folder,
                             "--env-var", f"Token={_token}",
@@ -1553,9 +1557,9 @@ async def api_run(suite_id: str, request: Request):
                             "--reporter-htmlextra-export", _rp_out,
                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']} – OnnetFibra",
                             "--reporter-htmlextra-logo", _logo_uri_a],
-                "cwd":     str(QA_DIR),
-                "rp_out":  _rp_out,
-                "json_out": _json_out,
+                "cwd":        str(QA_DIR),
+                "rp_out":     _rp_out,
+                "json_out":   _json_out,
             })
 
     elif suite.get("env_type") in ("qa_ia_inicio_suite", "qa_ia_fin_suite"):
@@ -1644,12 +1648,14 @@ async def api_run(suite_id: str, request: Request):
             _nf = "01-Inicio Intervención" if _is_inicio else "03-Finalización Intervención"
             _op_lbl = "IA Inicio" if _is_inicio else "IA Fin"
             _tc_runs.append({
-                "tc":      _tcd["tc"],
-                "vno":     _vno,
-                "vno_lbl": _tcd["vno_label"],
-                "sid":     _tcd["sid"],
-                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
-                "cmd":     [NEWMAN, "run", _tmp_col,
+                "tc":         _tcd["tc"],
+                "vno":        _vno,
+                "vno_lbl":    _tcd["vno_label"],
+                "sid":        _tcd["sid"],
+                "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "address_id": "",
+                "access_id":  _access_ids_map_ia.get(_tcd["tc"], ""),
+                "cmd":        [NEWMAN, "run", _tmp_col,
                             "-e", _env_file,
                             "--folder", _nf,
                             "--env-var", f"Token={_token}",
@@ -1660,9 +1666,9 @@ async def api_run(suite_id: str, request: Request):
                             "--reporter-htmlextra-export", _rp_out,
                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} {_op_lbl} · {_tcd['vno_label']} – OnnetFibra",
                             "--reporter-htmlextra-logo", _logo_uri_ia],
-                "cwd":     str(QA_DIR),
-                "rp_out":  _rp_out,
-                "json_out": _json_out,
+                "cwd":        str(QA_DIR),
+                "rp_out":     _rp_out,
+                "json_out":   _json_out,
             })
 
     # ── Suite Activación — cadena completa 6 pasos por VNO en paralelo ─────────
@@ -1863,9 +1869,10 @@ async def api_run(suite_id: str, request: Request):
                          "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Retrieve Access · {_tcd['vno_label']}"]
 
             _activ_runs.append({
-                "tc":      _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
-                "sid":     _tcd["sid"],
-                "label":   f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
+                "sid":       _tcd["sid"],
+                "label":     f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "access_id": _access_id,
                 "steps": [
                     ("1/6 Factibilidad",     _cmd_fact, _js_fact),
                     ("2/6 Asignación",       _cmd_asig, _js_asig),
@@ -1925,7 +1932,8 @@ async def api_run(suite_id: str, request: Request):
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
                     _results_activ.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
-                                           "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                                           "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
+                                           "access_id": _tr2.get("access_id", "")})
                     _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -1985,7 +1993,8 @@ async def api_run(suite_id: str, request: Request):
             )
             (_activ_dir / "index.html").write_text(_idx_activ, encoding="utf-8")
             _has_idx_activ = (_activ_dir / "index.html").exists()
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id})}\n\n"
+            _dirs_activ = list({r.get("access_id") for r in _results_activ if r.get("access_id")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_activ(), media_type="text/event-stream",
@@ -2205,9 +2214,10 @@ async def api_run(suite_id: str, request: Request):
                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Consulta Acceso · {_tcd['vno_label']}"]
 
             _dm_runs.append({
-                "tc":       _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
-                "sid":      _tcd["sid"],
-                "label":    f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
+                "sid":       _tcd["sid"],
+                "label":     f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "access_id": _access_id,
                 "act_serial": (QA_ACTIV_SERIAL_BASE.get(_vno,"") + _dm_serial_suffix) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)",
                 "dm_serial":  (_dm_new_serial or "(sin serial)"),
                 "steps": [
@@ -2269,7 +2279,8 @@ async def api_run(suite_id: str, request: Request):
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
                     _results_dm.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
-                                        "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                                        "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
+                                        "access_id": _tr2.get("access_id", "")})
                     _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -2329,7 +2340,8 @@ async def api_run(suite_id: str, request: Request):
             )
             (_dm_dir / "index.html").write_text(_idx_dm, encoding="utf-8")
             _has_idx_dm = (_dm_dir / "index.html").exists()
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id})}\n\n"
+            _dirs_dm = list({r.get("access_id") for r in _results_dm if r.get("access_id")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_dm(), media_type="text/event-stream",
@@ -2497,6 +2509,7 @@ async def api_run(suite_id: str, request: Request):
                            "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q_cancel = asyncio.Queue()
             _results_cancel = []
+            _cancel_aids = {}  # tc → access_id dinámico asignado por API
 
             def _read_rsp(js_path):
                 try:
@@ -2564,6 +2577,7 @@ async def api_run(suite_id: str, request: Request):
                             pass
                 except Exception:
                     pass
+                _cancel_aids[_tc] = _aid
                 await _out_q_cancel.put(("L", _tc, f"── Access ID asignado por API: {_aid or '(no encontrado)'} ──"))
                 if not _aid:
                     await _out_q_cancel.put(("L", _tc, "✗ No se pudo extraer u_access_id_vno — deteniendo"))
@@ -2682,7 +2696,8 @@ async def api_run(suite_id: str, request: Request):
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
                     _results_cancel.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
-                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
+                                            "access_id": _cancel_aids.get(_tr2["tc"], "")})
                     _tc_msg_c = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg_c})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -2743,7 +2758,8 @@ async def api_run(suite_id: str, request: Request):
             )
             (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
             _has_idx_c = (_cancel_dir / "index.html").exists()
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id})}\n\n"
+            _dirs_cancel = list({r.get("access_id") for r in _results_cancel if r.get("access_id")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_cancel(), media_type="text/event-stream",
@@ -2892,7 +2908,9 @@ async def api_run(suite_id: str, request: Request):
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
                     _sym = "✓" if _code == 0 else "✗"
                     _results.append({"tc": _tr2["tc"], "vno_lbl": _tr2["vno_lbl"],
-                                     "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp})
+                                     "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
+                                     "address_id": _tr2.get("address_id", ""),
+                                     "access_id": _tr2.get("access_id", "")})
                     _tc_msg = _sym + " " + _tr2["label"] + " — código " + str(_code)
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -2958,7 +2976,8 @@ async def api_run(suite_id: str, request: Request):
             )
             (QA_DIR / "factibilidad" / "index.html").write_text(_idx_html, encoding="utf-8")
             _has_idx = (QA_DIR / "factibilidad" / "index.html").exists()
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id})}\n\n"
+            _dirs = list({r.get("address_id") or r.get("access_id") for r in _results if r.get("address_id") or r.get("access_id")})
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs})}\n\n"
             await asyncio.sleep(0.15)
 
         return StreamingResponse(sse_parallel(), media_type="text/event-stream",
@@ -5690,6 +5709,7 @@ function _saveHistorialRecord(d,s){
   var vno=_globalVNO||'';
   var resultado=d.code===0?'ok':'error';
   var suite_label=s.label||s.id;
+  var dirs=Array.isArray(d.direcciones)&&d.direcciones.length?d.direcciones:[];
   var record={
     ts:ts,
     suite_id:s.id,
@@ -5701,6 +5721,7 @@ function _saveHistorialRecord(d,s){
     failed:d.failed||0,
     requests:d.requests||0,
     tiempo_ms:tiempo_ms,
+    direcciones:dirs,
   };
   fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)})
     .catch(function(){});
@@ -6246,10 +6267,10 @@ var _HIST_COLS=[
   {k:'ts',           lbl:'Fecha'},
   {k:'suite_label',  lbl:'Suite'},
   {k:'vno',          lbl:'VNO'},
+  {k:'direcciones',  lbl:'Dirección / Access ID'},
   {k:'resultado',    lbl:'Resultado'},
   {k:'passed',       lbl:'Pasados'},
   {k:'failed',       lbl:'Fallidos'},
-  {k:'requests',     lbl:'Requests'},
   {k:'tiempo_ms',    lbl:'Tiempo (ms)'},
 ];
 function showHistorial(){
@@ -6288,7 +6309,11 @@ function _renderHistorialTable(){
   q=q.toLowerCase();
   var rows=_histData.filter(function(r){
     if(!q) return true;
-    return _HIST_COLS.some(function(c){return (r[c.k]||'').toString().toLowerCase().indexOf(q)>=0;});
+    var dirs=(Array.isArray(r.direcciones)?r.direcciones:[]).join(' ').toLowerCase();
+    return dirs.indexOf(q)>=0||_HIST_COLS.some(function(c){
+      var v=r[c.k]; if(Array.isArray(v)) return false;
+      return (v||'').toString().toLowerCase().indexOf(q)>=0;
+    });
   });
   var ci=_histSort.col; var asc=_histSort.asc;
   rows=rows.slice().sort(function(a,b){
@@ -6309,15 +6334,20 @@ function _renderHistorialTable(){
     var res=r.resultado||'';
     var bc=res==='ok'?'ok':'err';
     var vno=r.vno||'';
+    var dirs=Array.isArray(r.direcciones)&&r.direcciones.length?r.direcciones:[];
+    var dirsHtml=dirs.length
+      ?dirs.map(function(d){return '<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;margin-right:3px;white-space:nowrap">'+esc(d)+'</span>';}).join('')
+      :'<span style="color:var(--txt3);font-size:.68rem">—</span>';
+    var tiempoSeg=r.tiempo_ms!=null?((r.tiempo_ms/1000).toFixed(1)+'s'):'';
     h+='<tr>';
     h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.ts||'')+'</td>';
     h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
     h+='<td><span style="font-weight:700;color:'+(_histVnoColor(vno))+'">'+esc(vno||'—')+'</span></td>';
+    h+='<td>'+dirsHtml+'</td>';
     h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
     h+='<td style="text-align:right;color:var(--ok);font-variant-numeric:tabular-nums">'+esc((r.passed||0).toString())+'</td>';
     h+='<td style="text-align:right;color:var(--err);font-variant-numeric:tabular-nums">'+esc((r.failed||0).toString())+'</td>';
-    h+='<td style="text-align:right;color:var(--txt2);font-variant-numeric:tabular-nums">'+esc((r.requests||0).toString())+'</td>';
-    h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+esc(r.tiempo_ms!=null?r.tiempo_ms.toString():'')+'</td>';
+    h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+esc(tiempoSeg)+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
