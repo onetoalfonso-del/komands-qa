@@ -1438,6 +1438,7 @@ async def api_run(suite_id: str, request: Request):
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
                 "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":   f"Factibilidad {_tcd['vno_label']}",
                 "address_id": _ADDR_ID,
                 "access_id":  "",
                 "cmd":        [NEWMAN, "run", _tmp_col,
@@ -1544,6 +1545,7 @@ async def api_run(suite_id: str, request: Request):
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
                 "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":   f"Asignación {_tcd['vno_label']}",
                 "address_id": _address_id,
                 "access_id":  _access_ids_map.get(_tcd["tc"], ""),
                 "cmd":        [NEWMAN, "run", _tmp_col,
@@ -1653,6 +1655,7 @@ async def api_run(suite_id: str, request: Request):
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
                 "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":   f"{_op_lbl} {_tcd['vno_label']}",
                 "address_id": "",
                 "access_id":  _access_ids_map_ia.get(_tcd["tc"], ""),
                 "cmd":        [NEWMAN, "run", _tmp_col,
@@ -1872,6 +1875,7 @@ async def api_run(suite_id: str, request: Request):
                 "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":       _tcd["sid"],
                 "label":     f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":  f"Activación {_tcd['vno_label']}",
                 "access_id": _access_id,
                 "steps": [
                     ("1/6 Factibilidad",     _cmd_fact, _js_fact),
@@ -1934,7 +1938,8 @@ async def api_run(suite_id: str, request: Request):
                     _results_activ.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                            "vno_lbl": _tr2["vno_lbl"],
                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
-                                           "access_id": _tr2.get("access_id", "")})
+                                           "access_id": _tr2.get("access_id", ""),
+                                           "tc_label": _tr2.get("tc_label", "")})
                     _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -1997,7 +2002,8 @@ async def api_run(suite_id: str, request: Request):
             _dirs_activ = list({r.get("access_id") for r in _results_activ if r.get("access_id")})
             _vnos_activ = sorted({r.get("vno","") for r in _results_activ if r.get("vno")})
             _tc_results_activ = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
-                                   "code":r["code"],"direccion":r.get("access_id","")}
+                                   "code":r["code"],"direccion":r.get("access_id",""),
+                                   "escenario":r.get("tc_label","")}
                                   for r in _results_activ]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
             await asyncio.sleep(0.15)
@@ -2222,6 +2228,7 @@ async def api_run(suite_id: str, request: Request):
                 "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":       _tcd["sid"],
                 "label":     f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":  f"Device Mod {_tcd['vno_label']}",
                 "access_id": _access_id,
                 "act_serial": (QA_ACTIV_SERIAL_BASE.get(_vno,"") + _dm_serial_suffix) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)",
                 "dm_serial":  (_dm_new_serial or "(sin serial)"),
@@ -2286,7 +2293,8 @@ async def api_run(suite_id: str, request: Request):
                     _results_dm.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                         "vno_lbl": _tr2["vno_lbl"],
                                         "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
-                                        "access_id": _tr2.get("access_id", "")})
+                                        "access_id": _tr2.get("access_id", ""),
+                                        "tc_label": _tr2.get("tc_label", "")})
                     _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -2349,7 +2357,8 @@ async def api_run(suite_id: str, request: Request):
             _dirs_dm = list({r.get("access_id") for r in _results_dm if r.get("access_id")})
             _vnos_dm = sorted({r.get("vno","") for r in _results_dm if r.get("vno")})
             _tc_results_dm = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
-                                "code":r["code"],"direccion":r.get("access_id","")}
+                                "code":r["code"],"direccion":r.get("access_id",""),
+                                "escenario":r.get("tc_label","")}
                                for r in _results_dm]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
             await asyncio.sleep(0.15)
@@ -2488,6 +2497,7 @@ async def api_run(suite_id: str, request: Request):
                 "tc":          _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":         _tcd["sid"],
                 "label":       f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":    f"Cancelación {_tcd['vno_label']}",
                 "cmd_fact":    _cmd_fact_c,  "js_fact":  _js_fact_c,
                 "cmd_asig":    _cmd_asig_c,  "js_asig":  _js_asig_c,
                 "base_cmd":    _base_cmd_cancel,
@@ -2708,7 +2718,8 @@ async def api_run(suite_id: str, request: Request):
                     _results_cancel.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                             "vno_lbl": _tr2["vno_lbl"],
                                             "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
-                                            "access_id": _cancel_aids.get(_tr2["tc"], "")})
+                                            "access_id": _cancel_aids.get(_tr2["tc"], ""),
+                                            "tc_label": _tr2.get("tc_label", "")})
                     _tc_msg_c = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg_c})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -2772,7 +2783,8 @@ async def api_run(suite_id: str, request: Request):
             _dirs_cancel = list({r.get("access_id") for r in _results_cancel if r.get("access_id")})
             _vnos_cancel = sorted({r.get("vno","") for r in _results_cancel if r.get("vno")})
             _tc_results_cancel = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
-                                    "code":r["code"],"direccion":r.get("access_id","")}
+                                    "code":r["code"],"direccion":r.get("access_id",""),
+                                    "escenario":r.get("tc_label","")}
                                    for r in _results_cancel]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
             await asyncio.sleep(0.15)
@@ -2926,7 +2938,8 @@ async def api_run(suite_id: str, request: Request):
                                      "vno_lbl": _tr2["vno_lbl"],
                                      "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                      "address_id": _tr2.get("address_id", ""),
-                                     "access_id": _tr2.get("access_id", "")})
+                                     "access_id": _tr2.get("access_id", ""),
+                                     "tc_label": _tr2.get("tc_label", "")})
                     _tc_msg = _sym + " " + _tr2["label"] + " — código " + str(_code)
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
@@ -2995,7 +3008,8 @@ async def api_run(suite_id: str, request: Request):
             _dirs = list({r.get("address_id") or r.get("access_id") for r in _results if r.get("address_id") or r.get("access_id")})
             _vnos = sorted({r.get("vno","") for r in _results if r.get("vno")})
             _tc_results = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
-                            "code":r["code"],"direccion":r.get("address_id","") or r.get("access_id","")}
+                            "code":r["code"],"direccion":r.get("address_id","") or r.get("access_id",""),
+                            "escenario":r.get("tc_label","")}
                            for r in _results]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos,'tc_results':_tc_results})}\n\n"
             await asyncio.sleep(0.15)
@@ -5732,6 +5746,7 @@ function _saveHistorialRecord(d,s){
       var record={
         ts:ts,suite_id:s.id,suite_label:suite_label,
         tc:tc.tc||'',vno:tc.vno||'',vno_lbl:tc.vno_lbl||'',
+        escenario:tc.escenario||'',
         direccion:tc.direccion||'',
         resultado:tc.code===0?'ok':'error',
         code:tc.code,tiempo_ms:tiempo_ms
@@ -5742,6 +5757,7 @@ function _saveHistorialRecord(d,s){
     var record={
       ts:ts,suite_id:s.id,suite_label:suite_label,
       tc:'',vno:(Array.isArray(d.vnos)&&d.vnos[0])||_globalVNO||'',vno_lbl:'',
+      escenario:'',
       direccion:(Array.isArray(d.direcciones)&&d.direcciones[0])||'',
       resultado:d.code===0?'ok':'error',
       code:d.code,tiempo_ms:tiempo_ms
@@ -6290,6 +6306,7 @@ var _HIST_COLS=[
   {k:'ts',          lbl:'Fecha'},
   {k:'suite_label', lbl:'Suite'},
   {k:'tc',          lbl:'TC'},
+  {k:'escenario',   lbl:'Escenario'},
   {k:'vno_lbl',     lbl:'VNO'},
   {k:'direccion',   lbl:'Dirección / Access ID'},
   {k:'resultado',   lbl:'Resultado'},
@@ -6366,6 +6383,7 @@ function _renderHistorialTable(){
     h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.ts||'')+'</td>';
     h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
     h+='<td style="font-size:.7rem">'+esc(r.tc||'')+'</td>';
+    h+='<td style="font-size:.72rem">'+esc(r.escenario||'')+'</td>';
     h+='<td>'+vnoHtml+'</td>';
     h+='<td>'+dirHtml+'</td>';
     h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
