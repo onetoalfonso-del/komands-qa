@@ -1828,7 +1828,7 @@ async def api_run(suite_id: str, request: Request):
                         "--reporter-htmlextra-export", _rp_ia,
                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
 
-            # ── Pasos 4+5: Activación × 2 en mismo Newman run ──────────────────
+            # ── Paso 4: Activación (primera) ────────────────────────────────────
             _activ_body_j = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
                 "u_operation_type": "A", "u_speed_plan": _speed_plan,
@@ -1841,19 +1841,28 @@ async def api_run(suite_id: str, request: Request):
             if _act_req:
                 _b = _act_req.get("request", {}).get("body", {})
                 if _b.get("mode") == "raw": _b["raw"] = _activ_body_j
-            _act_req2 = _cp.deepcopy(_act_req) if _act_req else None
-            if _act_req2: _act_req2["name"] = _act_req2.get("name","") + " (idempotencia)"
             _tmp_act = str(QA_DIR / f"_tmp_activ_act_{_vno}.json")
-            _act_items = [i for i in [_act_req, _act_req2] if i]
-            _j.dump({"info": _col_ff.get("info", {}), "item": _act_items},
+            _j.dump({"info": _col_ff.get("info", {}), "item": [_act_req] if _act_req else []},
                     open(_tmp_act, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-            _rp_act  = str(_activ_dir / f"{_tcd['tc']}.html")
-            _js_act  = str(_activ_dir / f"{_tcd['tc']}.json")
+            _rp_act  = str(_activ_dir / f"{_tcd['tc']}_act.html")
+            _js_act  = str(_activ_dir / f"{_tcd['tc']}_act.json")
             _cmd_act = list(_base_cmd); _cmd_act[2] = _tmp_act
-            _cmd_act += ["--delay-request", "300000",
-                         "--reporter-json-export", _js_act,
+            _cmd_act += ["--reporter-json-export", _js_act,
                          "--reporter-htmlextra-export", _rp_act,
-                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación × 2 · {_tcd['vno_label']}"]
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación · {_tcd['vno_label']}"]
+
+            # ── Paso 5: Idempotencia (segunda activación) ───────────────────────
+            _act_req_idem = _cp.deepcopy(_act_req)
+            if _act_req_idem: _act_req_idem["name"] = _act_req_idem.get("name","") + " (idempotencia)"
+            _tmp_act_idem = str(QA_DIR / f"_tmp_activ_idem_{_vno}.json")
+            _j.dump({"info": _col_ff.get("info", {}), "item": [_act_req_idem] if _act_req_idem else []},
+                    open(_tmp_act_idem, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_act_idem = str(_activ_dir / f"{_tcd['tc']}_idem.html")
+            _js_act_idem = str(_activ_dir / f"{_tcd['tc']}_idem.json")
+            _cmd_act_idem = list(_base_cmd); _cmd_act_idem[2] = _tmp_act_idem
+            _cmd_act_idem += ["--reporter-json-export", _js_act_idem,
+                              "--reporter-htmlextra-export", _rp_act_idem,
+                              "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Idempotencia · {_tcd['vno_label']}"]
 
             # ── Paso 6: Retrieve Access ─────────────────────────────────────────
             _ret_req = _find_req_in_col(_cp.deepcopy(_col_con), _ret_req_nm)
@@ -1879,11 +1888,12 @@ async def api_run(suite_id: str, request: Request):
                 "tc_label":  "Activación",
                 "access_id": _access_id,
                 "steps": [
-                    ("1/6 Factibilidad",     _cmd_fact, _js_fact),
-                    ("2/6 Asignación",       _cmd_asig, _js_asig),
-                    ("3/6 IA Inicio",        _cmd_ia,   _js_ia),
-                    ("4+5/6 Activación × 2", _cmd_act,  _js_act),
-                    ("6/6 Retrieve Access",  _cmd_ret,  _js_ret),
+                    ("1/6 Factibilidad",    _cmd_fact,     _js_fact),
+                    ("2/6 Asignación",      _cmd_asig,     _js_asig),
+                    ("3/6 IA Inicio",       _cmd_ia,       _js_ia),
+                    ("4/6 Activación",      _cmd_act,      _js_act),
+                    ("5/6 Idempotencia",    _cmd_act_idem, _js_act_idem),
+                    ("6/6 Retrieve Access", _cmd_ret,      _js_ret),
                 ],
                 "cwd":    str(QA_DIR),
                 "rp_out": _rp_act,
@@ -1893,7 +1903,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_activ():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · cadena completa 6 pasos · delays: asig 1min · ia 1min · activ 5min'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · 6 pasos · delays: asig 1min · ia 1min · activ→idem 5min'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_activ = {**os.environ,
                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -1917,8 +1927,7 @@ async def api_run(suite_id: str, request: Request):
                             _step_code = _v
                     if _step_json:
                         _last_json = _step_json
-                    # Paso 4+5 puede tener código ≠ 0 por el error 21 esperado — no es fallo del TC
-                    if "4+5" not in _step_lbl and _step_code != 0:
+                    if _step_code != 0:
                         await _out_q_activ.put(("L", tr["tc"], "━"*50))
                         await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
@@ -1942,15 +1951,13 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_activ.put(("L", tr["tc"], "━"*50))
                         await _out_q_activ.put(("D", tr, 1, _last_json))
                         return
-                    if "4+5" in _step_lbl:
-                        _overall = 0   # si llegamos hasta aquí Activación OK
-                    # Delays entre pasos (recomendación Sergio)
-                    _step_delay = {"2/6 Asignación": 60, "3/6 IA Inicio": 60}
+                    # Delays entre pasos (recomendación Sergio); 4/6 espera 5min (idempotencia)
+                    _step_delay = {"2/6 Asignación": 60, "3/6 IA Inicio": 60, "4/6 Activación": 300}
                     _dly = _step_delay.get(_step_lbl, 0)
                     if _dly:
                         await _out_q_activ.put(("L", tr["tc"], f"⏳ Esperando {_dly}s antes del siguiente paso…"))
                         await asyncio.sleep(_dly)
-                await _out_q_activ.put(("D", tr, _overall, _last_json))
+                await _out_q_activ.put(("D", tr, 0, _last_json))
               except Exception as _exc_run:
                 await _out_q_activ.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
                 await _out_q_activ.put(("D", tr, 1, _last_json))
