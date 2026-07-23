@@ -1903,6 +1903,7 @@ async def api_run(suite_id: str, request: Request):
             _results_activ = []
 
             async def _run_activ(tr):
+              try:
                 await _out_q_activ.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
                 _last_json = None
                 _overall   = 1
@@ -1950,6 +1951,9 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_activ.put(("L", tr["tc"], f"⏳ Esperando {_dly}s antes del siguiente paso…"))
                         await asyncio.sleep(_dly)
                 await _out_q_activ.put(("D", tr, _overall, _last_json))
+              except Exception as _exc_run:
+                await _out_q_activ.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
+                await _out_q_activ.put(("D", tr, 1, _last_json))
 
             async def _hb_activ():
                 while True:
@@ -2012,29 +2016,6 @@ async def api_run(suite_id: str, request: Request):
             _n_ok_activ   = sum(1 for r in _results_activ if r["code"] == 0)
             _n_fail_activ = len(_results_activ) - _n_ok_activ
             yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_activ}/{len(_results_activ)} TCs OK'})}\n\n"
-            _rows_activ = ""
-            for _r in sorted(_results_activ, key=lambda x: x["tc"]):
-                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
-                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                          if _r["has_rp"] else "—")
-                _rows_activ += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
-                                f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
-            _idx_activ = (
-                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-                '<title>QA Activación</title>'
-                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
-                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
-                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
-                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
-                '</style></head><body>'
-                '<h1>QA Activación</h1>'
-                f'<p>{_n_ok_activ}/{len(_results_activ)} TCs OK</p>'
-                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
-                f'{_rows_activ}</table></body></html>'
-            )
-            (_activ_dir / "index.html").write_text(_idx_activ, encoding="utf-8")
-            _has_idx_activ = (_activ_dir / "index.html").exists()
             _dirs_activ = list({r.get("access_id") for r in _results_activ if r.get("access_id")})
             _vnos_activ = sorted({r.get("vno","") for r in _results_activ if r.get("vno")})
             _tc_results_activ = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
@@ -2042,8 +2023,36 @@ async def api_run(suite_id: str, request: Request):
                                    "access_id":r.get("access_id",""),
                                    "escenario":r.get("tc_label","")}
                                   for r in _results_activ]
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
+            # Enviar done ANTES de escribir HTML para garantizar que el frontend lo recibe
+            _has_idx_activ = False
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':False,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
             await asyncio.sleep(0.15)
+            # Generar reporte HTML (best-effort, no bloquea el done)
+            try:
+                _rows_activ = ""
+                for _r in sorted(_results_activ, key=lambda x: x["tc"]):
+                    _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                    _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                              if _r["has_rp"] else "—")
+                    _rows_activ += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                                    f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+                _idx_activ = (
+                    '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                    '<title>QA Activación</title>'
+                    '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                    'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                    'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                    '</style></head><body>'
+                    '<h1>QA Activación</h1>'
+                    f'<p>{_n_ok_activ}/{len(_results_activ)} TCs OK</p>'
+                    '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                    f'{_rows_activ}</table></body></html>'
+                )
+                (_activ_dir / "index.html").write_text(_idx_activ, encoding="utf-8")
+            except Exception:
+                pass
 
         return StreamingResponse(sse_activ(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
@@ -2295,6 +2304,7 @@ async def api_run(suite_id: str, request: Request):
             _results_dm = []
 
             async def _run_dm(tr):
+              try:
                 await _out_q_dm.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
                 _last_json = None
                 for _step_lbl, _step_cmd, _step_json in tr["steps"]:
@@ -2342,6 +2352,9 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_dm.put(("L", tr["tc"], f"⏳ Esperando {_dly}s antes del siguiente paso…"))
                         await asyncio.sleep(_dly)
                 await _out_q_dm.put(("D", tr, 0, _last_json))
+              except Exception as _exc_run:
+                await _out_q_dm.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
+                await _out_q_dm.put(("D", tr, 1, _last_json))
 
             async def _hb_dm():
                 while True:
@@ -2404,29 +2417,6 @@ async def api_run(suite_id: str, request: Request):
             _n_ok_dm   = sum(1 for r in _results_dm if r["code"] == 0)
             _n_fail_dm = len(_results_dm) - _n_ok_dm
             yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_dm}/{len(_results_dm)} TCs OK'})}\n\n"
-            _rows_dm = ""
-            for _r in sorted(_results_dm, key=lambda x: x["tc"]):
-                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
-                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                          if _r["has_rp"] else "—")
-                _rows_dm += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
-                             f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
-            _idx_dm = (
-                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-                '<title>QA Device Modification</title>'
-                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
-                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
-                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
-                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
-                '</style></head><body>'
-                '<h1>QA Device Modification</h1>'
-                f'<p>{_n_ok_dm}/{len(_results_dm)} TCs OK</p>'
-                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
-                f'{_rows_dm}</table></body></html>'
-            )
-            (_dm_dir / "index.html").write_text(_idx_dm, encoding="utf-8")
-            _has_idx_dm = (_dm_dir / "index.html").exists()
             _dirs_dm = list({r.get("access_id") for r in _results_dm if r.get("access_id")})
             _vnos_dm = sorted({r.get("vno","") for r in _results_dm if r.get("vno")})
             _tc_results_dm = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
@@ -2434,8 +2424,33 @@ async def api_run(suite_id: str, request: Request):
                                 "access_id":r.get("access_id",""),
                                 "escenario":r.get("tc_label","")}
                                for r in _results_dm]
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':False,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
             await asyncio.sleep(0.15)
+            try:
+                _rows_dm = ""
+                for _r in sorted(_results_dm, key=lambda x: x["tc"]):
+                    _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                    _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                              if _r["has_rp"] else "—")
+                    _rows_dm += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                                 f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+                _idx_dm = (
+                    '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                    '<title>QA Device Modification</title>'
+                    '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                    'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                    'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                    '</style></head><body>'
+                    '<h1>QA Device Modification</h1>'
+                    f'<p>{_n_ok_dm}/{len(_results_dm)} TCs OK</p>'
+                    '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                    f'{_rows_dm}</table></body></html>'
+                )
+                (_dm_dir / "index.html").write_text(_idx_dm, encoding="utf-8")
+            except Exception:
+                pass
 
         return StreamingResponse(sse_dm(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
@@ -2622,6 +2637,7 @@ async def api_run(suite_id: str, request: Request):
                 return 0, "", ""
 
             async def _run_cancel(tr):
+              try:
                 _tc = tr["tc"]; _vno = tr["vno"]
                 await _out_q_cancel.put(("L", _tc, f"▶ {tr['label']} iniciando…"))
 
@@ -2815,6 +2831,10 @@ async def api_run(suite_id: str, request: Request):
                 _hc, _hs, _rb = _read_rsp(_js_cancel_c)
                 await _out_q_cancel.put(("L", _tc, f"── Response Cancelación: HTTP {_hc} {_hs} — {_rb[:600]} ──"))
                 await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
+              except Exception as _exc_run:
+                _tc_safe = tr.get("tc", "?")
+                await _out_q_cancel.put(("L", _tc_safe, f"✗ Error inesperado en TC: {_exc_run}"))
+                await _out_q_cancel.put(("D", tr, 1, None))
 
             async def _hb_cancel():
                 while True:
@@ -2878,37 +2898,39 @@ async def api_run(suite_id: str, request: Request):
             _n_ok_c   = sum(1 for r in _results_cancel if r["code"] == 0)
             _n_fail_c = len(_results_cancel) - _n_ok_c
             yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_c}/{len(_results_cancel)} TCs OK'})}\n\n"
-            _rows_c = ""
-            for _r in sorted(_results_cancel, key=lambda x: x["tc"]):
-                _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
-                _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                          if _r["has_rp"] else "—")
-                _rows_c += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
-                            f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
-            _idx_c = (
-                '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-                '<title>QA Cancelación</title>'
-                '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
-                'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
-                'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
-                'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
-                '</style></head><body>'
-                '<h1>QA Cancelación</h1>'
-                f'<p>{_n_ok_c}/{len(_results_cancel)} TCs OK</p>'
-                '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
-                f'{_rows_c}</table></body></html>'
-            )
-            (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
-            _has_idx_c = (_cancel_dir / "index.html").exists()
             _dirs_cancel = list({r.get("access_id") for r in _results_cancel if r.get("access_id")})
             _vnos_cancel = sorted({r.get("vno","") for r in _results_cancel if r.get("vno")})
             _tc_results_cancel = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                                     "code":r["code"],"direccion":r.get("access_id",""),
                                     "escenario":r.get("tc_label","")}
                                    for r in _results_cancel]
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':False,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
             await asyncio.sleep(0.15)
+            try:
+                _rows_c = ""
+                for _r in sorted(_results_cancel, key=lambda x: x["tc"]):
+                    _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
+                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
+                    _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
+                              if _r["has_rp"] else "—")
+                    _rows_c += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
+                                f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
+                _idx_c = (
+                    '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+                    '<title>QA Cancelación</title>'
+                    '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
+                    'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
+                    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
+                    'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
+                    '</style></head><body>'
+                    '<h1>QA Cancelación</h1>'
+                    f'<p>{_n_ok_c}/{len(_results_cancel)} TCs OK</p>'
+                    '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
+                    f'{_rows_c}</table></body></html>'
+                )
+                (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
+            except Exception:
+                pass
 
         return StreamingResponse(sse_cancel(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
