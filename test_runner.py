@@ -1918,7 +1918,27 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     # Paso 4+5 puede tener código ≠ 0 por el error 21 esperado — no es fallo del TC
                     if "4+5" not in _step_lbl and _step_code != 0:
-                        await _out_q_activ.put(("L", tr["tc"], f"✗ {_step_lbl} falló (código {_step_code}) — deteniendo"))
+                        await _out_q_activ.put(("L", tr["tc"], "━"*50))
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} (Newman código {_step_code})"))
+                        if _step_json and Path(_step_json).exists():
+                            try:
+                                _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
+                                for _ex_e in _jd_e.get("run", {}).get("executions", []):
+                                    _r_e = _ex_e.get("response") or {}
+                                    _st_e = _r_e.get("stream") or {}
+                                    _rb_e = bytes(_st_e["data"]).decode("utf-8", errors="replace") if isinstance(_st_e, dict) and _st_e.get("type") == "Buffer" else (_r_e.get("body", "") or "")
+                                    _hc_e = _r_e.get("code", 0); _hs_e = _r_e.get("status", "")
+                                    try:
+                                        _rj_e = _j.loads(_rb_e)
+                                        _rc_e = _rj_e.get("u_return_code", "?"); _rd_e = _rj_e.get("u_return_code_desc", "")
+                                        await _out_q_activ.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · u_return_code={_rc_e!r}"))
+                                        if _rd_e: await _out_q_activ.put(("L", tr["tc"], f"   {_rd_e}"))
+                                    except Exception:
+                                        await _out_q_activ.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · {_rb_e[:300]}"))
+                                    break
+                            except Exception:
+                                pass
+                        await _out_q_activ.put(("L", tr["tc"], "━"*50))
                         await _out_q_activ.put(("D", tr, 1, _last_json))
                         return
                     if "4+5" in _step_lbl:
@@ -2282,7 +2302,27 @@ async def api_run(suite_id: str, request: Request):
                     if _step_json:
                         _last_json = _step_json
                     if _step_code != 0:
-                        await _out_q_dm.put(("L", tr["tc"], f"✗ {_step_lbl} falló (código {_step_code}) — deteniendo"))
+                        await _out_q_dm.put(("L", tr["tc"], "━"*50))
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} (Newman código {_step_code})"))
+                        if _step_json and Path(_step_json).exists():
+                            try:
+                                _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
+                                for _ex_e in _jd_e.get("run", {}).get("executions", []):
+                                    _r_e = _ex_e.get("response") or {}
+                                    _st_e = _r_e.get("stream") or {}
+                                    _rb_e = bytes(_st_e["data"]).decode("utf-8", errors="replace") if isinstance(_st_e, dict) and _st_e.get("type") == "Buffer" else (_r_e.get("body", "") or "")
+                                    _hc_e = _r_e.get("code", 0); _hs_e = _r_e.get("status", "")
+                                    try:
+                                        _rj_e = _j.loads(_rb_e)
+                                        _rc_e = _rj_e.get("u_return_code", "?"); _rd_e = _rj_e.get("u_return_code_desc", "")
+                                        await _out_q_dm.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · u_return_code={_rc_e!r}"))
+                                        if _rd_e: await _out_q_dm.put(("L", tr["tc"], f"   {_rd_e}"))
+                                    except Exception:
+                                        await _out_q_dm.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · {_rb_e[:300]}"))
+                                    break
+                            except Exception:
+                                pass
+                        await _out_q_dm.put(("L", tr["tc"], "━"*50))
                         await _out_q_dm.put(("D", tr, 1, _last_json))
                         return
                     # Delays entre pasos (recomendación Sergio)
@@ -2576,7 +2616,15 @@ async def api_run(suite_id: str, request: Request):
                 _hc, _hs, _rb = _read_rsp(tr["js_fact"])
                 await _out_q_cancel.put(("L", _tc, f"── Response Factibilidad: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, f"✗ Factibilidad falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 1/5 Factibilidad (Newman código {_sc})"))
+                    try:
+                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
+                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
+                    except Exception:
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
                     return
 
@@ -2589,7 +2637,15 @@ async def api_run(suite_id: str, request: Request):
                 _hc, _hs, _rb = _read_rsp(tr["js_asig"])
                 await _out_q_cancel.put(("L", _tc, f"── Response Asignación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, f"✗ Asignación falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 2/5 Asignación (Newman código {_sc})"))
+                    try:
+                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
+                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
+                    except Exception:
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
                 await _out_q_cancel.put(("L", _tc, "⏳ Esperando 60s antes del siguiente paso…"))
@@ -2657,7 +2713,15 @@ async def api_run(suite_id: str, request: Request):
                 _hc, _hs, _rb = _read_rsp(_js_ia_c)
                 await _out_q_cancel.put(("L", _tc, f"── Response IA Inicio: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, f"✗ IA Inicio falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 3/5 IA Inicio (Newman código {_sc})"))
+                    try:
+                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
+                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
+                    except Exception:
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
                 await _out_q_cancel.put(("L", _tc, "⏳ Esperando 60s antes del siguiente paso…"))
@@ -2694,7 +2758,15 @@ async def api_run(suite_id: str, request: Request):
                 _hc, _hs, _rb = _read_rsp(_js_act_c)
                 await _out_q_cancel.put(("L", _tc, f"── Response Activación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, f"✗ Activación falló (código {_sc}) — deteniendo"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 4/5 Activación (Newman código {_sc})"))
+                    try:
+                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
+                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
+                    except Exception:
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
                 await _out_q_cancel.put(("L", _tc, "⏳ Esperando 180s antes del siguiente paso…"))
