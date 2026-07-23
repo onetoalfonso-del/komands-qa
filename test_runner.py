@@ -1903,7 +1903,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_activ():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · 6 pasos · delays: asig 1min · ia 1min · activ→idem 5min'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_activ = {**os.environ,
                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -1970,12 +1970,6 @@ async def api_run(suite_id: str, request: Request):
                                     await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
                         except Exception:
                             pass
-                    # Delays entre pasos (recomendación Sergio); 4/6 espera 5min (idempotencia)
-                    _step_delay = {"2/6 Asignación": 60, "3/6 IA Inicio": 60, "4/6 Activación": 300}
-                    _dly = _step_delay.get(_step_lbl, 0)
-                    if _dly:
-                        await _out_q_activ.put(("L", tr["tc"], f"⏳ Esperando {_dly}s antes del siguiente paso…"))
-                        await asyncio.sleep(_dly)
                 await _out_q_activ.put(("D", tr, 0, _last_json))
               except Exception as _exc_run:
                 await _out_q_activ.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
@@ -2318,7 +2312,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_dm():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 6 pasos · delays: asig 1min · ia 1min · activ 3min · dm 2min'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_dm = {**os.environ,
                        "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2387,13 +2381,6 @@ async def api_run(suite_id: str, request: Request):
                                     await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
                         except Exception:
                             pass
-                    # Delays entre pasos (recomendación Sergio)
-                    _step_delay_dm = {"2/6 Asignación": 60, "3/6 IA Inicio": 60,
-                                      "4/6 Activación": 180, "5/6 Device Modif.": 120}
-                    _dly = _step_delay_dm.get(_step_lbl, 0)
-                    if _dly:
-                        await _out_q_dm.put(("L", tr["tc"], f"⏳ Esperando {_dly}s antes del siguiente paso…"))
-                        await asyncio.sleep(_dly)
                 await _out_q_dm.put(("D", tr, 0, _last_json))
               except Exception as _exc_run:
                 await _out_q_dm.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
@@ -2654,7 +2641,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_cancel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación — {len(_cancel_runs)} TCs · cadena completa 5 pasos · delays: asig 1min · ia 1min · activ 3min'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación — {len(_cancel_runs)} TCs · cadena completa 5 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_cancel = {**os.environ,
                            "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2726,8 +2713,6 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
-                await _out_q_cancel.put(("L", _tc, "⏳ Esperando 60s antes del siguiente paso…"))
-                await asyncio.sleep(60)
 
                 # ── Extraer u_access_id_vno de la respuesta de Asignación ─────────
                 _aid = ""
@@ -2802,8 +2787,6 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
-                await _out_q_cancel.put(("L", _tc, "⏳ Esperando 60s antes del siguiente paso…"))
-                await asyncio.sleep(60)
 
                 # ── Paso 4/5: Activación ──────────────────────────────────────────
                 _serial_log = (QA_ACTIV_SERIAL_BASE.get(_vno, "") + tr["serial_sfx"]) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)"
@@ -2847,8 +2830,6 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
-                await _out_q_cancel.put(("L", _tc, "⏳ Esperando 180s antes del siguiente paso…"))
-                await asyncio.sleep(180)
 
                 # ── Paso 5/5: Cancelación ─────────────────────────────────────────
                 await _out_q_cancel.put(("L", _tc, "── Paso 5/5 Cancelación ──"))
