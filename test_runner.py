@@ -1951,12 +1951,16 @@ async def api_run(suite_id: str, request: Request):
                         await asyncio.sleep(_dly)
                 await _out_q_activ.put(("D", tr, _overall, _last_json))
 
+            async def _hb_activ():
+                while True:
+                    await asyncio.sleep(15)
+                    await _out_q_activ.put(("K", "", "…"))
+            _hbt_activ = asyncio.create_task(_hb_activ())
             _tasks_activ = [asyncio.create_task(_run_activ(tr)) for tr in _activ_runs]
             _remaining_activ = len(_activ_runs)
             while _remaining_activ > 0:
-                try:
-                    _item = await asyncio.wait_for(_out_q_activ.get(), timeout=20.0)
-                except asyncio.TimeoutError:
+                _item = await _out_q_activ.get()
+                if _item[0] == "K":
                     yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
@@ -2003,6 +2007,7 @@ async def api_run(suite_id: str, request: Request):
                                 yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
                     except Exception:
                         pass
+            _hbt_activ.cancel()
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _n_ok_activ   = sum(1 for r in _results_activ if r["code"] == 0)
             _n_fail_activ = len(_results_activ) - _n_ok_activ
@@ -2338,12 +2343,16 @@ async def api_run(suite_id: str, request: Request):
                         await asyncio.sleep(_dly)
                 await _out_q_dm.put(("D", tr, 0, _last_json))
 
+            async def _hb_dm():
+                while True:
+                    await asyncio.sleep(15)
+                    await _out_q_dm.put(("K", "", "…"))
+            _hbt_dm = asyncio.create_task(_hb_dm())
             _tasks_dm = [asyncio.create_task(_run_dm(tr)) for tr in _dm_runs]
             _remaining_dm = len(_dm_runs)
             while _remaining_dm > 0:
-                try:
-                    _item = await asyncio.wait_for(_out_q_dm.get(), timeout=20.0)
-                except asyncio.TimeoutError:
+                _item = await _out_q_dm.get()
+                if _item[0] == "K":
                     yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
@@ -2390,6 +2399,7 @@ async def api_run(suite_id: str, request: Request):
                                 yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
                     except Exception:
                         pass
+            _hbt_dm.cancel()
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _n_ok_dm   = sum(1 for r in _results_dm if r["code"] == 0)
             _n_fail_dm = len(_results_dm) - _n_ok_dm
@@ -2806,12 +2816,16 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"── Response Cancelación: HTTP {_hc} {_hs} — {_rb[:600]} ──"))
                 await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
 
+            async def _hb_cancel():
+                while True:
+                    await asyncio.sleep(15)
+                    await _out_q_cancel.put(("K", "", "…"))
+            _hbt_cancel = asyncio.create_task(_hb_cancel())
             [asyncio.create_task(_run_cancel(tr)) for tr in _cancel_runs]
             _remaining_cancel = len(_cancel_runs)
             while _remaining_cancel > 0:
-                try:
-                    _item = await asyncio.wait_for(_out_q_cancel.get(), timeout=20.0)
-                except asyncio.TimeoutError:
+                _item = await _out_q_cancel.get()
+                if _item[0] == "K":
                     yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
@@ -2859,6 +2873,7 @@ async def api_run(suite_id: str, request: Request):
                                     yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
                         except Exception:
                             pass
+            _hbt_cancel.cancel()
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _n_ok_c   = sum(1 for r in _results_cancel if r["code"] == 0)
             _n_fail_c = len(_results_cancel) - _n_ok_c
