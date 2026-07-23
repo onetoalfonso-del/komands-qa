@@ -1,0 +1,11 @@
+INFO     komands.qa:conftest.py:40 ============================================================
+INFO     komands.qa:conftest.py:41 TEST  [IDP-01]  test_idp01_txn_id_duplicado_retorna_200_con_txn_original[DTV[05]]
+INFO     komands.qa:conftest.py:43       ServiceNow envía la misma baja dos veces con el mismo txn_id.
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 202 Accepted"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "DTV", "external_order_id": "SO-FLG-001", "olt_name": "OLT-SAN-001", "slot": 1, "port": 3, "ont_id": 45, "txn_id": "34b960ee-aae6-4bcd-9cce-f20129a48750"}
+INFO     komands.qa:conftest.py:183   << 202  {"result": {"u_uuid": "34b960ee-aae6-4bcd-9cce-f20129a48750", "u_return_code": "0", "u_return_code_desc": "Solicitud aceptada", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "COMPLETED"}, "txn_id": "34b960ee-aae6-4bcd-9cce-f20129a48750", "status": "ACCEPTED", "message": "Baja encolada"}
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/Komands/v1/unsuscription "HTTP/1.1 200 OK"
+INFO     komands.qa:conftest.py:180   >> POST /api/Komands/v1/unsuscription
+INFO     komands.qa:conftest.py:182      PAYLOAD  {"vno_code": "DTV", "external_order_id": "SO-FLG-001", "olt_name": "OLT-SAN-001", "slot": 1, "port": 3, "ont_id": 45, "txn_id": "34b960ee-aae6-4bcd-9cce-f20129a48750"}
+INFO     komands.qa:conftest.py:183   << 200  {"result": {"u_uuid": "34b960ee-aae6-4bcd-9cce-f20129a48750", "u_return_code": "0", "u_return_code_desc": "Solicitud aceptada", "u_timestamp": "2026-06-16T00:00:00Z", "u_time": "0.001s", "u_status": "COMPLETED"}, "txn_id": "34b960ee-aae6-4bcd-9cce-f20129a48750", "status": "ACCEPTED", "message": "Baja encolada"}
