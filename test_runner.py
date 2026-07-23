@@ -1954,7 +1954,11 @@ async def api_run(suite_id: str, request: Request):
             _tasks_activ = [asyncio.create_task(_run_activ(tr)) for tr in _activ_runs]
             _remaining_activ = len(_activ_runs)
             while _remaining_activ > 0:
-                _item = await _out_q_activ.get()
+                try:
+                    _item = await asyncio.wait_for(_out_q_activ.get(), timeout=20.0)
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
+                    continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
                 elif _item[0] == "D":
@@ -2337,7 +2341,11 @@ async def api_run(suite_id: str, request: Request):
             _tasks_dm = [asyncio.create_task(_run_dm(tr)) for tr in _dm_runs]
             _remaining_dm = len(_dm_runs)
             while _remaining_dm > 0:
-                _item = await _out_q_dm.get()
+                try:
+                    _item = await asyncio.wait_for(_out_q_dm.get(), timeout=20.0)
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
+                    continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
                 elif _item[0] == "D":
@@ -2801,7 +2809,11 @@ async def api_run(suite_id: str, request: Request):
             [asyncio.create_task(_run_cancel(tr)) for tr in _cancel_runs]
             _remaining_cancel = len(_cancel_runs)
             while _remaining_cancel > 0:
-                _item = await _out_q_cancel.get()
+                try:
+                    _item = await asyncio.wait_for(_out_q_cancel.get(), timeout=20.0)
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
+                    continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
                 elif _item[0] == "D":
