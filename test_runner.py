@@ -1963,8 +1963,9 @@ async def api_run(suite_id: str, request: Request):
                                 _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
                                 try:
                                     _rj_ok = _j.loads(_rb_ok)
-                                    _rc_ok = _rj_ok.get("u_return_code", "?"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
-                                    await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok} · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "")))
+                                    _rc_ok = _rj_ok.get("u_return_code"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
+                                    _msg_ok = f"   → HTTP {_hc_ok} {_hs_ok}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    await _out_q_activ.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
                                     await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
                         except Exception:
@@ -2379,8 +2380,9 @@ async def api_run(suite_id: str, request: Request):
                                 _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
                                 try:
                                     _rj_ok = _j.loads(_rb_ok)
-                                    _rc_ok = _rj_ok.get("u_return_code", "?"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
-                                    await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok} · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "")))
+                                    _rc_ok = _rj_ok.get("u_return_code"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
+                                    _msg_ok = f"   → HTTP {_hc_ok} {_hs_ok}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    await _out_q_dm.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
                                     await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
                         except Exception:
