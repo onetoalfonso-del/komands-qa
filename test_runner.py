@@ -1951,6 +1951,24 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_activ.put(("L", tr["tc"], "━"*50))
                         await _out_q_activ.put(("D", tr, 1, _last_json))
                         return
+                    if _step_json and Path(_step_json).exists():
+                        try:
+                            _jd_ok = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
+                            _execs_ok = _jd_ok.get("run", {}).get("executions", [])
+                            if _execs_ok:
+                                _ex_ok = _execs_ok[-1]
+                                _r_ok = _ex_ok.get("response") or {}
+                                _st_ok = _r_ok.get("stream") or {}
+                                _rb_ok = bytes(_st_ok["data"]).decode("utf-8", errors="replace") if isinstance(_st_ok, dict) and _st_ok.get("type") == "Buffer" else (_r_ok.get("body", "") or "")
+                                _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
+                                try:
+                                    _rj_ok = _j.loads(_rb_ok)
+                                    _rc_ok = _rj_ok.get("u_return_code", "?"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
+                                    await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok} · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "")))
+                                except Exception:
+                                    await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
+                        except Exception:
+                            pass
                     # Delays entre pasos (recomendación Sergio); 4/6 espera 5min (idempotencia)
                     _step_delay = {"2/6 Asignación": 60, "3/6 IA Inicio": 60, "4/6 Activación": 300}
                     _dly = _step_delay.get(_step_lbl, 0)
@@ -2030,11 +2048,7 @@ async def api_run(suite_id: str, request: Request):
                                    "access_id":r.get("access_id",""),
                                    "escenario":r.get("tc_label","")}
                                   for r in _results_activ]
-            # Enviar done ANTES de escribir HTML para garantizar que el frontend lo recibe
             _has_idx_activ = False
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':False,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
-            await asyncio.sleep(0.15)
-            # Generar reporte HTML (best-effort, no bloquea el done)
             try:
                 _rows_activ = ""
                 for _r in sorted(_results_activ, key=lambda x: x["tc"]):
@@ -2058,8 +2072,10 @@ async def api_run(suite_id: str, request: Request):
                     f'{_rows_activ}</table></body></html>'
                 )
                 (_activ_dir / "index.html").write_text(_idx_activ, encoding="utf-8")
+                _has_idx_activ = (_activ_dir / "index.html").exists()
             except Exception:
                 pass
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_activ==0 else 1,'passed':_n_ok_activ,'failed':_n_fail_activ,'requests':len(_results_activ),'has_report':_has_idx_activ,'report_id':suite_id,'direcciones':_dirs_activ,'vnos':_vnos_activ,'tc_results':_tc_results_activ})}\n\n"
 
         return StreamingResponse(sse_activ(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
@@ -2351,6 +2367,24 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_dm.put(("L", tr["tc"], "━"*50))
                         await _out_q_dm.put(("D", tr, 1, _last_json))
                         return
+                    if _step_json and Path(_step_json).exists():
+                        try:
+                            _jd_ok = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
+                            _execs_ok = _jd_ok.get("run", {}).get("executions", [])
+                            if _execs_ok:
+                                _ex_ok = _execs_ok[-1]
+                                _r_ok = _ex_ok.get("response") or {}
+                                _st_ok = _r_ok.get("stream") or {}
+                                _rb_ok = bytes(_st_ok["data"]).decode("utf-8", errors="replace") if isinstance(_st_ok, dict) and _st_ok.get("type") == "Buffer" else (_r_ok.get("body", "") or "")
+                                _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
+                                try:
+                                    _rj_ok = _j.loads(_rb_ok)
+                                    _rc_ok = _rj_ok.get("u_return_code", "?"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
+                                    await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok} · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "")))
+                                except Exception:
+                                    await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
+                        except Exception:
+                            pass
                     # Delays entre pasos (recomendación Sergio)
                     _step_delay_dm = {"2/6 Asignación": 60, "3/6 IA Inicio": 60,
                                       "4/6 Activación": 180, "5/6 Device Modif.": 120}
@@ -2431,8 +2465,7 @@ async def api_run(suite_id: str, request: Request):
                                 "access_id":r.get("access_id",""),
                                 "escenario":r.get("tc_label","")}
                                for r in _results_dm]
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':False,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
-            await asyncio.sleep(0.15)
+            _has_idx_dm = False
             try:
                 _rows_dm = ""
                 for _r in sorted(_results_dm, key=lambda x: x["tc"]):
@@ -2456,8 +2489,10 @@ async def api_run(suite_id: str, request: Request):
                     f'{_rows_dm}</table></body></html>'
                 )
                 (_dm_dir / "index.html").write_text(_idx_dm, encoding="utf-8")
+                _has_idx_dm = (_dm_dir / "index.html").exists()
             except Exception:
                 pass
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_dm==0 else 1,'passed':_n_ok_dm,'failed':_n_fail_dm,'requests':len(_results_dm),'has_report':_has_idx_dm,'report_id':suite_id,'direcciones':_dirs_dm,'vnos':_vnos_dm,'tc_results':_tc_results_dm})}\n\n"
 
         return StreamingResponse(sse_dm(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
@@ -2911,8 +2946,7 @@ async def api_run(suite_id: str, request: Request):
                                     "code":r["code"],"direccion":r.get("access_id",""),
                                     "escenario":r.get("tc_label","")}
                                    for r in _results_cancel]
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':False,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
-            await asyncio.sleep(0.15)
+            _has_idx_c = False
             try:
                 _rows_c = ""
                 for _r in sorted(_results_cancel, key=lambda x: x["tc"]):
@@ -2936,8 +2970,10 @@ async def api_run(suite_id: str, request: Request):
                     f'{_rows_c}</table></body></html>'
                 )
                 (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
+                _has_idx_c = (_cancel_dir / "index.html").exists()
             except Exception:
                 pass
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
 
         return StreamingResponse(sse_cancel(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
