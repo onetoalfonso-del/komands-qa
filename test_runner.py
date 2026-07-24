@@ -966,6 +966,20 @@ INSERT INTO qa_config (key, value, label) VALUES
   ('delay_post_ia_ms',    '0', 'Delay después de IA Inicio en ms'),
   ('delay_post_activ_ms', '0', 'Delay después de Activación en ms')
 ON CONFLICT (key) DO NOTHING;
+CREATE TABLE IF NOT EXISTS qa_environments (
+    id         BIGSERIAL PRIMARY KEY,
+    name       VARCHAR(50) NOT NULL UNIQUE,
+    label      VARCHAR(100) DEFAULT '',
+    base_url   TEXT NOT NULL DEFAULT '',
+    env_type   VARCHAR(20) DEFAULT 'custom',
+    active     BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO qa_environments (name, label, base_url, env_type) VALUES
+  ('QA',   'Calidad (QA)',    '', 'qa'),
+  ('PPRD', 'Pre-Producción', '', 'pprd'),
+  ('PRD',  'Producción',     '', 'prd')
+ON CONFLICT (name) DO NOTHING;
 """
 
 _CONFIG_LABELS = {
@@ -3771,6 +3785,72 @@ async def api_config_put(key: str, request: Request):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.get("/api/environments")
+async def api_environments_get():
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        rows = await pool.fetch(
+            "SELECT id, name, label, base_url, env_type, active FROM qa_environments ORDER BY id")
+        return [dict(r) for r in rows]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/api/environments")
+async def api_environments_post(request: Request):
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    body = await request.json()
+    name     = str(body.get("name",     "")).strip()
+    label    = str(body.get("label",    "")).strip()
+    base_url = str(body.get("base_url", "")).strip()
+    env_type = str(body.get("env_type", "custom")).strip()
+    if not name or not base_url:
+        return JSONResponse({"error": "name y base_url son requeridos"}, status_code=400)
+    try:
+        row = await pool.fetchrow(
+            "INSERT INTO qa_environments (name, label, base_url, env_type) "
+            "VALUES($1,$2,$3,$4) RETURNING id",
+            name, label, base_url, env_type)
+        return {"ok": True, "id": row["id"]}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.put("/api/environments/{env_id}")
+async def api_environments_put(env_id: int, request: Request):
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    body = await request.json()
+    name     = str(body.get("name",     "")).strip()
+    label    = str(body.get("label",    "")).strip()
+    base_url = str(body.get("base_url", "")).strip()
+    env_type = str(body.get("env_type", "custom")).strip()
+    active   = bool(body.get("active",  True))
+    if not name or not base_url:
+        return JSONResponse({"error": "name y base_url son requeridos"}, status_code=400)
+    try:
+        await pool.execute(
+            "UPDATE qa_environments SET name=$1, label=$2, base_url=$3, env_type=$4, active=$5 "
+            "WHERE id=$6",
+            name, label, base_url, env_type, active, env_id)
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.delete("/api/environments/{env_id}")
+async def api_environments_delete(env_id: int):
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        await pool.execute("DELETE FROM qa_environments WHERE id=$1", env_id)
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 
 # ─── UI ───────────────────────────────────────────────────────────────────────
 HTML = """<!DOCTYPE html>
@@ -4156,6 +4236,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <div class="sb-list" id="sb-list"></div>
     <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;&nbsp; Historial de ejecuciones</button>
+    <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;&nbsp; Settings</button>
   </aside>
   <main class="main">
     <div class="topbar">
@@ -4266,6 +4347,66 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="sn-form" id="sn-form"></div>
       <div class="sn-terms" id="sn-terms"></div>
+    </div>
+    <!-- Vista Settings -->
+    <div id="settings-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <!-- Tabs -->
+      <div style="display:flex;gap:2px;padding:8px 14px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd)">
+        <button id="stab-env" onclick="_stTab('env')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--bg);color:var(--acc);font-size:.76rem;cursor:pointer;font-weight:700">&#127760; Ambientes</button>
+        <button id="stab-cfg" onclick="_stTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; Configuraci&#xF3;n</button>
+      </div>
+      <!-- Ambientes pane -->
+      <div id="spane-env" style="flex:1;overflow:auto;padding:16px 18px">
+        <div style="max-width:860px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin:0;font-size:.85rem;color:var(--txt);font-weight:700">Ambientes Newman</h3>
+            <button onclick="_envAdd()" style="padding:5px 16px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.76rem;font-weight:700;cursor:pointer">+ Nuevo</button>
+          </div>
+          <div id="env-table-body"><div class="hist-empty">Cargando...</div></div>
+          <!-- Formulario add/edit inline -->
+          <div id="env-form" style="display:none;margin-top:16px;background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:16px 18px">
+            <h4 style="margin:0 0 14px;font-size:.8rem;color:var(--txt);font-weight:700" id="env-form-title">Nuevo ambiente</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+              <div>
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Nombre *</label>
+                <input id="env-f-name" type="text" placeholder="ej: QA" maxlength="50" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+              </div>
+              <div>
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Etiqueta</label>
+                <input id="env-f-label" type="text" placeholder="ej: Calidad (QA)" maxlength="100" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+              </div>
+              <div style="grid-column:span 2">
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">URL base Newman *</label>
+                <input id="env-f-url" type="url" placeholder="https://api.ejemplo.com" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+              </div>
+              <div>
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Tipo</label>
+                <select id="env-f-type" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+                  <option value="qa">QA</option>
+                  <option value="pprd">Pre-Producci&#xF3;n</option>
+                  <option value="prd">Producci&#xF3;n</option>
+                  <option value="custom">Personalizado</option>
+                </select>
+              </div>
+              <div style="display:flex;align-items:flex-end">
+                <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--txt2);cursor:pointer">
+                  <input id="env-f-active" type="checkbox" checked style="cursor:pointer"> Activo
+                </label>
+              </div>
+            </div>
+            <div id="env-form-err" style="display:none;color:var(--err);font-size:.73rem;margin-bottom:8px"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button onclick="_envSave()" style="padding:5px 18px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.76rem;font-weight:700;cursor:pointer">Guardar</button>
+              <button onclick="_envFormClose()" style="padding:5px 14px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">Cancelar</button>
+              <span id="env-form-ok" style="display:none;color:var(--ok);font-size:.73rem">&#10003; Guardado</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Configuraci&#xF3;n pane -->
+      <div id="spane-cfg" style="display:none;flex:1;overflow:auto;padding:16px 18px">
+        <div id="spane-cfg-body"><div class="hist-empty">Cargando...</div></div>
+      </div>
     </div>
     <div class="summary" id="summary">
       <span class="sum-idle">Ejecuta una suite para ver resultados</span>
@@ -4389,6 +4530,7 @@ function selectSuite(id){
   selectedId=id;
   setActive(id);
   var _hb=document.getElementById('hist-btn'); if(_hb) _hb.classList.remove('active');
+  var _sb=document.getElementById('settings-btn'); if(_sb) _sb.classList.remove('active');
   if(id==='qa-ep-factibilidad'){
     _isQAChild=true;
     switchView('ep-form');
@@ -4674,9 +4816,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view","settings-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -7004,9 +7146,146 @@ var _HIST_COLS=[
 ];
 function showHistorial(){
   switchView('historial');
+  var _sb2=document.getElementById('settings-btn'); if(_sb2) _sb2.classList.remove('active');
   document.getElementById('hist-btn').classList.add('active');
   setTop('','Historial de ejecuciones','');
   _hTab(_histTab);
+}
+function showSettings(){
+  switchView('settings');
+  var hb=document.getElementById('hist-btn'); if(hb) hb.classList.remove('active');
+  var sb=document.getElementById('settings-btn'); if(sb) sb.classList.add('active');
+  setTop('','Settings','Ambientes y configuraci\xf3n del runner');
+  _stTab(_stCurTab);
+}
+var _stCurTab='env';
+function _stTab(tab){
+  _stCurTab=tab;
+  ['env','cfg'].forEach(function(t){
+    var btn=document.getElementById('stab-'+t);
+    var pane=document.getElementById('spane-'+t);
+    if(btn){btn.style.background=t===tab?'var(--bg)':'var(--card)';btn.style.color=t===tab?'var(--acc)':'var(--txt2)';}
+    if(pane) pane.style.display=t===tab?'block':'none';
+  });
+  if(tab==='env') loadEnvironments();
+  else if(tab==='cfg') loadSettingsCfg();
+}
+var _envData=[];
+function loadEnvironments(){
+  var body=document.getElementById('env-table-body'); if(!body) return;
+  body.innerHTML='<div class="hist-empty">Cargando...</div>';
+  fetch('/api/environments').then(function(r){return r.json();}).then(function(data){
+    if(!Array.isArray(data)){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando ambientes.</div>';return;}
+    _envData=data;
+    _renderEnvTable(data);
+  }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
+}
+function _renderEnvTable(data){
+  var body=document.getElementById('env-table-body'); if(!body) return;
+  if(!data.length){body.innerHTML='<div class="hist-empty">Sin ambientes registrados. Agrega uno con "+ Nuevo".</div>';return;}
+  var typeLabel={qa:'QA',pprd:'Pre-Producci\xf3n',prd:'Producci\xf3n',custom:'Personalizado'};
+  var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>'
+    +'<th>Nombre</th><th>Etiqueta</th><th>URL base Newman</th><th>Tipo</th><th>Estado</th><th>Acciones</th>'
+    +'</tr></thead><tbody>';
+  data.forEach(function(r){
+    var activo=r.active!==false;
+    h+='<tr>';
+    h+='<td style="font-weight:700;font-size:.78rem">'+esc(r.name)+'</td>';
+    h+='<td style="font-size:.75rem;color:var(--txt2)">'+esc(r.label||'—')+'</td>';
+    h+='<td style="font-size:.73rem;font-family:monospace;color:var(--acc)">'+esc(r.base_url||'—')+'</td>';
+    h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:var(--accd);color:var(--acc)">'+esc(typeLabel[r.env_type]||r.env_type||'—')+'</span></td>';
+    h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:'+(activo?'var(--okd)':'var(--errd)')+';color:'+(activo?'var(--ok)':'var(--err)')+'">'+( activo?'Activo':'Inactivo')+'</span></td>';
+    h+='<td style="white-space:nowrap">';
+    h+='<button data-eid="'+r.id+'" onclick="_envEdit(this.dataset.eid)" style="padding:2px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.68rem;cursor:pointer;margin-right:4px">&#9998; Editar</button>';
+    h+='<button data-eid="'+r.id+'" onclick="_envDelete(this.dataset.eid)" style="padding:2px 9px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.68rem;cursor:pointer">&#128465;</button>';
+    h+='</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  body.innerHTML=h;
+}
+var _envEditId=null;
+function _envAdd(){
+  _envEditId=null;
+  document.getElementById('env-form-title').textContent='Nuevo ambiente';
+  document.getElementById('env-f-name').value='';
+  document.getElementById('env-f-label').value='';
+  document.getElementById('env-f-url').value='';
+  document.getElementById('env-f-type').value='custom';
+  document.getElementById('env-f-active').checked=true;
+  document.getElementById('env-form-err').style.display='none';
+  document.getElementById('env-form-ok').style.display='none';
+  document.getElementById('env-form').style.display='block';
+  document.getElementById('env-f-name').focus();
+}
+function _envEdit(id){
+  var r=_envData.filter(function(x){return x.id==id;})[0]; if(!r) return;
+  _envEditId=id;
+  document.getElementById('env-form-title').textContent='Editar: '+r.name;
+  document.getElementById('env-f-name').value=r.name||'';
+  document.getElementById('env-f-label').value=r.label||'';
+  document.getElementById('env-f-url').value=r.base_url||'';
+  document.getElementById('env-f-type').value=r.env_type||'custom';
+  document.getElementById('env-f-active').checked=r.active!==false;
+  document.getElementById('env-form-err').style.display='none';
+  document.getElementById('env-form-ok').style.display='none';
+  document.getElementById('env-form').style.display='block';
+  document.getElementById('env-f-name').focus();
+}
+function _envFormClose(){
+  document.getElementById('env-form').style.display='none';
+  _envEditId=null;
+}
+function _envSave(){
+  var name=document.getElementById('env-f-name').value.trim();
+  var label=document.getElementById('env-f-label').value.trim();
+  var base_url=document.getElementById('env-f-url').value.trim();
+  var env_type=document.getElementById('env-f-type').value;
+  var active=document.getElementById('env-f-active').checked;
+  var errEl=document.getElementById('env-form-err');
+  if(!name||!base_url){errEl.textContent='Nombre y URL son requeridos.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+  var url=_envEditId?('/api/environments/'+_envEditId):'/api/environments';
+  var method=_envEditId?'PUT':'POST';
+  fetch(url,{method:method,headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name,label:label,base_url:base_url,env_type:env_type,active:active})})
+  .then(function(r){return r.json().then(function(j){return{ok:r.ok,data:j};});})
+  .then(function(res){
+    if(!res.ok){errEl.textContent=(res.data&&res.data.error)?res.data.error:'Error al guardar.';errEl.style.display='block';return;}
+    var okEl=document.getElementById('env-form-ok');
+    okEl.style.display='inline';
+    setTimeout(function(){okEl.style.display='none';_envFormClose();loadEnvironments();},900);
+  }).catch(function(e){errEl.textContent='Error: '+e.message;errEl.style.display='block';});
+}
+function _envDelete(id){
+  if(!confirm('\xbfEliminar este ambiente?')) return;
+  fetch('/api/environments/'+id,{method:'DELETE'}).then(function(){loadEnvironments();});
+}
+function loadSettingsCfg(){
+  var body=document.getElementById('spane-cfg-body'); if(!body) return;
+  body.innerHTML='<div class="hist-empty">Cargando...</div>';
+  fetch('/api/config').then(function(r){return r.json();}).then(function(data){
+    if(!Array.isArray(data)){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando configuraci\xf3n.</div>';return;}
+    var h='<div style="max-width:560px"><h3 style="margin:0 0 18px;font-size:.85rem;color:var(--txt);font-weight:700">Par\xe1metros del runner</h3>';
+    data.forEach(function(row){
+      h+='<div style="margin-bottom:14px">';
+      h+='<label style="display:block;font-size:.74rem;color:var(--txt2);margin-bottom:4px">'+esc(row.label||row.key)+'</label>';
+      h+='<div style="display:flex;gap:8px;align-items:center">';
+      h+='<input id="scfg-'+esc(row.key)+'" type="number" min="0" value="'+esc(row.value)+'" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem;width:120px">';
+      h+='<button onclick="_saveSettingsCfg(this.dataset.k)" data-k="'+esc(row.key)+'" style="padding:5px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--accd);color:var(--acc);font-size:.74rem;cursor:pointer">Guardar</button>';
+      h+='<span id="scfg-msg-'+esc(row.key)+'" style="font-size:.7rem;color:var(--ok);display:none">&#10003; Guardado</span>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+    body.innerHTML=h;
+  }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
+}
+function _saveSettingsCfg(key){
+  var inp=document.getElementById('scfg-'+key); if(!inp) return;
+  fetch('/api/config/'+encodeURIComponent(key),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:inp.value})})
+  .then(function(r){return r.json();}).then(function(){
+    var msg=document.getElementById('scfg-msg-'+key);
+    if(msg){msg.style.display='inline';setTimeout(function(){msg.style.display='none';},1800);}
+  });
 }
 function _hTab(tab){
   _histTab=tab;
