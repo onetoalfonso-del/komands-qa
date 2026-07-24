@@ -1951,6 +1951,7 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_activ.put(("L", tr["tc"], "━"*50))
                         await _out_q_activ.put(("D", tr, 1, _last_json))
                         return
+                    _hc_step = 0; _hs_step = ""
                     if _step_json and Path(_step_json).exists():
                         try:
                             _jd_ok = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -1960,17 +1961,23 @@ async def api_run(suite_id: str, request: Request):
                                 _r_ok = _ex_ok.get("response") or {}
                                 _st_ok = _r_ok.get("stream") or {}
                                 _rb_ok = bytes(_st_ok["data"]).decode("utf-8", errors="replace") if isinstance(_st_ok, dict) and _st_ok.get("type") == "Buffer" else (_r_ok.get("body", "") or "")
-                                _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
+                                _hc_step = _r_ok.get("code", 0); _hs_step = _r_ok.get("status", "")
                                 try:
                                     _rj_ok = _j.loads(_rb_ok)
                                     _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
                                     _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
-                                    _msg_ok = f"   → HTTP {_hc_ok} {_hs_ok}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    _msg_ok = f"   → HTTP {_hc_step} {_hs_step}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_activ.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
-                                    await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
+                                    await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_step} {_hs_step}"))
                         except Exception:
                             pass
+                    if _hc_step and _hc_step not in (200, 201, 202):
+                        await _out_q_activ.put(("L", tr["tc"], "━"*50))
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} — HTTP {_hc_step} {_hs_step}"))
+                        await _out_q_activ.put(("L", tr["tc"], "━"*50))
+                        await _out_q_activ.put(("D", tr, 1, _last_json))
+                        return
                     # ── Verificar u_return_code esperado ──────────────────────────
                     _expected_rc = {"5/6 Idempotencia": "21", "6/6 Retrieve Access": "0"}.get(_step_lbl)
                     if _expected_rc is not None and _step_json and Path(_step_json).exists():
@@ -2387,6 +2394,7 @@ async def api_run(suite_id: str, request: Request):
                         await _out_q_dm.put(("L", tr["tc"], "━"*50))
                         await _out_q_dm.put(("D", tr, 1, _last_json))
                         return
+                    _hc_step_dm = 0; _hs_step_dm = ""
                     if _step_json and Path(_step_json).exists():
                         try:
                             _jd_ok = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2396,17 +2404,23 @@ async def api_run(suite_id: str, request: Request):
                                 _r_ok = _ex_ok.get("response") or {}
                                 _st_ok = _r_ok.get("stream") or {}
                                 _rb_ok = bytes(_st_ok["data"]).decode("utf-8", errors="replace") if isinstance(_st_ok, dict) and _st_ok.get("type") == "Buffer" else (_r_ok.get("body", "") or "")
-                                _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
+                                _hc_step_dm = _r_ok.get("code", 0); _hs_step_dm = _r_ok.get("status", "")
                                 try:
                                     _rj_ok = _j.loads(_rb_ok)
                                     _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
                                     _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
-                                    _msg_ok = f"   → HTTP {_hc_ok} {_hs_ok}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    _msg_ok = f"   → HTTP {_hc_step_dm} {_hs_step_dm}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_dm.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
-                                    await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_ok} {_hs_ok}"))
+                                    await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_step_dm} {_hs_step_dm}"))
                         except Exception:
                             pass
+                    if _hc_step_dm and _hc_step_dm not in (200, 201, 202):
+                        await _out_q_dm.put(("L", tr["tc"], "━"*50))
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} — HTTP {_hc_step_dm} {_hs_step_dm}"))
+                        await _out_q_dm.put(("L", tr["tc"], "━"*50))
+                        await _out_q_dm.put(("D", tr, 1, _last_json))
+                        return
                     # ── Verificar u_return_code esperado ──────────────────────────
                     _expected_rc_dm = {"6/6 Consulta Acceso": "0"}.get(_step_lbl)
                     if _expected_rc_dm is not None and _step_json and Path(_step_json).exists():
@@ -2742,6 +2756,12 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
                     return
+                if _hc and _hc not in (200, 201, 202):
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 1/5 Factibilidad — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
+                    return
 
                 # ── Paso 2/5: Asignación ──────────────────────────────────────────
                 await _out_q_cancel.put(("L", _tc, "── Paso 2/5 Asignación ──"))
@@ -2760,6 +2780,12 @@ async def api_run(suite_id: str, request: Request):
                         if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
                     except Exception:
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
+                    return
+                if _hc and _hc not in (200, 201, 202):
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 2/5 Asignación — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
@@ -2837,6 +2863,12 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
+                if _hc and _hc not in (200, 201, 202):
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 3/5 IA Inicio — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
+                    return
 
                 # ── Paso 4/5: Activación ──────────────────────────────────────────
                 _serial_log = (QA_ACTIV_SERIAL_BASE.get(_vno, "") + tr["serial_sfx"]) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)"
@@ -2880,6 +2912,12 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("L", _tc, "━"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
+                if _hc and _hc not in (200, 201, 202):
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 4/5 Activación — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, "━"*50))
+                    await _out_q_cancel.put(("D", tr, 1, _js_act_c))
+                    return
 
                 # ── Paso 5/5: Cancelación ─────────────────────────────────────────
                 await _out_q_cancel.put(("L", _tc, "── Paso 5/5 Cancelación ──"))
@@ -2905,6 +2943,7 @@ async def api_run(suite_id: str, request: Request):
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(_js_cancel_c)
                 await _out_q_cancel.put(("L", _tc, f"── Response Cancelación: HTTP {_hc} {_hs} — {_rb[:600]} ──"))
+                if _hc and _hc not in (200, 201, 202): _sc = 1
                 await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
               except Exception as _exc_run:
                 _tc_safe = tr.get("tc", "?")
