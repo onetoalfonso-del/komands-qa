@@ -981,7 +981,7 @@ async def _db() -> _apg.Pool:
         if dsn:
             try:
                 _db_pool = await _apg.create_pool(dsn, min_size=1, max_size=5,
-                                                   statement_cache_size=0)
+                                                   statement_cache_size=0, ssl='require')
                 async with _db_pool.acquire() as _conn:
                     await _conn.execute(_DB_SCHEMA)
                 print("[db] Conectado a Supabase PostgreSQL")
