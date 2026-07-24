@@ -5964,7 +5964,6 @@ function _updateCancelPreview(){
   var el=document.getElementById('cancel-serial-preview'); if(!el) return;
   var sfx=(document.getElementById('gf-serial')||{}).value||'';
   if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa el serial del equipo en Parámetros</span>'; return; }
-  sfx=sfx.slice(-4);
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   _CANCEL_META.forEach(function(m){
     var base=_CANCEL_SERIAL_BASE[m.tc];
