@@ -3409,7 +3409,7 @@ async def api_run(suite_id: str, request: Request):
                         "WHERE UPPER(name)=$1 AND active=true AND base_url!=''",
                         _gf_env_name)
                     if _erow and _erow["base_url"]:
-                        cmd = list(cmd) + ["--env-var", f"baseUrl={_erow['base_url']}"]
+                        cmd = list(cmd) + ["--env-var", f"apimURL={_erow['base_url']}"]
             except Exception:
                 pass
         if vno_code and suite.get("vno_support") and "pytest" in str(cmd):
