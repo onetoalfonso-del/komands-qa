@@ -1454,7 +1454,7 @@ async def api_run(suite_id: str, request: Request):
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
         _fact_dir = QA_DIR / "factibilidad"
         _fact_dir.mkdir(parents=True, exist_ok=True)
-        _ADDR_ID = "DIR02803636"
+        _ADDR_ID = overrides.get("addr_id", "") or "DIR02803636"
         _logo_svg = (
             b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
             b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
@@ -1807,7 +1807,7 @@ async def api_run(suite_id: str, request: Request):
         _activ_dir.mkdir(parents=True, exist_ok=True)
         _col_ff  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         _col_con = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
-        _ADDR_ID_ACTIV = "DIR02803636"
+        _ADDR_ID_ACTIV = overrides.get("addr_id", "") or "DIR02803636"
         _activ_runs = []
         for _tcd in _TC_DEFS_ACTIV:
             _vno          = _tcd["vno"]
@@ -2243,7 +2243,7 @@ async def api_run(suite_id: str, request: Request):
         _dm_dir.mkdir(parents=True, exist_ok=True)
         _col_ff_dm  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         _col_con_dm = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
-        _ADDR_ID_DM = "DIR02803636"
+        _ADDR_ID_DM = overrides.get("addr_id", "") or "DIR02803636"
         _dm_runs = []
         for _tcd in _TC_DEFS_DM:
             _vno          = _tcd["vno"]
@@ -2679,7 +2679,7 @@ async def api_run(suite_id: str, request: Request):
         _TC_DEFS_CANCEL    = [d for d in _TC_DEFS_CANCEL if d["tc"] in _tcs_filter_cancel] or _TC_DEFS_CANCEL
         _cancel_dir = QA_DIR / "cancelacion"
         _cancel_dir.mkdir(parents=True, exist_ok=True)
-        _ADDR_ID_CANCEL = "DIR02803636"
+        _ADDR_ID_CANCEL = overrides.get("addr_id", "") or "DIR02803636"
         _col_ff_cancel  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         _col_cancel_col = _col_ff_cancel  # los requests de cancel están dentro de 01-FulFillment
         _cancel_runs = []
@@ -5046,7 +5046,8 @@ function _doRunFact(s){
   });
   if(currentEs){currentEs.close();currentEs=null;}
   var _selTcs=_FACT_TC_META.filter(function(m){return _factSel[m.tc];}).map(function(m){return m.tc;}).join(',');
-  var es=new EventSource('/api/run/qa-fact-suite?tcs='+encodeURIComponent(_selTcs));
+  var _addrFact=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
+  var es=new EventSource('/api/run/qa-fact-suite?tcs='+encodeURIComponent(_selTcs)+'&addr_id='+encodeURIComponent(_addrFact));
   currentEs=es;
   es.onmessage=function(ev){
     var d=JSON.parse(ev.data);
@@ -5645,13 +5646,15 @@ function _doRunActiv(s){
   var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
   var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
   var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
+  var _addrActiv=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&speed_plan='+encodeURIComponent(_speed)
     +'&serial_suffix='+encodeURIComponent(_serial)
     +'&service_ba='+(_sba?'true':'false')
     +'&service_voip='+(_svoip?'true':'false')
-    +'&service_iptv='+(_siptv?'true':'false');
+    +'&service_iptv='+(_siptv?'true':'false')
+    +'&addr_id='+encodeURIComponent(_addrActiv);
   var es=new EventSource('/api/run/qa-activ-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -5841,6 +5844,7 @@ function _doRunDm(s){
   var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
   var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
   var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
+  var _addrDm=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&speed_plan='+encodeURIComponent(_speed)
@@ -5848,7 +5852,8 @@ function _doRunDm(s){
     +'&serial_dm_suffix='+encodeURIComponent(_sDm)
     +'&service_ba='+(_sba?'true':'false')
     +'&service_voip='+(_svoip?'true':'false')
-    +'&service_iptv='+(_siptv?'true':'false');
+    +'&service_iptv='+(_siptv?'true':'false')
+    +'&addr_id='+encodeURIComponent(_addrDm);
   var es=new EventSource('/api/run/qa-dm-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -6085,13 +6090,15 @@ function _doRunCancel(s){
   var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
   var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
   var _serial=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
+  var _addrCancel=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&speed_plan='+encodeURIComponent(_speed)
     +'&service_type='+encodeURIComponent(_stype)
     +'&svc_ba='+(_sba?'true':'false')
     +'&svc_voip='+(_svoip?'true':'false')
     +'&svc_iptv='+(_siptv?'true':'false')
-    +'&serial_suffix='+encodeURIComponent(_serial);
+    +'&serial_suffix='+encodeURIComponent(_serial)
+    +'&addr_id='+encodeURIComponent(_addrCancel);
   var es=new EventSource('/api/run/qa-cancel-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -6396,7 +6403,7 @@ function _doRun(url, params, s){
 
 function _saveHistorialRecord(d,s){
   var now=new Date();
-  var ts=now.toISOString().slice(0,19).replace('T',' ');
+  var ts=now.getTime();
   var tiempo_ms=Math.round(Date.now()-tStart);
   var suite_label=s.label||s.id;
   if(Array.isArray(d.tc_results)&&d.tc_results.length){
