@@ -932,6 +932,87 @@ except ImportError:
 
 app = FastAPI(title="Pruebas de Regresion ambiente QA OnnetFibra")
 
+# ─── Base de datos (asyncpg → Supabase PostgreSQL) ────────────────────────────
+import asyncpg as _apg
+
+_db_pool: _apg.Pool | None = None
+
+_DB_SCHEMA = """
+CREATE TABLE IF NOT EXISTS qa_executions (
+    id        BIGSERIAL PRIMARY KEY,
+    ts        BIGINT,
+    suite_id  VARCHAR(80),
+    suite_label VARCHAR(200),
+    tc        VARCHAR(50),
+    vno       VARCHAR(10),
+    vno_lbl   VARCHAR(100),
+    escenario VARCHAR(200),
+    direccion VARCHAR(200),
+    resultado VARCHAR(10),
+    code      SMALLINT,
+    tiempo_ms INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS qa_config (
+    key        VARCHAR(100) PRIMARY KEY,
+    value      TEXT NOT NULL DEFAULT '',
+    label      VARCHAR(300) DEFAULT '',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO qa_config (key, value, label) VALUES
+  ('newman_timeout_ms',   '0', 'Timeout por request Newman en ms (0 = sin límite)'),
+  ('delay_post_asig_ms',  '0', 'Delay después de Asignación en ms'),
+  ('delay_post_ia_ms',    '0', 'Delay después de IA Inicio en ms'),
+  ('delay_post_activ_ms', '0', 'Delay después de Activación en ms')
+ON CONFLICT (key) DO NOTHING;
+"""
+
+_CONFIG_LABELS = {
+    "newman_timeout_ms":   "Timeout por request Newman en ms (0 = sin límite)",
+    "delay_post_asig_ms":  "Delay después de Asignación en ms",
+    "delay_post_ia_ms":    "Delay después de IA Inicio en ms",
+    "delay_post_activ_ms": "Delay después de Activación en ms",
+}
+
+async def _db() -> _apg.Pool:
+    global _db_pool
+    if _db_pool is None:
+        dsn = os.getenv("DATABASE_URL")
+        if dsn:
+            try:
+                _db_pool = await _apg.create_pool(dsn, min_size=1, max_size=5,
+                                                   statement_cache_size=0)
+                async with _db_pool.acquire() as _conn:
+                    await _conn.execute(_DB_SCHEMA)
+                print("[db] Conectado a Supabase PostgreSQL")
+            except Exception as _e:
+                print(f"[db] Error conectando: {_e}")
+                _db_pool = None
+    return _db_pool
+
+async def _db_save(record: dict):
+    pool = await _db()
+    if not pool:
+        return
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO qa_executions
+                   (ts,suite_id,suite_label,tc,vno,vno_lbl,escenario,direccion,resultado,code,tiempo_ms)
+                   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+                record.get("ts"), record.get("suite_id",""), record.get("suite_label",""),
+                record.get("tc",""), record.get("vno",""), record.get("vno_lbl",""),
+                record.get("escenario",""), record.get("direccion",""),
+                record.get("resultado",""), record.get("code",1),
+                record.get("tiempo_ms",0)
+            )
+    except Exception as _e:
+        print(f"[db] error guardando ejecución: {_e}")
+
+@app.on_event("startup")
+async def _startup_db():
+    await _db()
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -3588,39 +3669,103 @@ async def api_report(suite_id: str):
     })
 
 
-_HISTORIAL_FILE = QA_DIR / "historial.json"
-_historial_lock = __import__("asyncio").Lock()
-
-def _load_historial_sync():
-    if not _HISTORIAL_FILE.exists():
-        return []
-    try:
-        return json.loads(_HISTORIAL_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-
-def _save_historial_sync(records):
-    try:
-        _HISTORIAL_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _HISTORIAL_FILE.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception as e:
-        print(f"[historial] error al guardar: {e}")
+# ─── Historial API (Supabase PostgreSQL) ─────────────────────────────────────
 
 @app.get("/api/historial")
-async def api_historial():
-    records = _load_historial_sync()
-    return records
+async def api_historial(limit: int = 200, suite_id: str = "", vno: str = "", resultado: str = ""):
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        conds, args = [], []
+        if suite_id:  args.append(suite_id);  conds.append(f"suite_id=${len(args)}")
+        if vno:       args.append(vno);        conds.append(f"vno=${len(args)}")
+        if resultado: args.append(resultado);  conds.append(f"resultado=${len(args)}")
+        where = ("WHERE " + " AND ".join(conds)) if conds else ""
+        args.append(min(limit, 1000))
+        rows = await pool.fetch(
+            f"SELECT * FROM qa_executions {where} ORDER BY id DESC LIMIT ${len(args)}", *args)
+        return [dict(r) for r in rows]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.post("/api/historial")
 async def api_historial_post(request: Request):
-    async with _historial_lock:
-        body = await request.json()
-        records = _load_historial_sync()
-        records.insert(0, body)   # más reciente primero
-        if len(records) > 500:    # límite de 500 registros
-            records = records[:500]
-        _save_historial_sync(records)
+    body = await request.json()
+    await _db_save(body)
     return {"ok": True}
+
+@app.delete("/api/historial/{rec_id}")
+async def api_historial_delete(rec_id: int):
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        await pool.execute("DELETE FROM qa_executions WHERE id=$1", rec_id)
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.delete("/api/historial")
+async def api_historial_delete_all():
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        await pool.execute("DELETE FROM qa_executions")
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/stats")
+async def api_stats():
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        rows = await pool.fetch("""
+            SELECT suite_id, suite_label, vno, vno_lbl,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN resultado='ok' THEN 1 ELSE 0 END) AS ok,
+                   SUM(CASE WHEN resultado!='ok' THEN 1 ELSE 0 END) AS fail,
+                   ROUND(AVG(tiempo_ms)) AS avg_ms,
+                   MAX(created_at) AS last_run
+            FROM qa_executions
+            GROUP BY suite_id, suite_label, vno, vno_lbl
+            ORDER BY last_run DESC
+        """)
+        return [dict(r) for r in rows]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/config")
+async def api_config_get():
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        rows = await pool.fetch("SELECT key, value, label FROM qa_config ORDER BY key")
+        return [dict(r) for r in rows]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.put("/api/config/{key}")
+async def api_config_put(key: str, request: Request):
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    body = await request.json()
+    value = str(body.get("value", ""))
+    label = _CONFIG_LABELS.get(key, body.get("label", ""))
+    try:
+        await pool.execute(
+            """INSERT INTO qa_config (key, value, label, updated_at)
+               VALUES($1,$2,$3,NOW())
+               ON CONFLICT (key) DO UPDATE SET value=$2, updated_at=NOW()""",
+            key, value, label)
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ─── UI ───────────────────────────────────────────────────────────────────────
@@ -4003,12 +4148,28 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Historial -->
     <div id="historial-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="historial-header" style="padding:12px 18px 10px;flex-shrink:0;border-bottom:1px solid var(--brd);background:var(--card);display:flex;align-items:center;gap:12px">
-        <span style="font-size:.9rem;font-weight:700;color:var(--txt)">&#128203; Historial de ejecuciones</span>
-        <input id="historial-filter" type="text" placeholder="Filtrar…" oninput="_filterHistorial()" style="margin-left:auto;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:160px">
-        <button onclick="loadHistorial()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer">&#8635; Actualizar</button>
+      <!-- Tabs -->
+      <div style="display:flex;gap:2px;padding:8px 14px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd)">
+        <button id="htab-hist" onclick="_hTab('hist')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--bg);color:var(--acc);font-size:.76rem;cursor:pointer;font-weight:700">&#128203; Historial</button>
+        <button id="htab-stats" onclick="_hTab('stats')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128200; Estadísticas</button>
+        <button id="htab-cfg" onclick="_hTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; Configuración</button>
+        <div style="flex:1"></div>
+        <input id="historial-filter" type="text" placeholder="Filtrar…" oninput="_filterHistorial()" style="display:none;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:150px;align-self:center;margin-bottom:4px">
+        <button id="hist-refresh-btn" onclick="_hTabRefresh()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer;align-self:center;margin-bottom:4px">&#8635;</button>
+        <button id="hist-del-all-btn" onclick="_histDeleteAll()" style="display:none;padding:4px 10px;border-radius:5px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.73rem;cursor:pointer;align-self:center;margin-bottom:4px">&#128465; Borrar todo</button>
       </div>
-      <div id="historial-body" style="flex:1;overflow:auto;padding:12px 14px"></div>
+      <!-- Historial tab -->
+      <div id="hpane-hist" style="flex:1;overflow:auto;padding:12px 14px">
+        <div class="hist-empty">Cargando…</div>
+      </div>
+      <!-- Stats tab -->
+      <div id="hpane-stats" style="display:none;flex:1;overflow:auto;padding:12px 14px">
+        <div class="hist-empty">Cargando estadísticas…</div>
+      </div>
+      <!-- Config tab -->
+      <div id="hpane-cfg" style="display:none;flex:1;overflow:auto;padding:16px 18px">
+        <div class="hist-empty">Cargando configuración…</div>
+      </div>
     </div>
     <!-- Vista Device Modification — 4 consolas paralelas -->
     <div id="dm-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -6590,9 +6751,10 @@ function stat(cls,n,lbl){
 }
 // ── Historial ───────────────────────────────────────────────────────────────
 var _histData=[];
-var _histSort={col:0,asc:false}; // col 0 = ts (más reciente primero)
+var _histSort={col:0,asc:false};
+var _histTab='hist';
 var _HIST_COLS=[
-  {k:'ts',          lbl:'Fecha'},
+  {k:'created_at',  lbl:'Fecha'},
   {k:'suite_label', lbl:'Suite'},
   {k:'tc',          lbl:'TC'},
   {k:'escenario',   lbl:'Escenario'},
@@ -6605,82 +6767,153 @@ function showHistorial(){
   switchView('historial');
   document.getElementById('hist-btn').classList.add('active');
   setTop('','Historial de ejecuciones','');
-  if(!_histData.length) loadHistorial();
+  _hTab(_histTab);
+}
+function _hTab(tab){
+  _histTab=tab;
+  ['hist','stats','cfg'].forEach(function(t){
+    var btn=document.getElementById('htab-'+t);
+    var pane=document.getElementById('hpane-'+t);
+    if(btn) btn.style.background=t===tab?'var(--bg)':'var(--card)';
+    if(btn) btn.style.color=t===tab?'var(--acc)':'var(--txt2)';
+    if(pane) pane.style.display=t===tab?'block':'none';
+  });
+  var filt=document.getElementById('historial-filter');
+  var delBtn=document.getElementById('hist-del-all-btn');
+  if(filt) filt.style.display=tab==='hist'?'inline-block':'none';
+  if(delBtn) delBtn.style.display=tab==='hist'?'inline-block':'none';
+  if(tab==='hist'){ if(!_histData.length) loadHistorial(); }
+  else if(tab==='stats') loadStats();
+  else if(tab==='cfg') loadConfig();
+}
+function _hTabRefresh(){
+  if(_histTab==='hist'){_histData=[];loadHistorial();}
+  else if(_histTab==='stats') loadStats();
+  else loadConfig();
 }
 function loadHistorial(){
-  var body=document.getElementById('historial-body');
+  var body=document.getElementById('hpane-hist');
   body.innerHTML='<div class="hist-empty">Cargando…</div>';
-  fetch('/api/historial').then(function(r){
-    return r.json().then(function(j){return {ok:r.ok,status:r.status,data:j};});
-  }).then(function(res){
+  fetch('/api/historial').then(function(r){return r.json().then(function(j){return{ok:r.ok,data:j};});})
+  .then(function(res){
     if(!res.ok||!Array.isArray(res.data)){
-      var msg=res.data&&res.data.error?res.data.error:('Respuesta inesperada (HTTP '+res.status+')');
-      body.innerHTML='<div class="hist-empty" style="color:var(--err)">'+esc(msg)+'</div>';
-      return;
+      body.innerHTML='<div class="hist-empty" style="color:var(--err)">'+(res.data&&res.data.error?esc(res.data.error):'Error cargando')+'</div>';return;
     }
-    _histData=res.data;
-    _renderHistorialTable();
-  }).catch(function(e){
-    body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';
-  });
+    _histData=res.data; _renderHistorialTable();
+  }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
 }
-function _filterHistorial(){
-  _renderHistorialTable();
-}
+function _filterHistorial(){_renderHistorialTable();}
 function _histSortBy(ci){
   if(_histSort.col===ci) _histSort.asc=!_histSort.asc;
   else{_histSort.col=ci;_histSort.asc=false;}
   _renderHistorialTable();
 }
 function _renderHistorialTable(){
-  var q=(document.getElementById('historial-filter')||{}).value||'';
-  q=q.toLowerCase();
+  var q=(document.getElementById('historial-filter')||{}).value||''; q=q.toLowerCase();
   var rows=_histData.filter(function(r){
     if(!q) return true;
-    return _HIST_COLS.some(function(c){
-      return (r[c.k]||'').toString().toLowerCase().indexOf(q)>=0;
-    });
+    return _HIST_COLS.some(function(c){return (r[c.k]||'').toString().toLowerCase().indexOf(q)>=0;});
   });
   var ci=_histSort.col; var asc=_histSort.asc;
   rows=rows.slice().sort(function(a,b){
-    var av=(a[_HIST_COLS[ci].k]||'').toString();
-    var bv=(b[_HIST_COLS[ci].k]||'').toString();
-    var n=av.localeCompare(bv,undefined,{numeric:true});
-    return asc?n:-n;
+    var av=(a[_HIST_COLS[ci].k]||'').toString(), bv=(b[_HIST_COLS[ci].k]||'').toString();
+    return asc?av.localeCompare(bv,undefined,{numeric:true}):-av.localeCompare(bv,undefined,{numeric:true});
   });
-  var body=document.getElementById('historial-body');
-  if(!rows.length){body.innerHTML='<div class="hist-empty">'+(q?'Sin registros para "'+esc(q)+'"':'Aún no hay ejecuciones registradas. Ejecuta una suite para ver su historial aquí.')+'</div>';return;}
+  var body=document.getElementById('hpane-hist');
+  if(!rows.length){body.innerHTML='<div class="hist-empty">'+(q?'Sin registros para "'+esc(q)+'"':'Sin ejecuciones aún.')+'</div>';return;}
   var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
   _HIST_COLS.forEach(function(c,i){
     var ico=_histSort.col===i?(_histSort.asc?'▲':'▼'):'⇅';
     h+='<th onclick="_histSortBy('+i+')">'+esc(c.lbl)+' <span class="sort-ico">'+ico+'</span></th>';
   });
-  h+='</tr></thead><tbody>';
+  h+='<th>Acción</th></tr></thead><tbody>';
   rows.forEach(function(r){
-    var res=r.resultado||'';
-    var bc=res==='ok'?'ok':'err';
+    var res=r.resultado||''; var bc=res==='ok'?'ok':'err';
     var vno=r.vno_lbl||r.vno||'';
-    var vnoHtml=vno
-      ?'<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</span>'
-      :'<span style="color:var(--txt3)">—</span>';
+    var vnoHtml=vno?'<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</span>':'<span style="color:var(--txt3)">—</span>';
     var dir=r.direccion||'';
-    var dirHtml=dir
-      ?'<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;white-space:nowrap">'+esc(dir)+'</span>'
-      :'<span style="color:var(--txt3);font-size:.68rem">—</span>';
+    var dirHtml=dir?'<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;white-space:nowrap">'+esc(dir)+'</span>':'<span style="color:var(--txt3);font-size:.68rem">—</span>';
     var tiempoSeg=r.tiempo_ms!=null?((r.tiempo_ms/1000).toFixed(1)+'s'):'';
+    var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):(r.ts||'');
     h+='<tr>';
-    h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(r.ts||'')+'</td>';
+    h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(fecha)+'</td>';
     h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
     h+='<td style="font-size:.7rem">'+esc(r.tc||'')+'</td>';
     h+='<td style="font-size:.72rem">'+esc(r.escenario||'')+'</td>';
-    h+='<td>'+vnoHtml+'</td>';
-    h+='<td>'+dirHtml+'</td>';
+    h+='<td>'+vnoHtml+'</td><td>'+dirHtml+'</td>';
     h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+esc(tiempoSeg)+'</td>';
+    h+='<td><button onclick="_histDelete('+r.id+')" style="padding:2px 7px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.65rem;cursor:pointer">&#128465;</button></td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
   body.innerHTML=h;
+}
+function _histDelete(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  fetch('/api/historial/'+id,{method:'DELETE'}).then(function(){
+    _histData=_histData.filter(function(r){return r.id!==id;}); _renderHistorialTable();
+  });
+}
+function _histDeleteAll(){
+  if(!confirm('¿Eliminar TODO el historial? Esta acción no se puede deshacer.')) return;
+  fetch('/api/historial',{method:'DELETE'}).then(function(){_histData=[];_renderHistorialTable();});
+}
+function loadStats(){
+  var body=document.getElementById('hpane-stats');
+  body.innerHTML='<div class="hist-empty">Cargando…</div>';
+  fetch('/api/stats').then(function(r){return r.json();}).then(function(data){
+    if(!Array.isArray(data)||!data.length){body.innerHTML='<div class="hist-empty">Sin datos aún.</div>';return;}
+    var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
+    ['Suite','VNO','Total','OK','FAIL','Tasa OK','Tiempo prom.','Última ejecución'].forEach(function(c){h+='<th>'+c+'</th>';});
+    h+='</tr></thead><tbody>';
+    data.forEach(function(r){
+      var total=parseInt(r.total)||0, ok=parseInt(r.ok)||0, fail=parseInt(r.fail)||0;
+      var pct=total?Math.round(ok/total*100):0;
+      var pc=pct>=80?'ok':pct>=50?'warn':'err';
+      var avg=r.avg_ms!=null?((parseInt(r.avg_ms)/1000).toFixed(1)+'s'):'—';
+      var fecha=r.last_run?new Date(r.last_run).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
+      h+='<tr>';
+      h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
+      h+='<td><span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(r.vno_lbl||r.vno||'—')+'</span></td>';
+      h+='<td style="text-align:center;font-variant-numeric:tabular-nums">'+total+'</td>';
+      h+='<td style="text-align:center;color:var(--ok);font-variant-numeric:tabular-nums">'+ok+'</td>';
+      h+='<td style="text-align:center;color:var(--err);font-variant-numeric:tabular-nums">'+fail+'</td>';
+      h+='<td style="text-align:center"><span class="hist-badge '+pc+'">'+pct+'%</span></td>';
+      h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+avg+'</td>';
+      h+='<td style="color:var(--txt3);font-size:.68rem">'+esc(fecha)+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+    body.innerHTML=h;
+  }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
+}
+function loadConfig(){
+  var body=document.getElementById('hpane-cfg');
+  body.innerHTML='<div class="hist-empty">Cargando…</div>';
+  fetch('/api/config').then(function(r){return r.json();}).then(function(data){
+    if(!Array.isArray(data)){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando config.</div>';return;}
+    var h='<div style="max-width:560px"><h3 style="margin:0 0 18px;font-size:.85rem;color:var(--txt);font-weight:700">Parámetros del runner</h3>';
+    data.forEach(function(row){
+      h+='<div style="margin-bottom:14px">';
+      h+='<label style="display:block;font-size:.74rem;color:var(--txt2);margin-bottom:4px">'+esc(row.label||row.key)+'</label>';
+      h+='<div style="display:flex;gap:8px;align-items:center">';
+      h+='<input id="cfg-'+esc(row.key)+'" type="number" min="0" value="'+esc(row.value)+'" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem;width:120px">';
+      h+='<button onclick="_saveConfig(\''+esc(row.key)+'\')" style="padding:5px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--accd);color:var(--acc);font-size:.74rem;cursor:pointer">Guardar</button>';
+      h+='<span id="cfg-msg-'+esc(row.key)+'" style="font-size:.7rem;color:var(--ok);display:none">&#10003; Guardado</span>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+    body.innerHTML=h;
+  }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
+}
+function _saveConfig(key){
+  var inp=document.getElementById('cfg-'+key); if(!inp) return;
+  var msg=document.getElementById('cfg-msg-'+key);
+  fetch('/api/config/'+encodeURIComponent(key),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:inp.value})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok&&msg){msg.style.display='inline';setTimeout(function(){msg.style.display='none';},2000);}
+  }).catch(function(){});
 }
 function _histVnoColor(v){
   return {'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'}[v]||'var(--txt2)';
