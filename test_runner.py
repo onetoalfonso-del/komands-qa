@@ -3400,6 +3400,7 @@ async def api_run(suite_id: str, request: Request):
         _gf_env_name = overrides.pop("gf_env", "").strip().upper()
         cmd = _apply_params(suite["cmd"], overrides)
         vno_code = overrides.get("vno", "").strip()
+        _injected_url = ""
         if _gf_env_name:
             try:
                 _epool = await _db()
@@ -3409,12 +3410,15 @@ async def api_run(suite_id: str, request: Request):
                         "WHERE UPPER(name)=$1 AND active=true AND base_url!=''",
                         _gf_env_name)
                     if _erow and _erow["base_url"]:
-                        cmd = list(cmd) + ["--env-var", f"apimURL={_erow['base_url']}"]
+                        _injected_url = _erow["base_url"]
+                        cmd = list(cmd) + ["--env-var", f"apimURL={_injected_url}"]
             except Exception:
                 pass
         if vno_code and suite.get("vno_support") and "pytest" in str(cmd):
             cmd = list(cmd) + ["--vno", vno_code]
         passed = failed = requests = 0
+        if _injected_url:
+            yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_name} → {_injected_url}'})}\n\n"
 
         async for kind, val in _iter_proc(cmd, suite["cwd"], env):
             if kind == "L":
