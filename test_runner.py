@@ -1963,7 +1963,8 @@ async def api_run(suite_id: str, request: Request):
                                 _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
                                 try:
                                     _rj_ok = _j.loads(_rb_ok)
-                                    _rc_ok = _rj_ok.get("u_return_code"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
+                                    _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
+                                    _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
                                     _msg_ok = f"   → HTTP {_hc_ok} {_hs_ok}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_activ.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
@@ -1981,7 +1982,8 @@ async def api_run(suite_id: str, request: Request):
                                 _st_v = _r_v.get("stream") or {}
                                 _rb_v = bytes(_st_v["data"]).decode("utf-8", errors="replace") if isinstance(_st_v, dict) and _st_v.get("type") == "Buffer" else (_r_v.get("body", "") or "")
                                 try:
-                                    _actual_rc = _j.loads(_rb_v).get("u_return_code")
+                                    _parsed_v = _j.loads(_rb_v)
+                                    _actual_rc = _parsed_v.get("u_return_code") or _parsed_v.get("result", {}).get("u_return_code")
                                     if str(_actual_rc) != _expected_rc:
                                         await _out_q_activ.put(("L", tr["tc"], "━"*50))
                                         await _out_q_activ.put(("L", tr["tc"], f"✗ VERIFICACIÓN FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc}', se obtuvo={_actual_rc!r}"))
@@ -2397,7 +2399,8 @@ async def api_run(suite_id: str, request: Request):
                                 _hc_ok = _r_ok.get("code", 0); _hs_ok = _r_ok.get("status", "")
                                 try:
                                     _rj_ok = _j.loads(_rb_ok)
-                                    _rc_ok = _rj_ok.get("u_return_code"); _rd_ok = _rj_ok.get("u_return_code_desc", "")
+                                    _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
+                                    _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
                                     _msg_ok = f"   → HTTP {_hc_ok} {_hs_ok}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_dm.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
@@ -2415,7 +2418,8 @@ async def api_run(suite_id: str, request: Request):
                                 _st_v = _r_v.get("stream") or {}
                                 _rb_v = bytes(_st_v["data"]).decode("utf-8", errors="replace") if isinstance(_st_v, dict) and _st_v.get("type") == "Buffer" else (_r_v.get("body", "") or "")
                                 try:
-                                    _actual_rc_dm = _j.loads(_rb_v).get("u_return_code")
+                                    _parsed_v_dm = _j.loads(_rb_v)
+                                    _actual_rc_dm = _parsed_v_dm.get("u_return_code") or _parsed_v_dm.get("result", {}).get("u_return_code")
                                     if str(_actual_rc_dm) != _expected_rc_dm:
                                         await _out_q_dm.put(("L", tr["tc"], "━"*50))
                                         await _out_q_dm.put(("L", tr["tc"], f"✗ VERIFICACIÓN FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc_dm}', se obtuvo={_actual_rc_dm!r}"))
