@@ -3397,8 +3397,21 @@ async def api_run(suite_id: str, request: Request):
                "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0",
                **suite.get("env_extra", {})}
 
+        _gf_env_name = overrides.pop("gf_env", "").strip().upper()
         cmd = _apply_params(suite["cmd"], overrides)
         vno_code = overrides.get("vno", "").strip()
+        if _gf_env_name:
+            try:
+                _epool = await _db()
+                if _epool:
+                    _erow = await _epool.fetchrow(
+                        "SELECT base_url FROM qa_environments "
+                        "WHERE UPPER(name)=$1 AND active=true AND base_url!=''",
+                        _gf_env_name)
+                    if _erow and _erow["base_url"]:
+                        cmd = list(cmd) + ["--env-var", f"baseUrl={_erow['base_url']}"]
+            except Exception:
+                pass
         if vno_code and suite.get("vno_support") and "pytest" in str(cmd):
             cmd = list(cmd) + ["--vno", vno_code]
         passed = failed = requests = 0
@@ -5189,7 +5202,7 @@ function _doRunFact(s){
   if(currentEs){currentEs.close();currentEs=null;}
   var _selTcs=_FACT_TC_META.filter(function(m){return _factSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _addrFact=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
-  var es=new EventSource('/api/run/qa-fact-suite?tcs='+encodeURIComponent(_selTcs)+'&addr_id='+encodeURIComponent(_addrFact));
+  var es=new EventSource('/api/run/qa-fact-suite?tcs='+encodeURIComponent(_selTcs)+'&addr_id='+encodeURIComponent(_addrFact)+'&gf_env='+encodeURIComponent(_gfEnv));
   currentEs=es;
   es.onmessage=function(ev){
     var d=JSON.parse(ev.data);
@@ -5409,7 +5422,8 @@ function _doRunAsig(s){
     +'&speed_plan='+encodeURIComponent(speed?speed.value:'600/600')
     +'&service_ba='+encodeURIComponent(ba?ba.value:'true')
     +'&service_voip='+encodeURIComponent(voip?voip.value:'true')
-    +'&service_iptv='+encodeURIComponent(iptv?iptv.value:'true');
+    +'&service_iptv='+encodeURIComponent(iptv?iptv.value:'true')
+    +'&gf_env='+encodeURIComponent(_gfEnv);
   var es=new EventSource('/api/run/qa-asig-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -5608,7 +5622,8 @@ function _doRunIA(s){
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&scenario='+encodeURIComponent(_sc)
-    +'&service_type='+encodeURIComponent(_sv);
+    +'&service_type='+encodeURIComponent(_sv)
+    +'&gf_env='+encodeURIComponent(_gfEnv);
   var es=new EventSource('/api/run/'+_iaSuiteId()+'?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -5796,7 +5811,8 @@ function _doRunActiv(s){
     +'&service_ba='+(_sba?'true':'false')
     +'&service_voip='+(_svoip?'true':'false')
     +'&service_iptv='+(_siptv?'true':'false')
-    +'&addr_id='+encodeURIComponent(_addrActiv);
+    +'&addr_id='+encodeURIComponent(_addrActiv)
+    +'&gf_env='+encodeURIComponent(_gfEnv);
   var es=new EventSource('/api/run/qa-activ-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -5995,7 +6011,8 @@ function _doRunDm(s){
     +'&service_ba='+(_sba?'true':'false')
     +'&service_voip='+(_svoip?'true':'false')
     +'&service_iptv='+(_siptv?'true':'false')
-    +'&addr_id='+encodeURIComponent(_addrDm);
+    +'&addr_id='+encodeURIComponent(_addrDm)
+    +'&gf_env='+encodeURIComponent(_gfEnv);
   var es=new EventSource('/api/run/qa-dm-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -6240,7 +6257,8 @@ function _doRunCancel(s){
     +'&svc_voip='+(_svoip?'true':'false')
     +'&svc_iptv='+(_siptv?'true':'false')
     +'&serial_suffix='+encodeURIComponent(_serial)
-    +'&addr_id='+encodeURIComponent(_addrCancel);
+    +'&addr_id='+encodeURIComponent(_addrCancel)
+    +'&gf_env='+encodeURIComponent(_gfEnv);
   var es=new EventSource('/api/run/qa-cancel-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
