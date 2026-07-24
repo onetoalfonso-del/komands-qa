@@ -4867,11 +4867,11 @@ function _renderGFMFuncList(){
   if(!lb||!sb) return;
   lb.innerHTML=_GF_FUNCS.map(function(f,i){
     var inSeq=_gfFuncSeq.indexOf(f.id)>=0;
-    return '<div class="gfm-fitem" onclick="_toggleGFFunc(\''+f.id+'\')">'
+    return '<div class="gfm-fitem" data-fid="'+f.id+'" onclick="_toggleGFFunc(this.dataset.fid)">'
       +'<span class="gfm-fnum">'+String(i+1).padStart(2,'0')+'</span>'
       +'<span class="gfm-fname">'+esc(f.name)+'</span>'
-      +'<input type="checkbox" class="gfm-fchk" '+(inSeq?'checked':'')
-      +' onclick="event.stopPropagation();_toggleGFFunc(\''+f.id+'\')" /></div>';
+      +'<input type="checkbox" class="gfm-fchk" data-fid="'+f.id+'" '+(inSeq?'checked':'')
+      +' onclick="event.stopPropagation();_toggleGFFunc(this.dataset.fid)" /></div>';
   }).join('');
   _renderGFMSeqList();
 }
@@ -4888,11 +4888,11 @@ function _renderGFMSeqList(){
   if(!sb) return;
   sb.innerHTML=_gfFuncSeq.map(function(id,i){
     var f=_GF_FUNCS.filter(function(x){return x.id===id;})[0];
-    return '<div class="gfm-sitem">'
+    return '<div class="gfm-sitem" data-sid="'+id+'">'
       +'<span class="gfm-shandle">⠿</span>'
       +'<span class="gfm-snum">'+(i+1)+'</span>'
       +'<span class="gfm-sname">'+esc(f?f.name:id)+'</span>'
-      +'<button class="gfm-srm" onclick="_removeGFSeq(\''+id+'\')">×</button>'
+      +'<button class="gfm-srm" data-sid="'+id+'" onclick="_removeGFSeq(this.dataset.sid)">×</button>'
       +'</div>';
   }).join('');
   var n=_gfFuncSeq.length;
@@ -5641,7 +5641,7 @@ function _doRunActiv(s){
   var _accessMap={};
   _ACTIV_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_ACTIV_VNO_CODES[m.tc]); });
   var _speed=(document.getElementById('gf-speed')||{}).value||'600/600';
-  var _serial=(document.getElementById('gf-serial')||{}).value||'0000';
+  var _serial=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
   var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
   var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
   var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
@@ -5836,7 +5836,7 @@ function _doRunDm(s){
   var _accessMap={};
   _DM_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_DM_VNO_CODES[m.tc]); });
   var _speed=(document.getElementById('gf-speed')||{}).value||'600/600';
-  var _sActiv=(document.getElementById('gf-serial')||{}).value||'0000';
+  var _sActiv=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
   var _sDm=(document.getElementById('dm-serial-dm')||{}).value||'0000';
   var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
   var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
@@ -6085,7 +6085,7 @@ function _doRunCancel(s){
   var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
   var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
   var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
-  var _serial=(document.getElementById('gf-serial')||{}).value||'0000';
+  var _serial=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&speed_plan='+encodeURIComponent(_speed)
     +'&service_type='+encodeURIComponent(_stype)
