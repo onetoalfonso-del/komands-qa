@@ -3997,12 +3997,78 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #cancel-form-bar input,#cancel-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
 #cancel-form-bar input:focus,#cancel-form-bar select:focus{border-color:var(--acc)}
 #cancel-serial-preview{padding:4px 12px 5px;min-height:20px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
-#gf-panel{display:flex;align-items:center;gap:8px;padding:7px 12px;flex-shrink:0;flex-wrap:wrap;background:var(--card);border-bottom:2px solid var(--acc)}
-#gf-panel .gfl{font-size:.6rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
-#gf-panel .gfl-title{font-size:.65rem;color:var(--acc);font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;margin-right:4px}
-#gf-panel input,#gf-panel select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
-#gf-panel input:focus,#gf-panel select:focus{border-color:var(--acc)}
-#gf-panel .gf-wide{width:160px}#gf-panel .gf-med{width:100px}#gf-panel .gf-sm{width:58px;font-family:monospace;letter-spacing:.05em}
+#gf-panel{flex-shrink:0;background:var(--card)}
+.gf-bar{display:flex;align-items:center;gap:10px;padding:5px 14px;background:var(--card);border-bottom:2px solid var(--acc);flex-wrap:wrap}
+.gf-bar-ttl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--acc);white-space:nowrap}
+.gf-bar-chip{display:flex;align-items:center;gap:4px}
+.gf-bar-lbl{font-size:.57rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3)}
+.gf-bar-val{font-size:.68rem;font-weight:600;color:var(--txt);font-family:monospace}
+.gf-bar-val.empty{color:var(--err,#e05252);font-style:italic;font-family:inherit;font-size:.62rem}
+.gf-bar-sep{width:1px;height:14px;background:var(--brd);margin:0 2px}
+.gf-config-btn{font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:4px;border:1px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer;text-transform:uppercase;letter-spacing:.05em;margin-left:auto;white-space:nowrap}
+.gf-config-btn:hover{background:var(--acc);color:#fff}
+#gf-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9000;align-items:flex-start;justify-content:center;padding-top:36px}
+#gf-modal.open{display:flex}
+.gfm-card{background:#181c2a;border:1px solid #252c45;border-radius:8px;width:720px;max-width:97vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 60px rgba(0,0,0,.8)}
+.gfm-hdr{display:flex;align-items:center;gap:10px;padding:12px 18px 10px;border-bottom:1px solid #1e2438;flex-shrink:0}
+.gfm-hdr-ttl{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#4f8ef7;white-space:nowrap}
+.gfm-name-inp{flex:1;background:#0e1220;border:1px solid #252c45;border-radius:4px;color:#dce4f4;font-size:.73rem;padding:5px 10px;outline:none;font-family:monospace}
+.gfm-name-inp:focus{border-color:#4f8ef7}
+.gfm-btn-c{font-size:.63rem;font-weight:700;padding:5px 12px;border-radius:4px;border:1px solid #c04040;background:transparent;color:#c04040;cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
+.gfm-btn-c:hover{background:#c04040;color:#fff}
+.gfm-btn-ok{font-size:.63rem;font-weight:700;padding:5px 14px;border-radius:4px;border:none;background:#4f8ef7;color:#fff;cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
+.gfm-btn-ok:hover{background:#3a7de5}
+.gfm-meta{font-size:.58rem;color:#4a5580;padding:4px 18px 5px;border-bottom:1px solid #1e2438;flex-shrink:0}
+.gfm-err-bar{display:none;background:rgba(180,40,40,.18);border-left:3px solid #e05252;padding:6px 14px;flex-shrink:0;font-size:.62rem;color:#e07070;line-height:1.7}
+.gfm-err-bar.show{display:block}
+.gfm-tabs{display:flex;border-bottom:1px solid #1e2438;flex-shrink:0;padding:0 18px;background:#181c2a}
+.gfm-tab{font-size:.68rem;font-weight:600;padding:8px 14px 6px;border-bottom:2px solid transparent;color:#5060a0;cursor:pointer;letter-spacing:.03em;margin-bottom:-1px}
+.gfm-tab.active{color:#dce4f4;border-bottom-color:#4f8ef7}
+.gfm-tab:hover:not(.active){color:#8090b8}
+.gfm-body{overflow-y:auto;flex:1}
+.gfm-tc{display:none;padding:13px 18px 18px;flex-direction:column;gap:13px}
+.gfm-tc.active{display:flex}
+.gfm-sec{display:flex;flex-direction:column;gap:8px}
+.gfm-sec-ttl{font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#4a5580;padding-bottom:5px;border-bottom:1px solid #1a2035}
+.gfm-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.gf-f{display:flex;flex-direction:column;gap:3px}
+.gf-f label{font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#7080a8;white-space:nowrap}
+.gf-f .r{color:#4f8ef7}
+.gf-f input,.gf-f select{font-size:.7rem;padding:5px 8px;border-radius:4px;border:1px solid #252c45;background:#0e1220;color:#d0daf0;outline:none;height:30px;min-width:0}
+.gf-f input:focus,.gf-f select:focus{border-color:#4f8ef7}
+.gf-f .mono{font-family:monospace;letter-spacing:.04em}
+.gfm-ar{display:flex;gap:5px;align-items:stretch}
+.gfm-abtn{font-size:.55rem;font-weight:800;padding:0 9px;border-radius:4px;border:1px solid #4f8ef7;background:transparent;color:#4f8ef7;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;height:30px;white-space:nowrap}
+.gfm-abtn:hover{background:#4f8ef7;color:#fff}
+.gfm-abtn.grn{border-color:#22bb66;color:#22bb66}
+.gfm-abtn.grn:hover{background:#22bb66;color:#fff}
+.gfm-hint{font-size:.56rem;color:#4a5580;margin-top:2px}
+.gfm-pill{font-size:.5rem;padding:1px 5px;border-radius:3px;margin-left:5px;font-weight:700;vertical-align:middle}
+.gfm-pill.blue{background:#4f8ef7;color:#fff}
+.gfm-pill.amber{background:#b87020;color:#fff;cursor:pointer}
+.gfm-pill.grn{background:#22bb66;color:#fff;font-family:monospace}
+.gfm-fw{flex:1;min-width:100px}
+.gfm-wlg{width:175px}.gfm-wmd{width:128px}.gfm-wsm{width:95px}.gfm-wxs{width:66px}
+.gfm-env{display:flex;gap:8px}
+.gfm-ec{font-size:.66rem;font-weight:700;padding:5px 16px;border-radius:5px;border:1px solid #252c45;background:#0e1220;color:#7080a8;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;user-select:none}
+.gfm-ec.on{border-color:#4f8ef7;background:#162040;color:#4f8ef7}
+.gfm-funcs{display:flex;gap:10px;height:300px}
+.gfm-flist,.gfm-fseq{flex:1;background:#0e1220;border:1px solid #252c45;border-radius:5px;display:flex;flex-direction:column;overflow:hidden}
+.gfm-flhdr,.gfm-fshdr{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid #1a2035;flex-shrink:0}
+.gfm-flttl,.gfm-fsttl{font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#4a5580}
+.gfm-flbody,.gfm-fsbody{overflow-y:auto;flex:1}
+.gfm-fitem{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-bottom:1px solid #111828}
+.gfm-fitem:hover{background:#162040}
+.gfm-fnum{font-size:.54rem;color:#4a5580;font-family:monospace;width:18px;flex-shrink:0}
+.gfm-fname{font-size:.67rem;color:#c0cbea;flex:1}
+.gfm-fchk{width:14px;height:14px;accent-color:#4f8ef7;cursor:pointer;flex-shrink:0}
+.gfm-sitem{display:flex;align-items:center;gap:7px;padding:6px 10px;border-bottom:1px solid #111828;cursor:grab}
+.gfm-sitem:hover{background:#162040}
+.gfm-shandle{color:#3a4560;font-size:.75rem;flex-shrink:0}
+.gfm-snum{font-size:.54rem;color:#4a5580;font-family:monospace;width:16px;flex-shrink:0}
+.gfm-sname{font-size:.67rem;color:#c0cbea;flex:1}
+.gfm-srm{font-size:.75rem;color:#4a5580;cursor:pointer;padding:0 2px;border:none;background:none;line-height:1}
+.gfm-srm:hover{color:#e05252}
 #asig-grid,#ia-grid,#activ-grid,#dm-grid,#cancel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
 #ia-form-bar,#activ-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
 #ia-access-preview,#activ-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
@@ -4614,42 +4680,239 @@ function switchView(mode){
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
-  if(_gfp){var _gfModes=['fact','asig','ia','activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'flex':'none';}
+  if(_gfp){var _gfModes=['fact','asig','ia','activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'block':'none';}
 }
 
 function renderGlobalForm(){
   var p=document.getElementById('gf-panel'); if(!p) return;
-  p.innerHTML=
-    '<span class="gfl-title">Parámetros</span>'
-    +'<span class="gfl">Access ID:</span>'
-    +'<input class="gf-wide" id="gf-access" placeholder="ej: 02-XXXXX-01" />'
-    +'<span class="gfl">Dirección:</span>'
-    +'<input class="gf-med" id="gf-addr" placeholder="DIR..." />'
-    +'<span class="gfl">Plan:</span>'
-    +'<select id="gf-speed">'
-    +'<option value="100/10">100/10</option>'
-    +'<option value="100/100">100/100</option>'
-    +'<option value="300/300">300/300</option>'
-    +'<option value="400/400">400/400</option>'
-    +'<option value="600/600" selected>600/600</option>'
-    +'<option value="800/800">800/800</option>'
-    +'<option value="1000/1000">1000/1000</option>'
-    +'</select>'
-    +'<span class="gfl">Serial (últ.4):</span>'
-    +'<input class="gf-sm" id="gf-serial" maxlength="4" placeholder="0000" />'
-    +'<span class="gfl">Tipo:</span>'
-    +'<select id="gf-stype">'
-    +'<option value="FTTH" selected>FTTH</option>'
-    +'<option value="SSAA">SSAA</option>'
-    +'</select>'
-    +'<span class="gfl">Servicios:</span>'
-    +'<select id="gf-ba"><option value="true" selected>BA ✓</option><option value="false">BA ✗</option></select>'
-    +'<select id="gf-voip"><option value="true" selected>VoIP ✓</option><option value="false">VoIP ✗</option></select>'
-    +'<select id="gf-iptv"><option value="true" selected>IPTV ✓</option><option value="false">IPTV ✗</option></select>';
-  var gfAcc=document.getElementById('gf-access');
-  var gfSer=document.getElementById('gf-serial');
-  if(gfAcc) gfAcc.oninput=function(){ _updateAsigAccessPreview(); _updateIAAccessPreview(); _updateActivAccessPreview(); _updateDmAccessPreview(); };
-  if(gfSer) gfSer.oninput=function(){ _updateActivAccessPreview(); _updateDmAccessPreview(); _updateCancelPreview(); };
+  p.innerHTML='<div class="gf-bar">'
+    +'<span class="gf-bar-ttl">Parámetros</span>'
+    +'<div class="gf-bar-sep"></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Access ID</span>&nbsp;<span class="gf-bar-val empty" id="gfb-access">—</span></div>'
+    +'<div class="gf-bar-sep"></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Plan</span>&nbsp;<span class="gf-bar-val" id="gfb-speed">400/400</span></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Serial</span>&nbsp;<span class="gf-bar-val empty" id="gfb-serial">—</span></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Tipo</span>&nbsp;<span class="gf-bar-val" id="gfb-stype">FTTH</span></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Svc</span>&nbsp;<span class="gf-bar-val" id="gfb-svcs">BA · VoIP · IPTV</span></div>'
+    +'<button class="gf-config-btn" onclick="openGFModal()">✎ Configurar</button>'
+    +'</div>';
+}
+
+// ── Global Form Modal ────────────────────────────────────────────────────────
+var _gfEnv='QA';
+var _gfFuncSeq=[];
+var _GF_FUNCS=[
+  {id:'fact',   name:'Factibilidad'},
+  {id:'asig',   name:'Asignación'},
+  {id:'activ',  name:'Activación'},
+  {id:'ia-inicio', name:'Inicio de Intervención Asegurada'},
+  {id:'ia-fin', name:'Finalización de Intervención Asegurada'},
+  {id:'dm',     name:'Device Modification'},
+  {id:'cancel', name:'Cancelación de Servicio'},
+];
+
+function openGFModal(){
+  var m=document.getElementById('gf-modal'); if(!m) return;
+  var now=new Date();
+  var dd=String(now.getDate()).padStart(2,'0');
+  var mm=String(now.getMonth()+1).padStart(2,'0');
+  var yy=now.getFullYear();
+  var hh=String(now.getHours()).padStart(2,'0');
+  var mn=String(now.getMinutes()).padStart(2,'0');
+  var metaEl=document.getElementById('gfm-date');
+  if(metaEl) metaEl.textContent='Fecha registro: '+dd+'-'+mm+'-'+yy+', '+hh+':'+mn;
+  var errEl=document.getElementById('gfm-err-bar');
+  if(errEl){errEl.innerHTML='';errEl.classList.remove('show');}
+  m.classList.add('open');
+  _renderGFMFuncList();
+  _updateSerialCharCounter();
+  _updateNSerialCharCounter();
+  switchGFMTab('cfg');
+}
+
+function closeGFModal(){
+  var m=document.getElementById('gf-modal');
+  if(m) m.classList.remove('open');
+}
+
+function applyGFModal(){
+  var errEl=document.getElementById('gfm-err-bar');
+  var errs=[];
+  var acc=(document.getElementById('gf-access')||{}).value||'';
+  if(!acc.trim()) errs.push('Access ID es obligatorio');
+  if(errs.length){
+    if(errEl){errEl.innerHTML='· '+errs.join('<br>· ');errEl.classList.add('show');}
+    return;
+  }
+  if(errEl){errEl.innerHTML='';errEl.classList.remove('show');}
+  closeGFModal();
+  _updateGFSummaryBar();
+  _updateAsigAccessPreview();
+  _updateIAAccessPreview();
+  _updateActivAccessPreview();
+  _updateDmAccessPreview();
+  _updateCancelPreview();
+}
+
+function _updateGFSummaryBar(){
+  var acc=(document.getElementById('gf-access')||{}).value||'';
+  var spd=(document.getElementById('gf-speed')||{}).value||'400/400';
+  var ser=(document.getElementById('gf-serial')||{}).value||'';
+  var sty=(document.getElementById('gf-stype')||{}).value||'FTTH';
+  var ba=(document.getElementById('gf-ba')||{}).value||'true';
+  var voip=(document.getElementById('gf-voip')||{}).value||'true';
+  var iptv=(document.getElementById('gf-iptv')||{}).value||'true';
+  var svcs=[];
+  if(ba!=='false') svcs.push('BA');
+  if(voip!=='false') svcs.push('VoIP');
+  if(iptv!=='false') svcs.push('IPTV');
+  function _set(id, val, empty){
+    var el=document.getElementById(id); if(!el) return;
+    el.textContent=val||'—';
+    el.className='gf-bar-val'+(empty||!val?' empty':'');
+  }
+  _set('gfb-access', acc.trim(), !acc.trim());
+  _set('gfb-speed', spd, false);
+  _set('gfb-serial', ser.trim(), !ser.trim());
+  _set('gfb-stype', sty, false);
+  _set('gfb-svcs', svcs.length?svcs.join(' · '):'Ninguno', !svcs.length);
+}
+
+function selectEnv(el){
+  var group=document.getElementById('gfm-env-group'); if(!group) return;
+  [].forEach.call(group.querySelectorAll('.gfm-ec'),function(c){c.classList.remove('on');});
+  el.classList.add('on');
+  _gfEnv=el.dataset.env||'QA';
+  _autoGenAccessId(true);
+}
+
+function switchGFMTab(tab){
+  ['cfg','func'].forEach(function(t){
+    var btn=document.getElementById('gfmt-'+t);
+    var tc=document.getElementById('gfmc-'+t);
+    if(btn) btn.classList[t===tab?'add':'remove']('active');
+    if(tc)  tc.classList[t===tab?'add':'remove']('active');
+  });
+  if(tab==='func') _renderGFMFuncList();
+}
+
+function _autoGenAccessId(onlyIfEmpty){
+  var el=document.getElementById('gf-access'); if(!el) return;
+  if(onlyIfEmpty && el.value.trim()) return;
+  var vno=(document.getElementById('gf-vno')||{}).value||'00';
+  var addr=(document.getElementById('gf-addr')||{}).value||'';
+  var addrSlug=addr.replace(/\\s+/g,'').toUpperCase().slice(0,6)||'XXXXX';
+  var now=new Date();
+  var hh=String(now.getHours()).padStart(2,'0');
+  var mn=String(now.getMinutes()).padStart(2,'0');
+  el.value=vno+'-'+_gfEnv+addrSlug+hh+mn;
+  var badge=document.getElementById('gfm-auto-badge');
+  if(badge) badge.style.display='inline';
+  _onGFAccessInput();
+}
+
+function _autoGenSerial(){
+  var el=document.getElementById('gf-serial'); if(!el) return;
+  var vno=(document.getElementById('gf-vno')||{}).value||'00';
+  var now=new Date();
+  var mo=String(now.getMonth()+1).padStart(2,'0');
+  var dd=String(now.getDate()).padStart(2,'0');
+  var hh=String(now.getHours()).padStart(2,'0');
+  var mn=String(now.getMinutes()).padStart(2,'0');
+  el.value='HW'+vno.toUpperCase()+mo+dd+hh+mn;
+  _updateSerialCharCounter();
+  _updateActivAccessPreview();
+  _updateDmAccessPreview();
+  _updateCancelPreview();
+}
+
+function _autoGenNewSerial(){
+  var el=document.getElementById('gf-newserial'); if(!el) return;
+  var vno=(document.getElementById('gf-vno')||{}).value||'00';
+  var now=new Date();
+  var mo=String(now.getMonth()+1).padStart(2,'0');
+  var dd=String(now.getDate()).padStart(2,'0');
+  var hh=String(now.getHours()).padStart(2,'0');
+  var mn=String(now.getMinutes()).padStart(2,'0');
+  el.value='HW'+vno.toUpperCase()+mo+dd+hh+mn;
+  _updateNSerialCharCounter();
+}
+
+function _updateSerialCharCounter(){
+  var el=document.getElementById('gf-serial');
+  var c=document.getElementById('gfm-schar');
+  var n=el?el.value.length:0;
+  if(c) c.textContent=n+' CAR.';
+}
+
+function _updateNSerialCharCounter(){
+  var el=document.getElementById('gf-newserial');
+  var c=document.getElementById('gfm-nschar');
+  var n=el?el.value.length:0;
+  if(c) c.textContent=n+' CAR.';
+}
+
+function _onGFAccessInput(){
+  _updateAsigAccessPreview();
+  _updateIAAccessPreview();
+  _updateActivAccessPreview();
+  _updateDmAccessPreview();
+  var badge=document.getElementById('gfm-auto-badge');
+  if(badge) badge.style.display='none';
+}
+
+function _renderGFMFuncList(){
+  var lb=document.getElementById('gfm-flist-body');
+  var sb=document.getElementById('gfm-fseq-body');
+  if(!lb||!sb) return;
+  lb.innerHTML=_GF_FUNCS.map(function(f,i){
+    var inSeq=_gfFuncSeq.indexOf(f.id)>=0;
+    return '<div class="gfm-fitem" onclick="_toggleGFFunc(\''+f.id+'\')">'
+      +'<span class="gfm-fnum">'+String(i+1).padStart(2,'0')+'</span>'
+      +'<span class="gfm-fname">'+esc(f.name)+'</span>'
+      +'<input type="checkbox" class="gfm-fchk" '+(inSeq?'checked':'')
+      +' onclick="event.stopPropagation();_toggleGFFunc(\''+f.id+'\')" /></div>';
+  }).join('');
+  _renderGFMSeqList();
+}
+
+function _toggleGFFunc(id){
+  var idx=_gfFuncSeq.indexOf(id);
+  if(idx>=0) _gfFuncSeq.splice(idx,1);
+  else _gfFuncSeq.push(id);
+  _renderGFMFuncList();
+}
+
+function _renderGFMSeqList(){
+  var sb=document.getElementById('gfm-fseq-body');
+  if(!sb) return;
+  sb.innerHTML=_gfFuncSeq.map(function(id,i){
+    var f=_GF_FUNCS.filter(function(x){return x.id===id;})[0];
+    return '<div class="gfm-sitem">'
+      +'<span class="gfm-shandle">⠿</span>'
+      +'<span class="gfm-snum">'+(i+1)+'</span>'
+      +'<span class="gfm-sname">'+esc(f?f.name:id)+'</span>'
+      +'<button class="gfm-srm" onclick="_removeGFSeq(\''+id+'\')">×</button>'
+      +'</div>';
+  }).join('');
+  var n=_gfFuncSeq.length;
+  ['gfm-seq-count','gfm-seq-count2'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.textContent=n;
+  });
+}
+
+function _removeGFSeq(id){
+  var idx=_gfFuncSeq.indexOf(id);
+  if(idx>=0){ _gfFuncSeq.splice(idx,1); _renderGFMFuncList(); }
+}
+
+function _filterFuncList(q){
+  var items=document.querySelectorAll('#gfm-flist-body .gfm-fitem');
+  var lq=(q||'').toLowerCase();
+  [].forEach.call(items,function(el){
+    var nm=el.querySelector('.gfm-fname');
+    el.style.display=(!lq||(nm&&nm.textContent.toLowerCase().indexOf(lq)>=0))?'':'none';
+  });
 }
 
 // ── Factibilidad: vista multi-consola ────────────────────────────────────────
@@ -4830,7 +5093,7 @@ var _VNO_KNOWN=['00','02','03','05'];
 
 function _resolveAccessId(raw, vnoCode){
   if(!raw) return '';
-  var m=raw.match(/^(\d{2})-(.+)$/);
+  var m=raw.match(/^(\\d{2})-(.+)$/);
   if(m && _VNO_KNOWN.indexOf(m[1])!==-1){
     return vnoCode+'-'+m[2];
   }
@@ -5061,13 +5324,11 @@ function renderIAFormBar(){
   var modeLabel=_iaMode==='inicio'
     ?'<span class="ia-mode-badge inicio">Inicio</span>'
     :'<span class="ia-mode-badge fin">Fin</span>';
-  bar.innerHTML=
-    '<span class="afb-lbl">Modo:</span>'+modeLabel
-    +'<span class="afb-lbl" style="margin-left:8px">Escenario:</span>'
-    +'<select id="ia-scenario">'
-    +'<option value="Instalación" selected>Instalación</option>'
-    +'<option value="Reparación">Reparación</option>'
-    +'</select>';
+  bar.innerHTML='<span class="afb-lbl">Modo:</span>'+modeLabel
+    +'<span class="afb-lbl" style="margin-left:10px;color:var(--txt3)">'
+    +'Escenario: <b style="color:var(--txt);font-weight:600" id="ia-esc-badge">'
+    +((document.getElementById('ia-scenario')||{}).value||'Instalación')
+    +'</b></span>';
   _updateIAAccessPreview();
 }
 
@@ -5702,7 +5963,8 @@ function renderCancelFormBar(){
 function _updateCancelPreview(){
   var el=document.getElementById('cancel-serial-preview'); if(!el) return;
   var sfx=(document.getElementById('gf-serial')||{}).value||'';
-  if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa los últimos 4 dígitos del serial</span>'; return; }
+  if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa el serial del equipo en Parámetros</span>'; return; }
+  sfx=sfx.slice(-4);
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   _CANCEL_META.forEach(function(m){
     var base=_CANCEL_SERIAL_BASE[m.tc];
@@ -6978,6 +7240,203 @@ function setTop(state,title,txt){
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 </script>
+<!-- ── Global Form Modal ─────────────────────────────────────────────────── -->
+<div id="gf-modal">
+  <div class="gfm-card">
+    <div class="gfm-hdr">
+      <span class="gfm-hdr-ttl">Nueva secuencia —</span>
+      <input class="gfm-name-inp" id="gfm-name" placeholder="Nombre de la secuencia..." />
+      <button class="gfm-btn-c" onclick="closeGFModal()">Cancelar</button>
+      <button class="gfm-btn-ok" onclick="applyGFModal()">Aplicar</button>
+    </div>
+    <div class="gfm-meta" id="gfm-date">Fecha registro: --</div>
+    <div class="gfm-err-bar" id="gfm-err-bar"></div>
+    <div class="gfm-tabs">
+      <span class="gfm-tab active" id="gfmt-cfg" onclick="switchGFMTab('cfg')">Configuración</span>
+      <span class="gfm-tab" id="gfmt-func" onclick="switchGFMTab('func')">Funcionalidades (<span id="gfm-seq-count">0</span>)</span>
+    </div>
+    <div class="gfm-body">
+      <!-- ── CONFIGURACIÓN ── -->
+      <div class="gfm-tc active" id="gfmc-cfg">
+        <div class="gfm-sec">
+          <div class="gfm-sec-ttl">Ambiente <span class="r">★</span></div>
+          <div class="gfm-env" id="gfm-env-group">
+            <span class="gfm-ec on" data-env="QA"   onclick="selectEnv(this)">QA</span>
+            <span class="gfm-ec"    data-env="PRD"  onclick="selectEnv(this)">PRD</span>
+            <span class="gfm-ec"    data-env="PPRD" onclick="selectEnv(this)">PPRD</span>
+          </div>
+        </div>
+        <div class="gfm-sec">
+          <div class="gfm-sec-ttl">Datos base</div>
+          <div class="gfm-row">
+            <div class="gf-f">
+              <label>VNO <span class="r">★</span></label>
+              <select id="gf-vno" class="gfm-wsm" onchange="_autoGenAccessId(true)">
+                <option value="00">00</option><option value="01">01</option>
+                <option value="02">02</option><option value="03">03</option>
+                <option value="04">04</option><option value="05">05</option>
+              </select>
+            </div>
+            <div class="gf-f">
+              <label>Tipo de dirección <span class="r">★</span></label>
+              <select id="gf-addrtype" class="gfm-wmd">
+                <option value="XYGO">XYGO</option>
+                <option value="OSP">OSP</option>
+                <option value="SGO">SGO</option>
+                <option value="MANUAL">MANUAL</option>
+              </select>
+            </div>
+            <div class="gf-f gfm-fw">
+              <label>Dirección <span class="r">★</span>
+                <span class="gfm-pill amber" id="gfm-por-pos">POR POSICIÓN</span>
+              </label>
+              <input id="gf-addr" class="gfm-fw" placeholder="ej: dddddd" oninput="_autoGenAccessId(true)" />
+            </div>
+          </div>
+          <div class="gfm-row" style="margin-top:4px">
+            <div class="gf-f gfm-fw">
+              <label>Access ID <span class="r">★</span>
+                <span class="gfm-pill blue" id="gfm-auto-badge">AUTO</span>
+              </label>
+              <div class="gfm-ar">
+                <input id="gf-access" class="mono gfm-fw" placeholder="ej: 02-XXXXX-01" oninput="_onGFAccessInput()" />
+                <button class="gfm-abtn" onclick="_autoGenAccessId(false)">Auto</button>
+              </div>
+              <div class="gfm-hint">VNO · Ambiente · Dirección · HH:MM</div>
+            </div>
+          </div>
+        </div>
+        <div class="gfm-sec">
+          <div class="gfm-sec-ttl">Servicio</div>
+          <div class="gfm-row">
+            <div class="gf-f gfm-wmd">
+              <label>Tipo de servicio <span class="r">★</span></label>
+              <select id="gf-stype">
+                <option value="FTTH">FTTH</option>
+                <option value="SSAA">SSAA</option>
+              </select>
+            </div>
+            <div class="gf-f gfm-wmd">
+              <label>Escenario <span class="r">★</span></label>
+              <select id="ia-scenario" onchange="document.getElementById('ia-esc-badge')&&(document.getElementById('ia-esc-badge').textContent=this.value)">
+                <option value="Instalación" selected>Instalación</option>
+                <option value="Reparación">Reparación</option>
+              </select>
+            </div>
+            <div class="gf-f gfm-wmd">
+              <label>Tipo de ejecución <span class="r">★</span></label>
+              <select id="gf-exec">
+                <option value="Síncrono">Síncrono</option>
+                <option value="Asíncrono">Asíncrono</option>
+              </select>
+            </div>
+            <div class="gf-f gfm-wmd">
+              <label>Con / Sin BP</label>
+              <select id="gf-bp">
+                <option value="con">Con BP</option>
+                <option value="sin">Sin BP</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="gfm-sec">
+          <div class="gfm-sec-ttl">Plan / Perfil</div>
+          <div class="gfm-row">
+            <div class="gf-f gfm-wmd">
+              <label>Plan / Perfil <span class="r">★</span></label>
+              <select id="gf-speed">
+                <option value="100/10">100/10</option><option value="100/100">100/100</option>
+                <option value="300/300">300/300</option><option value="400/400" selected>400/400</option>
+                <option value="600/600">600/600</option><option value="800/800">800/800</option>
+                <option value="1000/1000">1000/1000</option>
+              </select>
+            </div>
+            <div class="gf-f gfm-wmd">
+              <label>Nuevo Plan / Perfil</label>
+              <select id="gf-newspeed">
+                <option value="100/10">100/10</option><option value="100/100">100/100</option>
+                <option value="300/300">300/300</option><option value="400/400" selected>400/400</option>
+                <option value="600/600">600/600</option><option value="800/800">800/800</option>
+                <option value="1000/1000">1000/1000</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="gfm-sec">
+          <div class="gfm-sec-ttl">Serial Numbers</div>
+          <div class="gfm-row">
+            <div class="gf-f gfm-fw">
+              <label>Serial Number <span class="r">★</span>
+                <span class="gfm-pill grn" id="gfm-schar">0 CAR.</span>
+              </label>
+              <div class="gfm-ar">
+                <input id="gf-serial" class="mono gfm-fw" placeholder="—"
+                  oninput="_updateSerialCharCounter();_updateActivAccessPreview();_updateDmAccessPreview();_updateCancelPreview();" />
+                <button class="gfm-abtn grn" onclick="_autoGenSerial()">Auto</button>
+              </div>
+              <div class="gfm-hint">Prefijo VNO + MM DD HH mm — 12 o 16 car.</div>
+            </div>
+            <div class="gf-f gfm-fw">
+              <label>Nuevo Serial Number
+                <span class="gfm-pill grn" id="gfm-nschar">0 CAR.</span>
+              </label>
+              <div class="gfm-ar">
+                <input id="gf-newserial" class="mono gfm-fw" placeholder="—"
+                  oninput="_updateNSerialCharCounter();" />
+                <button class="gfm-abtn grn" onclick="_autoGenNewSerial()">Auto</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gfm-sec">
+          <div class="gfm-sec-ttl">Servicios</div>
+          <div class="gfm-row">
+            <div class="gf-f">
+              <label>BA</label>
+              <select id="gf-ba" style="min-width:95px">
+                <option value="true" selected>Con BA ✓</option>
+                <option value="false">Sin BA ✗</option>
+              </select>
+            </div>
+            <div class="gf-f">
+              <label>VoIP</label>
+              <select id="gf-voip" style="min-width:104px">
+                <option value="true" selected>Con VoIP ✓</option>
+                <option value="false">Sin VoIP ✗</option>
+              </select>
+            </div>
+            <div class="gf-f">
+              <label>IPTV</label>
+              <select id="gf-iptv" style="min-width:100px">
+                <option value="true" selected>Con IPTV ✓</option>
+                <option value="false">Sin IPTV ✗</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ── FUNCIONALIDADES ── -->
+      <div class="gfm-tc" id="gfmc-func">
+        <div class="gfm-funcs">
+          <div class="gfm-flist">
+            <div class="gfm-flhdr">
+              <span class="gfm-flttl">Disponibles (7)</span>
+              <input style="font-size:.6rem;padding:2px 6px;border-radius:3px;border:1px solid #252c45;background:#0e1220;color:#d0daf0;outline:none;width:88px"
+                placeholder="Buscar..." oninput="_filterFuncList(this.value)" />
+            </div>
+            <div class="gfm-flbody" id="gfm-flist-body"></div>
+          </div>
+          <div class="gfm-fseq">
+            <div class="gfm-fshdr">
+              <span class="gfm-fsttl">Secuencia (<span id="gfm-seq-count2">0</span>)</span>
+            </div>
+            <div class="gfm-fsbody" id="gfm-fseq-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>"""
 
