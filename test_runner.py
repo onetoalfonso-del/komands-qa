@@ -934,6 +934,7 @@ app = FastAPI(title="Pruebas de Regresion ambiente QA OnnetFibra")
 
 # ─── Base de datos (asyncpg → Supabase PostgreSQL) ────────────────────────────
 import asyncpg as _apg
+import ssl as _ssl_mod
 
 _db_pool: _apg.Pool | None = None
 
@@ -980,8 +981,11 @@ async def _db() -> _apg.Pool:
         dsn = os.getenv("DATABASE_URL")
         if dsn:
             try:
+                _ssl_ctx = _ssl_mod.create_default_context()
+                _ssl_ctx.check_hostname = False
+                _ssl_ctx.verify_mode = _ssl_mod.CERT_NONE
                 _db_pool = await _apg.create_pool(dsn, min_size=1, max_size=5,
-                                                   statement_cache_size=0, ssl='require')
+                                                   statement_cache_size=0, ssl=_ssl_ctx)
                 async with _db_pool.acquire() as _conn:
                     await _conn.execute(_DB_SCHEMA)
                 print("[db] Conectado a Supabase PostgreSQL")
