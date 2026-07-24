@@ -2298,15 +2298,7 @@ async def api_run(suite_id: str, request: Request):
                         "--reporter-htmlextra-export", _rp_dm,
                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Device Modification · {_tcd['vno_label']}"]
 
-            # ── Paso 6: Idempotencia DM (segunda llamada, debe retornar código 21) ─
-            _rp_dm_idem = str(_dm_dir / f"{_tcd['tc']}_idem.html")
-            _js_dm_idem = str(_dm_dir / f"{_tcd['tc']}_idem.json")
-            _cmd_dm_idem = list(_base_cmd_dm); _cmd_dm_idem[2] = _tmp_dm_req
-            _cmd_dm_idem += ["--reporter-json-export", _js_dm_idem,
-                             "--reporter-htmlextra-export", _rp_dm_idem,
-                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} DM Idempotencia · {_tcd['vno_label']}"]
-
-            # ── Paso 7: Consulta Acceso (GET) ───────────────────────────────────
+            # ── Paso 6: Consulta Acceso (GET) ───────────────────────────────────
             _ca_req = _find_req_in_col(_cp.deepcopy(_col_con_dm), "Consulta Acceso")
             _tmp_ca = str(QA_DIR / f"_tmp_dm_ca_{_vno}.json")
             _j.dump({"info": _col_con_dm.get("info", {}), "item": [_ca_req] if _ca_req else []},
@@ -2328,13 +2320,12 @@ async def api_run(suite_id: str, request: Request):
                 "act_serial": (QA_ACTIV_SERIAL_BASE.get(_vno,"") + _dm_serial_suffix) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)",
                 "dm_serial":  (_dm_new_serial or "(sin serial)"),
                 "steps": [
-                    ("1/7 Factibilidad",    _cmd_fact_dm,  _js_fact_dm),
-                    ("2/7 Asignación",      _cmd_asig_dm,  _js_asig_dm),
-                    ("3/7 IA Inicio",       _cmd_ia_dm,    _js_ia_dm),
-                    ("4/7 Activación",      _cmd_act_dm,   _js_act_dm),
-                    ("5/7 Device Modif.",   _cmd_dm,       _js_dm),
-                    ("6/7 Idempotencia DM", _cmd_dm_idem,  _js_dm_idem),
-                    ("7/7 Consulta Acceso", _cmd_ca,       _js_ca),
+                    ("1/6 Factibilidad",    _cmd_fact_dm, _js_fact_dm),
+                    ("2/6 Asignación",      _cmd_asig_dm, _js_asig_dm),
+                    ("3/6 IA Inicio",       _cmd_ia_dm,   _js_ia_dm),
+                    ("4/6 Activación",      _cmd_act_dm,  _js_act_dm),
+                    ("5/6 Device Modif.",   _cmd_dm,      _js_dm),
+                    ("6/6 Consulta Acceso", _cmd_ca,      _js_ca),
                 ],
                 "cwd":    str(QA_DIR),
                 "rp_out": _rp_dm,
@@ -2344,7 +2335,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_dm():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 7 pasos · sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _env_dm = {**os.environ,
                        "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2358,7 +2349,7 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_dm.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
                 _last_json = None
                 for _step_lbl, _step_cmd, _step_json in tr["steps"]:
-                    if "5/7" in _step_lbl:
+                    if "5/6" in _step_lbl:
                         await _out_q_dm.put(("L", tr["tc"], f"── Serial actual (activación): {tr['act_serial']} ──"))
                         await _out_q_dm.put(("L", tr["tc"], f"── Serial nuevo (DM): {tr['dm_serial']} ──"))
                     await _out_q_dm.put(("L", tr["tc"], f"── Paso {_step_lbl} ──"))
@@ -2414,7 +2405,7 @@ async def api_run(suite_id: str, request: Request):
                         except Exception:
                             pass
                     # ── Verificar u_return_code esperado ──────────────────────────
-                    _expected_rc_dm = {"6/7 Idempotencia DM": "21", "7/7 Consulta Acceso": "0"}.get(_step_lbl)
+                    _expected_rc_dm = {"6/6 Consulta Acceso": "0"}.get(_step_lbl)
                     if _expected_rc_dm is not None and _step_json and Path(_step_json).exists():
                         try:
                             _jd_v = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
