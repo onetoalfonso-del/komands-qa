@@ -6899,7 +6899,7 @@ function loadConfig(){
       h+='<label style="display:block;font-size:.74rem;color:var(--txt2);margin-bottom:4px">'+esc(row.label||row.key)+'</label>';
       h+='<div style="display:flex;gap:8px;align-items:center">';
       h+='<input id="cfg-'+esc(row.key)+'" type="number" min="0" value="'+esc(row.value)+'" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem;width:120px">';
-      h+='<button onclick="_saveConfig(\''+esc(row.key)+'\')" style="padding:5px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--accd);color:var(--acc);font-size:.74rem;cursor:pointer">Guardar</button>';
+      h+='<button onclick="_saveConfig(this.dataset.k)" data-k="'+esc(row.key)+'" style="padding:5px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--accd);color:var(--acc);font-size:.74rem;cursor:pointer">Guardar</button>';
       h+='<span id="cfg-msg-'+esc(row.key)+'" style="font-size:.7rem;color:var(--ok);display:none">&#10003; Guardado</span>';
       h+='</div></div>';
     });
