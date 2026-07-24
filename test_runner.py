@@ -3997,6 +3997,12 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #cancel-form-bar input,#cancel-form-bar select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
 #cancel-form-bar input:focus,#cancel-form-bar select:focus{border-color:var(--acc)}
 #cancel-serial-preview{padding:4px 12px 5px;min-height:20px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
+#gf-panel{display:flex;align-items:center;gap:8px;padding:7px 12px;flex-shrink:0;flex-wrap:wrap;background:var(--card);border-bottom:2px solid var(--acc)}
+#gf-panel .gfl{font-size:.6rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+#gf-panel .gfl-title{font-size:.65rem;color:var(--acc);font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;margin-right:4px}
+#gf-panel input,#gf-panel select{font-size:.68rem;padding:3px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);outline:none}
+#gf-panel input:focus,#gf-panel select:focus{border-color:var(--acc)}
+#gf-panel .gf-wide{width:160px}#gf-panel .gf-med{width:100px}#gf-panel .gf-sm{width:58px;font-family:monospace;letter-spacing:.05em}
 #asig-grid,#ia-grid,#activ-grid,#dm-grid,#cancel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;overflow:hidden;padding:8px 10px;min-height:0}
 #ia-form-bar,#activ-form-bar{display:flex;align-items:center;gap:8px;padding:6px 10px 5px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd);background:var(--card)}
 #ia-access-preview,#activ-access-preview{display:flex;gap:10px;flex-wrap:wrap;padding:3px 10px 5px;background:var(--card);border-bottom:1px solid var(--brd);flex-shrink:0}
@@ -4102,6 +4108,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <button class="clr-btn" onclick="clearTerm()">Limpiar</button>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">☀</button>
     </div>
+    <div id="gf-panel" style="display:none;flex-shrink:0"></div>
     <!-- Vista estándar -->
     <div id="std-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="olt-info-bar" id="olt-info-bar" style="display:none"></div>
@@ -4247,6 +4254,7 @@ function loadSuites(attempt){
   });
 }
 loadSuites();
+renderGlobalForm();
 
 function renderSB(){
   var el=document.getElementById('sb-list'); el.innerHTML='';
@@ -4605,6 +4613,43 @@ function switchView(mode){
   var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
+  var _gfp=document.getElementById('gf-panel');
+  if(_gfp){var _gfModes=['fact','asig','ia','activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'flex':'none';}
+}
+
+function renderGlobalForm(){
+  var p=document.getElementById('gf-panel'); if(!p) return;
+  p.innerHTML=
+    '<span class="gfl-title">Parámetros</span>'
+    +'<span class="gfl">Access ID:</span>'
+    +'<input class="gf-wide" id="gf-access" placeholder="ej: 02-XXXXX-01" />'
+    +'<span class="gfl">Dirección:</span>'
+    +'<input class="gf-med" id="gf-addr" placeholder="DIR..." />'
+    +'<span class="gfl">Plan:</span>'
+    +'<select id="gf-speed">'
+    +'<option value="100/10">100/10</option>'
+    +'<option value="100/100">100/100</option>'
+    +'<option value="300/300">300/300</option>'
+    +'<option value="400/400">400/400</option>'
+    +'<option value="600/600" selected>600/600</option>'
+    +'<option value="800/800">800/800</option>'
+    +'<option value="1000/1000">1000/1000</option>'
+    +'</select>'
+    +'<span class="gfl">Serial (últ.4):</span>'
+    +'<input class="gf-sm" id="gf-serial" maxlength="4" placeholder="0000" />'
+    +'<span class="gfl">Tipo:</span>'
+    +'<select id="gf-stype">'
+    +'<option value="FTTH" selected>FTTH</option>'
+    +'<option value="SSAA">SSAA</option>'
+    +'</select>'
+    +'<span class="gfl">Servicios:</span>'
+    +'<select id="gf-ba"><option value="true" selected>BA ✓</option><option value="false">BA ✗</option></select>'
+    +'<select id="gf-voip"><option value="true" selected>VoIP ✓</option><option value="false">VoIP ✗</option></select>'
+    +'<select id="gf-iptv"><option value="true" selected>IPTV ✓</option><option value="false">IPTV ✗</option></select>';
+  var gfAcc=document.getElementById('gf-access');
+  var gfSer=document.getElementById('gf-serial');
+  if(gfAcc) gfAcc.oninput=function(){ _updateAsigAccessPreview(); _updateIAAccessPreview(); _updateActivAccessPreview(); _updateDmAccessPreview(); };
+  if(gfSer) gfSer.oninput=function(){ _updateActivAccessPreview(); _updateDmAccessPreview(); _updateCancelPreview(); };
 }
 
 // ── Factibilidad: vista multi-consola ────────────────────────────────────────
@@ -4794,7 +4839,7 @@ function _resolveAccessId(raw, vnoCode){
 
 function _updateAsigAccessPreview(){
   var el=document.getElementById('asig-access-preview'); if(!el) return;
-  var raw=(document.getElementById('asig-access')||{}).value||'';
+  var raw=(document.getElementById('gf-access')||{}).value||'';
   if(!raw.trim()){
     el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
     return;
@@ -4813,29 +4858,8 @@ function _updateAsigAccessPreview(){
 function renderAsigFormBar(){
   var bar=document.getElementById('asig-form-bar'); if(!bar) return;
   bar.innerHTML=
-    '<span class="afb-lbl">Access ID:</span>'
-    +'<input class="wide" id="asig-access" placeholder="ej: 02-XXXXX-01" />'
-    +'<span class="afb-lbl">Address ID:</span>'
-    +'<input class="med" id="asig-addr" placeholder="DIR..." />'
-    +'<span class="afb-lbl">Plan:</span>'
-    +'<select id="asig-speed">'
-    +'<option value="100/100">100/100</option>'
-    +'<option value="300/300">300/300</option>'
-    +'<option value="400/400">400/400</option>'
-    +'<option value="600/600" selected>600/600</option>'
-    +'<option value="800/800">800/800</option>'
-    +'<option value="1000/1000">1000/1000</option>'
-    +'</select>'
-    +'<span class="afb-lbl">BA:</span>'
-    +'<select id="asig-ba"><option value="true" selected>Si</option><option value="false">No</option></select>'
-    +'<span class="afb-lbl">VoIP:</span>'
-    +'<select id="asig-voip"><option value="true" selected>Si</option><option value="false">No</option></select>'
-    +'<span class="afb-lbl">IPTV:</span>'
-    +'<select id="asig-iptv"><option value="true" selected>Si</option><option value="false">No</option></select>'
-    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
+    '<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
     +'<input type="checkbox" id="asig-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
-  var inp=document.getElementById('asig-access');
-  if(inp) inp.oninput=_updateAsigAccessPreview;
   _updateAsigAccessPreview();
 }
 
@@ -4943,12 +4967,12 @@ function _asigSetResponse(tc, responses){
 
 function _doRunAsig(s){
   if(running) return;
-  var accessId=document.getElementById('asig-access');
-  var addrId=document.getElementById('asig-addr');
-  var speed=document.getElementById('asig-speed');
-  var ba=document.getElementById('asig-ba');
-  var voip=document.getElementById('asig-voip');
-  var iptv=document.getElementById('asig-iptv');
+  var accessId=document.getElementById('gf-access');
+  var addrId=document.getElementById('gf-addr');
+  var speed=document.getElementById('gf-speed');
+  var ba=document.getElementById('gf-ba');
+  var voip=document.getElementById('gf-voip');
+  var iptv=document.getElementById('gf-iptv');
   if(!accessId||!accessId.value.trim()){
     accessId&&(accessId.style.borderColor='var(--err)');
     return;
@@ -5039,26 +5063,17 @@ function renderIAFormBar(){
     :'<span class="ia-mode-badge fin">Fin</span>';
   bar.innerHTML=
     '<span class="afb-lbl">Modo:</span>'+modeLabel
-    +'<span class="afb-lbl" style="margin-left:8px">Access ID:</span>'
-    +'<input class="wide" id="ia-access" placeholder="ej: 02-XXXXX-01" />'
-    +'<span class="afb-lbl">Escenario:</span>'
+    +'<span class="afb-lbl" style="margin-left:8px">Escenario:</span>'
     +'<select id="ia-scenario">'
     +'<option value="Instalación" selected>Instalación</option>'
     +'<option value="Reparación">Reparación</option>'
-    +'</select>'
-    +'<span class="afb-lbl">Servicio:</span>'
-    +'<select id="ia-svctype">'
-    +'<option value="FTTH" selected>FTTH</option>'
-    +'<option value="SSAA">SSAA</option>'
     +'</select>';
-  var inp=document.getElementById('ia-access');
-  if(inp) inp.oninput=_updateIAAccessPreview;
   _updateIAAccessPreview();
 }
 
 function _updateIAAccessPreview(){
   var el=document.getElementById('ia-access-preview'); if(!el) return;
-  var raw=(document.getElementById('ia-access')||{}).value||'';
+  var raw=(document.getElementById('gf-access')||{}).value||'';
   if(!raw.trim()){
     el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
     return;
@@ -5162,7 +5177,7 @@ function _iaSetResponse(tc,responses){
 
 function _doRunIA(s){
   if(running) return;
-  var accessEl=document.getElementById('ia-access');
+  var accessEl=document.getElementById('gf-access');
   if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
@@ -5185,7 +5200,7 @@ function _doRunIA(s){
   var _accessMap={};
   _iaMeta().forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_IA_VNO_CODES[m.tc]); });
   var _sc=(document.getElementById('ia-scenario')||{}).value||'Instalación';
-  var _sv=(document.getElementById('ia-svctype')||{}).value||'FTTH';
+  var _sv=(document.getElementById('gf-stype')||{}).value||'FTTH';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&scenario='+encodeURIComponent(_sc)
@@ -5232,29 +5247,15 @@ var _ACTIV_SERIAL_BASE={'TC-17':'ZTEG1104','TC-18':'ZTEGD719','TC-19':'HTWC000A'
 function renderActivFormBar(){
   var bar=document.getElementById('activ-form-bar'); if(!bar) return;
   bar.innerHTML=
-    '<span class="afb-lbl">Access ID:</span>'
-    +'<input class="wide" id="activ-access" placeholder="ej: 03-AOQACAP-03" />'
-    +'<span class="afb-lbl">Speed Plan:</span>'
-    +'<input id="activ-speed" style="width:90px" placeholder="600/600" value="600/600" />'
-    +'<span class="afb-lbl">Servicios:</span>'
-    +'<label class="activ-svc"><input type="checkbox" id="activ-sba" checked> BA</label>'
-    +'<label class="activ-svc"><input type="checkbox" id="activ-svoip" checked> VoIP</label>'
-    +'<label class="activ-svc"><input type="checkbox" id="activ-siptv" checked> IPTV</label>'
-    +'<span class="afb-lbl" style="margin-left:8px">Serial (últ. 4):</span>'
-    +'<input id="activ-serial" style="width:60px" maxlength="4" placeholder="0000" />'
-    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
+    '<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
     +'<input type="checkbox" id="activ-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
-  var inp=document.getElementById('activ-access');
-  if(inp) inp.oninput=_updateActivAccessPreview;
-  var sinp=document.getElementById('activ-serial');
-  if(sinp) sinp.oninput=_updateActivAccessPreview;
   _updateActivAccessPreview();
 }
 
 function _updateActivAccessPreview(){
   var el=document.getElementById('activ-access-preview'); if(!el) return;
-  var raw=(document.getElementById('activ-access')||{}).value||'';
-  var suffix=(document.getElementById('activ-serial')||{}).value||'';
+  var raw=(document.getElementById('gf-access')||{}).value||'';
+  var suffix=(document.getElementById('gf-serial')||{}).value||'';
   var h='';
   _ACTIV_META.forEach(function(m){
     var resolved=_resolveAccessId(raw.trim(),_ACTIV_VNO_CODES[m.tc]);
@@ -5356,7 +5357,7 @@ function _activSetResponse(tc,responses){
 
 function _doRunActiv(s){
   if(running) return;
-  var accessEl=document.getElementById('activ-access');
+  var accessEl=document.getElementById('gf-access');
   if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
@@ -5378,11 +5379,11 @@ function _doRunActiv(s){
   var _selTcs=_ACTIV_META.filter(function(m){return _activSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
   _ACTIV_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_ACTIV_VNO_CODES[m.tc]); });
-  var _speed=(document.getElementById('activ-speed')||{}).value||'600/600';
-  var _serial=(document.getElementById('activ-serial')||{}).value||'0000';
-  var _sba=(document.getElementById('activ-sba')||{}).checked!==false;
-  var _svoip=(document.getElementById('activ-svoip')||{}).checked!==false;
-  var _siptv=(document.getElementById('activ-siptv')||{}).checked!==false;
+  var _speed=(document.getElementById('gf-speed')||{}).value||'600/600';
+  var _serial=(document.getElementById('gf-serial')||{}).value||'0000';
+  var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
+  var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
+  var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&speed_plan='+encodeURIComponent(_speed)
@@ -5431,38 +5432,21 @@ var _DM_SERIAL_BASE={'TC-21':'ZTEG1104','TC-22':'ZTEGD719','TC-23':'HTWC000A'};
 
 function renderDmFormBar(){
   var bar=document.getElementById('dm-form-bar'); if(!bar) return;
-  bar.style.cssText='display:flex;flex-direction:column;gap:0;padding:0;';
+  bar.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 12px;flex-wrap:nowrap;border-bottom:1px solid var(--brd);background:var(--card);flex-shrink:0;';
   bar.innerHTML=
-    '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;flex-wrap:nowrap;border-bottom:1px solid var(--border)">'
-    +'<span class="afb-lbl">Access ID:</span>'
-    +'<input style="flex:1;min-width:120px;max-width:210px" id="dm-access" placeholder="ej: 03-AOQACAP-03" />'
-    +'<span class="afb-lbl" style="margin-left:6px">Speed Plan:</span>'
-    +'<input id="dm-speed" style="width:82px" placeholder="600/600" value="600/600" />'
-    +'<span class="afb-lbl" style="margin-left:6px">Servicios:</span>'
-    +'<label class="activ-svc"><input type="checkbox" id="dm-sba" checked> BA</label>'
-    +'<label class="activ-svc"><input type="checkbox" id="dm-svoip" checked> VoIP</label>'
-    +'<label class="activ-svc"><input type="checkbox" id="dm-siptv" checked> IPTV</label>'
-    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
-    +'<input type="checkbox" id="dm-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>'
-    +'</div>'
-    +'<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg3,var(--bg2));flex-wrap:nowrap">'
-    +'<span style="font-size:.7rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-right:2px">Seriales</span>'
-    +'<span class="afb-lbl">Activ. (últ. 4):</span>'
-    +'<input id="dm-serial-activ" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
-    +'<span style="font-size:.85rem;color:var(--txt3);padding:0 4px">&#8594;</span>'
-    +'<span class="afb-lbl">DM nuevo (últ. 4):</span>'
+    '<span class="afb-lbl">Serial DM nuevo (últ. 4):</span>'
     +'<input id="dm-serial-dm" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
-    +'</div>';
-  document.getElementById('dm-access').oninput=_updateDmAccessPreview;
-  document.getElementById('dm-serial-activ').oninput=_updateDmAccessPreview;
-  document.getElementById('dm-serial-dm').oninput=_updateDmAccessPreview;
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
+    +'<input type="checkbox" id="dm-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
+  var dmSer=document.getElementById('dm-serial-dm');
+  if(dmSer) dmSer.oninput=_updateDmAccessPreview;
   _updateDmAccessPreview();
 }
 
 function _updateDmAccessPreview(){
   var el=document.getElementById('dm-access-preview'); if(!el) return;
-  var raw=(document.getElementById('dm-access')||{}).value||'';
-  var sActiv=(document.getElementById('dm-serial-activ')||{}).value||'';
+  var raw=(document.getElementById('gf-access')||{}).value||'';
+  var sActiv=(document.getElementById('gf-serial')||{}).value||'';
   var sDm=(document.getElementById('dm-serial-dm')||{}).value||'';
   if(!raw.trim()){ el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>'; return; }
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px">';
@@ -5572,7 +5556,7 @@ function _dmSetResponse(tc,responses){
 
 function _doRunDm(s){
   if(running) return;
-  var accessEl=document.getElementById('dm-access');
+  var accessEl=document.getElementById('gf-access');
   if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
@@ -5590,12 +5574,12 @@ function _doRunDm(s){
   var _selTcs=_DM_META.filter(function(m){return _dmSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
   _DM_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_DM_VNO_CODES[m.tc]); });
-  var _speed=(document.getElementById('dm-speed')||{}).value||'600/600';
-  var _sActiv=(document.getElementById('dm-serial-activ')||{}).value||'0000';
+  var _speed=(document.getElementById('gf-speed')||{}).value||'600/600';
+  var _sActiv=(document.getElementById('gf-serial')||{}).value||'0000';
   var _sDm=(document.getElementById('dm-serial-dm')||{}).value||'0000';
-  var _sba=(document.getElementById('dm-sba')||{}).checked!==false;
-  var _svoip=(document.getElementById('dm-svoip')||{}).checked!==false;
-  var _siptv=(document.getElementById('dm-siptv')||{}).checked!==false;
+  var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
+  var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
+  var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&speed_plan='+encodeURIComponent(_speed)
@@ -5710,31 +5694,14 @@ var _CANCEL_SERIAL_BASE={'TC-25':'ZTEG1104','TC-26':'ZTEGD719','TC-27':'HTWC000A
 
 function renderCancelFormBar(){
   var bar=document.getElementById('cancel-form-bar'); if(!bar) return;
-  bar.style.cssText='display:flex;flex-direction:column;gap:0;padding:0;border-bottom:1px solid var(--brd);background:var(--card)';
-  bar.innerHTML=
-    '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;flex-wrap:nowrap">'
-    +'<span class="afb-lbl">Speed Plan:</span>'
-    +'<input id="cancel-speed" style="width:82px" placeholder="100/10" value="100/10" />'
-    +'<span class="afb-lbl" style="margin-left:6px">Tipo:</span>'
-    +'<select id="cancel-stype" style="padding:3px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2);color:var(--txt)">'
-    +'<option value="FTTH">FTTH</option>'
-    +'<option value="SSAA">SSAA</option>'
-    +'</select>'
-    +'<span class="afb-lbl" style="margin-left:6px">Servicios:</span>'
-    +'<label class="activ-svc"><input type="checkbox" id="cancel-sba" checked> BA</label>'
-    +'<label class="activ-svc"><input type="checkbox" id="cancel-svoip"> VoIP</label>'
-    +'<label class="activ-svc"><input type="checkbox" id="cancel-siptv"> IPTV</label>'
-    +'<span class="afb-lbl" style="margin-left:10px">Serial (últ. 4):</span>'
-    +'<input id="cancel-serial" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
-    +'</div>'
-    +'<div id="cancel-serial-preview" style="padding:4px 12px 5px;min-height:20px"></div>';
-  document.getElementById('cancel-serial').oninput=_updateCancelPreview;
+  bar.style.cssText='flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd);';
+  bar.innerHTML='<div id="cancel-serial-preview" style="padding:4px 12px 5px;min-height:20px"></div>';
   _updateCancelPreview();
 }
 
 function _updateCancelPreview(){
   var el=document.getElementById('cancel-serial-preview'); if(!el) return;
-  var sfx=(document.getElementById('cancel-serial')||{}).value||'';
+  var sfx=(document.getElementById('gf-serial')||{}).value||'';
   if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa los últimos 4 dígitos del serial</span>'; return; }
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   _CANCEL_META.forEach(function(m){
@@ -5851,12 +5818,12 @@ function _doRunCancel(s){
   });
   if(currentEs){currentEs.close();currentEs=null;}
   var _selTcs=_CANCEL_META.filter(function(m){return _cancelSel[m.tc];}).map(function(m){return m.tc;}).join(',');
-  var _speed=(document.getElementById('cancel-speed')||{}).value||'100/10';
-  var _stype=(document.getElementById('cancel-stype')||{}).value||'FTTH';
-  var _sba=(document.getElementById('cancel-sba')||{}).checked!==false;
-  var _svoip=!!(document.getElementById('cancel-svoip')||{}).checked;
-  var _siptv=!!(document.getElementById('cancel-siptv')||{}).checked;
-  var _serial=(document.getElementById('cancel-serial')||{}).value||'0000';
+  var _speed=(document.getElementById('gf-speed')||{}).value||'100/10';
+  var _stype=(document.getElementById('gf-stype')||{}).value||'FTTH';
+  var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
+  var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
+  var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
+  var _serial=(document.getElementById('gf-serial')||{}).value||'0000';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&speed_plan='+encodeURIComponent(_speed)
     +'&service_type='+encodeURIComponent(_stype)
