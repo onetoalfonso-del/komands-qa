@@ -1070,6 +1070,8 @@ async def api_run(suite_id: str, request: Request):
 
     overrides = dict(request.query_params)
     _tc_runs = None  # set by qa_fact_suite handler; triggers parallel SSE path
+    _gf_url_fact = ""   # URL de ambiente desde Settings (para sse_parallel)
+    _gf_env_fact = ""   # Nombre del ambiente (para mostrar en consola)
 
     if suite.get("env_type") == "qa_vno":
         vno_code = overrides.pop("vno", "02")
@@ -1490,6 +1492,21 @@ async def api_run(suite_id: str, request: Request):
         _TC_DEFS = [d for d in _TC_DEFS_ALL if d["tc"] in _tcs_filter]
         if not _TC_DEFS:
             _TC_DEFS = _TC_DEFS_ALL
+        # Leer URL configurada en Settings → qa_environments
+        _gf_url_fact = ""
+        _gf_env_fact = overrides.get("gf_env", "").strip().upper()
+        if _gf_env_fact:
+            try:
+                _epool_f = await _db()
+                if _epool_f:
+                    _erow_f = await _epool_f.fetchrow(
+                        "SELECT base_url FROM qa_environments "
+                        "WHERE UPPER(name)=$1 AND active=true AND base_url!=''",
+                        _gf_env_fact)
+                    if _erow_f and _erow_f["base_url"]:
+                        _gf_url_fact = _erow_f["base_url"]
+            except Exception:
+                pass
         _tc_runs = []
         for _tcd in _TC_DEFS:
             _vno       = _tcd["vno"]
@@ -1499,7 +1516,8 @@ async def api_run(suite_id: str, request: Request):
             _json_out  = str(_fact_dir / f"{_tcd['tc']}.json")
             _env_data  = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
             _ev        = {v["key"]: v["value"] for v in _env_data["values"]}
-            _apim_url  = _ev.get("apimURL", "")
+            # Usar URL de Settings si está configurada, si no la del archivo JSON
+            _apim_url  = _gf_url_fact or _ev.get("apimURL", "")
             _auth_b64  = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
             _token = ""
             try:
@@ -1531,6 +1549,19 @@ async def api_run(suite_id: str, request: Request):
                                 _b["raw"] = _new_body
             _tmp_col = str(QA_DIR / f"_tmp_fact_suite_{_vno}.json")
             _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _fact_cmd = [NEWMAN, "run", _tmp_col,
+                         "-e", _env_file,
+                         "--folder", _folder,
+                         "--env-var", f"Token={_token}",
+                         "--env-var", f"idvno={_vno}",
+                         "--insecure",
+                         "--reporters", "cli,json,htmlextra",
+                         "--reporter-json-export", _json_out,
+                         "--reporter-htmlextra-export", _rp_out,
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']} – OnnetFibra",
+                         "--reporter-htmlextra-logo", _logo_uri]
+            if _gf_url_fact:
+                _fact_cmd += ["--env-var", f"apimURL={_gf_url_fact}"]
             _tc_runs.append({
                 "tc":         _tcd["tc"],
                 "vno":        _vno,
@@ -1540,17 +1571,7 @@ async def api_run(suite_id: str, request: Request):
                 "tc_label":   "Factibilidad",
                 "address_id": _ADDR_ID,
                 "access_id":  "",
-                "cmd":        [NEWMAN, "run", _tmp_col,
-                            "-e", _env_file,
-                            "--folder", _folder,
-                            "--env-var", f"Token={_token}",
-                            "--env-var", f"idvno={_vno}",
-                            "--insecure",
-                            "--reporters", "cli,json,htmlextra",
-                            "--reporter-json-export", _json_out,
-                            "--reporter-htmlextra-export", _rp_out,
-                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']} – OnnetFibra",
-                            "--reporter-htmlextra-logo", _logo_uri],
+                "cmd":        _fact_cmd,
                 "cwd":     str(QA_DIR),
                 "rp_out":  _rp_out,
                 "json_out": _json_out,
@@ -3256,6 +3277,8 @@ async def api_run(suite_id: str, request: Request):
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
             _suite_lbl = suite.get("label","Suite")
             yield f"data: {json.dumps({'e':'line','t':f'{_suite_lbl} — {len(_tc_runs)} TCs en paralelo'})}\n\n"
+            if _gf_url_fact:
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} → {_gf_url_fact}'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
 
             _env = {**os.environ,
