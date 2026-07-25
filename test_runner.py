@@ -4761,6 +4761,7 @@ function _vnoParams(){
 }
 
 function executeSelected(){
+  if(running&&!currentEs){running=false;runningId=null;}
   if(running||!selectedId) return;
   if(selectedId==='apim-parallel'||selectedId==='qa-fulfillment'){ executeSN(); return; }
   if(selectedId==='qa-fact-suite'){
@@ -5120,6 +5121,7 @@ function selectAllFact(val){
 }
 
 function _syncExecBtn(){
+  if(running&&!currentEs){running=false;runningId=null;}
   var anyOn=_FACT_TC_META.some(function(m){ return _factSel[m.tc]; });
   var eb=document.getElementById('exec-btn');
   if(eb) eb.disabled=running||!anyOn;
