@@ -3872,10 +3872,12 @@ async def api_environments_put(env_id: int, request: Request):
     if not name or not base_url:
         return JSONResponse({"error": "name y base_url son requeridos"}, status_code=400)
     try:
-        await pool.execute(
+        result = await pool.execute(
             "UPDATE qa_environments SET name=$1, label=$2, base_url=$3, env_type=$4, active=$5 "
             "WHERE id=$6",
             name, label, base_url, env_type, active, env_id)
+        if result == "UPDATE 0":
+            return JSONResponse({"error": "Ambiente no encontrado"}, status_code=404)
         return {"ok": True}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
