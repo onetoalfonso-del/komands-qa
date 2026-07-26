@@ -1505,8 +1505,12 @@ async def api_run(suite_id: str, request: Request):
                         _gf_env_fact)
                     if _erow_f and _erow_f["base_url"]:
                         _gf_url_fact = _erow_f["base_url"]
-            except Exception:
-                pass
+                    else:
+                        print(f"[fact-suite] qa_environments: sin URL para '{_gf_env_fact}' (active+base_url no vacío)")
+                else:
+                    print(f"[fact-suite] _db() retornó None — DATABASE_URL no configurado o error de conexión")
+            except Exception as _ef:
+                print(f"[fact-suite] Error leyendo qa_environments: {_ef}")
         _tc_runs = []
         for _tcd in _TC_DEFS:
             _vno       = _tcd["vno"]
@@ -3279,6 +3283,8 @@ async def api_run(suite_id: str, request: Request):
             yield f"data: {json.dumps({'e':'line','t':f'{_suite_lbl} — {len(_tc_runs)} TCs en paralelo'})}\n\n"
             if _gf_url_fact:
                 yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} → {_gf_url_fact}'})}\n\n"
+            elif _gf_env_fact:
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] ⚠ {_gf_env_fact} — URL no encontrada en Settings (usando env por defecto)'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'━'*55})}\n\n"
 
             _env = {**os.environ,
