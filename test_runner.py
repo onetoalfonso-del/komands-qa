@@ -44,6 +44,12 @@ QA_ASSIGNMENT_FOLDER_MAP = {
     "03": "assigment-Entel",
     "05": "assigment-DTV",
 }
+QA_ASSIGNMENT_OPERATION_TYPE = {
+    "00": "A",
+    "02": "Alta",
+    "03": "A",
+    "05": "A",
+}
 QA_IA_VNO_SUBFOLDER = {
     "00": "TCH",
     "02": "KAO",
@@ -3615,9 +3621,10 @@ async def atrf_run_step(request: Request):
                 token = _j.loads(r.read()).get("access_token", "")
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        op_type = QA_ASSIGNMENT_OPERATION_TYPE.get(vno, "Alta")
         req_body_dict = {
             "u_access_id_vno": access_id,
-            "u_id_vno": vno, "u_operation_type": "Alta",
+            "u_id_vno": vno, "u_operation_type": op_type,
             "u_scenario": "Alta de Acceso", "u_speed_plan": speed_plan,
             "u_address_id": direccion, "u_address_mcd": address_mcd,
             "u_service_ba": service_ba, "u_service_voip": service_voip, "u_service_iptv": service_iptv,
