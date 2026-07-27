@@ -3920,6 +3920,16 @@ HTML = """<!DOCTYPE html>
   --mono:'Cascadia Code','Consolas','Courier New',monospace;
   --sans:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;
   --logo-dark:#DCE2F6;--logo-light:#0D1B3E;
+  /* ATRF tokens — mapean a variables del sistema */
+  --atrf-bg:var(--bg);--atrf-surface:var(--card);--atrf-surface2:var(--side);
+  --atrf-border:var(--brd);--atrf-border2:var(--brd);
+  --atrf-text:var(--txt);--atrf-text2:var(--txt2);--atrf-text3:var(--txt3);
+  --atrf-accent:var(--acc);--atrf-accent2:var(--acc);
+  --atrf-green:var(--ok);--atrf-green-bg:var(--okd);--atrf-green-border:var(--okb);
+  --atrf-red:var(--err);--atrf-red-bg:var(--errd);--atrf-red-border:var(--errb);
+  --atrf-amber:var(--warn);--atrf-amber-bg:rgba(255,179,71,.10);--atrf-amber-border:rgba(255,179,71,.30);
+  --atrf-radius:8px;--atrf-radius-lg:12px;
+  --atrf-font:var(--sans);--atrf-mono:var(--mono);
 }
 body.light{
   --bg:#F2F5FB;--side:#FFFFFF;--sideh:#EBF5F9;--card:#FFFFFF;--term:#F4F7FC;
@@ -3927,7 +3937,7 @@ body.light{
   --acc:#00A8B4;--accd:rgba(0,168,180,.10);
   --ok:#1A9E5E;--okd:rgba(26,158,94,.10);--okb:rgba(26,158,94,.25);
   --err:#D94F4F;--errd:rgba(217,79,79,.10);--errb:rgba(217,79,79,.25);
-  --warn:#B87200;
+  --warn:#B87200;--atrf-amber-bg:rgba(184,114,0,.08);--atrf-amber-border:rgba(184,114,0,.25);
   --txt:#0D1B3E;--txt2:#4A5A80;--txt3:#9AAAC8;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -4272,7 +4282,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .hist-badge.warn{background:rgba(255,179,71,.15);color:var(--warn)}
 .hist-empty{padding:40px;text-align:center;color:var(--txt3);font-size:.8rem}
 /* ── QA FulFillment Queue (Humberto design) ── */
-#fulfillment-view{--atrf-bg:#0f1117;--atrf-surface:#181c27;--atrf-surface2:#1f2435;--atrf-border:#2a3048;--atrf-border2:#3a4460;--atrf-text:#e8eaf0;--atrf-text2:#8892aa;--atrf-text3:#4a5470;--atrf-accent:#3d7fff;--atrf-accent2:#2960dd;--atrf-green:#22c55e;--atrf-green-bg:#0d2818;--atrf-green-border:#166534;--atrf-red:#f87171;--atrf-red-bg:#2d0a0a;--atrf-red-border:#7f1d1d;--atrf-amber:#fbbf24;--atrf-amber-bg:#2d1f00;--atrf-amber-border:#78350f;--atrf-radius:8px;--atrf-radius-lg:12px;--atrf-font:'IBM Plex Sans',system-ui,sans-serif;--atrf-mono:'IBM Plex Mono',monospace;background:var(--atrf-bg);color:var(--atrf-text);overflow-y:auto}
+#fulfillment-view{background:var(--atrf-bg);color:var(--atrf-text);overflow-y:auto}
 #fulfillment-view *{box-sizing:border-box}
 .atrf-layout{max-width:1380px;margin:0 auto;padding:1.5rem 2rem 4rem;display:flex;flex-direction:column;gap:1rem}
 .atrf-section{background:var(--atrf-surface);border:1px solid var(--atrf-border);border-radius:var(--atrf-radius-lg);overflow:hidden}
