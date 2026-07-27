@@ -1069,9 +1069,25 @@ async def api_run(suite_id: str, request: Request):
         return JSONResponse({"error": "Suite bloqueada: " + suite.get("blocker", "")}, status_code=400)
 
     overrides = dict(request.query_params)
-    _tc_runs = None  # set by qa_fact_suite handler; triggers parallel SSE path
-    _gf_url_fact = ""   # URL de ambiente desde Settings (para sse_parallel)
-    _gf_env_fact = ""   # Nombre del ambiente (para mostrar en consola)
+    _tc_runs = None
+    _gf_env_fact = overrides.get("gf_env", "").strip().upper()
+    _gf_url_fact = ""
+    if _gf_env_fact:
+        try:
+            _epool_g = await _db()
+            if _epool_g:
+                _erow_g = await _epool_g.fetchrow(
+                    "SELECT base_url FROM qa_environments "
+                    "WHERE UPPER(name)=$1 AND active=true AND base_url!=''",
+                    _gf_env_fact)
+                if _erow_g and _erow_g["base_url"]:
+                    _gf_url_fact = _erow_g["base_url"]
+                else:
+                    print(f"[api_run] qa_environments: sin URL para '{_gf_env_fact}'")
+            else:
+                print("[api_run] _db() retornó None")
+        except Exception as _eg:
+            print(f"[api_run] Error leyendo qa_environments: {_eg}")
 
     if suite.get("env_type") == "qa_vno":
         vno_code = overrides.pop("vno", "02")
@@ -1492,25 +1508,6 @@ async def api_run(suite_id: str, request: Request):
         _TC_DEFS = [d for d in _TC_DEFS_ALL if d["tc"] in _tcs_filter]
         if not _TC_DEFS:
             _TC_DEFS = _TC_DEFS_ALL
-        # Leer URL configurada en Settings → qa_environments
-        _gf_url_fact = ""
-        _gf_env_fact = overrides.get("gf_env", "").strip().upper()
-        if _gf_env_fact:
-            try:
-                _epool_f = await _db()
-                if _epool_f:
-                    _erow_f = await _epool_f.fetchrow(
-                        "SELECT base_url FROM qa_environments "
-                        "WHERE UPPER(name)=$1 AND active=true AND base_url!=''",
-                        _gf_env_fact)
-                    if _erow_f and _erow_f["base_url"]:
-                        _gf_url_fact = _erow_f["base_url"]
-                    else:
-                        print(f"[fact-suite] qa_environments: sin URL para '{_gf_env_fact}' (active+base_url no vacío)")
-                else:
-                    print(f"[fact-suite] _db() retornó None — DATABASE_URL no configurado o error de conexión")
-            except Exception as _ef:
-                print(f"[fact-suite] Error leyendo qa_environments: {_ef}")
         _tc_runs = []
         for _tcd in _TC_DEFS:
             _vno       = _tcd["vno"]
