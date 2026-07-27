@@ -4411,7 +4411,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-url-badge{font-size:10px;font-family:var(--atrf-mono);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:4px;padding:1px 7px;color:var(--atrf-green);margin-left:4px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
 </style>
 </head>
-<body>
+<body class="light">
 <div class="layout">
   <aside class="sb">
     <div class="sb-head">
