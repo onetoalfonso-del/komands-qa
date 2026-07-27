@@ -3655,9 +3655,10 @@ async def atrf_run_step(request: Request):
         if amb_url:
             cmd += ["--env-var", f"apimURL={amb_url}"]
         loop = _aio.get_event_loop()
-        await loop.run_in_executor(None, lambda: subprocess.run(
+        _nr = await loop.run_in_executor(None, lambda: subprocess.run(
             cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
         ))
+        _newman_stdout = _nr.stdout.decode("utf-8", errors="replace") if _nr.stdout else ""
         pass_flag = False; res_body = ""; http_code = 0
         try:
             jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
@@ -3693,7 +3694,8 @@ async def atrf_run_step(request: Request):
             pass
         return JSONResponse({"pass": pass_flag, "req": req_body_str,
                              "res": res_body, "vno": vno, "func": func_name,
-                             "httpCode": http_code, "accessIdVno": access_id_vno_gen})
+                             "httpCode": http_code, "accessIdVno": access_id_vno_gen,
+                             "newmanOut": _newman_stdout[-3000:] if '_newman_stdout' in dir() else ""})
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
@@ -8441,20 +8443,20 @@ function _atrf_buildSimRes(funcName,cfg,pass){
   return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
 }
 var _ATRF_ENDPOINT_MAP={
-  "Factibilidad":                        "/api/checkFeasibility",
-  "Asignación":                          "/api/assignAddress",
-  "Inicio Intervención Asegurada":       "/api/startIntervention",
-  "Activación":                          "/api/activateService",
-  "Consulta de Acceso":                  "/api/retrieveAccess",
-  "Diagnóstico de Acceso":               "/api/diagnoseAccess",
-  "Modificación de Dispositivo":         "/api/modifyDevice",
-  "Consulta Estado Vecino (GET)":        "/api/retrieveNeighbor",
-  "Consulta Estado Vecino (POST)":       "/api/retrieveNeighbor",
-  "Cambio de Pelo":                      "/api/changeLine",
-  "Modificación de Acceso":              "/api/modifyAccess",
-  "Finalización Intervención Asegurada": "/api/closeIntervention",
-  "Reinicio ONT":                        "/api/rebootONT",
-  "RetrieveAccess":                      "/api/retrieveAccess",
+  "Factibilidad":                        "fullFillment-feasibility/v1/feasibility",
+  "Asignación":                          "fullFillment-assignment/v1/assignment",
+  "Inicio Intervención Asegurada":       "fullFillment-ia/v1/initIntervention",
+  "Activación":                          "fullFillment-activation/v1/activation",
+  "Consulta de Acceso":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
+  "Diagnóstico de Acceso":               "fullFillment-diagnose/v1/diagnose",
+  "Modificación de Dispositivo":         "fullFillment-modifyDevice/v1/modifyDevice",
+  "Consulta Estado Vecino (GET)":        "fullFillment-neighbor/v1/neighbor",
+  "Consulta Estado Vecino (POST)":       "fullFillment-neighbor/v1/neighbor",
+  "Cambio de Pelo":                      "fullFillment-changeLine/v1/changeLine",
+  "Modificación de Acceso":              "fullFillment-modifyAccess/v1/modifyAccess",
+  "Finalización Intervención Asegurada": "fullFillment-ia/v1/closeIntervention",
+  "Reinicio ONT":                        "fullFillment-reboot/v1/reboot",
+  "RetrieveAccess":                      "fullFillment-retrieveAccess/v1/retrieveAccess",
   "RetrieveAccess ONT":                  "/api/retrieveAccessONT",
   "Cancelación Intervención Asegurada":  "/api/cancelIntervention",
   "Baja Total de Servicio":              "/api/cancelService",
