@@ -8485,7 +8485,6 @@ async function _atrf_runSelected(){
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
     q.tcResults=[];
     var vno=q.cfg&&q.cfg.vno||'';
-    var _genAccessId=q.cfg.accessId||'';  // se actualiza con u_access_id_vno de Asignación
     for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
       var fi=q.funcs[fi_idx];
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
@@ -8501,7 +8500,7 @@ async function _atrf_runSelected(){
             direccion:q.cfg.direccion||'',
             addressMcd:q.cfg.tdir||'OSP',
             serviceType:q.cfg.tsvc||'FTTH',
-            accessId:_genAccessId,
+            accessId:q.cfg.accessId||'',
             serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',
             speedPlan:q.cfg.plan||'',
@@ -8516,7 +8515,6 @@ async function _atrf_runSelected(){
           res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
           if(rd.error&&!rd.req)res_s='Error: '+rd.error;
           httpCode=rd.httpCode||0;
-          if(rd.accessIdVno)_genAccessId=rd.accessIdVno;  // propagar a pasos siguientes
         }
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
