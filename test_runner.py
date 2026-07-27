@@ -3671,6 +3671,12 @@ async def atrf_run_step(request: Request):
                     pass_flag = http_code in (200, 201) and not failures
         except Exception as pe:
             res_body = f"Error parseando resultado Newman: {pe}"
+        access_id_vno_gen = ""
+        try:
+            _rj_asig = _j.loads(res_body)
+            access_id_vno_gen = (_rj_asig.get("result") or {}).get("u_access_id_vno", "")
+        except Exception:
+            pass
         try:
             Path(tmp_col).unlink(missing_ok=True)
             Path(json_out).unlink(missing_ok=True)
@@ -3678,7 +3684,7 @@ async def atrf_run_step(request: Request):
             pass
         return JSONResponse({"pass": pass_flag, "req": req_body_str,
                              "res": res_body, "vno": vno, "func": func_name,
-                             "httpCode": http_code})
+                             "httpCode": http_code, "accessIdVno": access_id_vno_gen})
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
@@ -8479,6 +8485,7 @@ async function _atrf_runSelected(){
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
     q.tcResults=[];
     var vno=q.cfg&&q.cfg.vno||'';
+    var _genAccessId=q.cfg.accessId||'';  // se actualiza con u_access_id_vno de Asignación
     for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
       var fi=q.funcs[fi_idx];
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
@@ -8494,7 +8501,7 @@ async function _atrf_runSelected(){
             direccion:q.cfg.direccion||'',
             addressMcd:q.cfg.tdir||'OSP',
             serviceType:q.cfg.tsvc||'FTTH',
-            accessId:q.cfg.accessId||'',
+            accessId:_genAccessId,
             serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',
             speedPlan:q.cfg.plan||'',
@@ -8509,6 +8516,7 @@ async function _atrf_runSelected(){
           res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
           if(rd.error&&!rd.req)res_s='Error: '+rd.error;
           httpCode=rd.httpCode||0;
+          if(rd.accessIdVno)_genAccessId=rd.accessIdVno;  // propagar a pasos siguientes
         }
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
