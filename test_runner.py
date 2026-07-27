@@ -4416,6 +4416,14 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-hist-ts{color:var(--atrf-text2);flex:1}
 /* URL badge shown in queue item */
 .atrf-url-badge{font-size:10px;font-family:var(--atrf-mono);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:4px;padding:1px 7px;color:var(--atrf-green);margin-left:4px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+.atrf-tc-results{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.atrf-tc-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;font-size:11px;font-family:var(--atrf-mono);font-weight:600;cursor:pointer;transition:all .15s;border:1px solid transparent;user-select:none}
+.atrf-tc-badge.pass{background:var(--atrf-green-bg);border-color:var(--atrf-green-border);color:var(--atrf-green)}
+.atrf-tc-badge.fail{background:var(--atrf-red-bg);border-color:var(--atrf-red-border);color:var(--atrf-red)}
+.atrf-tc-badge.pending{background:var(--atrf-surface2);border-color:var(--atrf-border);color:var(--atrf-text3);cursor:default}
+.atrf-tc-badge:not(.pending):hover{filter:brightness(1.15);transform:translateY(-1px)}
+.atrf-tc-section-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-top:10px;margin-bottom:4px}
+.atrf-tc-modal-pre{background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:6px;padding:12px;font-family:var(--atrf-mono);font-size:11px;color:var(--atrf-text);overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;max-height:260px;overflow-y:auto}
 .atrf-vno-checks{display:flex;gap:6px;flex-wrap:wrap;padding-top:2px}
 .atrf-vno-lbl{display:flex;align-items:center;gap:5px;font-size:12px;font-family:var(--atrf-mono);padding:5px 12px;border-radius:var(--atrf-radius);border:1px solid var(--atrf-border2);background:var(--atrf-surface2);color:var(--atrf-text2);cursor:pointer;transition:all .15s;height:34px;user-select:none}
 .atrf-vno-lbl.on{background:rgba(0,200,212,.12);border-color:var(--atrf-accent);color:var(--atrf-accent)}
@@ -7760,6 +7768,28 @@ function setTop(state,title,txt){
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 // ─── QA FulFillment Queue (diseño Humberto) ──────────────────────────────
+// ─── TC map por funcionalidad ─────────────────────────────────────────────
+var _ATRF_TC_MAP={
+  "Factibilidad":                        {"03":"CP01","02":"CP02","05":"CP03","00":"CP03"},
+  "Asignación":                          {"03":"CP04","02":"CP05","05":"CP06","00":"CP06"},
+  "Inicio Intervención Asegurada":       {"03":"CP07","02":"CP08","05":"CP09","00":"CP09"},
+  "Activación":                          {"03":"CP10","02":"CP13","05":"CP16","00":"CP16"},
+  "Consulta de Acceso":                  {"03":"CP11","02":"CP14","05":"CP17","00":"CP17"},
+  "Diagnóstico de Acceso":               {"03":"CP12","02":"CP15","05":"CP18","00":"CP18"},
+  "Modificación de Dispositivo":         {"03":"CP19","02":"CP21","05":"CP22","00":"CP22"},
+  "Consulta Estado Vecino (GET)":        {"03":"CP23","02":"CP25","05":"CP26","00":"CP26"},
+  "Consulta Estado Vecino (POST)":       {"03":"CP23","02":"CP25","05":"CP26","00":"CP26"},
+  "Cambio de Pelo":                      {"03":"CP27","02":"CP30","05":"CP31","00":"CP31"},
+  "Modificación de Acceso":              {"03":"CP32","02":"CP34","05":"CP35","00":"CP35"},
+  "Finalización Intervención Asegurada": {"03":"CP36","02":"CP62","05":"CP63","00":"CP63"},
+  "Reinicio ONT":                        {"03":"CP117","02":"CP40","05":"CP93","00":"CP93"},
+  "RetrieveAccess":                      {"03":"CP119","02":"CP44","05":"CP95","00":"CP95"},
+  "RetrieveAccess ONT":                  {"03":"CP42","02":"CP42","05":"CP42","00":"CP42"},
+  "Cancelación Intervención Asegurada":  {"03":"CP67","02":"CP68","05":"CP69","00":"CP69"},
+  "Baja Total de Servicio":              {"03":"CP64","02":"CP65","05":"CP66","00":"CP66"},
+  "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"}
+};
+var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
@@ -7849,7 +7879,27 @@ function _atrf_toggleDetail(qi){
     var q=_atrfQueue[qi];
     var el=document.getElementById('atrf-qdetail-'+qi);
     var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
-    el.innerHTML='<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div></div>';
+    var tcHtml='';
+    if(q.tcResults&&q.tcResults.length){
+      tcHtml+='<div class="atrf-tc-section-lbl">Casos de prueba</div><div class="atrf-tc-results">';
+      q.tcResults.forEach(function(r,idx){
+        var cls=r.pass?'pass':'fail';
+        var icon=r.pass?'✓':'✗';
+        tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
+      });
+      tcHtml+='</div>';
+    } else if(q.status==='espera'){
+      tcHtml+='<div class="atrf-tc-section-lbl">Casos de prueba</div><div class="atrf-tc-results">';
+      (q.funcs||[]).forEach(function(fi){
+        var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];
+        if(!tcMap)return;
+        var tc=tcMap[q.cfg&&q.cfg.vno||''];if(!tc)return;
+        var vl=_ATRF_TC_VNO_LABEL[q.cfg&&q.cfg.vno||'']||q.cfg.vno;
+        tcHtml+='<span class="atrf-tc-badge pending">'+tc+' · '+vl+'</span>';
+      });
+      tcHtml+='</div>';
+    }
+    el.innerHTML='<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div>'+tcHtml+'</div>';
   }
 }
 function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();}
@@ -7999,6 +8049,58 @@ function _atrf_enqueue(){
   if(typeof showToast==='function')showToast(msg,'ok');
 }
 
+function _atrf_buildSimReq(funcName,cfg){
+  var aid=cfg.accessId||'';var vno=cfg.vno||'';var svc=cfg.tsvc||'FTTH';var dir=cfg.direccion||'';
+  var base={u_vno_id:vno,u_service_type:svc,u_address:dir};
+  if(funcName==='Factibilidad')return JSON.stringify(Object.assign({},base,{u_scenario:cfg.esc||'Instalación'}),null,2);
+  if(funcName==='Asignación')return JSON.stringify(Object.assign({},base,{u_plan:cfg.plan||'',u_serial_number:cfg.sn||'',u_with_bp:cfg.bp||'Con BP'}),null,2);
+  if(funcName==='Inicio Intervención Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_scenario:cfg.esc||'Instalación',u_service_type:svc},null,2);
+  if(funcName==='Activación')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_plan:cfg.plan||'',u_serial_number:cfg.sn||'',u_new_serial_number:cfg.nsn||'',u_service_type:svc},null,2);
+  if(funcName==='Modificación de Dispositivo')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_serial_number:cfg.sn||'',u_new_serial_number:cfg.nsn||'',u_service_type:svc},null,2);
+  if(funcName==='Cancelación Orden de Servicio')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc,u_reason:'Cancelación solicitada por VNO'},null,2);
+  if(funcName==='Cancelación Intervención Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Finalización Intervención Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Baja Total de Servicio')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Consulta de Acceso'||funcName==='RetrieveAccess'||funcName==='RetrieveAccess ONT')return JSON.stringify({u_access_id:aid,u_vno_id:vno},null,2);
+  if(funcName==='Diagnóstico de Acceso')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Consulta Estado Vecino (GET)'||funcName==='Consulta Estado Vecino (POST)')return JSON.stringify({u_access_id:aid,u_vno_id:vno},null,2);
+  if(funcName==='Reinicio ONT')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  return JSON.stringify(Object.assign({u_access_id:aid},base,{u_function:funcName}),null,2);
+}
+function _atrf_buildSimRes(funcName,cfg,pass){
+  var aid=cfg.accessId||'';var vno=cfg.vno||'';
+  if(pass){
+    if(funcName==='Factibilidad')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Flujo completado con éxito",u_int_free_access:"falso",u_int_portable_access:"falso",u_access_id:aid,u_vno_id:vno,u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Asignación')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Asignación completada con éxito",u_access_id:aid,u_vno_id:vno,u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Inicio Intervención Asegurada')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Operación aceptada, el flujo continúa",u_access_id:aid,u_vno_id:vno}},null,2);
+    if(funcName==='Activación')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Solicitud de activación en curso. Customer Order: ORD000000",u_access_id:aid,u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Modificación de Dispositivo')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Petición realizada con éxito",u_access_id:aid,u_new_serial_number:cfg.nsn||'',u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Cancelación Orden de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Solicitud registrada, el flujo continúa",u_service_order_id:"ORD-CANCEL-"+aid.slice(-6),u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Cancelación Intervención Asegurada')return JSON.stringify({result:{sys_id:"02cdefa44abc5e10c214f8a56aba1005",u_return_code:"0",u_return_code_desc:"Cancelación de intervención registrada",u_access_id:aid}},null,2);
+    if(funcName==='Consulta de Acceso'||funcName==='RetrieveAccess')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Consulta exitosa",u_access_id:aid,u_vno_id:vno,u_access_status:"ACTIVO"}},null,2);
+    if(funcName==='Diagnóstico de Acceso')return JSON.stringify({result:{u_transaction_code:0,u_transaction_code_desc:"Diagnóstico completado",u_access_id:aid,u_signal_level:"-18.5 dBm",u_ont_status:"OK"}},null,2);
+    if(funcName==='Consulta Estado Vecino (GET)'||funcName==='Consulta Estado Vecino (POST)')return JSON.stringify({result:{u_transaction_code:6,u_transaction_code_desc:"Consulta vecinos exitosa",u_access_id:aid,u_neighbors:[]}},null,2);
+    if(funcName==='Baja Total de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Baja de acceso procesada",u_access_id:aid,u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Reinicio ONT')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Reinicio ONT solicitado",u_access_id:aid}},null,2);
+    if(funcName==='RetrieveAccess ONT')return JSON.stringify({result:{u_return_code:"0",sys_id:aid,u_ont_model:"HG8145V5",u_temperature:"45°C",u_ont_status:"OK"}},null,2);
+    return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Operación exitosa",u_access_id:aid}},null,2);
+  }
+  return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
+}
+function _atrf_openTcModal(qi,idx){
+  var q=_atrfQueue[qi];if(!q||!q.tcResults)return;
+  var r=q.tcResults[idx];if(!r)return;
+  document.getElementById('atrf-tc-modal-title').textContent=r.tc;
+  document.getElementById('atrf-tc-modal-func').textContent=r.func;
+  document.getElementById('atrf-tc-modal-vno').textContent=(q.cfg&&q.cfg.vno)||'—';
+  var badge=document.getElementById('atrf-tc-modal-badge');
+  badge.textContent=r.pass?'✓ Pasó':'✗ Falló';
+  badge.className='atrf-badge '+(r.pass?'atrf-badge-ok':'atrf-badge-err');
+  document.getElementById('atrf-tc-modal-req').textContent=r.req||'—';
+  document.getElementById('atrf-tc-modal-res').textContent=r.res||'—';
+  document.getElementById('atrf-modal-tc').classList.add('show');
+}
+function _atrf_closeTcModal(){document.getElementById('atrf-modal-tc').classList.remove('show');}
 function _atrf_openView(qi){
   _atrfViewIdx=qi;var q=_atrfQueue[qi];
   document.getElementById('atrf-view-name').value=q.name||'';
@@ -8033,10 +8135,20 @@ async function _atrf_runSelected(){
     q.status='ejecutando';
     var stEl=document.getElementById('atrf-qst-'+qi);
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
-    await new Promise(function(r){setTimeout(r,800+Math.random()*1200);});
-    var hasErr=Math.random()>0.7;
-    q.status=hasErr?'error':'ok';
-    if(stEl){stEl.className='atrf-badge '+(hasErr?'atrf-badge-err':'atrf-badge-ok');stEl.textContent=hasErr?'Con errores':'Completado';}
+    await new Promise(function(r){setTimeout(r,600+Math.random()*1000);});
+    q.tcResults=[];
+    (q.funcs||[]).forEach(function(fi){
+      var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)return;
+      var vno=q.cfg&&q.cfg.vno||'';var tc=tcMap[vno];if(!tc)return;
+      var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
+      var pass=Math.random()>0.25;
+      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,
+        req:_atrf_buildSimReq(fn,q.cfg),res:_atrf_buildSimRes(fn,q.cfg,pass)});
+    });
+    var allPass=q.tcResults.length>0&&q.tcResults.every(function(r){return r.pass;});
+    var anyFail=q.tcResults.some(function(r){return !r.pass;});
+    q.status=anyFail?'error':'ok';
+    if(stEl){stEl.className='atrf-badge '+(anyFail?'atrf-badge-err':'atrf-badge-ok');stEl.textContent=anyFail?'Con errores':'Completado';}
     _atrf_save();
   }
   _atrfRunning=false;
@@ -8045,6 +8157,29 @@ async function _atrf_runSelected(){
   _atrf_renderQueue();
 }
 </script>
+<!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
+<div class="atrf-overlay" id="atrf-modal-tc">
+  <div class="atrf-modal" style="max-width:740px">
+    <div class="atrf-modal-head">
+      <div class="atrf-modal-head-title" id="atrf-tc-modal-title">TC</div>
+      <span id="atrf-tc-modal-badge" class="atrf-badge" style="margin-left:4px"></span>
+      <div style="flex:1"></div>
+      <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeTcModal()">✕ Cerrar</button>
+    </div>
+    <div class="atrf-ts-row">Funcionalidad: <span id="atrf-tc-modal-func">—</span> &nbsp;·&nbsp; VNO: <span id="atrf-tc-modal-vno">—</span></div>
+    <div class="atrf-modal-body">
+      <div style="margin-bottom:16px">
+        <div class="atrf-tc-section-lbl" style="margin-top:0">Request</div>
+        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-req"></pre>
+      </div>
+      <div>
+        <div class="atrf-tc-section-lbl">Response</div>
+        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-res"></pre>
+      </div>
+    </div>
+    <div class="atrf-modal-footer"><button class="atrf-btn" onclick="_atrf_closeTcModal()">Cerrar</button></div>
+  </div>
+</div>
 <!-- ── ATRF Modal Nueva Secuencia ─────────────────────────────────────────── -->
 <div class="atrf-overlay" id="atrf-modal-new">
   <div class="atrf-modal">
