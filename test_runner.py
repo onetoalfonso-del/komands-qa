@@ -8251,14 +8251,19 @@ function _atrf_switchTab(t){
 
 function _atrf_buildAid(vno){
   var v=vno||_atrf_firstVno()||'00';
-  var amb=_atrf_getAmb();var dir=_atrf_v('atrf-dir').trim();
+  var amb=(_atrf_getAmb()||'QA').toUpperCase().slice(0,2);
+  var dir=_atrf_v('atrf-dir').trim();
   var n=_atrf_now();
-  var raw=(amb+dir+n.HH+n.mm+'00000000000000').toUpperCase();
-  if(v==='00')return('00'+raw).slice(0,11);    // 11 total: 00 + 9
-  if(v==='02')return('02-'+raw).slice(0,11);   // 11 total: 02- + 8
-  if(v==='03')return('03-'+raw).slice(0,14);   // 14 total: 03- + 11
-  if(v==='05')return('05-'+raw).slice(0,12);   // 12 total: 05- + 9
-  return(v+'-'+raw).slice(0,11);
+  var digs=(dir.replace(/\D/g,'')+'0000000').slice(0,7);
+  function mk(pfx,sfxLen){
+    // pfx + amb(2) + dir_digits(sfxLen-6) + HH(2) + mm(2) = pfx + sfxLen
+    return pfx+amb+digs.slice(0,sfxLen-6)+n.HH+n.mm;
+  }
+  if(v==='00')return mk('00',9);    // 11 total
+  if(v==='02')return mk('02-',8);   // 11 total
+  if(v==='03')return mk('03-',11);  // 14 total
+  if(v==='05')return mk('05-',9);   // 12 total
+  return mk(v+'-',8);
 }
 function _atrf_updateAid(){
   if(!_atrfAutoState.aid)return;
