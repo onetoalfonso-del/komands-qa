@@ -7899,7 +7899,7 @@ function _atrf_updateAid(){
   var el=document.getElementById('atrf-aid');if(!el)return;
   var vnos=_atrf_getVnos();
   if(!vnos.length){el.value='';}
-  else if(vnos.length>1){el.value='(Auto · uno por VNO)';}
+  else if(vnos.length>1){el.value='Se genera automáticamente al encolar';}
   else{el.value=_atrf_buildAid(vnos[0]);}
 }
 function _atrf_onAidInput(){_atrfAutoState.aid=false;document.getElementById('atrf-auto-aid').classList.add('off');}
@@ -7910,7 +7910,7 @@ function _atrf_buildSerial(vno){
 }
 function _atrf_updateSerials(){
   var vnos=_atrf_getVnos();
-  var sn=!vnos.length?'':vnos.length>1?'(Auto · uno por VNO)':_atrf_buildSerial(vnos[0]);
+  var sn=!vnos.length?'':vnos.length>1?'Se genera automáticamente al encolar':_atrf_buildSerial(vnos[0]);
   if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=sn;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
   if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=sn;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
 }
