@@ -3587,6 +3587,194 @@ async def atrf_run_step(request: Request):
                              "res": res_body, "vno": vno, "func": func_name,
                              "httpCode": http_code})
 
+    # ── Asignación ────────────────────────────────────────────────────────────
+    if func_name == "Asignación":
+        env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        folder_name = QA_ASSIGNMENT_FOLDER_MAP.get(vno, "assigment- KAO")
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(
+            f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()
+        ).decode()
+        token = ""
+        try:
+            _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        req_body_dict = {
+            "u_id_vno": vno, "u_operation_type": "Alta",
+            "u_scenario": "Alta de acceso", "u_speed_plan": speed_plan,
+            "u_address_id": direccion, "u_address_mcd": address_mcd,
+            "u_service_ba": True, "u_service_voip": True, "u_service_iptv": True,
+            "u_service_type": svc_type,
+        }
+        if access_id:
+            req_body_dict["u_access_id_vno"] = access_id
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp_o = _cp.deepcopy(col_src)
+        for sec in col_tmp_o.get("item", []):
+            if "Assignment" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == folder_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = req_body_str
+        run_id   = _uid.uuid4().hex[:8]
+        tmp_col  = str(QA_DIR / f"_atrf_asig_{vno}_{run_id}.json")
+        json_out = str(QA_DIR / f"_atrf_asig_{vno}_{run_id}.result.json")
+        _j.dump(col_tmp_o, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        cmd = [NEWMAN, "run", tmp_col, "-e", env_file,
+               "--folder", folder_name,
+               "--env-var", f"Token={token}",
+               "--env-var", f"idvno={vno}",
+               "--insecure",
+               "--reporters", "cli,json",
+               "--reporter-json-export", json_out,
+               "--timeout-request", "30000"]
+        if amb_url:
+            cmd += ["--env-var", f"apimURL={amb_url}"]
+        loop = _aio.get_event_loop()
+        await loop.run_in_executor(None, lambda: subprocess.run(
+            cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
+        ))
+        pass_flag = False; res_body = ""; http_code = 0
+        try:
+            jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
+            execs = jdata.get("run", {}).get("executions", [])
+            if execs:
+                ex  = execs[-1]
+                r   = ex.get("response") or {}
+                st  = r.get("stream") or {}
+                if isinstance(st, dict) and st.get("type") == "Buffer":
+                    res_body = bytes(st["data"]).decode("utf-8", errors="replace")
+                else:
+                    res_body = r.get("body", "")
+                http_code = r.get("code", 0)
+                failures  = jdata.get("run", {}).get("failures", [])
+                try:
+                    rj = _j.loads(res_body)
+                    rc = rj.get("u_return_code") or rj.get("result", {}).get("u_return_code")
+                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0"
+                except Exception:
+                    pass_flag = http_code in (200, 201) and not failures
+        except Exception as pe:
+            res_body = f"Error parseando resultado Newman: {pe}"
+        try:
+            Path(tmp_col).unlink(missing_ok=True)
+            Path(json_out).unlink(missing_ok=True)
+        except Exception:
+            pass
+        return JSONResponse({"pass": pass_flag, "req": req_body_str,
+                             "res": res_body, "vno": vno, "func": func_name,
+                             "httpCode": http_code})
+
+    # ── Cancelación Orden de Servicio ──────────────────────────────────────────
+    if func_name == "Cancelación Orden de Servicio":
+        env_file   = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        cancel_req = QA_CANCEL_REQUEST_MAP.get(vno, "cancel service order KAO")
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(
+            f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()
+        ).decode()
+        token = ""
+        try:
+            _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        req_body_dict = {
+            "u_id_vno": vno,
+            "u_access_id_vno": access_id,
+            "u_service_type": svc_type,
+        }
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        def _find_req(col, name):
+            for it in col.get("item", []):
+                if it.get("name") == name and "request" in it:
+                    return it
+                if "item" in it:
+                    found = _find_req(it, name)
+                    if found:
+                        return found
+            return None
+        req_item = _find_req(_cp.deepcopy(col_src), cancel_req)
+        if req_item:
+            b = req_item.get("request", {}).get("body", {})
+            if b.get("mode") == "raw":
+                b["raw"] = req_body_str
+        mini_col = {"info": col_src.get("info", {}), "item": [req_item] if req_item else []}
+        run_id   = _uid.uuid4().hex[:8]
+        tmp_col  = str(QA_DIR / f"_atrf_cancel_{vno}_{run_id}.json")
+        json_out = str(QA_DIR / f"_atrf_cancel_{vno}_{run_id}.result.json")
+        _j.dump(mini_col, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        cmd = [NEWMAN, "run", tmp_col, "-e", env_file,
+               "--env-var", f"Token={token}",
+               "--env-var", f"idvno={vno}",
+               "--insecure",
+               "--reporters", "cli,json",
+               "--reporter-json-export", json_out,
+               "--timeout-request", "30000"]
+        if amb_url:
+            cmd += ["--env-var", f"apimURL={amb_url}"]
+        loop = _aio.get_event_loop()
+        await loop.run_in_executor(None, lambda: subprocess.run(
+            cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
+        ))
+        pass_flag = False; res_body = ""; http_code = 0
+        try:
+            jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
+            execs = jdata.get("run", {}).get("executions", [])
+            if execs:
+                ex  = execs[-1]
+                r   = ex.get("response") or {}
+                st  = r.get("stream") or {}
+                if isinstance(st, dict) and st.get("type") == "Buffer":
+                    res_body = bytes(st["data"]).decode("utf-8", errors="replace")
+                else:
+                    res_body = r.get("body", "")
+                http_code = r.get("code", 0)
+                failures  = jdata.get("run", {}).get("failures", [])
+                try:
+                    rj = _j.loads(res_body)
+                    rc = rj.get("u_return_code") or rj.get("result", {}).get("u_return_code")
+                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0"
+                except Exception:
+                    pass_flag = http_code in (200, 201) and not failures
+        except Exception as pe:
+            res_body = f"Error parseando resultado Newman: {pe}"
+        try:
+            Path(tmp_col).unlink(missing_ok=True)
+            Path(json_out).unlink(missing_ok=True)
+        except Exception:
+            pass
+        return JSONResponse({"pass": pass_flag, "req": req_body_str,
+                             "res": res_body, "vno": vno, "func": func_name,
+                             "httpCode": http_code})
+
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
 
