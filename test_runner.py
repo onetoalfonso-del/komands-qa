@@ -5251,6 +5251,8 @@ function _doRunFact(s){
       if(d.tc){
         _factApp(d.tc, d.t, col(d.t));
         _factSetState(d.tc,'running');
+      } else {
+        _FACT_TC_META.filter(function(m){return _factSel[m.tc];}).forEach(function(m){_factApp(m.tc,d.t,col(d.t));});
       }
       suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
     } else if(d.e==='tc_done'){
