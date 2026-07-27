@@ -3366,6 +3366,10 @@ async def api_run(suite_id: str, request: Request):
             _n_ok   = sum(1 for r in _results if r["code"] == 0)
             _n_fail = len(_results) - _n_ok
             yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok}/{len(_results)} TCs OK'})}\n\n"
+            if _gf_url_fact:
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} → {_gf_url_fact}'})}\n\n"
+            elif _gf_env_fact:
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] ⚠ {_gf_env_fact} — URL no configurada en Settings'})}\n\n"
 
             _rows = ""
             for _r in sorted(_results, key=lambda x: x["tc"]):
