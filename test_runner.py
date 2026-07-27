@@ -7996,7 +7996,7 @@ function _atrf_enqueue(){
   });
   _atrf_closeNew();_atrf_renderQueue();_atrf_save();
   var msg=vnos.length>1?vnos.length+' secuencias encoladas (una por VNO)':'"'+name+'" encolada';
-  showToast&&showToast(msg,'ok');
+  if(typeof showToast==='function')showToast(msg,'ok');
 }
 
 function _atrf_openView(qi){
@@ -8022,7 +8022,7 @@ function _atrf_switchView(t){
 async function _atrf_runSelected(){
   if(_atrfRunning)return;
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
-  if(!toRun.length){showToast&&showToast('No hay secuencias seleccionadas en espera','err');return;}
+  if(!toRun.length){if(typeof showToast==='function')showToast('No hay secuencias seleccionadas en espera','err');return;}
   _atrfRunning=true;
   var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='⏳ Ejecutando…';btn.disabled=true;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
