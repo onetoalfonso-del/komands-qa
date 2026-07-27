@@ -3556,7 +3556,7 @@ async def atrf_run_step(request: Request):
         await loop.run_in_executor(None, lambda: subprocess.run(
             cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
         ))
-        pass_flag = False; res_body = ""
+        pass_flag = False; res_body = ""; http_code = 0
         try:
             jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
             execs = jdata.get("run", {}).get("executions", [])
@@ -3584,7 +3584,8 @@ async def atrf_run_step(request: Request):
         except Exception:
             pass
         return JSONResponse({"pass": pass_flag, "req": req_body_str,
-                             "res": res_body, "vno": vno, "func": func_name})
+                             "res": res_body, "vno": vno, "func": func_name,
+                             "httpCode": http_code})
 
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
@@ -4537,6 +4538,9 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-tc-badge:not(.pending):hover{filter:brightness(1.15);transform:translateY(-1px)}
 .atrf-tc-section-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-top:10px;margin-bottom:4px}
 .atrf-tc-modal-pre{background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:6px;padding:12px;font-family:var(--atrf-mono);font-size:11px;color:var(--atrf-text);overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;max-height:260px;overflow-y:auto}
+.atrf-tc-tab{flex:1;padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:12px;font-family:var(--atrf-mono);color:var(--atrf-text2);transition:all .15s;text-align:left}
+.atrf-tc-tab.active{color:var(--atrf-accent);border-bottom-color:var(--atrf-accent);font-weight:600}
+.atrf-tc-tab:hover:not(.active){color:var(--atrf-text);border-bottom-color:var(--atrf-border2)}
 .atrf-vno-checks{display:flex;gap:6px;flex-wrap:wrap;padding-top:2px}
 .atrf-vno-lbl{display:flex;align-items:center;gap:5px;font-size:12px;font-family:var(--atrf-mono);padding:5px 12px;border-radius:var(--atrf-radius);border:1px solid var(--atrf-border2);background:var(--atrf-surface2);color:var(--atrf-text2);cursor:pointer;transition:all .15s;height:34px;user-select:none}
 .atrf-vno-lbl.on{background:rgba(0,200,212,.12);border-color:var(--atrf-accent);color:var(--atrf-accent)}
@@ -8200,17 +8204,55 @@ function _atrf_buildSimRes(funcName,cfg,pass){
   }
   return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
 }
+var _ATRF_ENDPOINT_MAP={
+  "Factibilidad":                        "/api/checkFeasibility",
+  "Asignación":                          "/api/assignAddress",
+  "Inicio Intervención Asegurada":       "/api/startIntervention",
+  "Activación":                          "/api/activateService",
+  "Consulta de Acceso":                  "/api/retrieveAccess",
+  "Diagnóstico de Acceso":               "/api/diagnoseAccess",
+  "Modificación de Dispositivo":         "/api/modifyDevice",
+  "Consulta Estado Vecino (GET)":        "/api/retrieveNeighbor",
+  "Consulta Estado Vecino (POST)":       "/api/retrieveNeighbor",
+  "Cambio de Pelo":                      "/api/changeLine",
+  "Modificación de Acceso":              "/api/modifyAccess",
+  "Finalización Intervención Asegurada": "/api/closeIntervention",
+  "Reinicio ONT":                        "/api/rebootONT",
+  "RetrieveAccess":                      "/api/retrieveAccess",
+  "RetrieveAccess ONT":                  "/api/retrieveAccessONT",
+  "Cancelación Intervención Asegurada":  "/api/cancelIntervention",
+  "Baja Total de Servicio":              "/api/cancelService",
+  "Cancelación Orden de Servicio":       "/api/cancelOrder"
+};
+function _atrf_prettyJson(s){
+  if(!s||s==='—')return s||'—';
+  try{return JSON.stringify(JSON.parse(s),null,2);}catch(e){return s;}
+}
+function _atrf_tcTab(t){
+  document.getElementById('atrf-tc-panel-req').style.display=t==='req'?'block':'none';
+  document.getElementById('atrf-tc-panel-res').style.display=t==='res'?'block':'none';
+  document.getElementById('atrf-tc-tab-req').classList.toggle('active',t==='req');
+  document.getElementById('atrf-tc-tab-res').classList.toggle('active',t==='res');
+}
 function _atrf_openTcModal(qi,idx){
   var q=_atrfQueue[qi];if(!q||!q.tcResults)return;
   var r=q.tcResults[idx];if(!r)return;
   document.getElementById('atrf-tc-modal-title').textContent=r.tc;
   document.getElementById('atrf-tc-modal-func').textContent=r.func;
-  document.getElementById('atrf-tc-modal-vno').textContent=(q.cfg&&q.cfg.vno)||'—';
+  var vnoLabel=_ATRF_TC_VNO_LABEL[(q.cfg&&q.cfg.vno)||'']||((q.cfg&&q.cfg.vno)||'—');
+  document.getElementById('atrf-tc-modal-vno').textContent=vnoLabel;
   var badge=document.getElementById('atrf-tc-modal-badge');
   badge.textContent=r.pass?'✓ Pasó':'✗ Falló';
   badge.className='atrf-badge '+(r.pass?'atrf-badge-ok':'atrf-badge-err');
-  document.getElementById('atrf-tc-modal-req').textContent=r.req||'—';
-  document.getElementById('atrf-tc-modal-res').textContent=r.res||'—';
+  document.getElementById('atrf-tc-modal-endpoint').textContent=_ATRF_ENDPOINT_MAP[r.func]||'/api/'+r.func;
+  var stBadge=document.getElementById('atrf-tc-status-badge');
+  var code=r.httpCode||(r.pass?200:500);
+  stBadge.textContent=code?String(code):'';
+  stBadge.style.background=r.pass?'rgba(0,200,100,.18)':'rgba(240,60,60,.18)';
+  stBadge.style.color=r.pass?'var(--atrf-green)':'var(--atrf-red)';
+  document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(r.req||'—');
+  document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(r.res||'—');
+  _atrf_tcTab('req');
   document.getElementById('atrf-modal-tc').classList.add('show');
 }
 function _atrf_closeTcModal(){document.getElementById('atrf-modal-tc').classList.remove('show');}
@@ -8256,7 +8298,7 @@ async function _atrf_runSelected(){
       var tc=tcMap[vno];if(!tc)continue;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
-      var pass=false,req_s='',res_s='';
+      var pass=false,req_s='',res_s='',httpCode=0;
       try{
         var resp=await fetch('/api/atrf/run-step',{
           method:'POST',
@@ -8279,41 +8321,53 @@ async function _atrf_runSelected(){
           req_s=rd.req||_atrf_buildSimReq(fn,q.cfg);
           res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
           if(rd.error&&!rd.req)res_s='Error: '+rd.error;
+          httpCode=rd.httpCode||0;
         }
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
-      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s});
+      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode});
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
-    if(stEl){stEl.className='atrf-badge '+(anyFail?'atrf-badge-err':'atrf-badge-ok');stEl.textContent=anyFail?'Con errores':'Completado';}
     _atrf_save();
+    _atrf_renderQueue();
+    // Auto-abrir detalle con los TC badges
+    var rowEl=document.getElementById('atrf-qrow-'+qi);
+    if(rowEl&&!rowEl.classList.contains('open')){_atrf_toggleDetail(qi);}
+    else if(rowEl&&rowEl.classList.contains('open')){
+      rowEl.classList.remove('open');_atrf_toggleDetail(qi);
+    }
   }
   _atrfRunning=false;
   if(prog)prog.style.display='none';
   if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
-  _atrf_renderQueue();
 }
 </script>
 <!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
 <div class="atrf-overlay" id="atrf-modal-tc">
-  <div class="atrf-modal" style="max-width:740px">
+  <div class="atrf-modal" style="max-width:860px">
     <div class="atrf-modal-head">
       <div class="atrf-modal-head-title" id="atrf-tc-modal-title">TC</div>
-      <span id="atrf-tc-modal-badge" class="atrf-badge" style="margin-left:4px"></span>
+      <span id="atrf-tc-modal-badge" class="atrf-badge" style="margin-left:6px"></span>
       <div style="flex:1"></div>
       <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeTcModal()">✕ Cerrar</button>
     </div>
-    <div class="atrf-ts-row">Funcionalidad: <span id="atrf-tc-modal-func">—</span> &nbsp;·&nbsp; VNO: <span id="atrf-tc-modal-vno">—</span></div>
-    <div class="atrf-modal-body">
-      <div style="margin-bottom:16px">
-        <div class="atrf-tc-section-lbl" style="margin-top:0">Request</div>
-        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-req"></pre>
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);font-size:11px">
+      <span style="background:#3c6ff5;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--atrf-mono);font-weight:700;font-size:10px">POST</span>
+      <span id="atrf-tc-modal-endpoint" style="font-family:var(--atrf-mono);color:var(--atrf-text2)">—</span>
+      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">—</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">—</b></span>
+    </div>
+    <div style="display:flex;border-bottom:1px solid var(--atrf-border)">
+      <button id="atrf-tc-tab-req" class="atrf-tc-tab active" onclick="_atrf_tcTab('req')">Body (Request)</button>
+      <button id="atrf-tc-tab-res" class="atrf-tc-tab" onclick="_atrf_tcTab('res')">Response <span id="atrf-tc-status-badge" style="font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px"></span></button>
+    </div>
+    <div class="atrf-modal-body" style="padding:0">
+      <div id="atrf-tc-panel-req" style="display:block">
+        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-req" style="border-radius:0;border:none;border-bottom:none;margin:0;max-height:380px"></pre>
       </div>
-      <div>
-        <div class="atrf-tc-section-lbl">Response</div>
-        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-res"></pre>
+      <div id="atrf-tc-panel-res" style="display:none">
+        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-res" style="border-radius:0;border:none;border-bottom:none;margin:0;max-height:380px"></pre>
       </div>
     </div>
     <div class="atrf-modal-footer"><button class="atrf-btn" onclick="_atrf_closeTcModal()">Cerrar</button></div>
