@@ -8664,15 +8664,15 @@ async function _atrf_runSelected(){
         </div>
         <div class="atrf-field atrf-col-full">
           <label>Servicios</label>
-          <div style="display:flex;gap:20px;align-items:center;padding-top:4px">
+          <div style="display:flex;gap:20px;align-items:center;padding-top:6px">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
-              <input type="checkbox" id="atrf-svc-ba" checked> BA
+              <input type="checkbox" id="atrf-svc-ba" checked style="width:15px;height:15px;margin:0;cursor:pointer;flex-shrink:0"> BA
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
-              <input type="checkbox" id="atrf-svc-voip" checked> VOIP
+              <input type="checkbox" id="atrf-svc-voip" checked style="width:15px;height:15px;margin:0;cursor:pointer;flex-shrink:0"> VOIP
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
-              <input type="checkbox" id="atrf-svc-iptv" checked> IPTV
+              <input type="checkbox" id="atrf-svc-iptv" checked style="width:15px;height:15px;margin:0;cursor:pointer;flex-shrink:0"> IPTV
             </label>
           </div>
         </div>
@@ -8681,14 +8681,14 @@ async function _atrf_runSelected(){
         <div class="atrf-field atrf-col-3">
           <label>Plan / Perfil <span class="req">★</span></label>
           <select id="atrf-plan">
-            <option>400/400</option><option selected>600/600</option>
+            <option selected>600/600</option>
             <option>800/800</option><option>940/940</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-3">
           <label>Nuevo Plan / Perfil</label>
           <select id="atrf-nplan">
-            <option>400/400</option><option selected>600/600</option>
+            <option selected>600/600</option>
             <option>800/800</option><option>940/940</option>
           </select>
         </div>
