@@ -7983,41 +7983,40 @@ function _atrf_renderQueue(){
       +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
       +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
       +'</div>'
-      +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'"></div>'
+      +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'">'+_atrf_buildDetailHtml(qi)+'</div>'
       +'</div>';
   });
   el.innerHTML='<div class="atrf-queue-list">'+rows+'</div>';
 }
 
-function _atrf_toggleDetail(qi){
-  var row=document.getElementById('atrf-qrow-'+qi);
-  var isOpen=row.classList.toggle('open');
-  if(isOpen){
-    var q=_atrfQueue[qi];
-    var el=document.getElementById('atrf-qdetail-'+qi);
-    var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
-    var tcHtml='';
-    if(q.tcResults&&q.tcResults.length){
-      tcHtml+='<div class="atrf-tc-section-lbl">Casos de prueba</div><div class="atrf-tc-results">';
-      q.tcResults.forEach(function(r,idx){
-        var cls=r.pass?'pass':'fail';
-        var icon=r.pass?'✓':'✗';
-        tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
-      });
-      tcHtml+='</div>';
-    } else if(q.status==='espera'){
-      tcHtml+='<div class="atrf-tc-section-lbl">Casos de prueba</div><div class="atrf-tc-results">';
-      (q.funcs||[]).forEach(function(fi){
-        var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];
-        if(!tcMap)return;
-        var tc=tcMap[q.cfg&&q.cfg.vno||''];if(!tc)return;
-        var vl=_ATRF_TC_VNO_LABEL[q.cfg&&q.cfg.vno||'']||q.cfg.vno;
-        tcHtml+='<span class="atrf-tc-badge pending">'+tc+' · '+vl+'</span>';
-      });
-      tcHtml+='</div>';
-    }
-    el.innerHTML='<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div>'+tcHtml+'</div>';
+function _atrf_buildDetailHtml(qi){
+  var q=_atrfQueue[qi];
+  var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
+  var tcHtml='';
+  if(q.tcResults&&q.tcResults.length){
+    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
+    q.tcResults.forEach(function(r,idx){
+      var cls=r.pass?'pass':'fail';
+      var icon=r.pass?'✓':'✗';
+      tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
+    });
+    tcHtml+='</div>';
+  } else if(q.status==='espera'){
+    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
+    (q.funcs||[]).forEach(function(fi){
+      var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];
+      if(!tcMap)return;
+      var vno=q.cfg&&q.cfg.vno||'';
+      var tc=tcMap[vno];if(!tc)return;
+      var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
+      tcHtml+='<span class="atrf-tc-badge pending">'+tc+' · '+vl+'</span>';
+    });
+    tcHtml+='</div>';
   }
+  return '<div style="padding:10px 0"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div>'+tcHtml+'</div>';
+}
+function _atrf_toggleDetail(qi){
+  document.getElementById('atrf-qrow-'+qi).classList.toggle('open');
 }
 function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();}
 function _atrf_removeItem(qi){if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrf_renderQueue();_atrf_save();}
@@ -8332,12 +8331,8 @@ async function _atrf_runSelected(){
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
     _atrf_save();
     _atrf_renderQueue();
-    // Auto-abrir detalle con los TC badges
     var rowEl=document.getElementById('atrf-qrow-'+qi);
-    if(rowEl&&!rowEl.classList.contains('open')){_atrf_toggleDetail(qi);}
-    else if(rowEl&&rowEl.classList.contains('open')){
-      rowEl.classList.remove('open');_atrf_toggleDetail(qi);
-    }
+    if(rowEl)rowEl.classList.add('open');
   }
   _atrfRunning=false;
   if(prog)prog.style.display='none';
