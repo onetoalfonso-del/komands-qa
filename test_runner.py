@@ -1215,7 +1215,7 @@ async def api_run(suite_id: str, request: Request):
             "u_access_id_vno": access_id_vno,
             "u_id_vno": vno_code,
             "u_operation_type": "Alta",
-            "u_scenario": "Alta de acceso",
+            "u_scenario": "Alta de Acceso",
             "u_speed_plan": speed_plan,
             "u_address_id": address_id,
             "u_address_mcd": "OSP",
@@ -1642,7 +1642,7 @@ async def api_run(suite_id: str, request: Request):
                 "u_access_id_vno": _access_ids_map.get(_tcd["tc"], ""),
                 "u_id_vno": _vno,
                 "u_operation_type": "Alta",
-                "u_scenario": "Alta de acceso",
+                "u_scenario": "Alta de Acceso",
                 "u_speed_plan": _speed_plan,
                 "u_address_id": _address_id,
                 "u_address_mcd": "OSP",
@@ -1904,7 +1904,7 @@ async def api_run(suite_id: str, request: Request):
             _col_asig = _cp.deepcopy(_col_ff)
             _asig_body = _j.dumps({
                 "u_access_id_vno": _access_id, "u_id_vno": _vno,
-                "u_operation_type": "Alta", "u_scenario": "Alta de acceso",
+                "u_operation_type": "Alta", "u_scenario": "Alta de Acceso",
                 "u_speed_plan": _speed_plan, "u_address_id": _ADDR_ID_ACTIV,
                 "u_address_mcd": "OSP",
                 "u_service_ba": _svc_ba, "u_service_voip": _svc_voip,
@@ -2340,7 +2340,7 @@ async def api_run(suite_id: str, request: Request):
             _col_asig_dm = _cp.deepcopy(_col_ff_dm)
             _asig_body_dm = _j.dumps({
                 "u_access_id_vno": _access_id, "u_id_vno": _vno,
-                "u_operation_type": "Alta", "u_scenario": "Alta de acceso",
+                "u_operation_type": "Alta", "u_scenario": "Alta de Acceso",
                 "u_speed_plan": _dm_speed_plan, "u_address_id": _ADDR_ID_DM,
                 "u_address_mcd": "OSP",
                 "u_service_ba": _dm_svc_ba, "u_service_voip": _dm_svc_voip,
@@ -2777,7 +2777,7 @@ async def api_run(suite_id: str, request: Request):
             _col_asig_c = _cp.deepcopy(_col_ff_cancel)
             _asig_body_c = _j.dumps({
                 "u_id_vno": _vno, "u_operation_type": "Alta",
-                "u_scenario": "Alta de acceso", "u_speed_plan": _cancel_speed_plan,
+                "u_scenario": "Alta de Acceso", "u_speed_plan": _cancel_speed_plan,
                 "u_address_id": _ADDR_ID_CANCEL, "u_address_mcd": "OSP",
                 "u_service_ba": _cancel_svc_ba, "u_service_voip": _cancel_svc_voip,
                 "u_service_iptv": _cancel_svc_iptv, "u_service_type": _svc_type_cancel,
@@ -3618,7 +3618,7 @@ async def atrf_run_step(request: Request):
         req_body_dict = {
             "u_access_id_vno": access_id,
             "u_id_vno": vno, "u_operation_type": "Alta",
-            "u_scenario": "Alta de acceso", "u_speed_plan": speed_plan,
+            "u_scenario": "Alta de Acceso", "u_speed_plan": speed_plan,
             "u_address_id": direccion, "u_address_mcd": address_mcd,
             "u_service_ba": service_ba, "u_service_voip": service_voip, "u_service_iptv": service_iptv,
             "u_service_type": svc_type,
