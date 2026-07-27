@@ -4416,6 +4416,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-hist-ts{color:var(--atrf-text2);flex:1}
 /* URL badge shown in queue item */
 .atrf-url-badge{font-size:10px;font-family:var(--atrf-mono);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:4px;padding:1px 7px;color:var(--atrf-green);margin-left:4px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+.atrf-vno-checks{display:flex;gap:6px;flex-wrap:wrap;padding-top:2px}
+.atrf-vno-lbl{display:flex;align-items:center;gap:5px;font-size:12px;font-family:var(--atrf-mono);padding:5px 12px;border-radius:var(--atrf-radius);border:1px solid var(--atrf-border2);background:var(--atrf-surface2);color:var(--atrf-text2);cursor:pointer;transition:all .15s;height:34px;user-select:none}
+.atrf-vno-lbl.on{background:rgba(0,200,212,.12);border-color:var(--atrf-accent);color:var(--atrf-accent)}
+.atrf-vno-multi-note{font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-text2);margin-top:4px;display:none}
+.atrf-vno-multi-note.show{display:block}
 </style>
 </head>
 <body class="light">
@@ -7770,6 +7775,15 @@ function _atrf_p2(n){return String(n).padStart(2,'0');}
 function _atrf_now(){var d=new Date();return{MM:_atrf_p2(d.getMonth()+1),DD:_atrf_p2(d.getDate()),HH:_atrf_p2(d.getHours()),mm:_atrf_p2(d.getMinutes())};}
 function _atrf_ts(){return new Date().toLocaleString('es-CL',{hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
 function _atrf_v(id){var e=document.getElementById(id);return e?e.value:'';}
+function _atrf_getVnos(){return [].slice.call(document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl.on')).map(function(el){return el.dataset.vno;});}
+function _atrf_firstVno(){var v=_atrf_getVnos();return v.length?v[0]:'';}
+function _atrf_toggleVno(el){
+  el.classList.toggle('on');
+  var vnos=_atrf_getVnos();
+  var note=document.getElementById('atrf-vno-multi-note');
+  if(note)note.classList.toggle('show',vnos.length>1);
+  _atrf_updateAid();_atrf_updateSerials();
+}
 
 function _atrf_load(){
   try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
@@ -7851,8 +7865,10 @@ function _atrf_openNew(){
   document.getElementById('atrf-val-err').classList.remove('show');
   document.getElementById('atrf-funcs-err').classList.remove('show');
   var qa=document.querySelector('input[name="atrf-amb"][value="QA"]');if(qa)qa.checked=true;
-  ['atrf-vno','atrf-tdir','atrf-tsvc','atrf-esc','atrf-tex','atrf-bp','atrf-plan','atrf-nplan'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('err');});
+  ['atrf-tdir','atrf-tsvc','atrf-esc','atrf-tex','atrf-bp','atrf-plan','atrf-nplan'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('err');});
   ['atrf-dir','atrf-aid','atrf-sn','atrf-nsn'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.classList.remove('err');}});
+  document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl').forEach(function(el){el.classList.remove('on');});
+  var multiNote=document.getElementById('atrf-vno-multi-note');if(multiNote)multiNote.classList.remove('show');
   _atrf_updateAmbUrl();
   _atrf_updateAid();
   _atrf_updateSerials();
@@ -7871,26 +7887,31 @@ function _atrf_switchTab(t){
   });
 }
 
-function _atrf_buildAid(){
-  var vno=_atrf_v('atrf-vno');var amb=_atrf_getAmb();var dir=_atrf_v('atrf-dir').trim();
+function _atrf_buildAid(vno){
+  var v=vno||_atrf_firstVno()||'00';
+  var amb=_atrf_getAmb();var dir=_atrf_v('atrf-dir').trim();
   var n=_atrf_now();
-  if(vno==='00')return'00'+amb+dir+n.HH+n.mm;
-  return vno+'-'+amb+dir+n.HH+n.mm;
+  if(v==='00')return'00'+amb+dir+n.HH+n.mm;
+  return v+'-'+amb+dir+n.HH+n.mm;
 }
 function _atrf_updateAid(){
   if(!_atrfAutoState.aid)return;
-  var el=document.getElementById('atrf-aid');if(el)el.value=_atrf_buildAid();
+  var el=document.getElementById('atrf-aid');if(!el)return;
+  var vnos=_atrf_getVnos();
+  if(vnos.length>1){el.value='(Auto · uno por VNO)';}
+  else{el.value=_atrf_buildAid();}
 }
 function _atrf_onAidInput(){_atrfAutoState.aid=false;document.getElementById('atrf-auto-aid').classList.add('off');}
 
-function _atrf_buildSerial(){
-  var vno=_atrf_v('atrf-vno');var px=_ATRF_VNO_PREFIX[vno]||'';if(!px)return'';
+function _atrf_buildSerial(vno){
+  var v=vno||_atrf_firstVno()||'';var px=_ATRF_VNO_PREFIX[v]||'';if(!px)return'';
   var n=_atrf_now();return px+n.MM+n.DD+n.HH+n.mm;
 }
 function _atrf_updateSerials(){
-  var sn=_atrf_buildSerial();
-  if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=sn;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
-  if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=sn;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
+  var vnos=_atrf_getVnos();
+  var sn=vnos.length>1?'(Auto · uno por VNO)':_atrf_buildSerial();
+  if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=sn;if(vnos.length<=1)_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
+  if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=sn;if(vnos.length<=1)_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
 }
 function _atrf_updateSnLen(id,lid){
   var len=(document.getElementById(id)||{value:''}).value.length;
@@ -7949,20 +7970,32 @@ function _atrf_enqueue(){
   document.querySelectorAll('#atrf-modal-new .err').forEach(function(e){e.classList.remove('err');});
   document.getElementById('atrf-funcs-err').classList.remove('show');
   var name=_atrf_v('atrf-seq-name').trim();
+  var vnos=_atrf_getVnos();
   if(!name){errors.push('Nombre de la secuencia es obligatorio');document.getElementById('atrf-seq-name').classList.add('err');}
+  if(!vnos.length){errors.push('Selecciona al menos una VNO');}
   if(!_atrf_v('atrf-dir').trim()){errors.push('Dirección es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
-  if(!_atrf_v('atrf-aid').trim()){errors.push('Access ID es obligatorio');document.getElementById('atrf-aid').classList.add('err');}
   if(!_atrf_v('atrf-esc')){errors.push('Escenario es obligatorio');document.getElementById('atrf-esc').classList.add('err');}
   if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecución es obligatorio');document.getElementById('atrf-tex').classList.add('err');}
   if(!_atrfSel.length){errors.push('Debes seleccionar al menos una funcionalidad');document.getElementById('atrf-funcs-err').classList.add('show');}
   var errEl=document.getElementById('atrf-val-err');
   if(errors.length){errEl.innerHTML=errors.map(function(e){return'· '+e;}).join('<br>');errEl.classList.add('show');if(errors.length===1&&errors[0].includes('funcionalidad'))_atrf_switchTab('funcs');else _atrf_switchTab('cfg');return;}
   errEl.classList.remove('show');
-  var amb=_atrf_getAmb();
-  var cfg={vno:_atrf_v('atrf-vno'),ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:_atrf_v('atrf-dir').trim(),accessId:_atrf_v('atrf-aid').trim(),tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:_atrf_v('atrf-sn').trim(),nsn:_atrf_v('atrf-nsn').trim()};
-  _atrfQueue.push({name:name,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:document.getElementById('atrf-seq-ts').textContent,cfg:cfg,history:[]});
+  var amb=_atrf_getAmb();var ts=document.getElementById('atrf-seq-ts').textContent;
+  var dir=_atrf_v('atrf-dir').trim();
+  var n=_atrf_now();
+  vnos.forEach(function(vno){
+    var sn_auto=_atrf_buildSerial(vno);
+    var aid_auto=_atrf_buildAid(vno);
+    var sn_val=_atrfAutoState.sn?sn_auto:_atrf_v('atrf-sn').trim();
+    var nsn_val=_atrfAutoState.nsn?sn_auto:_atrf_v('atrf-nsn').trim();
+    var aid_val=_atrfAutoState.aid?aid_auto:_atrf_v('atrf-aid').trim();
+    var qname=name+(vnos.length>1?' [VNO '+vno+']':'');
+    var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val};
+    _atrfQueue.push({name:qname,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:ts,cfg:cfg,history:[]});
+  });
   _atrf_closeNew();_atrf_renderQueue();_atrf_save();
-  showToast&&showToast('"'+name+'" encolada','ok');
+  var msg=vnos.length>1?vnos.length+' secuencias encoladas (una por VNO)':'"'+name+'" encolada';
+  showToast&&showToast(msg,'ok');
 }
 
 function _atrf_openView(qi){
@@ -8042,12 +8075,15 @@ async function _atrf_runSelected(){
         </div>
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Datos base</div>
-        <div class="atrf-field atrf-col-2">
+        <div class="atrf-field atrf-col-5">
           <label>VNO <span class="req">★</span></label>
-          <select id="atrf-vno">
-            <option value="00">00</option><option value="02">02</option>
-            <option value="03">03</option><option value="05">05</option>
-          </select>
+          <div class="atrf-vno-checks" id="atrf-vno-checks">
+            <span class="atrf-vno-lbl" data-vno="00" onclick="_atrf_toggleVno(this)">00</span>
+            <span class="atrf-vno-lbl" data-vno="02" onclick="_atrf_toggleVno(this)">02</span>
+            <span class="atrf-vno-lbl" data-vno="03" onclick="_atrf_toggleVno(this)">03</span>
+            <span class="atrf-vno-lbl" data-vno="05" onclick="_atrf_toggleVno(this)">05</span>
+          </div>
+          <div class="atrf-vno-multi-note" id="atrf-vno-multi-note">Genera una fila por VNO con Access ID y S/N independientes</div>
         </div>
         <div class="atrf-field atrf-col-3">
           <label>Tipo dirección <span class="req">★</span></label>
