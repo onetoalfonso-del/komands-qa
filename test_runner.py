@@ -5470,6 +5470,7 @@ function _doRunAsig(s){
     var d=JSON.parse(ev.data);
     if(d.e==='line'){
       if(d.tc){ _asigApp(d.tc,d.t,col(d.t)); _asigSetState(d.tc,'running'); }
+      else { _ASIG_TC_META.filter(function(m){return _asigSel[m.tc];}).forEach(function(m){_asigApp(m.tc,d.t,col(d.t));}); }
       suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
     } else if(d.e==='tc_done'){
       var ok=d.code===0;
@@ -5670,6 +5671,7 @@ function _doRunIA(s){
     var d=JSON.parse(ev.data);
     if(d.e==='line'){
       if(d.tc){ _iaApp(d.tc,d.t,col(d.t)); _iaSetState(d.tc,'running'); }
+      else { _IA_INICIO_META.concat(_IA_FIN_META).filter(function(m){return _iaSel[m.tc];}).forEach(function(m){_iaApp(m.tc,d.t,col(d.t));}); }
       suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
     } else if(d.e==='tc_done'){
       _iaSetState(d.tc,d.code===0?'passed':'failed');
@@ -5859,6 +5861,7 @@ function _doRunActiv(s){
     var d=JSON.parse(ev.data);
     if(d.e==='line'){
       if(d.tc){ _activApp(d.tc,d.t,col(d.t)); _activSetState(d.tc,'running'); }
+      else { _ACTIV_META.filter(function(m){return _activSel[m.tc];}).forEach(function(m){_activApp(m.tc,d.t,col(d.t));}); }
       suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
     } else if(d.e==='tc_done'){
       _activSetState(d.tc,d.code===0?'passed':'failed');
@@ -6059,6 +6062,7 @@ function _doRunDm(s){
     var d=JSON.parse(ev.data);
     if(d.e==='line'){
       if(d.tc){ _dmApp(d.tc,d.t,col(d.t)); _dmSetState(d.tc,'running'); }
+      else { _DM_META.filter(function(m){return _dmSel[m.tc];}).forEach(function(m){_dmApp(m.tc,d.t,col(d.t));}); }
       suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
     } else if(d.e==='tc_done'){
       _dmSetState(d.tc,d.code===0?'passed':'failed');
@@ -6305,6 +6309,7 @@ function _doRunCancel(s){
     var d=JSON.parse(ev.data);
     if(d.e==='line'){
       if(d.tc){ _cancelApp(d.tc,d.t,col(d.t)); _cancelSetState(d.tc,'running'); }
+      else { _CANCEL_META.filter(function(m){return _cancelSel[m.tc];}).forEach(function(m){_cancelApp(m.tc,d.t,col(d.t));}); }
       suiteLogs[s.id].push({text:d.t,cls:col(d.t)});
     } else if(d.e==='tc_done'){
       _cancelSetState(d.tc,d.code===0?'passed':'failed');
