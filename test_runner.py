@@ -3613,6 +3613,7 @@ async def atrf_run_step(request: Request):
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         req_body_dict = {
+            "u_access_id_vno": access_id,
             "u_id_vno": vno, "u_operation_type": "Alta",
             "u_scenario": "Alta de acceso", "u_speed_plan": speed_plan,
             "u_address_id": direccion, "u_address_mcd": address_mcd,
