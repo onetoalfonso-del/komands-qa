@@ -3477,6 +3477,119 @@ async def api_run(suite_id: str, request: Request):
 
 
 
+@app.post("/api/atrf/run-step")
+async def atrf_run_step(request: Request):
+    import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up
+    import base64 as _b64, copy as _cp, uuid as _uid, asyncio as _aio
+    import concurrent.futures as _cf
+
+    body        = await request.json()
+    func_name   = body.get("func", "")
+    vno         = body.get("vno", "02")
+    direccion   = body.get("direccion", "")
+    address_mcd = body.get("addressMcd", "OSP")
+    svc_type    = body.get("serviceType", "FTTH")
+    access_id   = body.get("accessId", "")
+    serial_num  = body.get("serialNumber", "")
+    new_serial  = body.get("newSerialNumber", "")
+    speed_plan  = body.get("speedPlan", "600/600")
+    amb_url     = body.get("ambUrl", "")
+
+    # ── Factibilidad ──────────────────────────────────────────────────────────
+    if func_name == "Factibilidad":
+        env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        folder_name = QA_FACTIBILIDAD_FOLDER_MAP.get(vno, "feasibility-KAO")
+        if vno == "03" and svc_type == "SSAA":
+            folder_name = "feasibility-Entel SSAA"
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(
+            f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()
+        ).decode()
+        token = ""
+        try:
+            _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}",
+                                 "req": "", "res": ""})
+        req_body_dict = {
+            "u_id_vno": vno, "u_operation_type": "Direccion Exacta",
+            "u_address_id": direccion, "u_address_mcd": address_mcd,
+            "u_service_type": svc_type,
+        }
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        for sec in col_tmp.get("item", []):
+            if "Factibilidad" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == folder_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = req_body_str
+        run_id   = _uid.uuid4().hex[:8]
+        tmp_col  = str(QA_DIR / f"_atrf_fact_{vno}_{run_id}.json")
+        json_out = str(QA_DIR / f"_atrf_fact_{vno}_{run_id}.result.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        cmd = [NEWMAN, "run", tmp_col, "-e", env_file,
+               "--folder", folder_name,
+               "--env-var", f"Token={token}",
+               "--env-var", f"idvno={vno}",
+               "--insecure",
+               "--reporters", "cli,json",
+               "--reporter-json-export", json_out,
+               "--timeout-request", "30000"]
+        if amb_url:
+            cmd += ["--env-var", f"apimURL={amb_url}"]
+        loop = _aio.get_event_loop()
+        await loop.run_in_executor(None, lambda: subprocess.run(
+            cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
+        ))
+        pass_flag = False; res_body = ""
+        try:
+            jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
+            execs = jdata.get("run", {}).get("executions", [])
+            if execs:
+                ex  = execs[-1]
+                r   = ex.get("response") or {}
+                st  = r.get("stream") or {}
+                if isinstance(st, dict) and st.get("type") == "Buffer":
+                    res_body = bytes(st["data"]).decode("utf-8", errors="replace")
+                else:
+                    res_body = r.get("body", "")
+                http_code = r.get("code", 0)
+                failures  = jdata.get("run", {}).get("failures", [])
+                try:
+                    rj = _j.loads(res_body)
+                    rc = rj.get("u_return_code") or rj.get("result", {}).get("u_return_code")
+                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0"
+                except Exception:
+                    pass_flag = http_code in (200, 201) and not failures
+        except Exception as pe:
+            res_body = f"Error parseando resultado Newman: {pe}"
+        try:
+            Path(tmp_col).unlink(missing_ok=True)
+            Path(json_out).unlink(missing_ok=True)
+        except Exception:
+            pass
+        return JSONResponse({"pass": pass_flag, "req": req_body_str,
+                             "res": res_body, "vno": vno, "func": func_name})
+
+    # ── Resto de funcionalidades: pendiente ───────────────────────────────────
+    return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
+
+
 @app.get("/api/response/{suite_id}")
 async def api_response(suite_id: str):
     json_path = QA_DIR / f"rsp_{suite_id}.json"
@@ -8135,19 +8248,45 @@ async function _atrf_runSelected(){
     q.status='ejecutando';
     var stEl=document.getElementById('atrf-qst-'+qi);
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
-    await new Promise(function(r){setTimeout(r,600+Math.random()*1000);});
     q.tcResults=[];
-    (q.funcs||[]).forEach(function(fi){
-      var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)return;
-      var vno=q.cfg&&q.cfg.vno||'';var tc=tcMap[vno];if(!tc)return;
+    var vno=q.cfg&&q.cfg.vno||'';
+    for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
+      var fi=q.funcs[fi_idx];
+      var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
+      var tc=tcMap[vno];if(!tc)continue;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
-      var pass=Math.random()>0.25;
-      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,
-        req:_atrf_buildSimReq(fn,q.cfg),res:_atrf_buildSimRes(fn,q.cfg,pass)});
-    });
-    var allPass=q.tcResults.length>0&&q.tcResults.every(function(r){return r.pass;});
+      if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
+      var pass=false,req_s='',res_s='';
+      try{
+        var resp=await fetch('/api/atrf/run-step',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({func:fn,vno:vno,
+            direccion:q.cfg.direccion||'',
+            addressMcd:q.cfg.tdir||'OSP',
+            serviceType:q.cfg.tsvc||'FTTH',
+            accessId:q.cfg.accessId||'',
+            serialNumber:q.cfg.sn||'',
+            newSerialNumber:q.cfg.nsn||'',
+            speedPlan:q.cfg.plan||'',
+            ambUrl:q.cfg.ambUrl||''})});
+        if(resp.status===501){
+          var p2=Math.random()>0.25;
+          pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado — pendiente implementar)';
+        } else {
+          var rd=await resp.json();
+          pass=!!rd.pass;
+          req_s=rd.req||_atrf_buildSimReq(fn,q.cfg);
+          res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
+          if(rd.error&&!rd.req)res_s='Error: '+rd.error;
+        }
+      }catch(e){
+        req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
+      }
+      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s});
+    }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
-    q.status=anyFail?'error':'ok';
+    q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
     if(stEl){stEl.className='atrf-badge '+(anyFail?'atrf-badge-err':'atrf-badge-ok');stEl.textContent=anyFail?'Con errores':'Completado';}
     _atrf_save();
   }
