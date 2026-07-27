@@ -4591,7 +4591,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
               </div>
               <div style="grid-column:span 2">
                 <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">URL base Newman *</label>
-                <input id="env-f-url" type="url" placeholder="https://api.ejemplo.com" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+                <input id="env-f-url" type="text" placeholder="https://api.ejemplo.com" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
               </div>
               <div>
                 <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Tipo</label>
