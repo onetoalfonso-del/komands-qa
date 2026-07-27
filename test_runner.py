@@ -4831,6 +4831,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
           <div class="atrf-section-header">
             <div class="atrf-section-title">Estado de ejecución</div>
             <span id="atrf-run-prog" style="font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-mono);display:none;margin-right:4px"></span>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--atrf-text2);margin-right:2px" title="Seleccionar / deseleccionar todas">
+              <div class="atrf-qcb" id="atrf-selall-cb" onclick="event.preventDefault();_atrf_toggleSelAll()"></div>
+              Todas
+            </label>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected()">&#9654; Ejecutar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
@@ -8183,6 +8188,14 @@ function _atrf_renderQueue(){
       +'</div>';
   });
   el.innerHTML='<div class="atrf-queue-list">'+rows+'</div>';
+  var allCb=document.getElementById('atrf-selall-cb');
+  var delBtn=document.getElementById('atrf-del-sel-btn');
+  if(allCb){
+    var anyChecked=_atrfQueue.some(function(q){return q.checked;});
+    var allChecked=_atrfQueue.length>0&&_atrfQueue.every(function(q){return q.checked;});
+    allCb.classList.toggle('on',allChecked);
+    if(delBtn)delBtn.style.display=anyChecked?'':'none';
+  }
 }
 
 function _atrf_buildDetailHtml(qi){
@@ -8214,8 +8227,20 @@ function _atrf_buildDetailHtml(qi){
 function _atrf_toggleDetail(qi){
   document.getElementById('atrf-qrow-'+qi).classList.toggle('open');
 }
-function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();}
+function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();_atrf_renderQueue();}
 function _atrf_removeItem(qi){if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrf_renderQueue();_atrf_save();}
+function _atrf_toggleSelAll(){
+  var allChecked=_atrfQueue.length>0&&_atrfQueue.every(function(q){return q.checked;});
+  _atrfQueue.forEach(function(q){q.checked=!allChecked;});
+  _atrf_renderQueue();_atrf_save();
+}
+function _atrf_deleteSelected(){
+  var n=_atrfQueue.filter(function(q){return q.checked;}).length;
+  if(!n)return;
+  if(!confirm('¿Eliminar '+n+' secuencia'+(n>1?'s':'')+' seleccionada'+(n>1?'s':'')+' ?'))return;
+  _atrfQueue=_atrfQueue.filter(function(q){return!q.checked;});
+  _atrf_renderQueue();_atrf_save();
+}
 function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
 
 function _atrf_openNew(){
