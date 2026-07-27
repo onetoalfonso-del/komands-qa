@@ -8443,24 +8443,24 @@ function _atrf_buildSimRes(funcName,cfg,pass){
   return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
 }
 var _ATRF_ENDPOINT_MAP={
-  "Factibilidad":                        "fullFillment-feasibility/v1/feasibility",
+  "Factibilidad":                        "presales-feasibility/v1/feasibility",
   "Asignación":                          "fullFillment-assignment/v1/assignment",
-  "Inicio Intervención Asegurada":       "fullFillment-ia/v1/initIntervention",
-  "Activación":                          "fullFillment-activation/v1/activation",
+  "Inicio Intervención Asegurada":       "fullFillment-gIntervention/v1/assuredIntervention",
+  "Activación":                          "fullFillment-activation/v1/registrationActivation",
   "Consulta de Acceso":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
   "Diagnóstico de Acceso":               "fullFillment-diagnose/v1/diagnose",
-  "Modificación de Dispositivo":         "fullFillment-modifyDevice/v1/modifyDevice",
+  "Modificación de Dispositivo":         "fullFillment-deviceModification/v1/deviceModification",
   "Consulta Estado Vecino (GET)":        "fullFillment-neighbor/v1/neighbor",
   "Consulta Estado Vecino (POST)":       "fullFillment-neighbor/v1/neighbor",
-  "Cambio de Pelo":                      "fullFillment-changeLine/v1/changeLine",
-  "Modificación de Acceso":              "fullFillment-modifyAccess/v1/modifyAccess",
-  "Finalización Intervención Asegurada": "fullFillment-ia/v1/closeIntervention",
-  "Reinicio ONT":                        "fullFillment-reboot/v1/reboot",
+  "Cambio de Pelo":                      "fullFillment-fiberChange/v1/fiberChange",
+  "Modificación de Acceso":              "fullFillment-modification/v1/registrationModification",
+  "Finalización Intervención Asegurada": "fullFillment-finalization/v1/interventionFinalization",
+  "Cancelación Intervención Asegurada":  "fullFillment-cancelIntervention/v1/interventionCancellation",
+  "Reinicio ONT":                        "reinicioONT/v1/ONTRestart",
   "RetrieveAccess":                      "fullFillment-retrieveAccess/v1/retrieveAccess",
-  "RetrieveAccess ONT":                  "/api/retrieveAccessONT",
-  "Cancelación Intervención Asegurada":  "/api/cancelIntervention",
-  "Baja Total de Servicio":              "/api/cancelService",
-  "Cancelación Orden de Servicio":       "/api/cancelOrder"
+  "RetrieveAccess ONT":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
+  "Baja Total de Servicio":              "fullFillment-unsubcription/v1/accessDeregistration",
+  "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
