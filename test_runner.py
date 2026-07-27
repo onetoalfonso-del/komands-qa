@@ -3619,8 +3619,6 @@ async def atrf_run_step(request: Request):
             "u_service_ba": True, "u_service_voip": True, "u_service_iptv": True,
             "u_service_type": svc_type,
         }
-        if access_id:
-            req_body_dict["u_access_id_vno"] = access_id
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         col_tmp_o = _cp.deepcopy(col_src)
