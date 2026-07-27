@@ -4271,6 +4271,134 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .hist-badge.err{background:var(--errd);color:var(--err)}
 .hist-badge.warn{background:rgba(255,179,71,.15);color:var(--warn)}
 .hist-empty{padding:40px;text-align:center;color:var(--txt3);font-size:.8rem}
+/* ── QA FulFillment Queue (Humberto design) ── */
+#fulfillment-view{--atrf-bg:#0f1117;--atrf-surface:#181c27;--atrf-surface2:#1f2435;--atrf-border:#2a3048;--atrf-border2:#3a4460;--atrf-text:#e8eaf0;--atrf-text2:#8892aa;--atrf-text3:#4a5470;--atrf-accent:#3d7fff;--atrf-accent2:#2960dd;--atrf-green:#22c55e;--atrf-green-bg:#0d2818;--atrf-green-border:#166534;--atrf-red:#f87171;--atrf-red-bg:#2d0a0a;--atrf-red-border:#7f1d1d;--atrf-amber:#fbbf24;--atrf-amber-bg:#2d1f00;--atrf-amber-border:#78350f;--atrf-radius:8px;--atrf-radius-lg:12px;--atrf-font:'IBM Plex Sans',system-ui,sans-serif;--atrf-mono:'IBM Plex Mono',monospace;background:var(--atrf-bg);color:var(--atrf-text);overflow-y:auto}
+#fulfillment-view *{box-sizing:border-box}
+.atrf-layout{max-width:1380px;margin:0 auto;padding:1.5rem 2rem 4rem;display:flex;flex-direction:column;gap:1rem}
+.atrf-section{background:var(--atrf-surface);border:1px solid var(--atrf-border);border-radius:var(--atrf-radius-lg);overflow:hidden}
+.atrf-section-header{display:flex;align-items:center;gap:10px;padding:14px 1.25rem;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);flex-wrap:wrap}
+.atrf-section-title{font-size:13px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--atrf-text);flex:1;font-family:var(--atrf-font)}
+.atrf-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--atrf-radius);border:1px solid var(--atrf-border2);background:var(--atrf-surface2);color:var(--atrf-text);font-family:var(--atrf-font);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:.02em;white-space:nowrap}
+.atrf-btn:hover{border-color:var(--atrf-accent);color:var(--atrf-accent);background:rgba(61,127,255,.06)}
+.atrf-btn:active{transform:scale(.98)}
+.atrf-btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.atrf-btn-primary{background:var(--atrf-accent);border-color:var(--atrf-accent);color:#fff}
+.atrf-btn-primary:hover{background:var(--atrf-accent2);border-color:var(--atrf-accent2);color:#fff}
+.atrf-btn-green{background:var(--atrf-green-bg);border-color:var(--atrf-green-border);color:var(--atrf-green)}
+.atrf-btn-green:hover{background:#122c1a;border-color:var(--atrf-green)}
+.atrf-btn-danger{background:var(--atrf-red-bg);border-color:var(--atrf-red-border);color:var(--atrf-red)}
+.atrf-btn-sm{padding:4px 10px;font-size:11px}
+.atrf-queue-list{display:flex;flex-direction:column}
+.atrf-qrow{border-bottom:1px solid var(--atrf-border)}
+.atrf-qrow:last-child{border-bottom:none}
+.atrf-qrow-main{display:flex;align-items:center;gap:10px;padding:11px 14px;transition:background .1s}
+.atrf-qrow-main:hover{background:rgba(255,255,255,.015)}
+.atrf-qrow-arrow{font-size:11px;color:var(--atrf-text3);transition:transform .2s;flex-shrink:0;cursor:pointer;padding:2px 4px}
+.atrf-qrow.open .atrf-qrow-arrow{transform:rotate(90deg)}
+.atrf-qrow-detail{display:none;padding:0 14px 14px 52px;border-top:1px solid var(--atrf-border);background:rgba(0,0,0,.1)}
+.atrf-qrow.open .atrf-qrow-detail{display:block}
+.atrf-qcb{width:16px;height:16px;border:1px solid var(--atrf-border2);border-radius:3px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .1s}
+.atrf-qcb.on{background:var(--atrf-accent);border-color:var(--atrf-accent)}
+.atrf-qcb.on::after{content:'';display:block;width:9px;height:5px;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg) translateY(-1px)}
+.atrf-q-info{flex:1;min-width:0}
+.atrf-q-name{font-size:13px;font-weight:500;color:var(--atrf-accent);cursor:pointer;font-family:var(--atrf-font)}
+.atrf-q-name:hover{text-decoration:underline}
+.atrf-q-meta{font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-mono);margin-top:1px}
+.atrf-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:500;font-family:var(--atrf-mono);letter-spacing:.03em;white-space:nowrap}
+.atrf-badge-wait{background:var(--atrf-surface2);border:1px solid var(--atrf-border2);color:var(--atrf-text2)}
+.atrf-badge-run{background:var(--atrf-amber-bg);border:1px solid var(--atrf-amber-border);color:var(--atrf-amber)}
+.atrf-badge-ok{background:var(--atrf-green-bg);border:1px solid var(--atrf-green-border);color:var(--atrf-green)}
+.atrf-badge-err{background:var(--atrf-red-bg);border:1px solid var(--atrf-red-border);color:var(--atrf-red)}
+.atrf-empty-state{padding:4rem;text-align:center;color:var(--atrf-text3);font-size:13px;font-family:var(--atrf-mono)}
+.atrf-empty-hint{font-size:11px;color:var(--atrf-text3);margin-top:8px}
+.atrf-chip-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.atrf-chip{font-size:11px;font-family:var(--atrf-mono);background:rgba(61,127,255,.1);border:1px solid rgba(61,127,255,.25);border-radius:4px;padding:2px 8px;color:var(--atrf-accent)}
+/* Modal */
+.atrf-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9100;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto}
+.atrf-overlay.show{display:flex}
+.atrf-modal{background:var(--atrf-surface);border:1px solid var(--atrf-border2);border-radius:var(--atrf-radius-lg);width:100%;max-width:860px;display:flex;flex-direction:column;margin:auto}
+.atrf-modal-head{display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);border-radius:var(--atrf-radius-lg) var(--atrf-radius-lg) 0 0;flex-shrink:0;flex-wrap:wrap}
+.atrf-modal-head-title{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:var(--atrf-text2);flex-shrink:0;font-family:var(--atrf-font)}
+.atrf-name-inp{flex:1;min-width:160px;background:var(--atrf-surface);border:1px solid var(--atrf-border2);border-radius:var(--atrf-radius);color:var(--atrf-text);font-family:var(--atrf-mono);font-size:13px;font-weight:500;padding:6px 12px;outline:none;transition:border-color .15s;height:34px}
+.atrf-name-inp:focus{border-color:var(--atrf-accent)}
+.atrf-name-inp.err{border-color:var(--atrf-red)!important}
+.atrf-tabs{display:flex;gap:0;padding:0 1.25rem;background:var(--atrf-surface2);border-bottom:1px solid var(--atrf-border)}
+.atrf-tab{font-size:12px;color:var(--atrf-text3);padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none;font-family:var(--atrf-mono);font-weight:500;letter-spacing:.03em;transition:color .15s}
+.atrf-tab:hover{color:var(--atrf-text2)}
+.atrf-tab.active{color:var(--atrf-text);border-bottom-color:var(--atrf-accent)}
+.atrf-modal-body{padding:1.25rem;overflow-y:auto;max-height:calc(100vh - 280px)}
+.atrf-modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:1rem 1.25rem;border-top:1px solid var(--atrf-border);background:var(--atrf-surface2);border-radius:0 0 var(--atrf-radius-lg) var(--atrf-radius-lg);flex-shrink:0}
+.atrf-ts-row{display:flex;align-items:center;gap:10px;padding:6px 1.25rem;background:rgba(61,127,255,.04);border-bottom:1px solid var(--atrf-border);font-size:11px;font-family:var(--atrf-mono);color:var(--atrf-text3)}
+.atrf-ts-row span{color:var(--atrf-text2)}
+/* Form fields */
+.atrf-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+.atrf-col-2{grid-column:span 2}.atrf-col-3{grid-column:span 3}.atrf-col-4{grid-column:span 4}.atrf-col-5{grid-column:span 5}.atrf-col-6{grid-column:span 6}.atrf-col-12{grid-column:span 12}
+.atrf-divider{grid-column:span 12;border:none;border-top:1px solid var(--atrf-border);margin:4px 0}
+.atrf-group-lbl{grid-column:span 12;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--atrf-text3);font-family:var(--atrf-mono);padding-top:4px}
+.atrf-field{display:flex;flex-direction:column;gap:5px}
+.atrf-field label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text2);font-family:var(--atrf-mono);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.atrf-field label .req{color:var(--atrf-accent)}
+.atrf-field input,.atrf-field select{background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:var(--atrf-radius);color:var(--atrf-text);font-family:var(--atrf-mono);font-size:12px;padding:7px 10px;outline:none;transition:border-color .15s;width:100%;height:34px}
+.atrf-field input:focus,.atrf-field select:focus{border-color:var(--atrf-accent)}
+.atrf-field input.err,.atrf-field select.err{border-color:var(--atrf-red)!important}
+.atrf-field select option{background:var(--atrf-surface2)}
+.atrf-field .atrf-hint{font-size:10px;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-top:2px}
+.atrf-amb-wrap{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-top:2px}
+.atrf-amb-radio{display:none}
+.atrf-amb-lbl{font-size:11px;font-family:var(--atrf-mono);font-weight:500;padding:5px 14px;border-radius:var(--atrf-radius);border:1px solid var(--atrf-border2);background:var(--atrf-surface2);color:var(--atrf-text2);cursor:pointer;transition:all .15s;user-select:none;height:34px;display:flex;align-items:center}
+.atrf-amb-lbl:hover{border-color:var(--atrf-accent);color:var(--atrf-accent)}
+.atrf-amb-radio:checked+.atrf-amb-lbl{background:rgba(61,127,255,.15);border-color:var(--atrf-accent);color:var(--atrf-accent)}
+.atrf-val-err{background:rgba(248,113,113,.08);border:1px solid var(--atrf-red-border);border-radius:var(--atrf-radius);padding:10px 14px;margin-bottom:12px;font-size:11px;font-family:var(--atrf-mono);color:var(--atrf-red);line-height:1.8;display:none}
+.atrf-val-err.show{display:block}
+.atrf-tag{font-size:9px;padding:1px 5px;border-radius:3px;cursor:pointer;user-select:none;transition:all .15s;background:rgba(61,127,255,.15);color:var(--atrf-accent);border:1px solid rgba(61,127,255,.35)}
+.atrf-tag.off{background:var(--atrf-surface2);color:var(--atrf-text3);border-color:var(--atrf-border)}
+.atrf-slen{font-size:10px;font-family:var(--atrf-mono);padding:2px 7px;border-radius:3px;background:var(--atrf-surface2);border:1px solid var(--atrf-border);color:var(--atrf-text3);margin-left:auto}
+.atrf-slen.ok{background:var(--atrf-green-bg);border-color:var(--atrf-green-border);color:var(--atrf-green)}
+.atrf-slen.warn{background:var(--atrf-amber-bg);border-color:var(--atrf-amber-border);color:var(--atrf-amber)}
+/* Funcs panel */
+.atrf-funcs-layout{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.atrf-func-panel{border:1px solid var(--atrf-border);border-radius:var(--atrf-radius);overflow:hidden}
+.atrf-func-ph{background:var(--atrf-surface2);border-bottom:1px solid var(--atrf-border);padding:8px 12px;display:flex;align-items:center;gap:8px}
+.atrf-func-pt{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text2);font-family:var(--atrf-mono);flex:1}
+.atrf-func-search{background:var(--atrf-bg);border:1px solid var(--atrf-border);border-radius:5px;color:var(--atrf-text);font-family:var(--atrf-mono);font-size:11px;padding:4px 8px;outline:none;width:130px}
+.atrf-func-search:focus{border-color:var(--atrf-accent)}
+.atrf-func-scroll{max-height:280px;overflow-y:auto}
+.atrf-func-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--atrf-border);cursor:pointer;transition:background .1s;user-select:none}
+.atrf-func-item:last-child{border-bottom:none}
+.atrf-func-item:hover{background:var(--atrf-surface2)}
+.atrf-func-item.selected{background:rgba(61,127,255,.06)}
+.atrf-func-item.selected .atrf-func-name{color:var(--atrf-accent)}
+.atrf-func-idx{font-family:var(--atrf-mono);font-size:10px;color:var(--atrf-text3);width:22px;flex-shrink:0}
+.atrf-func-name{font-size:12px;flex:1;color:var(--atrf-text);font-family:var(--atrf-font)}
+.atrf-func-cb{width:15px;height:15px;border:1px solid var(--atrf-border2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .1s}
+.atrf-func-cb.on{background:var(--atrf-accent);border-color:var(--atrf-accent)}
+.atrf-func-cb.on::after{content:'';display:block;width:8px;height:5px;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg) translateY(-1px)}
+.atrf-seq-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--atrf-border);font-size:12px;background:var(--atrf-surface)}
+.atrf-seq-item:last-child{border-bottom:none}
+.atrf-drag-handle{cursor:grab;color:var(--atrf-text3);font-size:14px;flex-shrink:0;line-height:1;padding:0 2px}
+.atrf-drag-handle:active{cursor:grabbing}
+.atrf-seq-pos{font-family:var(--atrf-mono);font-size:10px;color:var(--atrf-text3);width:16px;text-align:center;flex-shrink:0}
+.atrf-seq-name{flex:1;color:var(--atrf-text);font-size:12px;font-family:var(--atrf-font)}
+.atrf-seq-del{background:none;border:none;cursor:pointer;color:var(--atrf-text3);font-size:16px;line-height:1;padding:0 2px;transition:color .1s}
+.atrf-seq-del:hover{color:var(--atrf-red)}
+.atrf-seq-empty{padding:2.5rem 1rem;text-align:center;color:var(--atrf-text3);font-size:12px;font-family:var(--atrf-mono)}
+.atrf-funcs-err{font-size:11px;color:var(--atrf-red);font-family:var(--atrf-mono);margin-top:6px;display:none}
+.atrf-funcs-err.show{display:block}
+/* Readonly view */
+.atrf-dcfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.atrf-dcfg-item{display:flex;flex-direction:column;gap:3px}
+.atrf-dcfg-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono)}
+.atrf-dcfg-val{font-size:12px;font-family:var(--atrf-mono);color:var(--atrf-text2);background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:5px;padding:5px 8px;word-break:break-all;min-height:30px}
+.atrf-view-func-list{display:flex;flex-direction:column;border:1px solid var(--atrf-border);border-radius:var(--atrf-radius);overflow:hidden}
+.atrf-view-func-item{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--atrf-border);font-size:12px;font-family:var(--atrf-font)}
+.atrf-view-func-item:last-child{border-bottom:none}
+.atrf-view-func-pos{font-family:var(--atrf-mono);font-size:10px;color:var(--atrf-text3);width:20px}
+/* Exec history */
+.atrf-exec-hist{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.atrf-hist-row{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:6px;font-size:12px;font-family:var(--atrf-mono)}
+.atrf-hist-ts{color:var(--atrf-text2);flex:1}
+/* URL badge shown in queue item */
+.atrf-url-badge{font-size:10px;font-family:var(--atrf-mono);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:4px;padding:1px 7px;color:var(--atrf-green);margin-left:4px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -4352,6 +4480,21 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="cancel-access-preview"></div>
       <div id="cancel-sel-bar"></div>
       <div id="cancel-grid"></div>
+    </div>
+    <!-- Vista QA FulFillment Queue -->
+    <div id="fulfillment-view" style="display:none;flex-direction:column;flex:1;overflow-y:auto;min-width:0">
+      <div class="atrf-layout">
+        <div class="atrf-section">
+          <div class="atrf-section-header">
+            <div class="atrf-section-title">Estado de ejecución</div>
+            <span id="atrf-run-prog" style="font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-mono);display:none;margin-right:4px"></span>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected()">&#9654; Ejecutar seleccionadas</button>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
+          </div>
+          <div id="atrf-exec-area"></div>
+        </div>
+      </div>
     </div>
     <!-- Vista Historial -->
     <div id="historial-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -4580,6 +4723,13 @@ function selectSuite(id){
   setActive(id);
   var _hb=document.getElementById('hist-btn'); if(_hb) _hb.classList.remove('active');
   var _sb=document.getElementById('settings-btn'); if(_sb) _sb.classList.remove('active');
+  if(id==='qa-fulfillment'){
+    switchView('fulfillment');
+    setTop('','QA FulFillment','Cola de secuencias de prueba');
+    _atrf_load();
+    _atrf_renderQueue();
+    return;
+  }
   if(id==='qa-ep-factibilidad'){
     _isQAChild=true;
     switchView('ep-form');
@@ -4866,9 +5016,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view","settings-view"];
+  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view","settings-view","fulfillment-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view"}[mode]||"std-view";
+  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -7587,7 +7737,427 @@ function setTop(state,title,txt){
   s.className='top-status'+(state?' '+state:''); s.textContent=txt;
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// ─── QA FulFillment Queue (diseño Humberto) ──────────────────────────────
+var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
+var _atrfQueue=[];
+var _atrfRunning=false;
+var _atrfViewIdx=-1;
+var _atrfSel=[];
+var _atrfFilter='';
+var _atrfDragSrc=null;
+var _atrfAutoState={aid:true,sn:true,nsn:true};
+var _atrfEnvUrls={};
+
+function _atrf_p2(n){return String(n).padStart(2,'0');}
+function _atrf_now(){var d=new Date();return{MM:_atrf_p2(d.getMonth()+1),DD:_atrf_p2(d.getDate()),HH:_atrf_p2(d.getHours()),mm:_atrf_p2(d.getMinutes())};}
+function _atrf_ts(){return new Date().toLocaleString('es-CL',{hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function _atrf_v(id){var e=document.getElementById(id);return e?e.value:'';}
+
+function _atrf_load(){
+  try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
+  _atrf_loadEnvUrls();
+}
+function _atrf_save(){localStorage.setItem('atrf-queue',JSON.stringify(_atrfQueue));}
+
+function _atrf_loadEnvUrls(){
+  fetch('/api/environments').then(function(r){return r.json();}).then(function(data){
+    if(!Array.isArray(data))return;
+    data.forEach(function(row){
+      if(row.name&&row.base_url)_atrfEnvUrls[row.name.toUpperCase()]=row.base_url;
+    });
+    _atrf_updateAmbUrl();
+  }).catch(function(){});
+}
+
+function _atrf_getAmb(){var r=document.querySelector('input[name="atrf-amb"]:checked');return r?r.value:'QA';}
+
+function _atrf_onAmbChange(){
+  _atrf_updateAmbUrl();
+  _atrf_updateAid();
+}
+function _atrf_updateAmbUrl(){
+  var amb=_atrf_getAmb();
+  var url=_atrfEnvUrls[amb]||'';
+  var el=document.getElementById('atrf-amb-url');
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):''}
+}
+
+function _atrf_renderQueue(){
+  var el=document.getElementById('atrf-exec-area'); if(!el)return;
+  if(!_atrfQueue.length){
+    el.innerHTML='<div class="atrf-empty-state">Sin secuencias encoladas<div class="atrf-empty-hint">Presiona "+ Nueva secuencia" para comenzar</div></div>';
+    return;
+  }
+  var rows='';
+  _atrfQueue.forEach(function(q,qi){
+    var sc={espera:'atrf-badge-wait',ejecutando:'atrf-badge-run',ok:'atrf-badge-ok',error:'atrf-badge-err'}[q.status];
+    var sl={espera:'En espera',ejecutando:'Ejecutando',ok:'Completado',error:'Con errores'}[q.status];
+    var urlBadge=q.cfg&&q.cfg.ambUrl?('<span class="atrf-url-badge">'+esc(q.cfg.ambUrl)+'</span>'):'';
+    rows+='<div class="atrf-qrow" id="atrf-qrow-'+qi+'">'
+      +'<div class="atrf-qrow-main">'
+      +'<span class="atrf-qrow-arrow" onclick="event.stopPropagation();_atrf_toggleDetail('+qi+')" id="atrf-qarrow-'+qi+'">▶</span>'
+      +'<div class="atrf-qcb'+(q.checked?' on':'')+'" onclick="event.stopPropagation();_atrf_toggleCb('+qi+')" id="atrf-qcb-'+qi+'"></div>'
+      +'<div class="atrf-q-info">'
+      +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'—')+'</span>'+urlBadge
+      +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
+      +'</div>'
+      +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
+      +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
+      +'</div>'
+      +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'"></div>'
+      +'</div>';
+  });
+  el.innerHTML='<div class="atrf-queue-list">'+rows+'</div>';
+}
+
+function _atrf_toggleDetail(qi){
+  var row=document.getElementById('atrf-qrow-'+qi);
+  var isOpen=row.classList.toggle('open');
+  if(isOpen){
+    var q=_atrfQueue[qi];
+    var el=document.getElementById('atrf-qdetail-'+qi);
+    var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
+    el.innerHTML='<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div></div>';
+  }
+}
+function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();}
+function _atrf_removeItem(qi){if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrf_renderQueue();_atrf_save();}
+function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
+
+function _atrf_openNew(){
+  _atrfSel=[];_atrfFilter='';
+  _atrfAutoState={aid:true,sn:true,nsn:true};
+  document.getElementById('atrf-seq-name').value='';
+  document.getElementById('atrf-seq-name').classList.remove('err');
+  document.getElementById('atrf-seq-ts').textContent=_atrf_ts();
+  document.getElementById('atrf-val-err').classList.remove('show');
+  document.getElementById('atrf-funcs-err').classList.remove('show');
+  var qa=document.querySelector('input[name="atrf-amb"][value="QA"]');if(qa)qa.checked=true;
+  ['atrf-vno','atrf-tdir','atrf-tsvc','atrf-esc','atrf-tex','atrf-bp','atrf-plan','atrf-nplan'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('err');});
+  ['atrf-dir','atrf-aid','atrf-sn','atrf-nsn'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.classList.remove('err');}});
+  _atrf_updateAmbUrl();
+  _atrf_updateAid();
+  _atrf_updateSerials();
+  _atrf_switchTab('cfg');
+  _atrf_renderCatalog();
+  _atrf_renderSeq();
+  document.getElementById('atrf-modal-new').classList.add('show');
+  setTimeout(function(){document.getElementById('atrf-seq-name').focus();},80);
+}
+function _atrf_closeNew(){document.getElementById('atrf-modal-new').classList.remove('show');}
+
+function _atrf_switchTab(t){
+  ['cfg','funcs'].forEach(function(x){
+    document.getElementById('atrf-ntab-'+x).classList.toggle('active',x===t);
+    document.getElementById('atrf-nbody-'+x).style.display=x===t?'':'none';
+  });
+}
+
+function _atrf_buildAid(){
+  var vno=_atrf_v('atrf-vno');var amb=_atrf_getAmb();var dir=_atrf_v('atrf-dir').trim();
+  var n=_atrf_now();
+  if(vno==='00')return'00'+amb+dir+n.HH+n.mm;
+  return vno+'-'+amb+dir+n.HH+n.mm;
+}
+function _atrf_updateAid(){
+  if(!_atrfAutoState.aid)return;
+  var el=document.getElementById('atrf-aid');if(el)el.value=_atrf_buildAid();
+}
+function _atrf_onAidInput(){_atrfAutoState.aid=false;document.getElementById('atrf-auto-aid').classList.add('off');}
+
+function _atrf_buildSerial(){
+  var vno=_atrf_v('atrf-vno');var px=_ATRF_VNO_PREFIX[vno]||'';if(!px)return'';
+  var n=_atrf_now();return px+n.MM+n.DD+n.HH+n.mm;
+}
+function _atrf_updateSerials(){
+  var sn=_atrf_buildSerial();
+  if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=sn;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
+  if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=sn;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
+}
+function _atrf_updateSnLen(id,lid){
+  var len=(document.getElementById(id)||{value:''}).value.length;
+  var el=document.getElementById(lid);if(!el)return;
+  el.textContent=len+' car.';el.className='atrf-slen';
+  if(len===12||len===16)el.classList.add('ok');else if(len>0)el.classList.add('warn');
+}
+function _atrf_onSnEdit(id,lid){_atrf_updateSnLen(id,lid);}
+function _atrf_toggleAuto(key){
+  _atrfAutoState[key]=!_atrfAutoState[key];
+  document.getElementById('atrf-auto-'+key).classList.toggle('off',!_atrfAutoState[key]);
+  if(_atrfAutoState[key]){if(key==='aid')_atrf_updateAid();else _atrf_updateSerials();}
+}
+
+function _atrf_renderCatalog(){
+  var el=document.getElementById('atrf-func-catalog');if(!el)return;
+  var vis=_ATRF_FUNCS.filter(function(f){return!_atrfFilter||f.toLowerCase().includes(_atrfFilter.toLowerCase());});
+  document.getElementById('atrf-func-cnt').textContent=vis.length;
+  el.innerHTML='';
+  _ATRF_FUNCS.forEach(function(f,i){
+    if(_atrfFilter&&!f.toLowerCase().includes(_atrfFilter.toLowerCase()))return;
+    var on=_atrfSel.includes(i);
+    var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
+    d.innerHTML='<span class="atrf-func-idx">'+String(i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+f+'</span><span class="atrf-func-cb'+(on?' on':'')+'"></span>';
+    d.onclick=function(){_atrf_toggleFunc(i);};
+    el.appendChild(d);
+  });
+}
+function _atrf_toggleFunc(i){
+  var idx=_atrfSel.indexOf(i);
+  if(idx===-1)_atrfSel.push(i);else _atrfSel.splice(idx,1);
+  _atrf_renderCatalog();_atrf_renderSeq();
+  document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):'';
+}
+function _atrf_filterFuncs(val){_atrfFilter=val;_atrf_renderCatalog();}
+function _atrf_renderSeq(){
+  var el=document.getElementById('atrf-seq-list');if(!el)return;
+  document.getElementById('atrf-seq-counter').textContent='Secuencia ('+_atrfSel.length+')';
+  if(!_atrfSel.length){el.innerHTML='<div class="atrf-seq-empty">← Selecciona funcionalidades</div>';return;}
+  el.innerHTML='';
+  _atrfSel.forEach(function(fi,pos){
+    var d=document.createElement('div');d.className='atrf-seq-item';d.draggable=true;d.dataset.pos=pos;
+    d.innerHTML='<span class="atrf-drag-handle">⠿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_ATRF_FUNCS[fi]||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">×</button>';
+    d.ondragstart=function(e){_atrfDragSrc=pos;e.dataTransfer.effectAllowed='move';d.style.opacity='.4';};
+    d.ondragend=function(){d.style.opacity='1';document.querySelectorAll('#atrf-seq-list .atrf-seq-item').forEach(function(x){x.classList.remove('drag-over');});};
+    d.ondragover=function(e){e.preventDefault();d.classList.add('drag-over');};
+    d.ondragleave=function(){d.classList.remove('drag-over');};
+    d.ondrop=function(e){e.preventDefault();d.classList.remove('drag-over');var from=_atrfDragSrc,to=parseInt(d.dataset.pos);if(from===to)return;var item=_atrfSel.splice(from,1)[0];_atrfSel.splice(to,0,item);_atrf_renderSeq();_atrf_renderCatalog();};
+    el.appendChild(d);
+  });
+}
+function _atrf_removeSeq(pos){_atrfSel.splice(pos,1);_atrf_renderSeq();_atrf_renderCatalog();document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):''}
+
+function _atrf_enqueue(){
+  var errors=[];
+  document.querySelectorAll('#atrf-modal-new .err').forEach(function(e){e.classList.remove('err');});
+  document.getElementById('atrf-funcs-err').classList.remove('show');
+  var name=_atrf_v('atrf-seq-name').trim();
+  if(!name){errors.push('Nombre de la secuencia es obligatorio');document.getElementById('atrf-seq-name').classList.add('err');}
+  if(!_atrf_v('atrf-dir').trim()){errors.push('Dirección es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
+  if(!_atrf_v('atrf-aid').trim()){errors.push('Access ID es obligatorio');document.getElementById('atrf-aid').classList.add('err');}
+  if(!_atrf_v('atrf-esc')){errors.push('Escenario es obligatorio');document.getElementById('atrf-esc').classList.add('err');}
+  if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecución es obligatorio');document.getElementById('atrf-tex').classList.add('err');}
+  if(!_atrfSel.length){errors.push('Debes seleccionar al menos una funcionalidad');document.getElementById('atrf-funcs-err').classList.add('show');}
+  var errEl=document.getElementById('atrf-val-err');
+  if(errors.length){errEl.innerHTML=errors.map(function(e){return'· '+e;}).join('<br>');errEl.classList.add('show');if(errors.length===1&&errors[0].includes('funcionalidad'))_atrf_switchTab('funcs');else _atrf_switchTab('cfg');return;}
+  errEl.classList.remove('show');
+  var amb=_atrf_getAmb();
+  var cfg={vno:_atrf_v('atrf-vno'),ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:_atrf_v('atrf-dir').trim(),accessId:_atrf_v('atrf-aid').trim(),tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:_atrf_v('atrf-sn').trim(),nsn:_atrf_v('atrf-nsn').trim()};
+  _atrfQueue.push({name:name,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:document.getElementById('atrf-seq-ts').textContent,cfg:cfg,history:[]});
+  _atrf_closeNew();_atrf_renderQueue();_atrf_save();
+  showToast&&showToast('"'+name+'" encolada','ok');
+}
+
+function _atrf_openView(qi){
+  _atrfViewIdx=qi;var q=_atrfQueue[qi];
+  document.getElementById('atrf-view-name').value=q.name||'';
+  document.getElementById('atrf-view-ts').textContent=q.ts||'—';
+  _atrf_switchView('cfg');
+  var c=q.cfg||{};
+  var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'—'],['Tipo Dirección',c.tdir],['Dirección',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo Ejecución',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'—'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'—']];
+  document.getElementById('atrf-vcfg-grid').innerHTML=fields.map(function(f){return'<div class="atrf-dcfg-item"><div class="atrf-dcfg-lbl">'+f[0]+'</div><div class="atrf-dcfg-val">'+(f[1]||'—')+'</div></div>';}).join('');
+  document.getElementById('atrf-vfunc-list').innerHTML=(q.funcs||[]).map(function(fi,i){return'<div class="atrf-view-func-item"><span class="atrf-view-func-pos">'+(i+1)+'</span><span>'+(_ATRF_FUNCS[fi]||fi)+'</span></div>';}).join('');
+  document.getElementById('atrf-modal-view').classList.add('show');
+}
+function _atrf_closeView(){document.getElementById('atrf-modal-view').classList.remove('show');_atrfViewIdx=-1;}
+function _atrf_deleteFromView(){if(_atrfViewIdx<0)return;if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(_atrfViewIdx,1);_atrf_closeView();_atrf_renderQueue();_atrf_save();}
+function _atrf_switchView(t){
+  ['cfg','funcs'].forEach(function(x){
+    document.getElementById('atrf-vtab-'+x).classList.toggle('active',x===t);
+    document.getElementById('atrf-vbody-'+x).style.display=x===t?'':'none';
+  });
+}
+
+async function _atrf_runSelected(){
+  if(_atrfRunning)return;
+  var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
+  if(!toRun.length){showToast&&showToast('No hay secuencias seleccionadas en espera','err');return;}
+  _atrfRunning=true;
+  var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='⏳ Ejecutando…';btn.disabled=true;}
+  var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
+  for(var qi=0;qi<_atrfQueue.length;qi++){
+    var q=_atrfQueue[qi];
+    if(!q.checked||q.status!=='espera')continue;
+    if(prog)prog.textContent=(qi+1)+'/'+_atrfQueue.length+' → '+q.name;
+    q.status='ejecutando';
+    var stEl=document.getElementById('atrf-qst-'+qi);
+    if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
+    await new Promise(function(r){setTimeout(r,800+Math.random()*1200);});
+    var hasErr=Math.random()>0.7;
+    q.status=hasErr?'error':'ok';
+    if(stEl){stEl.className='atrf-badge '+(hasErr?'atrf-badge-err':'atrf-badge-ok');stEl.textContent=hasErr?'Con errores':'Completado';}
+    _atrf_save();
+  }
+  _atrfRunning=false;
+  if(prog)prog.style.display='none';
+  if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
+  _atrf_renderQueue();
+}
 </script>
+<!-- ── ATRF Modal Nueva Secuencia ─────────────────────────────────────────── -->
+<div class="atrf-overlay" id="atrf-modal-new">
+  <div class="atrf-modal">
+    <div class="atrf-modal-head">
+      <div class="atrf-modal-head-title">Nueva secuencia —</div>
+      <input type="text" class="atrf-name-inp" id="atrf-seq-name" placeholder="Nombre de la secuencia…"/>
+      <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_closeNew()">Cancelar</button>
+      <button class="atrf-btn atrf-btn-sm atrf-btn-primary" onclick="_atrf_enqueue()">Encolar</button>
+    </div>
+    <div class="atrf-ts-row">Fecha registro: <span id="atrf-seq-ts">—</span></div>
+    <div class="atrf-val-err" id="atrf-val-err"></div>
+    <div class="atrf-tabs">
+      <div class="atrf-tab active" id="atrf-ntab-cfg" onclick="_atrf_switchTab('cfg')">Configuración</div>
+      <div class="atrf-tab" id="atrf-ntab-funcs" onclick="_atrf_switchTab('funcs')">Funcionalidades <span id="atrf-funcs-cnt" style="font-size:10px;opacity:.6"></span></div>
+    </div>
+    <div class="atrf-modal-body" id="atrf-nbody-cfg">
+      <div class="atrf-grid">
+        <div class="atrf-field atrf-col-12">
+          <label>Ambiente <span class="req">★</span></label>
+          <div class="atrf-amb-wrap" id="atrf-amb-wrap">
+            <input type="radio" name="atrf-amb" id="atrf-amb-qa" value="QA" class="atrf-amb-radio" onchange="_atrf_onAmbChange()" checked/>
+            <label for="atrf-amb-qa" class="atrf-amb-lbl">QA</label>
+            <input type="radio" name="atrf-amb" id="atrf-amb-prd" value="PRD" class="atrf-amb-radio" onchange="_atrf_onAmbChange()"/>
+            <label for="atrf-amb-prd" class="atrf-amb-lbl">PRD</label>
+            <input type="radio" name="atrf-amb" id="atrf-amb-pprd" value="PPRD" class="atrf-amb-radio" onchange="_atrf_onAmbChange()"/>
+            <label for="atrf-amb-pprd" class="atrf-amb-lbl">PPRD</label>
+            <span id="atrf-amb-url" style="font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-green);margin-left:8px;display:none"></span>
+          </div>
+        </div>
+        <hr class="atrf-divider"/>
+        <div class="atrf-group-lbl">Datos base</div>
+        <div class="atrf-field atrf-col-2">
+          <label>VNO <span class="req">★</span></label>
+          <select id="atrf-vno">
+            <option value="00">00</option><option value="02">02</option>
+            <option value="03">03</option><option value="05">05</option>
+          </select>
+        </div>
+        <div class="atrf-field atrf-col-3">
+          <label>Tipo dirección <span class="req">★</span></label>
+          <select id="atrf-tdir">
+            <option value="XYGO">XYGO</option><option value="OSP">OSP</option>
+            <option value="SGO">SGO</option><option value="MANUAL">MANUAL</option>
+          </select>
+        </div>
+        <div class="atrf-field atrf-col-5">
+          <label>Dirección <span class="req">★</span></label>
+          <input type="text" id="atrf-dir" placeholder="Ingresa la dirección"/>
+        </div>
+        <div class="atrf-field atrf-col-4">
+          <label>Access ID <span class="req">★</span>
+            <span class="atrf-tag" id="atrf-auto-aid" onclick="_atrf_toggleAuto('aid')">Auto</span>
+          </label>
+          <input type="text" id="atrf-aid" placeholder="—" oninput="_atrf_onAidInput()"/>
+          <span class="atrf-hint">VNO · Ambiente · Dirección · HH:MM</span>
+        </div>
+        <hr class="atrf-divider"/>
+        <div class="atrf-group-lbl">Servicio</div>
+        <div class="atrf-field atrf-col-3">
+          <label>Tipo servicio <span class="req">★</span></label>
+          <select id="atrf-tsvc">
+            <option value="FTTH">FTTH</option><option value="FTTE">FTTE</option>
+            <option value="SSAA">SSAA</option>
+          </select>
+        </div>
+        <div class="atrf-field atrf-col-3">
+          <label>Escenario <span class="req">★</span></label>
+          <select id="atrf-esc">
+            <option value="">— Selecciona —</option>
+            <option value="Instalación">Instalación</option>
+            <option value="Reparación">Reparación</option>
+            <option value="Retiro de Drop">Retiro de Drop</option>
+          </select>
+        </div>
+        <div class="atrf-field atrf-col-3">
+          <label>Tipo ejecución <span class="req">★</span></label>
+          <select id="atrf-tex">
+            <option value="">— Selecciona —</option>
+            <option value="Síncrono">Síncrono</option>
+            <option value="Asíncrono">Asíncrono</option>
+          </select>
+        </div>
+        <div class="atrf-field atrf-col-3">
+          <label>Con / Sin BP</label>
+          <select id="atrf-bp">
+            <option>Con BP</option><option>Sin BP</option>
+          </select>
+        </div>
+        <hr class="atrf-divider"/>
+        <div class="atrf-group-lbl">Plan / Perfil</div>
+        <div class="atrf-field atrf-col-3">
+          <label>Plan / Perfil <span class="req">★</span></label>
+          <select id="atrf-plan">
+            <option>100/10</option><option>100/100</option><option>300/300</option>
+            <option selected>400/400</option><option>600/600</option>
+            <option>800/800</option><option>1000/1000</option>
+          </select>
+        </div>
+        <div class="atrf-field atrf-col-3">
+          <label>Nuevo Plan / Perfil</label>
+          <select id="atrf-nplan">
+            <option>100/10</option><option>100/100</option><option>300/300</option>
+            <option selected>400/400</option><option>600/600</option>
+            <option>800/800</option><option>1000/1000</option>
+          </select>
+        </div>
+        <hr class="atrf-divider"/>
+        <div class="atrf-group-lbl">Serial Numbers</div>
+        <div class="atrf-field atrf-col-5">
+          <label>Serial Number <span class="req">★</span>
+            <span class="atrf-tag" id="atrf-auto-sn" onclick="_atrf_toggleAuto('sn')">Auto</span>
+            <span class="atrf-slen" id="atrf-sn-len">0 car.</span>
+          </label>
+          <input type="text" id="atrf-sn" placeholder="—" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
+          <span class="atrf-hint">Prefijo VNO + MM DD HH mm · 12 o 16 car.</span>
+        </div>
+        <div class="atrf-field atrf-col-5">
+          <label>Nuevo Serial Number
+            <span class="atrf-tag" id="atrf-auto-nsn" onclick="_atrf_toggleAuto('nsn')">Auto</span>
+            <span class="atrf-slen" id="atrf-nsn-len">0 car.</span>
+          </label>
+          <input type="text" id="atrf-nsn" placeholder="—" oninput="_atrf_onSnEdit('atrf-nsn','atrf-nsn-len')"/>
+        </div>
+      </div>
+    </div>
+    <div class="atrf-modal-body" id="atrf-nbody-funcs" style="display:none">
+      <div class="atrf-funcs-err" id="atrf-funcs-err">Debes seleccionar al menos una funcionalidad</div>
+      <div class="atrf-funcs-layout">
+        <div class="atrf-func-panel">
+          <div class="atrf-func-ph">
+            <span class="atrf-func-pt">Disponibles (<span id="atrf-func-cnt">0</span>)</span>
+            <input class="atrf-func-search" type="text" placeholder="Buscar..." oninput="_atrf_filterFuncs(this.value)"/>
+          </div>
+          <div class="atrf-func-scroll" id="atrf-func-catalog"></div>
+        </div>
+        <div class="atrf-func-panel">
+          <div class="atrf-func-ph">
+            <span class="atrf-func-pt" id="atrf-seq-counter">Secuencia (0)</span>
+          </div>
+          <div id="atrf-seq-list"><div class="atrf-seq-empty">← Selecciona funcionalidades</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ── ATRF Modal Ver Secuencia ──────────────────────────────────────────── -->
+<div class="atrf-overlay" id="atrf-modal-view">
+  <div class="atrf-modal">
+    <div class="atrf-modal-head">
+      <div class="atrf-modal-head-title">Secuencia —</div>
+      <input type="text" class="atrf-name-inp" id="atrf-view-name" readonly style="background:transparent;border-color:transparent;font-size:14px;color:var(--atrf-text)"/>
+      <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_deleteFromView()">Eliminar</button>
+      <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeView()">✕ Cerrar</button>
+    </div>
+    <div class="atrf-ts-row">Fecha registro: <span id="atrf-view-ts">—</span></div>
+    <div class="atrf-tabs">
+      <div class="atrf-tab active" id="atrf-vtab-cfg" onclick="_atrf_switchView('cfg')">Configuración</div>
+      <div class="atrf-tab" id="atrf-vtab-funcs" onclick="_atrf_switchView('funcs')">Funcionalidades</div>
+    </div>
+    <div class="atrf-modal-body" id="atrf-vbody-cfg"><div class="atrf-dcfg-grid" id="atrf-vcfg-grid"></div></div>
+    <div class="atrf-modal-body" id="atrf-vbody-funcs" style="display:none"><div class="atrf-view-func-list" id="atrf-vfunc-list"></div></div>
+    <div class="atrf-modal-footer"><button class="atrf-btn" onclick="_atrf_closeView()">Cerrar</button></div>
+  </div>
+</div>
 <!-- ── Global Form Modal ─────────────────────────────────────────────────── -->
 <div id="gf-modal">
   <div class="gfm-card">
