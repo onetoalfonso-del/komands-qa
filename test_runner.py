@@ -3494,6 +3494,9 @@ async def atrf_run_step(request: Request):
     new_serial  = body.get("newSerialNumber", "")
     speed_plan  = body.get("speedPlan", "600/600")
     amb_url     = body.get("ambUrl", "")
+    service_ba  = body.get("serviceBa", True)
+    service_voip= body.get("serviceVoip", True)
+    service_iptv= body.get("serviceIptv", True)
 
     # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
@@ -3617,7 +3620,7 @@ async def atrf_run_step(request: Request):
             "u_id_vno": vno, "u_operation_type": "Alta",
             "u_scenario": "Alta de acceso", "u_speed_plan": speed_plan,
             "u_address_id": direccion, "u_address_mcd": address_mcd,
-            "u_service_ba": True, "u_service_voip": True, "u_service_iptv": True,
+            "u_service_ba": service_ba, "u_service_voip": service_voip, "u_service_iptv": service_iptv,
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
@@ -8250,8 +8253,12 @@ function _atrf_buildAid(vno){
   var v=vno||_atrf_firstVno()||'00';
   var amb=_atrf_getAmb();var dir=_atrf_v('atrf-dir').trim();
   var n=_atrf_now();
-  if(v==='00')return'00'+amb+dir+n.HH+n.mm;
-  return v+'-'+amb+dir+n.HH+n.mm;
+  var raw=(amb+dir+n.HH+n.mm+'00000000000000').toUpperCase();
+  if(v==='00')return('00'+raw).slice(0,11);    // 11 total: 00 + 9
+  if(v==='02')return('02-'+raw).slice(0,11);   // 11 total: 02- + 8
+  if(v==='03')return('03-'+raw).slice(0,14);   // 14 total: 03- + 11
+  if(v==='05')return('05-'+raw).slice(0,12);   // 12 total: 05- + 9
+  return(v+'-'+raw).slice(0,11);
 }
 function _atrf_updateAid(){
   if(!_atrfAutoState.aid)return;
@@ -8350,7 +8357,7 @@ function _atrf_enqueue(){
     var nsn_val=_atrfAutoState.nsn?sn_auto:_atrf_v('atrf-nsn').trim();
     var aid_val=_atrfAutoState.aid?aid_auto:_atrf_v('atrf-aid').trim();
     var qname=name+(vnos.length>1?' [VNO '+vno+']':'');
-    var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val};
+    var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val,ba:document.getElementById('atrf-svc-ba').checked,voip:document.getElementById('atrf-svc-voip').checked,iptv:document.getElementById('atrf-svc-iptv').checked};
     _atrfQueue.push({name:qname,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:ts,cfg:cfg,history:[]});
   });
   _atrf_closeNew();_atrf_renderQueue();_atrf_save();
@@ -8503,7 +8510,10 @@ async function _atrf_runSelected(){
             serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',
             speedPlan:q.cfg.plan||'',
-            ambUrl:q.cfg.ambUrl||''})});
+            ambUrl:q.cfg.ambUrl||'',
+            serviceBa:q.cfg.ba!==false,
+            serviceVoip:q.cfg.voip!==false,
+            serviceIptv:q.cfg.iptv!==false})});
         if(resp.status===501){
           var p2=Math.random()>0.25;
           pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado — pendiente implementar)';
@@ -8652,22 +8662,34 @@ async function _atrf_runSelected(){
             <option>Con BP</option><option>Sin BP</option>
           </select>
         </div>
+        <div class="atrf-field atrf-col-full">
+          <label>Servicios</label>
+          <div style="display:flex;gap:20px;align-items:center;padding-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
+              <input type="checkbox" id="atrf-svc-ba" checked> BA
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
+              <input type="checkbox" id="atrf-svc-voip" checked> VOIP
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal">
+              <input type="checkbox" id="atrf-svc-iptv" checked> IPTV
+            </label>
+          </div>
+        </div>
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Plan / Perfil</div>
         <div class="atrf-field atrf-col-3">
           <label>Plan / Perfil <span class="req">★</span></label>
           <select id="atrf-plan">
-            <option>100/10</option><option>100/100</option><option>300/300</option>
-            <option selected>400/400</option><option>600/600</option>
-            <option>800/800</option><option>1000/1000</option>
+            <option>400/400</option><option selected>600/600</option>
+            <option>800/800</option><option>940/940</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-3">
           <label>Nuevo Plan / Perfil</label>
           <select id="atrf-nplan">
-            <option>100/10</option><option>100/100</option><option>300/300</option>
-            <option selected>400/400</option><option>600/600</option>
-            <option>800/800</option><option>1000/1000</option>
+            <option>400/400</option><option selected>600/600</option>
+            <option>800/800</option><option>940/940</option>
           </select>
         </div>
         <hr class="atrf-divider"/>
