@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 KOMANDs QA Test Runner
 Servidor web local para ejecutar el plan de pruebas desde el navegador.
