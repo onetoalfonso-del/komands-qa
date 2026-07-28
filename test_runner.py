@@ -101,7 +101,7 @@ NEWMAN = shutil.which("newman") or "newman"
 SUITES = [
     {
         "id": "t1", "group": "hidden",
-        "label": "T1 â€” Spec API + RegresiÃ³n",
+        "label": "T1 â€” Spec API + Regresión",
         "desc":  "675 casos pytest",
         "note":  [
             "================================================================",
@@ -129,7 +129,7 @@ SUITES = [
     {
         "id": "t1-contract", "group": "hidden",
         "label": "T1-C â€” Contrato OpenAPI (Schemathesis)",
-        "desc":  "docs/openapi.json v2.2.3 Â· genera casos automÃ¡ticos Â· mock",
+        "desc":  "docs/openapi.json v2.2.3 · genera casos automáticos · mock",
         "note":  [
             "================================================================",
             "  T1-C - Contrato OpenAPI con Schemathesis (property-based)",
@@ -147,7 +147,7 @@ SUITES = [
     {
         "id": "t1c-real", "group": "hidden",
         "label": "T1-C â€” Contrato OpenAPI (Real)",
-        "desc":  "Schemathesis â†’ onf-komands.cl:9016 Â· servidor real",
+        "desc":  "Schemathesis â†’ onf-komands.cl:9016 · servidor real",
         "note":  [
             "================================================================",
             "  T1-C Real - Schemathesis contra servidor REAL :9016",
@@ -174,7 +174,7 @@ SUITES = [
     {
         "id": "t2", "group": "hidden",
         "label": "T2 â€” Comandos CLI",
-        "desc":  "Nokia/Huawei Â· comandos CLI",
+        "desc":  "Nokia/Huawei · comandos CLI",
         "note":  [
             "================================================================",
             "  T2 - Validacion de comandos CLI Nokia / Huawei",
@@ -221,7 +221,7 @@ SUITES = [
     {
         "id": "newman-dev", "group": "hidden",
         "label": "Endpoints Kommand Dev",
-        "desc":  "Contrato API real Â· onf-komands.cl:9016",
+        "desc":  "Contrato API real · onf-komands.cl:9016",
         "note":  [
             "================================================================",
             "  Endpoints Kommand Dev - Coleccion Postman vs servidor REAL",
@@ -252,7 +252,7 @@ SUITES = [
     {
         "id": "apim-vno03", "group": "hidden",
         "label": "Endpoints SN â€” VNO-03 Entel",
-        "desc":  "APIM PRE VNO-03 Entel Â· auto-token",
+        "desc":  "APIM PRE VNO-03 Entel · auto-token",
         "cmd":   [NEWMAN, "run",
                   "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid03 PRE.postman_environment.json",
@@ -281,7 +281,7 @@ SUITES = [
     {
         "id": "apim-vno02", "group": "hidden",
         "label": "Endpoints SN â€” VNO-02 ClaroVTR",
-        "desc":  "APIM PRE VNO-02 ClaroVTR Â· auto-token",
+        "desc":  "APIM PRE VNO-02 ClaroVTR · auto-token",
         "cmd":   [NEWMAN, "run",
                   "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json",
@@ -310,7 +310,7 @@ SUITES = [
     {
         "id": "apim-vno05", "group": "hidden",
         "label": "Endpoints SN â€” VNO-05 DTV",
-        "desc":  "APIM PRE VNO-05 DTV Â· auto-token",
+        "desc":  "APIM PRE VNO-05 DTV · auto-token",
         "cmd":   [NEWMAN, "run",
                   "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid05 PRE.postman_environment.json",
@@ -339,7 +339,7 @@ SUITES = [
     {
         "id": "apim-vno00", "group": "hidden",
         "label": "Endpoints SN â€” VNO-00 TCH",
-        "desc":  "APIM PRE VNO-00 TCH Â· auto-token",
+        "desc":  "APIM PRE VNO-00 TCH · auto-token",
         "cmd":   [NEWMAN, "run",
                   "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid00 PRE.postman_environment.json",
@@ -368,13 +368,13 @@ SUITES = [
     {
         "id": "apim-parallel", "group": "hidden",
         "label": "Endpoints Services Now",
-        "desc":  "VNO-02 ClaroVTR Â· VNO-03 Entel Â· VNO-05 DTV Â· VNO-00 TCH Â· elige uno o varios",
+        "desc":  "VNO-02 ClaroVTR · VNO-03 Entel · VNO-05 DTV · VNO-00 TCH · elige uno o varios",
         "note":  [
             "================================================================",
             "  Endpoints Services Now - Coleccion APIM vs PREPROD Axway",
             "  Ejecuta el flujo de activacion real via Axway API Management",
             "  en ambiente PREPROD contra OLTs de laboratorio.",
-            "  VNO-03 Entel Â· VNO-02 ClaroVTR Â· VNO-05 DTV Â· VNO-00 TCH",
+            "  VNO-03 Entel · VNO-02 ClaroVTR · VNO-05 DTV · VNO-00 TCH",
             "  Fase 1 â€” Provisioning : Factibilidad + Consulta + Asignacion + Activacion",
             "  Fase 2 â€” Operaciones  : DevMod Sync/Async + Modification Sync/Async",
             "  Fase 3 â€” Baja         : Desregistracion del acceso FTTH",
@@ -386,7 +386,7 @@ SUITES = [
     {
         "id": "t7", "group": "hidden",
         "label": "T7 â€” Seguridad OWASP",
-        "desc":  "JWT Â· Headers Â· MÃ©todos HTTP Â· onf-komands.cl:9016",
+        "desc":  "JWT · Headers · Métodos HTTP · onf-komands.cl:9016",
         "note":  [
             "================================================================",
             "  T7 - Pruebas de seguridad OWASP vs servidor REAL :9016",
@@ -410,7 +410,7 @@ SUITES = [
     {
         "id": "t5", "group": "hidden",
         "label": "T5 â€” Base de Datos PostgreSQL",
-        "desc":  "transaction_listener Â· audit_log Â· UUID Ãºnicos",
+        "desc":  "transaction_listener · audit_log · UUID únicos",
         "blocker": "Requiere PostgreSQL DEV con schema Komands desplegado",
         "note":  [
             "================================================================",
@@ -428,7 +428,7 @@ SUITES = [
     {
         "id": "t4", "group": "hidden",
         "label": "T4 â€” Flujo E2E OLTs reales",
-        "desc":  "POSTâ†’callback no disponible aÃºn",
+        "desc":  "POSTâ†’callback no disponible aún",
         "blocker": "Requiere endpoint de callback accesible desde servidor DEV",
         "note":  [
             "================================================================",
@@ -446,7 +446,7 @@ SUITES = [
     {
         "id": "t6", "group": "hidden",
         "label": "T6 â€” Paridad VNO + OLT",
-        "desc":  "VNO-02 ClaroVTR Â· VNO-03 Entel",
+        "desc":  "VNO-02 ClaroVTR · VNO-03 Entel",
         "blocker": "Requiere datos reales de VNO-02 y VNO-03",
         "note":  [
             "================================================================",
@@ -462,7 +462,7 @@ SUITES = [
     {
         "id": "t8", "group": "hidden",
         "label": "T8 â€” Performance k6 / SLOs",
-        "desc":  "Latencia p95 Â· throughput Â· error rate",
+        "desc":  "Latencia p95 · throughput · error rate",
         "blocker": "Requiere ambiente dedicado y SLOs definidos",
         "note":  [
             "================================================================",
@@ -478,7 +478,7 @@ SUITES = [
     {
         "id": "t-flg", "group": "hidden",
         "label": "T-FLG â€” Feature Flags Komands â†” BluePlanet",
-        "desc":  "PV-FLG-001/003 Â· REG-FF-001/004 Â· conmutaciÃ³n < 5 min",
+        "desc":  "PV-FLG-001/003 · REG-FF-001/004 · conmutación < 5 min",
         "blocker": "Requiere tabla feature_flag en PostgreSQL DEV",
         "note":  [
             "================================================================",
@@ -504,7 +504,7 @@ SUITES = [
     {
         "id": "qa-tch", "group": "hidden",
         "label": "QA FulFillment â€” VNO-00 TCH",
-        "desc":  "TCH Â· FulFillment QA Â· eqapi.onnetfibra.cl",
+        "desc":  "TCH · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
                   "-e", "00-TCH QA.postman_environment.json",
@@ -530,7 +530,7 @@ SUITES = [
     {
         "id": "qa-kao", "group": "hidden",
         "label": "QA FulFillment â€” VNO-02 KAO",
-        "desc":  "KAO Â· FulFillment QA Â· eqapi.onnetfibra.cl",
+        "desc":  "KAO · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
                   "-e", "02 QA_KAO.postman_environment.json",
@@ -556,7 +556,7 @@ SUITES = [
     {
         "id": "qa-b1", "group": "hidden",
         "label": "QA FulFillment â€” VNO-03 B1/Entel",
-        "desc":  "B1/Entel Â· FulFillment QA Â· eqapi.onnetfibra.cl",
+        "desc":  "B1/Entel · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
                   "-e", "03-B1_vnoid03 QA.postman_environment.json",
@@ -582,7 +582,7 @@ SUITES = [
     {
         "id": "qa-dtv", "group": "hidden",
         "label": "QA FulFillment â€” VNO-05 DTV",
-        "desc":  "DTV Â· FulFillment QA Â· eqapi.onnetfibra.cl",
+        "desc":  "DTV · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
                   "-e", "05 QA_DTV.postman_environment.json",
@@ -608,14 +608,14 @@ SUITES = [
     {
         "id": "qa-fulfillment", "group": "disponible",
         "label": "QA FulFillment",
-        "desc":  "VNO-00 TCH Â· VNO-02 KAO Â· VNO-03 B1/Entel Â· VNO-05 DTV Â· elige uno o varios",
+        "desc":  "VNO-00 TCH · VNO-02 KAO · VNO-03 B1/Entel · VNO-05 DTV · elige uno o varios",
         "cmd": None, "cwd": None, "report": None, "requires": None,
         "parallel": ["qa-tch", "qa-kao", "qa-b1", "qa-dtv"],
     },
     {
         "id": "qa-consultas", "group": "hidden",
         "label": "QA Consultas",
-        "desc":  "ConsultaDataONT Â· RetrieveAccess Â· DiagnosticoAcceso Â· EstadoVecino",
+        "desc":  "ConsultaDataONT · RetrieveAccess · DiagnosticoAcceso · EstadoVecino",
         "cmd":   [NEWMAN, "run",
                   "03-Consultas.postman_collection.json",
                   "-e", "02 QA_KAO.postman_environment.json",
@@ -629,75 +629,75 @@ SUITES = [
     {
         "id": "qa-endpoints", "group": "disponible",
         "label": "Endpoints QA",
-        "desc":  "FulFillment Â· Consultas Â· ejecuciÃ³n individual por VNO",
+        "desc":  "FulFillment · Consultas · ejecución individual por VNO",
         "type":  "ep-explorer",
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
     # â”€â”€ QA FulFillment â€” endpoints individuales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-ep-factibilidad",  "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Factibilidad",    "desc":"feasibility Â· chequeo de puerto OLT",
+     "label":"Factibilidad",    "desc":"feasibility · chequeo de puerto OLT",
      "env_type":"qa_factibilidad","folder":"01-Factibilidad",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_factibilidad.html"),"requires":None},
     {"id":"qa-ep-assignment",    "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Assignment",      "desc":"asignaciÃ³n de recursos ONT",
+     "label":"Assignment",      "desc":"asignación de recursos ONT",
      "env_type":"qa_assignment","folder":"02-Assignment",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_assignment.html"),"requires":None},
     {"id":"qa-ep-ia",            "group":"qa-child","parent":"qa-fulfillment",
-     "label":"IA Inicio",          "desc":"assuredIntervention Â· inicio de intervenciÃ³n",
+     "label":"IA Inicio",          "desc":"assuredIntervention · inicio de intervención",
      "env_type":"qa_ia","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia.html"),"requires":None},
     {"id":"qa-ep-ia-fin",        "group":"qa-child","parent":"qa-fulfillment",
-     "label":"IA FinalizaciÃ³n",  "desc":"interventionFinalization Â· cierre de intervenciÃ³n",
+     "label":"IA Finalización",  "desc":"interventionFinalization · cierre de intervención",
      "env_type":"qa_ia_fin","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia_fin.html"),"requires":None},
     {"id":"qa-ep-activacion",    "group":"qa-child","parent":"qa-fulfillment",
-     "label":"ActivaciÃ³n",      "desc":"registrationActivation Â· activaciÃ³n ONT FTTH",
+     "label":"Activación",      "desc":"registrationActivation · activación ONT FTTH",
      "env_type":"qa_activacion","folder":"04-Activacion",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_activacion.html"),"requires":None},
     {"id":"qa-ep-fiberchange",   "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Fiber Change",    "desc":"cambio de fibra sincrÃ³nico",
+     "label":"Fiber Change",    "desc":"cambio de fibra sincrónico",
      "env_type":"qa_vno","folder":"05-FiberChange",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_fiberchange.html"),"requires":None},
     {"id":"qa-ep-devmod",        "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Device Modification","desc":"modificaciÃ³n de dispositivo",
+     "label":"Device Modification","desc":"modificación de dispositivo",
      "env_type":"qa_vno","folder":"06-DeviceModification",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_devmod.html"),"requires":None},
     {"id":"qa-ep-modificacion",  "group":"qa-child","parent":"qa-fulfillment",
-     "label":"ModificaciÃ³n Acceso","desc":"modificaciÃ³n de acceso FTTH",
+     "label":"Modificación Acceso","desc":"modificación de acceso FTTH",
      "env_type":"qa_vno","folder":"07-Modificacion De Acceso",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_modificacion.html"),"requires":None},
     {"id":"qa-ep-cancel",        "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Cancel Orden Servicio","desc":"cancelaciÃ³n de orden de servicio",
+     "label":"Cancel Orden Servicio","desc":"cancelación de orden de servicio",
      "env_type":"qa_vno","folder":"08-CancelOrdenServicio",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_cancel.html"),"requires":None},
     {"id":"qa-ep-unsub",         "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Unsubscription",  "desc":"desuscripciÃ³n / baja de acceso",
+     "label":"Unsubscription",  "desc":"desuscripción / baja de acceso",
      "env_type":"qa_vno","folder":"10-Unsubscription",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_unsub.html"),"requires":None},
     {"id":"qa-ep-reinicio",      "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Reinicio ONT",    "desc":"reinicio de ONT Â· masivo",
+     "label":"Reinicio ONT",    "desc":"reinicio de ONT · masivo",
      "env_type":"qa_vno","folder":"11-Reinicio ONT",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_reinicio.html"),"requires":None},
     {"id":"qa-ep-precutovertch", "group":"qa-child","parent":"qa-fulfillment",
-     "label":"APIs TCH Pre-Cutover","desc":"GuaranteedIntervention Â· Cancela Â· FinalizaciÃ³n",
+     "label":"APIs TCH Pre-Cutover","desc":"GuaranteedIntervention · Cancela · Finalización",
      "env_type":"qa_vno","folder":"12-APIS TCH PRE-CUTOVER",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_precutovertch.html"),"requires":None},
     # â”€â”€ Suite Factibilidad â€” casos de prueba TC-01..TC-04 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-fact-suite",  "group":"qa-child","parent":"qa-fact",
      "label":"â–¶ Ejecutar",
-     "desc":"TC-01 Entel Â· TC-02 KAO Â· TC-03 DTV Â· TC-04 TCH",
+     "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
      "env_type":"qa_fact_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"factibilidad"/"index.html"),"requires":None},
     {"id":"qa-fact-tc01","group":"hidden","label":"TC-01 Factibilidad Entel",
@@ -708,35 +708,35 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-03.html")},
     {"id":"qa-fact-tc04","group":"hidden","label":"TC-04 Factibilidad TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-04.html")},
-    # â”€â”€ QA AsignaciÃ³n â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ QA Asignación â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-asig",       "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Suite AsignaciÃ³n","desc":"TC-01..TC-04 Â· paralelo",
+     "label":"Suite Asignación","desc":"TC-01..TC-04 · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-asig-suite", "group":"qa-child","parent":"qa-asig",
      "label":"â–¶ Ejecutar",
-     "desc":"TC-01 Entel Â· TC-02 KAO Â· TC-03 DTV Â· TC-04 TCH",
+     "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
      "env_type":"qa_asig_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"asignacion"/"index.html"),"requires":None},
-    {"id":"qa-asig-tc05","group":"hidden","label":"TC-05 AsignaciÃ³n Entel",
+    {"id":"qa-asig-tc05","group":"hidden","label":"TC-05 Asignación Entel",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-05.html")},
-    {"id":"qa-asig-tc06","group":"hidden","label":"TC-06 AsignaciÃ³n KAO",
+    {"id":"qa-asig-tc06","group":"hidden","label":"TC-06 Asignación KAO",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-06.html")},
-    {"id":"qa-asig-tc07","group":"hidden","label":"TC-07 AsignaciÃ³n DTV",
+    {"id":"qa-asig-tc07","group":"hidden","label":"TC-07 Asignación DTV",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-07.html")},
-    {"id":"qa-asig-tc08","group":"hidden","label":"TC-08 AsignaciÃ³n TCH",
+    {"id":"qa-asig-tc08","group":"hidden","label":"TC-08 Asignación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-08.html")},
-    # â”€â”€ QA IntervenciÃ³n Asegurada â€” suites paralelas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ QA Intervención Asegurada â€” suites paralelas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-ia-par",        "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Suite Interv. Asegurada","desc":"Inicio Â· Fin Â· paralelo",
+     "label":"Suite Interv. Asegurada","desc":"Inicio · Fin · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-ia-inicio-suite","group":"qa-child","parent":"qa-ia-par",
      "label":"â–¶ Inicio",
-     "desc":"TC-09..TC-12 Â· 01-Inicio IntervenciÃ³n",
+     "desc":"TC-09..TC-12 · 01-Inicio Intervención",
      "env_type":"qa_ia_inicio_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"inicio_index.html"),"requires":None},
     {"id":"qa-ia-fin-suite",  "group":"qa-child","parent":"qa-ia-par",
      "label":"â–¶ Fin",
-     "desc":"TC-13..TC-16 Â· 03-FinalizaciÃ³n IntervenciÃ³n",
+     "desc":"TC-13..TC-16 · 03-Finalización Intervención",
      "env_type":"qa_ia_fin_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"fin_index.html"),"requires":None},
     {"id":"qa-ia-tc09","group":"hidden","label":"TC-09 IA Inicio Entel",
@@ -755,30 +755,30 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-15.html")},
     {"id":"qa-ia-tc16","group":"hidden","label":"TC-16 IA Fin TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-16.html")},
-    # â”€â”€ QA ActivaciÃ³n â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ QA Activación â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-activ-par",  "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Suite ActivaciÃ³n","desc":"TC-17..TC-20 Â· 3 pasos por VNO Â· paralelo",
+     "label":"Suite Activación","desc":"TC-17..TC-20 · 3 pasos por VNO · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-activ-suite","group":"qa-child","parent":"qa-activ-par",
-     "label":"â–¶ ActivaciÃ³n",
-     "desc":"TC-17..TC-20 Â· Activation + Idempotencia + Retrieve",
+     "label":"â–¶ Activación",
+     "desc":"TC-17..TC-20 · Activation + Idempotencia + Retrieve",
      "env_type":"qa_activ_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"activacion"/"index.html"),"requires":None},
-    {"id":"qa-activ-tc17","group":"hidden","label":"TC-17 ActivaciÃ³n Entel",
+    {"id":"qa-activ-tc17","group":"hidden","label":"TC-17 Activación Entel",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-17_act.html")},
-    {"id":"qa-activ-tc18","group":"hidden","label":"TC-18 ActivaciÃ³n KAO",
+    {"id":"qa-activ-tc18","group":"hidden","label":"TC-18 Activación KAO",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-18_act.html")},
-    {"id":"qa-activ-tc19","group":"hidden","label":"TC-19 ActivaciÃ³n DTV",
+    {"id":"qa-activ-tc19","group":"hidden","label":"TC-19 Activación DTV",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-19_act.html")},
-    {"id":"qa-activ-tc20","group":"hidden","label":"TC-20 ActivaciÃ³n TCH",
+    {"id":"qa-activ-tc20","group":"hidden","label":"TC-20 Activación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-20_act.html")},
     # â”€â”€ QA Device Modification â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-dm-par",   "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Suite Device Modification","desc":"TC-21..TC-24 Â· 6 pasos por VNO Â· paralelo",
+     "label":"Suite Device Modification","desc":"TC-21..TC-24 · 6 pasos por VNO · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-dm-suite", "group":"qa-child","parent":"qa-dm-par",
      "label":"â–¶ Device Modification",
-     "desc":"TC-21..TC-24 Â· ActivaciÃ³n + Device Modification + Consulta Acceso",
+     "desc":"TC-21..TC-24 · Activación + Device Modification + Consulta Acceso",
      "env_type":"qa_dm_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"device_mod"/"index.html"),"requires":None},
     {"id":"qa-dm-tc21","group":"hidden","label":"TC-21 Device Mod Entel",
@@ -789,24 +789,24 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-23.html")},
     {"id":"qa-dm-tc24","group":"hidden","label":"TC-24 Device Mod TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-24.html")},
-    # â”€â”€ QA CancelaciÃ³n â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ QA Cancelación â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-cancel-par",   "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Suite CancelaciÃ³n","desc":"TC-25..TC-28 Â· 1 paso por VNO Â· paralelo",
+     "label":"Suite Cancelación","desc":"TC-25..TC-28 · 1 paso por VNO · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-cancel-suite", "group":"qa-child","parent":"qa-cancel-par",
-     "label":"â–¶ CancelaciÃ³n",
-     "desc":"TC-25..TC-28 Â· Cancel Service Order",
+     "label":"â–¶ Cancelación",
+     "desc":"TC-25..TC-28 · Cancel Service Order",
      "env_type":"qa_cancel_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"cancelacion"/"index.html"),"requires":None},
-    {"id":"qa-cancel-tc25","group":"hidden","label":"TC-25 CancelaciÃ³n Entel",
+    {"id":"qa-cancel-tc25","group":"hidden","label":"TC-25 Cancelación Entel",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-25.html")},
-    {"id":"qa-cancel-tc26","group":"hidden","label":"TC-26 CancelaciÃ³n KAO",
+    {"id":"qa-cancel-tc26","group":"hidden","label":"TC-26 Cancelación KAO",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-26.html")},
-    {"id":"qa-cancel-tc27","group":"hidden","label":"TC-27 CancelaciÃ³n DTV",
+    {"id":"qa-cancel-tc27","group":"hidden","label":"TC-27 Cancelación DTV",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-27.html")},
-    {"id":"qa-cancel-tc28","group":"hidden","label":"TC-28 CancelaciÃ³n TCH",
+    {"id":"qa-cancel-tc28","group":"hidden","label":"TC-28 Cancelación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-28.html")},
-    # â”€â”€ Teardown Masivo â€” cancelaciÃ³n bulk de access IDs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ Teardown Masivo â€” cancelación bulk de access IDs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {"id":"qa-teardown-par",   "group":"qa-child","parent":"qa-fulfillment",
      "label":"Teardown Masivo","desc":"Cancela access IDs activos via oossCancellation",
      "cmd":None,"cwd":None,"report":None,"requires":None},
@@ -837,7 +837,7 @@ SUITES = [
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_consultaacceso.html"),"requires":None},
     {"id":"qa-cons-diagnostico", "group":"qa-child","parent":"qa-consultas",
-     "label":"DiagnosticoAcceso","desc":"diagnÃ³stico de acceso FTTH",
+     "label":"DiagnosticoAcceso","desc":"diagnóstico de acceso FTTH",
      "env_type":"qa_vno","folder":"DiagnosticoAcceso",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_diagnostico.html"),"requires":None},
@@ -973,10 +973,10 @@ CREATE TABLE IF NOT EXISTS qa_config (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 INSERT INTO qa_config (key, value, label) VALUES
-  ('newman_timeout_ms',   '0', 'Timeout por request Newman en ms (0 = sin lÃ­mite)'),
-  ('delay_post_asig_ms',  '0', 'Delay despuÃ©s de AsignaciÃ³n en ms'),
-  ('delay_post_ia_ms',    '0', 'Delay despuÃ©s de IA Inicio en ms'),
-  ('delay_post_activ_ms', '0', 'Delay despuÃ©s de ActivaciÃ³n en ms')
+  ('newman_timeout_ms',   '0', 'Timeout por request Newman en ms (0 = sin límite)'),
+  ('delay_post_asig_ms',  '0', 'Delay después de Asignación en ms'),
+  ('delay_post_ia_ms',    '0', 'Delay después de IA Inicio en ms'),
+  ('delay_post_activ_ms', '0', 'Delay después de Activación en ms')
 ON CONFLICT (key) DO NOTHING;
 CREATE TABLE IF NOT EXISTS qa_environments (
     id         BIGSERIAL PRIMARY KEY,
@@ -989,16 +989,16 @@ CREATE TABLE IF NOT EXISTS qa_environments (
 );
 INSERT INTO qa_environments (name, label, base_url, env_type) VALUES
   ('QA',   'Calidad (QA)',    '', 'qa'),
-  ('PPRD', 'Pre-ProducciÃ³n', '', 'pprd'),
-  ('PRD',  'ProducciÃ³n',     '', 'prd')
+  ('PPRD', 'Pre-Producción', '', 'pprd'),
+  ('PRD',  'Producción',     '', 'prd')
 ON CONFLICT (name) DO NOTHING;
 """
 
 _CONFIG_LABELS = {
-    "newman_timeout_ms":   "Timeout por request Newman en ms (0 = sin lÃ­mite)",
-    "delay_post_asig_ms":  "Delay despuÃ©s de AsignaciÃ³n en ms",
-    "delay_post_ia_ms":    "Delay despuÃ©s de IA Inicio en ms",
-    "delay_post_activ_ms": "Delay despuÃ©s de ActivaciÃ³n en ms",
+    "newman_timeout_ms":   "Timeout por request Newman en ms (0 = sin límite)",
+    "delay_post_asig_ms":  "Delay después de Asignación en ms",
+    "delay_post_ia_ms":    "Delay después de IA Inicio en ms",
+    "delay_post_activ_ms": "Delay después de Activación en ms",
 }
 
 async def _db() -> _apg.Pool:
@@ -1037,7 +1037,7 @@ async def _db_save(record: dict):
                 record.get("tiempo_ms",0)
             )
     except Exception as _e:
-        print(f"[db] error guardando ejecuciÃ³n: {_e}")
+        print(f"[db] error guardando ejecución: {_e}")
 
 @app.on_event("startup")
 async def _startup_db():
@@ -1097,7 +1097,7 @@ async def api_run(suite_id: str, request: Request):
                 else:
                     print(f"[api_run] qa_environments: sin URL para '{_gf_env_fact}'")
             else:
-                print("[api_run] _db() retornÃ³ None")
+                print("[api_run] _db() retornó None")
         except Exception as _eg:
             print(f"[api_run] Error leyendo qa_environments: {_eg}")
 
@@ -1275,7 +1275,7 @@ async def api_run(suite_id: str, request: Request):
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
         vno_code      = overrides.pop("vno", "02")
         access_id_vno = overrides.pop("access_id_vno", "")
-        scenario      = overrides.pop("scenario", "InstalaciÃ³n")
+        scenario      = overrides.pop("scenario", "Instalación")
         service_type  = overrides.pop("service_type", "FTTH")
         env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
         vno_subfolder = QA_IA_VNO_SUBFOLDER.get(vno_code, "KAO")
@@ -1312,7 +1312,7 @@ async def api_run(suite_id: str, request: Request):
                 for subfolder in sec.get("item", []):
                     for req in subfolder.get("item", []):
                         nm = req.get("name", "")
-                        if nm == "01-Inicio IntervenciÃ³n" or nm == "01-Inicio Intervencion":
+                        if nm == "01-Inicio Intervención" or nm == "01-Inicio Intervencion":
                             b = req.get("request", {}).get("body", {})
                             if b.get("mode") == "raw":
                                 b["raw"] = new_body
@@ -1331,7 +1331,7 @@ async def api_run(suite_id: str, request: Request):
         suite = dict(suite,
             cmd=[NEWMAN, "run", tmp_col,
                  "-e", env_file,
-                 "--folder", "01-Inicio IntervenciÃ³n",
+                 "--folder", "01-Inicio Intervención",
                  "--env-var", f"Token={token}",
                  "--env-var", f"idvno={vno_code}",
                  "--insecure",
@@ -1348,7 +1348,7 @@ async def api_run(suite_id: str, request: Request):
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
         vno_code      = overrides.pop("vno", "02")
         access_id_vno = overrides.pop("access_id_vno", "")
-        scenario      = overrides.pop("scenario", "InstalaciÃ³n")
+        scenario      = overrides.pop("scenario", "Instalación")
         service_type  = overrides.pop("service_type", "FTTH")
         env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
         vno_subfolder = QA_IA_VNO_SUBFOLDER.get(vno_code, "KAO")
@@ -1403,7 +1403,7 @@ async def api_run(suite_id: str, request: Request):
         suite = dict(suite,
             cmd=[NEWMAN, "run", tmp_col,
                  "-e", env_file,
-                 "--folder", "03-FinalizaciÃ³n IntervenciÃ³n",
+                 "--folder", "03-Finalización Intervención",
                  "--env-var", f"Token={token}",
                  "--env-var", f"idvno={vno_code}",
                  "--insecure",
@@ -1529,7 +1529,7 @@ async def api_run(suite_id: str, request: Request):
             _json_out  = str(_fact_dir / f"{_tcd['tc']}.json")
             _env_data  = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
             _ev        = {v["key"]: v["value"] for v in _env_data["values"]}
-            # Usar URL de Settings si estÃ¡ configurada, si no la del archivo JSON
+            # Usar URL de Settings si está configurada, si no la del archivo JSON
             _apim_url  = _gf_url_fact or _ev.get("apimURL", "")
             _auth_b64  = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
             _token = ""
@@ -1571,7 +1571,7 @@ async def api_run(suite_id: str, request: Request):
                          "--reporters", "cli,json,htmlextra",
                          "--reporter-json-export", _json_out,
                          "--reporter-htmlextra-export", _rp_out,
-                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad Â· {_tcd['vno_label']} â€“ OnnetFibra",
+                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']} â€“ OnnetFibra",
                          "--reporter-htmlextra-logo", _logo_uri]
             if _gf_url_fact:
                 _fact_cmd += ["--env-var", f"apimURL={_gf_url_fact}"]
@@ -1580,7 +1580,7 @@ async def api_run(suite_id: str, request: Request):
                 "vno":        _vno,
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
-                "label":      f"{_tcd['tc']} Â· {_tcd['vno_label']} (VNO {_vno})",
+                "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
                 "tc_label":   "Factibilidad",
                 "address_id": _ADDR_ID,
                 "access_id":  "",
@@ -1677,8 +1677,8 @@ async def api_run(suite_id: str, request: Request):
                 "vno":        _vno,
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
-                "label":      f"{_tcd['tc']} Â· {_tcd['vno_label']} (VNO {_vno})",
-                "tc_label":   "AsignaciÃ³n",
+                "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":   "Asignación",
                 "address_id": _address_id,
                 "access_id":  _access_ids_map.get(_tcd["tc"], ""),
                 "cmd":        [NEWMAN, "run", _tmp_col,
@@ -1690,7 +1690,7 @@ async def api_run(suite_id: str, request: Request):
                             "--reporters", "cli,json,htmlextra",
                             "--reporter-json-export", _json_out,
                             "--reporter-htmlextra-export", _rp_out,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} AsignaciÃ³n Â· {_tcd['vno_label']} â€“ OnnetFibra",
+                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']} â€“ OnnetFibra",
                             "--reporter-htmlextra-logo", _logo_uri_a],
                 "cwd":        str(QA_DIR),
                 "rp_out":     _rp_out,
@@ -1717,7 +1717,7 @@ async def api_run(suite_id: str, request: Request):
             _access_ids_map_ia = json.loads(_access_ids_raw_ia) if _access_ids_raw_ia else {}
         except Exception:
             _access_ids_map_ia = {}
-        _scenario    = overrides.get("scenario",     "InstalaciÃ³n")
+        _scenario    = overrides.get("scenario",     "Instalación")
         _service_type = overrides.get("service_type", "FTTH")
         _TC_DEFS_IA = [
             {"tc": "TC-09" if _is_inicio else "TC-13", "vno": "03", "vno_label": "Entel",
@@ -1770,7 +1770,7 @@ async def api_run(suite_id: str, request: Request):
                         for _req in _sf.get("item", []):
                             _nm = _req.get("name", "")
                             if _is_inicio:
-                                _match = _nm in ("01-Inicio IntervenciÃ³n", "01-Inicio Intervencion")
+                                _match = _nm in ("01-Inicio Intervención", "01-Inicio Intervencion")
                             else:
                                 _match = "Finaliz" in _nm and "Masiva" not in _nm
                             if _match:
@@ -1780,15 +1780,15 @@ async def api_run(suite_id: str, request: Request):
             _pfx = "inicio" if _is_inicio else "fin"
             _tmp_col = str(QA_DIR / f"_tmp_ia_{_pfx}_{_vno}.json")
             _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-            _nf = "01-Inicio IntervenciÃ³n" if _is_inicio else "03-FinalizaciÃ³n IntervenciÃ³n"
+            _nf = "01-Inicio Intervención" if _is_inicio else "03-Finalización Intervención"
             _op_lbl = "IA Inicio" if _is_inicio else "IA Fin"
             _tc_runs.append({
                 "tc":         _tcd["tc"],
                 "vno":        _vno,
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
-                "label":      f"{_tcd['tc']} Â· {_tcd['vno_label']} (VNO {_vno})",
-                "tc_label":   "Inicio IntervenciÃ³n Asegurada" if _is_inicio else "Fin IntervenciÃ³n Asegurada",
+                "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":   "Inicio Intervención Asegurada" if _is_inicio else "Fin Intervención Asegurada",
                 "address_id": "",
                 "access_id":  _access_ids_map_ia.get(_tcd["tc"], ""),
                 "cmd":        [NEWMAN, "run", _tmp_col,
@@ -1800,14 +1800,14 @@ async def api_run(suite_id: str, request: Request):
                             "--reporters", "cli,json,htmlextra",
                             "--reporter-json-export", _json_out,
                             "--reporter-htmlextra-export", _rp_out,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} {_op_lbl} Â· {_tcd['vno_label']} â€“ OnnetFibra",
+                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} {_op_lbl} · {_tcd['vno_label']} â€“ OnnetFibra",
                             "--reporter-htmlextra-logo", _logo_uri_ia],
                 "cwd":        str(QA_DIR),
                 "rp_out":     _rp_out,
                 "json_out":   _json_out,
             })
 
-    # â”€â”€ Suite ActivaciÃ³n â€” cadena completa 6 pasos por VNO en paralelo â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ Suite Activación â€” cadena completa 6 pasos por VNO en paralelo â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _activ_runs = None
     if suite.get("env_type") == "qa_activ_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
@@ -1910,9 +1910,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_fact += ["--folder", _fact_folder,
                           "--reporter-json-export", _js_fact,
                           "--reporter-htmlextra-export", _rp_fact,
-                          "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad Â· {_tcd['vno_label']}"]
+                          "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 2: AsignaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Paso 2: Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _col_asig = _cp.deepcopy(_col_ff)
             _asig_body = _j.dumps({
                 "u_access_id_vno": _access_id, "u_id_vno": _vno,
@@ -1936,19 +1936,19 @@ async def api_run(suite_id: str, request: Request):
             _cmd_asig += ["--folder", _asig_folder,
                           "--reporter-json-export", _js_asig,
                           "--reporter-htmlextra-export", _rp_asig,
-                          "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} AsignaciÃ³n Â· {_tcd['vno_label']}"]
+                          "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
 
             # â”€â”€ Paso 3: IA Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _col_ia = _cp.deepcopy(_col_ff)
             _ia_body = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
-                                  "u_scenario": "InstalaciÃ³n", "u_service_type": "FTTH"},
+                                  "u_scenario": "Instalación", "u_service_type": "FTTH"},
                                  indent=4, ensure_ascii=False)
             for _sec in _col_ia.get("item", []):
                 if "Interven" in _sec.get("name", ""):
                     _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_subfolder]
                     for _sf in _sec.get("item", []):
                         for _req in _sf.get("item", []):
-                            if _req.get("name", "") in ("01-Inicio IntervenciÃ³n", "01-Inicio Intervencion"):
+                            if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
                                 _b = _req.get("request", {}).get("body", {})
                                 if _b.get("mode") == "raw": _b["raw"] = _ia_body
             _tmp_ia = str(QA_DIR / f"_tmp_activ_ia_{_vno}.json")
@@ -1956,12 +1956,12 @@ async def api_run(suite_id: str, request: Request):
             _rp_ia = str(_activ_dir / f"{_tcd['tc']}_ia.html")
             _js_ia = str(_activ_dir / f"{_tcd['tc']}_ia.json")
             _cmd_ia = list(_base_cmd); _cmd_ia[2] = _tmp_ia
-            _cmd_ia += ["--folder", "01-Inicio IntervenciÃ³n",
+            _cmd_ia += ["--folder", "01-Inicio Intervención",
                         "--reporter-json-export", _js_ia,
                         "--reporter-htmlextra-export", _rp_ia,
-                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} IA Inicio Â· {_tcd['vno_label']}"]
+                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 4: ActivaciÃ³n (primera) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Paso 4: Activación (primera) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _activ_body_j = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
                 "u_operation_type": "A", "u_speed_plan": _speed_plan,
@@ -1982,9 +1982,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_act = list(_base_cmd); _cmd_act[2] = _tmp_act
             _cmd_act += ["--reporter-json-export", _js_act,
                          "--reporter-htmlextra-export", _rp_act,
-                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} ActivaciÃ³n Â· {_tcd['vno_label']}"]
+                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Activación · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 5: Idempotencia (segunda activaciÃ³n) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Paso 5: Idempotencia (segunda activación) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _act_req_idem = _cp.deepcopy(_act_req)
             if _act_req_idem: _act_req_idem["name"] = _act_req_idem.get("name","") + " (idempotencia)"
             _tmp_act_idem = str(QA_DIR / f"_tmp_activ_idem_{_vno}.json")
@@ -1995,7 +1995,7 @@ async def api_run(suite_id: str, request: Request):
             _cmd_act_idem = list(_base_cmd); _cmd_act_idem[2] = _tmp_act_idem
             _cmd_act_idem += ["--reporter-json-export", _js_act_idem,
                               "--reporter-htmlextra-export", _rp_act_idem,
-                              "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Idempotencia Â· {_tcd['vno_label']}"]
+                              "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Idempotencia · {_tcd['vno_label']}"]
 
             # â”€â”€ Paso 6: Retrieve Access â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _ret_req = _find_req_in_col(_cp.deepcopy(_col_con), _ret_req_nm)
@@ -2012,19 +2012,19 @@ async def api_run(suite_id: str, request: Request):
             _cmd_ret = list(_base_cmd); _cmd_ret[2] = _tmp_ret
             _cmd_ret += ["--reporter-json-export", _js_ret,
                          "--reporter-htmlextra-export", _rp_ret,
-                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Retrieve Access Â· {_tcd['vno_label']}"]
+                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Retrieve Access · {_tcd['vno_label']}"]
 
             _activ_runs.append({
                 "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":       _tcd["sid"],
-                "label":     f"{_tcd['tc']} Â· {_tcd['vno_label']} (VNO {_vno})",
-                "tc_label":  "ActivaciÃ³n",
+                "label":     f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":  "Activación",
                 "access_id": _access_id,
                 "steps": [
                     ("1/6 Factibilidad",    _cmd_fact,     _js_fact),
-                    ("2/6 AsignaciÃ³n",      _cmd_asig,     _js_asig),
+                    ("2/6 Asignación",      _cmd_asig,     _js_asig),
                     ("3/6 IA Inicio",       _cmd_ia,       _js_ia),
-                    ("4/6 ActivaciÃ³n",      _cmd_act,      _js_act),
+                    ("4/6 Activación",      _cmd_act,      _js_act),
                     ("5/6 Idempotencia",    _cmd_act_idem, _js_act_idem),
                     ("6/6 Retrieve Access", _cmd_ret,      _js_ret),
                 ],
@@ -2036,7 +2036,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_activ():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite ActivaciÃ³n â€” {len(_activ_runs)} TCs Â· 6 pasos Â· sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación â€” {len(_activ_runs)} TCs · 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _env_activ = {**os.environ,
                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2062,7 +2062,7 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     if _step_code != 0:
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_activ.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} (Newman cÃ³digo {_step_code})"))
+                        await _out_q_activ.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
                             try:
                                 _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2074,10 +2074,10 @@ async def api_run(suite_id: str, request: Request):
                                     try:
                                         _rj_e = _j.loads(_rb_e)
                                         _rc_e = _rj_e.get("u_return_code", "?"); _rd_e = _rj_e.get("u_return_code_desc", "")
-                                        await _out_q_activ.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} Â· u_return_code={_rc_e!r}"))
+                                        await _out_q_activ.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · u_return_code={_rc_e!r}"))
                                         if _rd_e: await _out_q_activ.put(("L", tr["tc"], f"   {_rd_e}"))
                                     except Exception:
-                                        await _out_q_activ.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} Â· {_rb_e[:300]}"))
+                                        await _out_q_activ.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · {_rb_e[:300]}"))
                                     break
                             except Exception:
                                 pass
@@ -2099,7 +2099,7 @@ async def api_run(suite_id: str, request: Request):
                                     _rj_ok = _j.loads(_rb_ok)
                                     _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
                                     _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
-                                    _msg_ok = f"   â†’ HTTP {_hc_step} {_hs_step}" + (f" Â· u_return_code={_rc_ok!r}" + (f" Â· {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    _msg_ok = f"   â†’ HTTP {_hc_step} {_hs_step}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_activ.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
                                     await _out_q_activ.put(("L", tr["tc"], f"   â†’ HTTP {_hc_step} {_hs_step}"))
@@ -2164,7 +2164,7 @@ async def api_run(suite_id: str, request: Request):
                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                            "access_id": _tr2.get("access_id", ""),
                                            "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg = f"{_sym} {_tr2['label']} â€” cÃ³digo {_code}"
+                    _tc_msg = f"{_sym} {_tr2['label']} â€” código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     try:
@@ -2220,13 +2220,13 @@ async def api_run(suite_id: str, request: Request):
                                     f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
                 _idx_activ = (
                     '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-                    '<title>QA ActivaciÃ³n</title>'
+                    '<title>QA Activación</title>'
                     '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
                     'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
                     'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
                     'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
                     '</style></head><body>'
-                    '<h1>QA ActivaciÃ³n</h1>'
+                    '<h1>QA Activación</h1>'
                     f'<p>{_n_ok_activ}/{len(_results_activ)} TCs OK</p>'
                     '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
                     f'{_rows_activ}</table></body></html>'
@@ -2346,9 +2346,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_fact_dm += ["--folder", _fact_folder,
                              "--reporter-json-export", _js_fact_dm,
                              "--reporter-htmlextra-export", _rp_fact_dm,
-                             "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad Â· {_tcd['vno_label']}"]
+                             "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 2: AsignaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Paso 2: Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _col_asig_dm = _cp.deepcopy(_col_ff_dm)
             _asig_body_dm = _j.dumps({
                 "u_access_id_vno": _access_id, "u_id_vno": _vno,
@@ -2372,19 +2372,19 @@ async def api_run(suite_id: str, request: Request):
             _cmd_asig_dm += ["--folder", _asig_folder,
                              "--reporter-json-export", _js_asig_dm,
                              "--reporter-htmlextra-export", _rp_asig_dm,
-                             "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} AsignaciÃ³n Â· {_tcd['vno_label']}"]
+                             "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
 
             # â”€â”€ Paso 3: IA Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _col_ia_dm = _cp.deepcopy(_col_ff_dm)
             _ia_body_dm = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
-                                     "u_scenario": "InstalaciÃ³n", "u_service_type": "FTTH"},
+                                     "u_scenario": "Instalación", "u_service_type": "FTTH"},
                                     indent=4, ensure_ascii=False)
             for _sec in _col_ia_dm.get("item", []):
                 if "Interven" in _sec.get("name", ""):
                     _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_subfolder]
                     for _sf in _sec.get("item", []):
                         for _req in _sf.get("item", []):
-                            if _req.get("name", "") in ("01-Inicio IntervenciÃ³n", "01-Inicio Intervencion"):
+                            if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
                                 _b = _req.get("request", {}).get("body", {})
                                 if _b.get("mode") == "raw": _b["raw"] = _ia_body_dm
             _tmp_ia_dm = str(QA_DIR / f"_tmp_dm_ia_{_vno}.json")
@@ -2392,12 +2392,12 @@ async def api_run(suite_id: str, request: Request):
             _rp_ia_dm = str(_dm_dir / f"{_tcd['tc']}_ia.html")
             _js_ia_dm = str(_dm_dir / f"{_tcd['tc']}_ia.json")
             _cmd_ia_dm = list(_base_cmd_dm); _cmd_ia_dm[2] = _tmp_ia_dm
-            _cmd_ia_dm += ["--folder", "01-Inicio IntervenciÃ³n",
+            _cmd_ia_dm += ["--folder", "01-Inicio Intervención",
                            "--reporter-json-export", _js_ia_dm,
                            "--reporter-htmlextra-export", _rp_ia_dm,
-                           "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} IA Inicio Â· {_tcd['vno_label']}"]
+                           "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 4: ActivaciÃ³n (una sola vez) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Paso 4: Activación (una sola vez) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _activ_body_dm = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
                 "u_operation_type": "A", "u_speed_plan": _dm_speed_plan,
@@ -2418,7 +2418,7 @@ async def api_run(suite_id: str, request: Request):
             _cmd_act_dm = list(_base_cmd_dm); _cmd_act_dm[2] = _tmp_act_dm
             _cmd_act_dm += ["--reporter-json-export", _js_act_dm,
                             "--reporter-htmlextra-export", _rp_act_dm,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} ActivaciÃ³n Â· {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Activación · {_tcd['vno_label']}"]
 
             # â”€â”€ Paso 6: Device Modification (una sola vez) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _dm_new_serial = QA_ACTIV_SERIAL_BASE[_vno] + _dm_new_suffix if _vno in QA_ACTIV_SERIAL_BASE else None
@@ -2438,7 +2438,7 @@ async def api_run(suite_id: str, request: Request):
             _cmd_dm = list(_base_cmd_dm); _cmd_dm[2] = _tmp_dm_req
             _cmd_dm += ["--reporter-json-export", _js_dm,
                         "--reporter-htmlextra-export", _rp_dm,
-                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Device Modification Â· {_tcd['vno_label']}"]
+                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Device Modification · {_tcd['vno_label']}"]
 
             # â”€â”€ Paso 6: Consulta Acceso (GET) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _ca_req = _find_req_in_col(_cp.deepcopy(_col_con_dm), "Consulta Acceso")
@@ -2451,21 +2451,21 @@ async def api_run(suite_id: str, request: Request):
             _cmd_ca += ["--env-var", f"access_id_vno={_access_id}",
                         "--reporter-json-export", _js_ca,
                         "--reporter-htmlextra-export", _rp_ca,
-                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Consulta Acceso Â· {_tcd['vno_label']}"]
+                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Consulta Acceso · {_tcd['vno_label']}"]
 
             _dm_runs.append({
                 "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":       _tcd["sid"],
-                "label":     f"{_tcd['tc']} Â· {_tcd['vno_label']} (VNO {_vno})",
+                "label":     f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
                 "tc_label":  "Device Modification",
                 "access_id": _access_id,
                 "act_serial": (QA_ACTIV_SERIAL_BASE.get(_vno,"") + _dm_serial_suffix) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)",
                 "dm_serial":  (_dm_new_serial or "(sin serial)"),
                 "steps": [
                     ("1/6 Factibilidad",    _cmd_fact_dm, _js_fact_dm),
-                    ("2/6 AsignaciÃ³n",      _cmd_asig_dm, _js_asig_dm),
+                    ("2/6 Asignación",      _cmd_asig_dm, _js_asig_dm),
                     ("3/6 IA Inicio",       _cmd_ia_dm,   _js_ia_dm),
-                    ("4/6 ActivaciÃ³n",      _cmd_act_dm,  _js_act_dm),
+                    ("4/6 Activación",      _cmd_act_dm,  _js_act_dm),
                     ("5/6 Device Modif.",   _cmd_dm,      _js_dm),
                     ("6/6 Consulta Acceso", _cmd_ca,      _js_ca),
                 ],
@@ -2477,7 +2477,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_dm():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification â€” {len(_dm_runs)} TCs Â· cadena completa 6 pasos Â· sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification â€” {len(_dm_runs)} TCs · cadena completa 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _env_dm = {**os.environ,
                        "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2492,7 +2492,7 @@ async def api_run(suite_id: str, request: Request):
                 _last_json = None
                 for _step_lbl, _step_cmd, _step_json in tr["steps"]:
                     if "5/6" in _step_lbl:
-                        await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Serial actual (activaciÃ³n): {tr['act_serial']} â”€â”€"))
+                        await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Serial actual (activación): {tr['act_serial']} â”€â”€"))
                         await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Serial nuevo (DM): {tr['dm_serial']} â”€â”€"))
                     await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Paso {_step_lbl} â”€â”€"))
                     _step_code = 1
@@ -2505,7 +2505,7 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     if _step_code != 0:
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_dm.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} (Newman cÃ³digo {_step_code})"))
+                        await _out_q_dm.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
                             try:
                                 _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2517,10 +2517,10 @@ async def api_run(suite_id: str, request: Request):
                                     try:
                                         _rj_e = _j.loads(_rb_e)
                                         _rc_e = _rj_e.get("u_return_code", "?"); _rd_e = _rj_e.get("u_return_code_desc", "")
-                                        await _out_q_dm.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} Â· u_return_code={_rc_e!r}"))
+                                        await _out_q_dm.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · u_return_code={_rc_e!r}"))
                                         if _rd_e: await _out_q_dm.put(("L", tr["tc"], f"   {_rd_e}"))
                                     except Exception:
-                                        await _out_q_dm.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} Â· {_rb_e[:300]}"))
+                                        await _out_q_dm.put(("L", tr["tc"], f"   HTTP {_hc_e} {_hs_e} · {_rb_e[:300]}"))
                                     break
                             except Exception:
                                 pass
@@ -2542,7 +2542,7 @@ async def api_run(suite_id: str, request: Request):
                                     _rj_ok = _j.loads(_rb_ok)
                                     _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
                                     _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
-                                    _msg_ok = f"   â†’ HTTP {_hc_step_dm} {_hs_step_dm}" + (f" Â· u_return_code={_rc_ok!r}" + (f" Â· {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    _msg_ok = f"   â†’ HTTP {_hc_step_dm} {_hs_step_dm}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_dm.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
                                     await _out_q_dm.put(("L", tr["tc"], f"   â†’ HTTP {_hc_step_dm} {_hs_step_dm}"))
@@ -2607,7 +2607,7 @@ async def api_run(suite_id: str, request: Request):
                                         "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                         "access_id": _tr2.get("access_id", ""),
                                         "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg = f"{_sym} {_tr2['label']} â€” cÃ³digo {_code}"
+                    _tc_msg = f"{_sym} {_tr2['label']} â€” código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     try:
@@ -2685,7 +2685,7 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
-    # â”€â”€ Suite CancelaciÃ³n â€” cadena completa 5 pasos por VNO en paralelo â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€ Suite Cancelación â€” cadena completa 5 pasos por VNO en paralelo â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _cancel_runs = None
     if suite.get("env_type") == "qa_cancel_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
@@ -2729,7 +2729,7 @@ async def api_run(suite_id: str, request: Request):
         _cancel_dir.mkdir(parents=True, exist_ok=True)
         _ADDR_ID_CANCEL = overrides.get("addr_id", "") or "DIR02803636"
         _col_ff_cancel  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
-        _col_cancel_col = _col_ff_cancel  # los requests de cancel estÃ¡n dentro de 01-FulFillment
+        _col_cancel_col = _col_ff_cancel  # los requests de cancel están dentro de 01-FulFillment
         _cancel_runs = []
         for _tcd in _TC_DEFS_CANCEL:
             _vno           = _tcd["vno"]
@@ -2783,9 +2783,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_fact_c += ["--folder", _fact_folder,
                             "--reporter-json-export", _js_fact_c,
                             "--reporter-htmlextra-export", _rp_fact_c,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad Â· {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 2: AsignaciÃ³n (sin u_access_id_vno â€” API lo asigna) â”€â”€â”€â”€â”€â”€â”€â”€
+            # â”€â”€ Paso 2: Asignación (sin u_access_id_vno â€” API lo asigna) â”€â”€â”€â”€â”€â”€â”€â”€
             _col_asig_c = _cp.deepcopy(_col_ff_cancel)
             _asig_body_c = _j.dumps({
                 "u_id_vno": _vno, "u_operation_type": "Alta",
@@ -2808,13 +2808,13 @@ async def api_run(suite_id: str, request: Request):
             _cmd_asig_c += ["--folder", _asig_folder,
                             "--reporter-json-export", _js_asig_c,
                             "--reporter-htmlextra-export", _rp_asig_c,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} AsignaciÃ³n Â· {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
 
             _cancel_runs.append({
                 "tc":          _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
                 "sid":         _tcd["sid"],
-                "label":       f"{_tcd['tc']} Â· {_tcd['vno_label']} (VNO {_vno})",
-                "tc_label":    "CancelaciÃ³n Servicios",
+                "label":       f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "tc_label":    "Cancelación Servicios",
                 "cmd_fact":    _cmd_fact_c,  "js_fact":  _js_fact_c,
                 "cmd_asig":    _cmd_asig_c,  "js_asig":  _js_asig_c,
                 "base_cmd":    _base_cmd_cancel,
@@ -2838,7 +2838,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_cancel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite CancelaciÃ³n â€” {len(_cancel_runs)} TCs Â· cadena completa 5 pasos Â· sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación â€” {len(_cancel_runs)} TCs · cadena completa 5 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _env_cancel = {**os.environ,
                            "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2846,7 +2846,7 @@ async def api_run(suite_id: str, request: Request):
                            "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q_cancel = asyncio.Queue()
             _results_cancel = []
-            _cancel_aids = {}  # tc â†’ access_id dinÃ¡mico asignado por API
+            _cancel_aids = {}  # tc â†’ access_id dinámico asignado por API
 
             def _read_rsp(js_path):
                 try:
@@ -2879,13 +2879,13 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Factibilidad: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 1/5 Factibilidad (Newman cÃ³digo {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 1/5 Factibilidad (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· u_return_code={_rc_e!r}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
                         if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
                     except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· {_rb[:300]}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
                     return
@@ -2896,34 +2896,34 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
                     return
 
-                # â”€â”€ Paso 2/5: AsignaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 2/5 AsignaciÃ³n â”€â”€"))
+                # â”€â”€ Paso 2/5: Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 2/5 Asignación â”€â”€"))
                 _sc = 1
                 async for _k, _v in _iter_proc(tr["cmd_asig"], tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(tr["js_asig"])
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response AsignaciÃ³n: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Asignación: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 2/5 AsignaciÃ³n (Newman cÃ³digo {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 2/5 Asignación (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· u_return_code={_rc_e!r}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
                         if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
                     except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· {_rb[:300]}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 2/5 AsignaciÃ³n â€” HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 2/5 Asignación â€” HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
 
-                # â”€â”€ Extraer u_access_id_vno de la respuesta de AsignaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â”€â”€ Extraer u_access_id_vno de la respuesta de Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _aid = ""
                 try:
                     _jd2 = _j.loads(open(tr["js_asig"], encoding="utf-8").read())
@@ -2957,7 +2957,7 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 3/5 IA Inicio â”€â”€"))
                 _col_ia_c = _cp.deepcopy(tr["col_ff"])
                 _ia_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
-                                        "u_scenario": "InstalaciÃ³n",
+                                        "u_scenario": "Instalación",
                                         "u_service_type": tr["svc_type"]},
                                        indent=4, ensure_ascii=False)
                 _ia_sub = tr["ia_subfolder"]
@@ -2966,7 +2966,7 @@ async def api_run(suite_id: str, request: Request):
                         _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_sub]
                         for _sf in _sec.get("item", []):
                             for _req in _sf.get("item", []):
-                                if _req.get("name", "") in ("01-Inicio IntervenciÃ³n", "01-Inicio Intervencion"):
+                                if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
                                     _b = _req.get("request", {}).get("body", {})
                                     if _b.get("mode") == "raw": _b["raw"] = _ia_body_c
                 _tmp_ia_c  = str(QA_DIR / f"_tmp_cancel_ia_{_vno}.json")
@@ -2974,10 +2974,10 @@ async def api_run(suite_id: str, request: Request):
                 _rp_ia_c   = str(_cdir / f"{_tc}_ia.html")
                 _js_ia_c   = str(_cdir / f"{_tc}_ia.json")
                 _cmd_ia_c  = list(_base); _cmd_ia_c[2] = _tmp_ia_c
-                _cmd_ia_c += ["--folder", "01-Inicio IntervenciÃ³n",
+                _cmd_ia_c += ["--folder", "01-Inicio Intervención",
                               "--reporter-json-export", _js_ia_c,
                               "--reporter-htmlextra-export", _rp_ia_c,
-                              "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} IA Inicio Â· {tr['vno_lbl']}"]
+                              "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} IA Inicio · {tr['vno_lbl']}"]
                 _sc = 1
                 async for _k, _v in _iter_proc(_cmd_ia_c, tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
@@ -2986,13 +2986,13 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response IA Inicio: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 3/5 IA Inicio (Newman cÃ³digo {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 3/5 IA Inicio (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· u_return_code={_rc_e!r}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
                         if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
                     except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· {_rb[:300]}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
@@ -3003,9 +3003,9 @@ async def api_run(suite_id: str, request: Request):
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
 
-                # â”€â”€ Paso 4/5: ActivaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # â”€â”€ Paso 4/5: Activación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 _serial_log = (QA_ACTIV_SERIAL_BASE.get(_vno, "") + tr["serial_sfx"]) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)"
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Paso 4/5 ActivaciÃ³n (serial: {_serial_log}) â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Paso 4/5 Activación (serial: {_serial_log}) â”€â”€"))
                 _activ_body_c = _j.dumps({
                     "u_id_vno": _vno, "u_access_id_vno": _aid,
                     "u_operation_type": "A", "u_speed_plan": tr["speed_plan"],
@@ -3026,34 +3026,34 @@ async def api_run(suite_id: str, request: Request):
                 _cmd_act_c = list(_base); _cmd_act_c[2] = _tmp_act_c
                 _cmd_act_c += ["--reporter-json-export", _js_act_c,
                                "--reporter-htmlextra-export", _rp_act_c,
-                               "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} ActivaciÃ³n Â· {tr['vno_lbl']}"]
+                               "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} Activación · {tr['vno_lbl']}"]
                 _sc = 1
                 async for _k, _v in _iter_proc(_cmd_act_c, tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(_js_act_c)
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response ActivaciÃ³n: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Activación: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 4/5 ActivaciÃ³n (Newman cÃ³digo {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 4/5 Activación (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· u_return_code={_rc_e!r}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
                         if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
                     except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} Â· {_rb[:300]}"))
+                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 4/5 ActivaciÃ³n â€” HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 4/5 Activación â€” HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
 
-                # â”€â”€ Paso 5/5: CancelaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 5/5 CancelaciÃ³n â”€â”€"))
+                # â”€â”€ Paso 5/5: Cancelación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 5/5 Cancelación â”€â”€"))
                 _cancel_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
                                             "u_service_type": tr["svc_type"]},
                                            indent=4, ensure_ascii=False)
@@ -3069,13 +3069,13 @@ async def api_run(suite_id: str, request: Request):
                 _cmd_cancel_c = list(_base); _cmd_cancel_c[2] = _tmp_cancel_c
                 _cmd_cancel_c += ["--reporter-json-export", _js_cancel_c,
                                   "--reporter-htmlextra-export", _rp_cancel_c,
-                                  "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} CancelaciÃ³n Â· {tr['vno_lbl']}"]
+                                  "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} Cancelación · {tr['vno_lbl']}"]
                 _sc = 1
                 async for _k, _v in _iter_proc(_cmd_cancel_c, tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(_js_cancel_c)
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response CancelaciÃ³n: HTTP {_hc} {_hs} â€” {_rb[:600]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Cancelación: HTTP {_hc} {_hs} â€” {_rb[:600]} â”€â”€"))
                 if _hc and _hc not in (200, 201, 202): _sc = 1
                 await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
               except Exception as _exc_run:
@@ -3107,7 +3107,7 @@ async def api_run(suite_id: str, request: Request):
                                             "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                             "access_id": _cancel_aids.get(_tr2["tc"], ""),
                                             "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg_c = f"{_sym} {_tr2['label']} â€” cÃ³digo {_code}"
+                    _tc_msg_c = f"{_sym} {_tr2['label']} â€” código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg_c})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     if _last_json:
@@ -3163,13 +3163,13 @@ async def api_run(suite_id: str, request: Request):
                                 f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
                 _idx_c = (
                     '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-                    '<title>QA CancelaciÃ³n</title>'
+                    '<title>QA Cancelación</title>'
                     '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
                     'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
                     'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
                     'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
                     '</style></head><body>'
-                    '<h1>QA CancelaciÃ³n</h1>'
+                    '<h1>QA Cancelación</h1>'
                     f'<p>{_n_ok_c}/{len(_results_cancel)} TCs OK</p>'
                     '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
                     f'{_rows_c}</table></body></html>'
@@ -3225,7 +3225,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_teardown():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Teardown Masivo â€” {len(_td_dedup)} access IDs Â· tipo: {_td_svc_type}'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Teardown Masivo â€” {len(_td_dedup)} access IDs · tipo: {_td_svc_type}'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _td_q = asyncio.Queue()
             _td_results = []
@@ -3247,10 +3247,10 @@ async def api_run(suite_id: str, request: Request):
                             _rj3 = _j.loads(_raw_c)
                             _rc3 = (_rj3.get("result") or {}).get("u_return_code", "?")
                             _rd3 = (_rj3.get("result") or {}).get("u_return_code_desc", "")
-                            _resp_c = f"HTTP {_code_c} Â· code={_rc3} Â· {_rd3}"
+                            _resp_c = f"HTTP {_code_c} · code={_rc3} · {_rd3}"
                             _ok3 = _rc3 in ("0", 0)
                         except Exception:
-                            _resp_c = f"HTTP {_code_c} Â· {_raw_c[:200]}"
+                            _resp_c = f"HTTP {_code_c} · {_raw_c[:200]}"
                             _ok3 = _code_c == 200
                 except Exception as _ce:
                     _resp_c = f"Error: {_ce}"
@@ -3275,7 +3275,7 @@ async def api_run(suite_id: str, request: Request):
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _n_ok_td   = sum(1 for r in _td_results if r["ok"])
             _n_fail_td = len(_td_results) - _n_ok_td
-            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_td}/{len(_td_results)} OK Â· {_n_fail_td} fallidos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_td}/{len(_td_results)} OK · {_n_fail_td} fallidos'})}\n\n"
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_td==0 else 1,'passed':_n_ok_td,'failed':_n_fail_td,'requests':len(_td_results),'has_report':False,'report_id':suite_id})}\n\n"
             await asyncio.sleep(0.1)
 
@@ -3335,7 +3335,7 @@ async def api_run(suite_id: str, request: Request):
                                      "address_id": _tr2.get("address_id", ""),
                                      "access_id": _tr2.get("access_id", ""),
                                      "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg = _sym + " " + _tr2["label"] + " â€” cÃ³digo " + str(_code)
+                    _tc_msg = _sym + " " + _tr2["label"] + " â€” código " + str(_code)
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     # Emitir respuestas HTTP del TC
@@ -3398,7 +3398,7 @@ async def api_run(suite_id: str, request: Request):
                 'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
                 '</style></head><body>'
                 '<h1>QA Factibilidad</h1>'
-                f'<p>DirecciÃ³n: DIR02803636 &nbsp;Â·&nbsp; {_n_ok}/{len(_results)} TCs OK</p>'
+                f'<p>Dirección: DIR02803636 &nbsp;·&nbsp; {_n_ok}/{len(_results)} TCs OK</p>'
                 '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
                 f'{_rows}</table></body></html>'
             )
@@ -3602,8 +3602,8 @@ async def atrf_run_step(request: Request):
                              "res": res_body, "vno": vno, "func": func_name,
                              "httpCode": http_code})
 
-    # â”€â”€ AsignaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    if func_name == "AsignaciÃ³n":
+    # â”€â”€ Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if func_name == "Asignación":
         env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         folder_name = QA_ASSIGNMENT_FOLDER_MAP.get(vno, "assigment- KAO")
         try:
@@ -3666,8 +3666,8 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
-    # â”€â”€ CancelaciÃ³n Orden de Servicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    if func_name == "CancelaciÃ³n Orden de Servicio":
+    # â”€â”€ Cancelación Orden de Servicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if func_name == "Cancelación Orden de Servicio":
         env_file   = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         cancel_req = QA_CANCEL_REQUEST_MAP.get(vno, "cancel service order KAO")
         try:
@@ -3773,7 +3773,7 @@ async def api_response(suite_id: str):
 
 @app.get("/api/run-parallel")
 async def api_run_parallel(request: Request):
-    """Ejecuta suites APIM VNO dinÃ¡micamente segÃºn parÃ¡metros runXX=true/false."""
+    """Ejecuta suites APIM VNO dinámicamente según parámetros runXX=true/false."""
     import asyncio
     params = dict(request.query_params)
     phase = params.pop("phase", "all")
@@ -3818,7 +3818,7 @@ async def api_run_parallel(request: Request):
                "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
 
         if not to_run:
-            yield f"data: {json.dumps({'e':'error','t':'NingÃºn VNO habilitado'})}\n\n"
+            yield f"data: {json.dumps({'e':'error','t':'Ningún VNO habilitado'})}\n\n"
             return
 
         for s, label, _ in to_run:
@@ -3906,7 +3906,7 @@ def _load_persisted_config():
 
 @app.post("/api/config")
 async def api_config(request: Request):
-    """Guarda credenciales APIM en /tmp/ (persiste en la sesiÃ³n del contenedor)."""
+    """Guarda credenciales APIM en /tmp/ (persiste en la sesión del contenedor)."""
     body = await request.json()
     ck = body.get("consumer_key", "").strip()
     cs = body.get("consumer_secret", "").strip()
@@ -3980,7 +3980,7 @@ async def api_report(suite_id: str):
         if Path(rp_fallback).exists():
             rp = rp_fallback
     if not rp or not Path(rp).exists():
-        return JSONResponse({"error": "Reporte no generado aÃºn."}, status_code=404)
+        return JSONResponse({"error": "Reporte no generado aún."}, status_code=404)
     filename = f"reporte_{suite_id}.html"
     return FileResponse(rp, media_type="text/html", headers={
         "Content-Disposition": f'inline; filename="{filename}"'
@@ -4695,7 +4695,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
         <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAACWCAYAAAACG/YxAAAACXBIWXMAACxKAAAsSgF3enRNAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAHc1JREFUeJzt3XmYXFWd//H393bXvd3ZqiqJCwgDIoMLIiAzP4Xxx6gw4AiICPgbR1F+yOagoiwGAQm4ICCgwoAEcEHUYYjCKLiBGw/CgIiDqKg4IirKICF1KwvdVdVV3/mjqpNO0tXpqjpV1Z18Xs/D86SWPuebptP96XvP+R5zd0REREQknKjfBYiIiIhsaRSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAhvs18Tz1/DMsTF2rcJzI2ORz4KwZ86IG0+483Alx0MOpa7NtZrFmRo7bOZtXsnyU4dqt+oIbWgVO9ecbLPXK1kedKi0M3ZS4CUekZnqPYNVnnh6IY+1M36/TPX3GnBWjOT4/VQfHxfZqzuVzVw2xtrSIn618fNzV7BNJcO2/aipn8pZ7m/l/TP1ayaCdDTLbzf3vonfPwdrPPl0nj9MZ/zhlB2qxmKASsTvfT4rOqu4N6b58yKYyCiWSvyPP4M1vZqzmXlreVZ5jO3GH8+k7/Hm7j2bLC6yF85bzDgQ54U9m7g7RhzuxrmpMsANvoCVIQePixxvzrJpvPWnbry91W+g/ZKkfA04pNnrg2M8Z+1i/tzm2H+C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Lm597QpsjLWd/OYZwtwVbFPJ1A+unUw5y/29rKcVScq5438u5db/ebaY+P1zsMaT0w0rwyk71OobtF7S1QIncla48cvIub2U57Z2dtFN/PtO53tCN9kqFmac5wLg1Cbreznxe1s8yGNr5vJEj8tsaqP6q+UcD7Q9Vr8CloiIiMiWSguQRURERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQlMAUtEREQkMAUsERERkcAUsEREREQCU8ASERERCUwBS0RERCQwBSwRERGRwBSwRERERAJTwBIREREJTAFLREREJDAFLBEREZHAFLBEREREAlPAEhEREQnsfwGGC9wjxnoqDgAAAABJRU5ErkJggg==" alt="OnnetFibra QA" style="height:32px;max-width:200px;object-fit:contain">
       </div>
       <div class="sb-tagline">OnnetFibra <span>QA</span></div>
-      <div class="sb-sub">Pruebas de RegresiÃ³n</div>
+      <div class="sb-sub">Pruebas de Regresión</div>
     </div>
     <div class="sb-list" id="sb-list"></div>
     <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;&nbsp; Historial de ejecuciones</button>
@@ -4719,7 +4719,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">â˜€</button>
     </div>
     <div id="gf-panel" style="display:none;flex-shrink:0"></div>
-    <!-- Vista estÃ¡ndar -->
+    <!-- Vista estándar -->
     <div id="std-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="olt-info-bar" id="olt-info-bar" style="display:none"></div>
       <div class="vno-bar" id="vno-bar"></div>
@@ -4741,14 +4741,14 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="fact-sel-bar"></div>
       <div id="fact-grid"></div>
     </div>
-    <!-- Vista IntervenciÃ³n Asegurada â€” 4 consolas paralelas -->
+    <!-- Vista Intervención Asegurada â€” 4 consolas paralelas -->
     <div id="ia-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="ia-form-bar"></div>
       <div id="ia-access-preview"></div>
       <div id="ia-sel-bar"></div>
       <div id="ia-grid"></div>
     </div>
-    <!-- Vista ActivaciÃ³n â€” 4 consolas paralelas -->
+    <!-- Vista Activación â€” 4 consolas paralelas -->
     <div id="activ-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="activ-form-bar"></div>
       <div id="activ-access-preview"></div>
@@ -4760,7 +4760,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="teardown-form-bar" style="display:flex;align-items:center;gap:10px;padding:8px 14px;flex-shrink:0;border-bottom:1px solid var(--brd);background:var(--card);flex-wrap:wrap"></div>
       <div id="teardown-console" style="flex:1;overflow-y:auto;padding:10px 14px;font-family:monospace;font-size:.75rem;background:var(--bg2);white-space:pre-wrap;word-break:break-all"></div>
     </div>
-    <!-- Vista CancelaciÃ³n â€” 4 consolas paralelas -->
+    <!-- Vista Cancelación â€” 4 consolas paralelas -->
     <div id="cancel-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="cancel-form-bar"></div>
       <div id="cancel-access-preview"></div>
@@ -4772,7 +4772,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="atrf-layout">
         <div class="atrf-section">
           <div class="atrf-section-header">
-            <div class="atrf-section-title">Estado de ejecuciÃ³n</div>
+            <div class="atrf-section-title">Estado de ejecución</div>
             <span id="atrf-run-prog" style="font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-mono);display:none;margin-right:4px"></span>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--atrf-text2);margin-right:2px" title="Seleccionar / deseleccionar todas">
               <div class="atrf-qcb" id="atrf-selall-cb" onclick="event.preventDefault();_atrf_toggleSelAll()"></div>
@@ -4792,8 +4792,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <!-- Tabs -->
       <div style="display:flex;gap:2px;padding:8px 14px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd)">
         <button id="htab-hist" onclick="_hTab('hist')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--bg);color:var(--acc);font-size:.76rem;cursor:pointer;font-weight:700">&#128203; Historial</button>
-        <button id="htab-stats" onclick="_hTab('stats')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128200; EstadÃ­sticas</button>
-        <button id="htab-cfg" onclick="_hTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; ConfiguraciÃ³n</button>
+        <button id="htab-stats" onclick="_hTab('stats')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128200; Estadísticas</button>
+        <button id="htab-cfg" onclick="_hTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; Configuración</button>
         <div style="flex:1"></div>
         <input id="historial-filter" type="text" placeholder="Filtrarâ€¦" oninput="_filterHistorial()" style="display:none;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:150px;align-self:center;margin-bottom:4px">
         <button id="hist-refresh-btn" onclick="_hTabRefresh()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer;align-self:center;margin-bottom:4px">&#8635;</button>
@@ -4805,11 +4805,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       </div>
       <!-- Stats tab -->
       <div id="hpane-stats" style="display:none;flex:1;overflow:auto;padding:12px 14px">
-        <div class="hist-empty">Cargando estadÃ­sticasâ€¦</div>
+        <div class="hist-empty">Cargando estadísticasâ€¦</div>
       </div>
       <!-- Config tab -->
       <div id="hpane-cfg" style="display:none;flex:1;overflow:auto;padding:16px 18px">
-        <div class="hist-empty">Cargando configuraciÃ³nâ€¦</div>
+        <div class="hist-empty">Cargando configuraciónâ€¦</div>
       </div>
     </div>
     <!-- Vista Device Modification â€” 4 consolas paralelas -->
@@ -4819,7 +4819,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="dm-sel-bar"></div>
       <div id="dm-grid"></div>
     </div>
-    <!-- Vista AsignaciÃ³n â€” 4 consolas paralelas -->
+    <!-- Vista Asignación â€” 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="asig-form-bar"></div>
       <div id="asig-access-preview"></div>
@@ -4932,7 +4932,7 @@ function loadSuites(attempt){
   }).then(function(data){
     suites=data;
     if(!suites||!suites.length){
-      document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">API devolviÃ³ vacÃ­o</div>';
+      document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">API devolvió vacío</div>';
       return;
     }
     try{ renderSB(); }
@@ -4973,7 +4973,7 @@ function renderSB(){
           var _sections=s.id==='qa-endpoints'
             ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
             :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'AsignaciÃ³n',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'ActivaciÃ³n',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'},{lbl:'CancelaciÃ³n',par:'qa-cancel-par'},{lbl:'Teardown',par:'qa-teardown-par'}]
+            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'},{lbl:'Cancelación',par:'qa-cancel-par'},{lbl:'Teardown',par:'qa-teardown-par'}]
             :[{lbl:'Factibilidad',par:'qa-fact'}];
           _sections.forEach(function(sec){
             var kids=suites.filter(function(c){return c.parent===sec.par;});
@@ -5026,7 +5026,7 @@ function selectSuite(id){
     switchView('ep-form');
     renderEPFVNOBar();
     renderFactibilidadForm();
-    setTop('','Factibilidad','Configura los parÃ¡metros y ejecuta');
+    setTop('','Factibilidad','Configura los parámetros y ejecuta');
     var _eb0=document.getElementById('exec-btn'); if(_eb0) _eb0.disabled=true;
     return;
   }
@@ -5035,7 +5035,7 @@ function selectSuite(id){
     switchView('ep-form');
     renderEPFVNOBar();
     renderAssignmentForm();
-    setTop('','Assignment','Configura los parÃ¡metros y ejecuta');
+    setTop('','Assignment','Configura los parámetros y ejecuta');
     var _eb0a=document.getElementById('exec-btn'); if(_eb0a) _eb0a.disabled=true;
     return;
   }
@@ -5044,7 +5044,7 @@ function selectSuite(id){
     switchView('ep-form');
     renderEPFVNOBar();
     renderIAForm();
-    setTop('','IA Inicio','assuredIntervention Â· configura y ejecuta');
+    setTop('','IA Inicio','assuredIntervention · configura y ejecuta');
     var _eb0b=document.getElementById('exec-btn'); if(_eb0b) _eb0b.disabled=true;
     return;
   }
@@ -5053,7 +5053,7 @@ function selectSuite(id){
     switchView('ep-form');
     renderEPFVNOBar();
     renderIAFinForm();
-    setTop('','IA FinalizaciÃ³n','interventionFinalization Â· configura y ejecuta');
+    setTop('','IA Finalización','interventionFinalization · configura y ejecuta');
     var _eb0c=document.getElementById('exec-btn'); if(_eb0c) _eb0c.disabled=true;
     return;
   }
@@ -5062,7 +5062,7 @@ function selectSuite(id){
     switchView('ep-form');
     renderEPFVNOBar();
     renderActivacionForm();
-    setTop('','ActivaciÃ³n','registrationActivation Â· configura y ejecuta');
+    setTop('','Activación','registrationActivation · configura y ejecuta');
     var _eb0d=document.getElementById('exec-btn'); if(_eb0d) _eb0d.disabled=true;
     return;
   }
@@ -5071,7 +5071,7 @@ function selectSuite(id){
     switchView('fact');
     renderFactSelBar();
     renderFactView();
-    setTop('','Suite: Factibilidad','TC-01..TC-04 Â· DIR02803636 Â· presiona Ejecutar');
+    setTop('','Suite: Factibilidad','TC-01..TC-04 · DIR02803636 · presiona Ejecutar');
     _syncExecBtn();
     return;
   }
@@ -5081,7 +5081,7 @@ function selectSuite(id){
     renderAsigFormBar();
     renderAsigSelBar();
     renderAsigView();
-    setTop('','Suite: AsignaciÃ³n','TC-05..TC-08 Â· presiona Ejecutar');
+    setTop('','Suite: Asignación','TC-05..TC-08 · presiona Ejecutar');
     _syncAsigExecBtn();
     return;
   }
@@ -5094,7 +5094,7 @@ function selectSuite(id){
     renderIAView();
     var _iaTcs=_iaMode==='inicio'?'TC-09..TC-12':'TC-13..TC-16';
     var _iaLbl=_iaMode==='inicio'?'IA Inicio':'IA Fin';
-    setTop('','Suite: '+_iaLbl,_iaTcs+' Â· presiona Ejecutar');
+    setTop('','Suite: '+_iaLbl,_iaTcs+' · presiona Ejecutar');
     _syncIAExecBtn();
     return;
   }
@@ -5104,7 +5104,7 @@ function selectSuite(id){
     renderActivFormBar();
     renderActivSelBar();
     renderActivView();
-    setTop('','Suite: ActivaciÃ³n','TC-17..TC-20 Â· presiona Ejecutar');
+    setTop('','Suite: Activación','TC-17..TC-20 · presiona Ejecutar');
     _syncActivExecBtn();
     return;
   }
@@ -5114,7 +5114,7 @@ function selectSuite(id){
     renderDmFormBar();
     renderDmSelBar();
     renderDmView();
-    setTop('','Suite: Device Modification','TC-21..TC-24 Â· presiona Ejecutar');
+    setTop('','Suite: Device Modification','TC-21..TC-24 · presiona Ejecutar');
     _syncDmExecBtn();
     return;
   }
@@ -5124,7 +5124,7 @@ function selectSuite(id){
     renderCancelFormBar();
     renderCancelSelBar();
     renderCancelView();
-    setTop('','Suite: CancelaciÃ³n','TC-25..TC-28 Â· presiona Ejecutar');
+    setTop('','Suite: Cancelación','TC-25..TC-28 · presiona Ejecutar');
     _syncCancelExecBtn();
     return;
   }
@@ -5132,7 +5132,7 @@ function selectSuite(id){
     _isQAChild=false;
     switchView('teardown');
     renderTeardownFormBar();
-    setTop('','Teardown Masivo','Cancela access IDs activos Â· presiona Ejecutar');
+    setTop('','Teardown Masivo','Cancela access IDs activos · presiona Ejecutar');
     _syncTeardownExecBtn();
     return;
   }
@@ -5293,7 +5293,7 @@ function run(id){
   if(id==='qa-fact-suite'){
     _isQAChild=false;
     switchView('fact'); renderFactView();
-    setTop('','Suite: Factibilidad','TC-01..TC-04 Â· DIR02803636');
+    setTop('','Suite: Factibilidad','TC-01..TC-04 · DIR02803636');
     _doRunFact(s);
     return;
   }
@@ -5319,14 +5319,14 @@ function switchView(mode){
 function renderGlobalForm(){
   var p=document.getElementById('gf-panel'); if(!p) return;
   p.innerHTML='<div class="gf-bar">'
-    +'<span class="gf-bar-ttl">ParÃ¡metros</span>'
+    +'<span class="gf-bar-ttl">Parámetros</span>'
     +'<div class="gf-bar-sep"></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Access ID</span>&nbsp;<span class="gf-bar-val empty" id="gfb-access">â€”</span></div>'
     +'<div class="gf-bar-sep"></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Plan</span>&nbsp;<span class="gf-bar-val" id="gfb-speed">400/400</span></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Serial</span>&nbsp;<span class="gf-bar-val empty" id="gfb-serial">â€”</span></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Tipo</span>&nbsp;<span class="gf-bar-val" id="gfb-stype">FTTH</span></div>'
-    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Svc</span>&nbsp;<span class="gf-bar-val" id="gfb-svcs">BA Â· VoIP Â· IPTV</span></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Svc</span>&nbsp;<span class="gf-bar-val" id="gfb-svcs">BA · VoIP · IPTV</span></div>'
     +'<button class="gf-config-btn" onclick="openGFModal()">âœŽ Configurar</button>'
     +'</div>';
 }
@@ -5336,12 +5336,12 @@ var _gfEnv='QA';
 var _gfFuncSeq=[];
 var _GF_FUNCS=[
   {id:'fact',   name:'Factibilidad'},
-  {id:'asig',   name:'AsignaciÃ³n'},
-  {id:'activ',  name:'ActivaciÃ³n'},
-  {id:'ia-inicio', name:'Inicio de IntervenciÃ³n Asegurada'},
-  {id:'ia-fin', name:'FinalizaciÃ³n de IntervenciÃ³n Asegurada'},
+  {id:'asig',   name:'Asignación'},
+  {id:'activ',  name:'Activación'},
+  {id:'ia-inicio', name:'Inicio de Intervención Asegurada'},
+  {id:'ia-fin', name:'Finalización de Intervención Asegurada'},
   {id:'dm',     name:'Device Modification'},
-  {id:'cancel', name:'CancelaciÃ³n de Servicio'},
+  {id:'cancel', name:'Cancelación de Servicio'},
 ];
 
 function openGFModal(){
@@ -5374,7 +5374,7 @@ function applyGFModal(){
   var acc=(document.getElementById('gf-access')||{}).value||'';
   if(!acc.trim()) errs.push('Access ID es obligatorio');
   if(errs.length){
-    if(errEl){errEl.innerHTML='Â· '+errs.join('<br>Â· ');errEl.classList.add('show');}
+    if(errEl){errEl.innerHTML='· '+errs.join('<br>· ');errEl.classList.add('show');}
     return;
   }
   if(errEl){errEl.innerHTML='';errEl.classList.remove('show');}
@@ -5408,7 +5408,7 @@ function _updateGFSummaryBar(){
   _set('gfb-speed', spd, false);
   _set('gfb-serial', ser.trim(), !ser.trim());
   _set('gfb-stype', sty, false);
-  _set('gfb-svcs', svcs.length?svcs.join(' Â· '):'Ninguno', !svcs.length);
+  _set('gfb-svcs', svcs.length?svcs.join(' · '):'Ninguno', !svcs.length);
 }
 
 function selectEnv(el){
@@ -5550,10 +5550,10 @@ function _filterFuncList(q){
 
 // â”€â”€ Factibilidad: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _FACT_TC_META = [
-  {tc:'TC-01', label:'TC-01 Â· Entel', vno:'VNO 03', sid:'qa-fact-tc01', color:'#A8FF78'},
-  {tc:'TC-02', label:'TC-02 Â· KAO',   vno:'VNO 02', sid:'qa-fact-tc02', color:'#00C8D4'},
-  {tc:'TC-03', label:'TC-03 Â· DTV',   vno:'VNO 05', sid:'qa-fact-tc03', color:'#FFB347'},
-  {tc:'TC-04', label:'TC-04 Â· TCH',   vno:'VNO 00', sid:'qa-fact-tc04', color:'#6E8EFF'},
+  {tc:'TC-01', label:'TC-01 · Entel', vno:'VNO 03', sid:'qa-fact-tc01', color:'#A8FF78'},
+  {tc:'TC-02', label:'TC-02 · KAO',   vno:'VNO 02', sid:'qa-fact-tc02', color:'#00C8D4'},
+  {tc:'TC-03', label:'TC-03 · DTV',   vno:'VNO 05', sid:'qa-fact-tc03', color:'#FFB347'},
+  {tc:'TC-04', label:'TC-04 · TCH',   vno:'VNO 00', sid:'qa-fact-tc04', color:'#6E8EFF'},
 ];
 
 var _factSel={'TC-01':true,'TC-02':true,'TC-03':true,'TC-04':true};
@@ -5716,12 +5716,12 @@ function _doRunFact(s){
   };
 }
 
-// â”€â”€ AsignaciÃ³n: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Asignación: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _ASIG_TC_META = [
-  {tc:'TC-05', label:'TC-05 Â· Entel', vno:'VNO 03', sid:'qa-asig-tc05', color:'#98F5A4'},
-  {tc:'TC-06', label:'TC-06 Â· KAO',   vno:'VNO 02', sid:'qa-asig-tc06', color:'#7EC8E3'},
-  {tc:'TC-07', label:'TC-07 Â· DTV',   vno:'VNO 05', sid:'qa-asig-tc07', color:'#FFD580'},
-  {tc:'TC-08', label:'TC-08 Â· TCH',   vno:'VNO 00', sid:'qa-asig-tc08', color:'#B39DFF'},
+  {tc:'TC-05', label:'TC-05 · Entel', vno:'VNO 03', sid:'qa-asig-tc05', color:'#98F5A4'},
+  {tc:'TC-06', label:'TC-06 · KAO',   vno:'VNO 02', sid:'qa-asig-tc06', color:'#7EC8E3'},
+  {tc:'TC-07', label:'TC-07 · DTV',   vno:'VNO 05', sid:'qa-asig-tc07', color:'#FFD580'},
+  {tc:'TC-08', label:'TC-08 · TCH',   vno:'VNO 00', sid:'qa-asig-tc08', color:'#B39DFF'},
 ];
 var _asigSel={'TC-05':true,'TC-06':true,'TC-07':true,'TC-08':true};
 
@@ -5936,19 +5936,19 @@ function _doRunAsig(s){
   };
 }
 
-// â”€â”€ IntervenciÃ³n Asegurada: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Intervención Asegurada: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _iaMode = 'inicio';
 var _IA_INICIO_META = [
-  {tc:'TC-09', label:'TC-09 Â· Entel', vno:'VNO 03', sid:'qa-ia-tc09', color:'#FF9F8B'},
-  {tc:'TC-10', label:'TC-10 Â· KAO',   vno:'VNO 02', sid:'qa-ia-tc10', color:'#85E89D'},
-  {tc:'TC-11', label:'TC-11 Â· DTV',   vno:'VNO 05', sid:'qa-ia-tc11', color:'#FFD580'},
-  {tc:'TC-12', label:'TC-12 Â· TCH',   vno:'VNO 00', sid:'qa-ia-tc12', color:'#79C8FF'},
+  {tc:'TC-09', label:'TC-09 · Entel', vno:'VNO 03', sid:'qa-ia-tc09', color:'#FF9F8B'},
+  {tc:'TC-10', label:'TC-10 · KAO',   vno:'VNO 02', sid:'qa-ia-tc10', color:'#85E89D'},
+  {tc:'TC-11', label:'TC-11 · DTV',   vno:'VNO 05', sid:'qa-ia-tc11', color:'#FFD580'},
+  {tc:'TC-12', label:'TC-12 · TCH',   vno:'VNO 00', sid:'qa-ia-tc12', color:'#79C8FF'},
 ];
 var _IA_FIN_META = [
-  {tc:'TC-13', label:'TC-13 Â· Entel', vno:'VNO 03', sid:'qa-ia-tc13', color:'#C7CEEA'},
-  {tc:'TC-14', label:'TC-14 Â· KAO',   vno:'VNO 02', sid:'qa-ia-tc14', color:'#B5EAD7'},
-  {tc:'TC-15', label:'TC-15 Â· DTV',   vno:'VNO 05', sid:'qa-ia-tc15', color:'#FFDAC1'},
-  {tc:'TC-16', label:'TC-16 Â· TCH',   vno:'VNO 00', sid:'qa-ia-tc16', color:'#B39DFF'},
+  {tc:'TC-13', label:'TC-13 · Entel', vno:'VNO 03', sid:'qa-ia-tc13', color:'#C7CEEA'},
+  {tc:'TC-14', label:'TC-14 · KAO',   vno:'VNO 02', sid:'qa-ia-tc14', color:'#B5EAD7'},
+  {tc:'TC-15', label:'TC-15 · DTV',   vno:'VNO 05', sid:'qa-ia-tc15', color:'#FFDAC1'},
+  {tc:'TC-16', label:'TC-16 · TCH',   vno:'VNO 00', sid:'qa-ia-tc16', color:'#B39DFF'},
 ];
 var _iaSel={};
 (function(){ _IA_INICIO_META.concat(_IA_FIN_META).forEach(function(m){ _iaSel[m.tc]=true; }); })();
@@ -5966,7 +5966,7 @@ function renderIAFormBar(){
   bar.innerHTML='<span class="afb-lbl">Modo:</span>'+modeLabel
     +'<span class="afb-lbl" style="margin-left:10px;color:var(--txt3)">'
     +'Escenario: <b style="color:var(--txt);font-weight:600" id="ia-esc-badge">'
-    +((document.getElementById('ia-scenario')||{}).value||'InstalaciÃ³n')
+    +((document.getElementById('ia-scenario')||{}).value||'Instalación')
     +'</b></span>';
   _updateIAAccessPreview();
 }
@@ -6099,7 +6099,7 @@ function _doRunIA(s){
   var _selTcs=_iaMeta().filter(function(m){return _iaSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
   _iaMeta().forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_IA_VNO_CODES[m.tc]); });
-  var _sc=(document.getElementById('ia-scenario')||{}).value||'InstalaciÃ³n';
+  var _sc=(document.getElementById('ia-scenario')||{}).value||'Instalación';
   var _sv=(document.getElementById('gf-stype')||{}).value||'FTTH';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
@@ -6134,12 +6134,12 @@ function _doRunIA(s){
   };
 }
 
-// â”€â”€ Suite ActivaciÃ³n: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Suite Activación: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _ACTIV_META = [
-  {tc:'TC-17', label:'TC-17 Â· Entel', vno:'VNO 03', sid:'qa-activ-tc17', color:'#FF9F8B'},
-  {tc:'TC-18', label:'TC-18 Â· KAO',   vno:'VNO 02', sid:'qa-activ-tc18', color:'#85E89D'},
-  {tc:'TC-19', label:'TC-19 Â· DTV',   vno:'VNO 05', sid:'qa-activ-tc19', color:'#FFD580'},
-  {tc:'TC-20', label:'TC-20 Â· TCH',   vno:'VNO 00', sid:'qa-activ-tc20', color:'#79C8FF'},
+  {tc:'TC-17', label:'TC-17 · Entel', vno:'VNO 03', sid:'qa-activ-tc17', color:'#FF9F8B'},
+  {tc:'TC-18', label:'TC-18 · KAO',   vno:'VNO 02', sid:'qa-activ-tc18', color:'#85E89D'},
+  {tc:'TC-19', label:'TC-19 · DTV',   vno:'VNO 05', sid:'qa-activ-tc19', color:'#FFD580'},
+  {tc:'TC-20', label:'TC-20 · TCH',   vno:'VNO 00', sid:'qa-activ-tc20', color:'#79C8FF'},
 ];
 var _activSel={};
 (function(){ _ACTIV_META.forEach(function(m){ _activSel[m.tc]=true; }); })();
@@ -6326,10 +6326,10 @@ function _doRunActiv(s){
 
 // â”€â”€ Suite Device Modification: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _DM_META = [
-  {tc:'TC-21', label:'TC-21 Â· Entel', vno:'VNO 03', sid:'qa-dm-tc21', color:'#FF9F8B'},
-  {tc:'TC-22', label:'TC-22 Â· KAO',   vno:'VNO 02', sid:'qa-dm-tc22', color:'#85E89D'},
-  {tc:'TC-23', label:'TC-23 Â· DTV',   vno:'VNO 05', sid:'qa-dm-tc23', color:'#FFD580'},
-  {tc:'TC-24', label:'TC-24 Â· TCH',   vno:'VNO 00', sid:'qa-dm-tc24', color:'#79C8FF'},
+  {tc:'TC-21', label:'TC-21 · Entel', vno:'VNO 03', sid:'qa-dm-tc21', color:'#FF9F8B'},
+  {tc:'TC-22', label:'TC-22 · KAO',   vno:'VNO 02', sid:'qa-dm-tc22', color:'#85E89D'},
+  {tc:'TC-23', label:'TC-23 · DTV',   vno:'VNO 05', sid:'qa-dm-tc23', color:'#FFD580'},
+  {tc:'TC-24', label:'TC-24 · TCH',   vno:'VNO 00', sid:'qa-dm-tc24', color:'#79C8FF'},
 ];
 var _dmSel={};
 (function(){ _DM_META.forEach(function(m){ _dmSel[m.tc]=true; }); })();
@@ -6340,7 +6340,7 @@ function renderDmFormBar(){
   var bar=document.getElementById('dm-form-bar'); if(!bar) return;
   bar.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 12px;flex-wrap:nowrap;border-bottom:1px solid var(--brd);background:var(--card);flex-shrink:0;';
   bar.innerHTML=
-    '<span class="afb-lbl">Serial DM nuevo (Ãºlt. 4):</span>'
+    '<span class="afb-lbl">Serial DM nuevo (últ. 4):</span>'
     +'<input id="dm-serial-dm" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
     +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
     +'<input type="checkbox" id="dm-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
@@ -6530,7 +6530,7 @@ function renderTeardownFormBar(){
   var bar=document.getElementById('teardown-form-bar'); if(!bar) return;
   bar.innerHTML=
     '<span style="font-size:.7rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">Access IDs:</span>'
-    +'<textarea id="td-ids" rows="4" style="flex:1;min-width:200px;max-width:520px;font-family:monospace;font-size:.72rem;padding:5px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);resize:vertical" placeholder="Un access ID por lÃ­nea (o separados por coma)"></textarea>'
+    +'<textarea id="td-ids" rows="4" style="flex:1;min-width:200px;max-width:520px;font-family:monospace;font-size:.72rem;padding:5px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--input,var(--card));color:var(--txt);resize:vertical" placeholder="Un access ID por línea (o separados por coma)"></textarea>'
     +'<div style="display:flex;flex-direction:column;gap:6px">'
     +'<div style="display:flex;align-items:center;gap:6px">'
     +'<span style="font-size:.68rem;color:var(--txt3)">Tipo:</span>'
@@ -6538,7 +6538,7 @@ function renderTeardownFormBar(){
     +'<option value="FTTH">FTTH</option><option value="SSAA">SSAA</option>'
     +'</select>'
     +'</div>'
-    +'<span style="font-size:.63rem;color:var(--txt3);max-width:160px">El VNO se detecta automÃ¡ticamente del prefijo (02-xxx â†’ VNO 02)</span>'
+    +'<span style="font-size:.63rem;color:var(--txt3);max-width:160px">El VNO se detecta automáticamente del prefijo (02-xxx â†’ VNO 02)</span>'
     +'</div>';
   var ta=document.getElementById('td-ids');
   if(ta) ta.oninput=_syncTeardownExecBtn;
@@ -6587,16 +6587,16 @@ function _doRunTeardown(s){
     if(running&&currentEs===es){ currentEs=null; es.close();
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
-  // habilitar botÃ³n cuando cambia el textarea
+  // habilitar botón cuando cambia el textarea
   if(ta) ta.oninput=_syncTeardownExecBtn;
 }
 
-// â”€â”€ Suite CancelaciÃ³n: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Suite Cancelación: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _CANCEL_META = [
-  {tc:'TC-25', label:'TC-25 Â· Entel', vno:'VNO 03', sid:'qa-cancel-tc25', color:'#C586C0'},
-  {tc:'TC-26', label:'TC-26 Â· KAO',   vno:'VNO 02', sid:'qa-cancel-tc26', color:'#4EC9B0'},
-  {tc:'TC-27', label:'TC-27 Â· DTV',   vno:'VNO 05', sid:'qa-cancel-tc27', color:'#CE9178'},
-  {tc:'TC-28', label:'TC-28 Â· TCH',   vno:'VNO 00', sid:'qa-cancel-tc28', color:'#569CD6'},
+  {tc:'TC-25', label:'TC-25 · Entel', vno:'VNO 03', sid:'qa-cancel-tc25', color:'#C586C0'},
+  {tc:'TC-26', label:'TC-26 · KAO',   vno:'VNO 02', sid:'qa-cancel-tc26', color:'#4EC9B0'},
+  {tc:'TC-27', label:'TC-27 · DTV',   vno:'VNO 05', sid:'qa-cancel-tc27', color:'#CE9178'},
+  {tc:'TC-28', label:'TC-28 · TCH',   vno:'VNO 00', sid:'qa-cancel-tc28', color:'#569CD6'},
 ];
 var _cancelSel={};
 (function(){ _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=true; }); })();
@@ -6612,7 +6612,7 @@ function renderCancelFormBar(){
 function _updateCancelPreview(){
   var el=document.getElementById('cancel-serial-preview'); if(!el) return;
   var sfx=(document.getElementById('gf-serial')||{}).value||'';
-  if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa el serial del equipo en ParÃ¡metros</span>'; return; }
+  if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa el serial del equipo en Parámetros</span>'; return; }
   var h='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   _CANCEL_META.forEach(function(m){
     var base=_CANCEL_SERIAL_BASE[m.tc];
@@ -6983,7 +6983,7 @@ function _doRunSN(params,s,phaseLabel){
     if(running&&currentEs===es){
       currentEs=null; es.close();
       var first=_activeDefs.find(function(def){return snEnabled[def.code];});
-      if(first) snTerm(first.code,'[ConexiÃ³n interrumpida]');
+      if(first) snTerm(first.code,'[Conexión interrumpida]');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
       _activeDefs.forEach(function(def){if(snEnabled[def.code]) setSnIco(def.code,'failed');});
       document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=false;});
@@ -7005,7 +7005,7 @@ function setSnIco(vno,state){
   if(state==='running') ico.innerHTML='<span class="spin" style="font-size:.7rem">â—Œ</span>';
   else if(state==='passed') ico.textContent='âœ“';
   else if(state==='failed') ico.textContent='âœ—';
-  else ico.textContent='Â·';
+  else ico.textContent='·';
 }
 
 function _doRun(url, params, s){
@@ -7041,7 +7041,7 @@ function _doRun(url, params, s){
   es.onerror=function(){
     if(running&&currentEs===es){
       currentEs=null; es.close();
-      app('[ConexiÃ³n interrumpida antes de recibir respuesta]','warn');
+      app('[Conexión interrumpida antes de recibir respuesta]','warn');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
     }
   };
@@ -7078,18 +7078,18 @@ function _saveHistorialRecord(d,s){
 }
 function _doAutoTeardown(accessIds){
   app('','');
-  app('â”€â”€ Teardown automÃ¡tico Â· '+accessIds.length+' acceso'+(accessIds.length===1?'':'s')+' â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€','dim');
+  app('â”€â”€ Teardown automático · '+accessIds.length+' acceso'+(accessIds.length===1?'':'s')+' â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€','dim');
   var _es2=new EventSource('/api/run/qa-teardown-masivo?access_ids='+encodeURIComponent(accessIds.join('\\n'))+'&service_type=FTTH');
   _es2.onmessage=function(ev){
     var d2=JSON.parse(ev.data);
     if(d2.e==='start') return;
     if(d2.e==='line') app(d2.t,col(d2.t));
     else if(d2.e==='done'){
-      app('â”€â”€ Teardown: '+(d2.code===0?'âœ“ accesos liberados':'âœ— finalizÃ³ con errores'),d2.code===0?'ok bold':'err bold');
+      app('â”€â”€ Teardown: '+(d2.code===0?'âœ“ accesos liberados':'âœ— finalizó con errores'),d2.code===0?'ok bold':'err bold');
       _es2.close();
     } else if(d2.e==='error'){app('â”€â”€ Teardown error: '+(d2.msg||''),'err');_es2.close();}
   };
-  _es2.onerror=function(){app('â”€â”€ Teardown: error de conexiÃ³n','err');_es2.close();};
+  _es2.onerror=function(){app('â”€â”€ Teardown: error de conexión','err');_es2.close();};
 }
 function onDone(d,s){
   running=false; runningId=null;
@@ -7097,9 +7097,9 @@ function onDone(d,s){
   var elapsed=((Date.now()-tStart)/1000).toFixed(1)+'s';
   var ok=d.code===0;
   app('',''); app('â”€â”€ Fin: '+s.label+' '+'â”€'.repeat(30),'dim');
-  app('CÃ³digo de salida: '+d.code+'  Tiempo: '+elapsed, ok?'ok bold':'err bold');
+  app('Código de salida: '+d.code+'  Tiempo: '+elapsed, ok?'ok bold':'err bold');
   setIco(s.id, ok?'passed':'failed');
-  var topCls=ok?'passed':'failed', topStatus=ok?'Completado âœ“':'FallÃ³ âœ—';
+  var topCls=ok?'passed':'failed', topStatus=ok?'Completado âœ“':'Falló âœ—';
   setTop(topCls, s.label, topStatus);
   suiteTopState[s.id]={cls:topCls, title:s.label, status:topStatus};
   var h='';
@@ -7382,7 +7382,7 @@ function _buildIACard(title, folderLabel, inputId, placeholder, runFn){
   var f3=document.createElement("div"); f3.className="epf-field";
   var l3=document.createElement("label"); l3.className="epf-label"; l3.textContent="u_scenario";
   var cg3=document.createElement("div"); cg3.className="epf-chips";
-  ['InstalaciÃ³n','ReparaciÃ³n'].forEach(function(sc,idx){
+  ['Instalación','Reparación'].forEach(function(sc,idx){
     var ch=document.createElement("button"); ch.className="epf-chip"+(idx===0?" active":"");
     ch.dataset.val=sc; ch.textContent=sc;
     ch.onclick=function(){cg3.querySelectorAll(".epf-chip").forEach(function(b){b.classList.remove("active");}); ch.classList.add("active");};
@@ -7413,10 +7413,10 @@ function _buildIACard(title, folderLabel, inputId, placeholder, runFn){
   container.appendChild(card);
 }
 function renderIAForm(){
-  _buildIACard("IA Inicio","01-Inicio IntervenciÃ³n","epf-ia-access","ej. 02-QASM-2307-1",runIA);
+  _buildIACard("IA Inicio","01-Inicio Intervención","epf-ia-access","ej. 02-QASM-2307-1",runIA);
 }
 function renderIAFinForm(){
-  _buildIACard("IA FinalizaciÃ³n","03-FinalizaciÃ³n IntervenciÃ³n","epf-ia-fin-access","ej. 00QA-JOSEF-SM-01",runIAFin);
+  _buildIACard("IA Finalización","03-Finalización Intervención","epf-ia-fin-access","ej. 00QA-JOSEF-SM-01",runIAFin);
 }
 function runIA(params){
   if(running) return;
@@ -7453,7 +7453,7 @@ function renderActivacionForm(){
   var vno=_globalVNO;
   var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
   var card=document.createElement("div"); card.className="epf-card";
-  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="ActivaciÃ³n";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Activación";
   var sf=document.createElement("div"); sf.className="epf-folder";
   sf.innerHTML='Endpoint: <span>fullFillment-activation/v1/registrationActivation</span>';
   card.appendChild(tt); card.appendChild(sf);
@@ -7561,7 +7561,7 @@ function renderEPView(){
   var ff=suites.filter(function(s){return s.parent==='qa-fulfillment';}).length;
   var cons=suites.filter(function(s){return s.parent==='qa-consultas';}).length;
   list.innerHTML='<div style="padding:24px 10px;color:var(--txt3);font-size:.78rem;line-height:1.7">'
-    +'<div style="font-size:.85rem;font-weight:600;color:var(--txt2);margin-bottom:8px">'+String.fromCharCode(8592)+' Selecciona un endpoint del menÃº lateral</div>'
+    +'<div style="font-size:.85rem;font-weight:600;color:var(--txt2);margin-bottom:8px">'+String.fromCharCode(8592)+' Selecciona un endpoint del menú lateral</div>'
     +'<div>Expande la suite <strong style="color:var(--acc)">Endpoints QA</strong> en el panel izquierdo</div>'
     +'<div style="margin-top:12px;display:flex;gap:16px">'
     +'<span style="padding:4px 10px;border:1px solid var(--brdl);border-radius:4px">FulFillment: '+ff+'</span>'
@@ -7644,7 +7644,7 @@ var _HIST_COLS=[
   {k:'tc',          lbl:'TC'},
   {k:'escenario',   lbl:'Escenario'},
   {k:'vno_lbl',     lbl:'VNO'},
-  {k:'direccion',   lbl:'DirecciÃ³n / Access ID'},
+  {k:'direccion',   lbl:'Dirección / Access ID'},
   {k:'resultado',   lbl:'Resultado'},
   {k:'tiempo_ms',   lbl:'Tiempo'},
 ];
@@ -7842,13 +7842,13 @@ function _renderHistorialTable(){
     return asc?av.localeCompare(bv,undefined,{numeric:true}):-av.localeCompare(bv,undefined,{numeric:true});
   });
   var body=document.getElementById('hpane-hist');
-  if(!rows.length){body.innerHTML='<div class="hist-empty">'+(q?'Sin registros para "'+esc(q)+'"':'Sin ejecuciones aÃºn.')+'</div>';return;}
+  if(!rows.length){body.innerHTML='<div class="hist-empty">'+(q?'Sin registros para "'+esc(q)+'"':'Sin ejecuciones aún.')+'</div>';return;}
   var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
   _HIST_COLS.forEach(function(c,i){
     var ico=_histSort.col===i?(_histSort.asc?'â–²':'â–¼'):'â‡…';
     h+='<th onclick="_histSortBy('+i+')">'+esc(c.lbl)+' <span class="sort-ico">'+ico+'</span></th>';
   });
-  h+='<th>AcciÃ³n</th></tr></thead><tbody>';
+  h+='<th>Acción</th></tr></thead><tbody>';
   rows.forEach(function(r){
     var res=r.resultado||''; var bc=res==='ok'?'ok':'err';
     var vno=r.vno_lbl||r.vno||'';
@@ -7872,22 +7872,22 @@ function _renderHistorialTable(){
   body.innerHTML=h;
 }
 function _histDelete(id){
-  if(!confirm('Â¿Eliminar este registro?')) return;
+  if(!confirm('¿Eliminar este registro?')) return;
   fetch('/api/historial/'+id,{method:'DELETE'}).then(function(){
     _histData=_histData.filter(function(r){return r.id!==id;}); _renderHistorialTable();
   });
 }
 function _histDeleteAll(){
-  if(!confirm('Â¿Eliminar TODO el historial? Esta acciÃ³n no se puede deshacer.')) return;
+  if(!confirm('¿Eliminar TODO el historial? Esta acción no se puede deshacer.')) return;
   fetch('/api/historial',{method:'DELETE'}).then(function(){_histData=[];_renderHistorialTable();});
 }
 function loadStats(){
   var body=document.getElementById('hpane-stats');
   body.innerHTML='<div class="hist-empty">Cargandoâ€¦</div>';
   fetch('/api/stats').then(function(r){return r.json();}).then(function(data){
-    if(!Array.isArray(data)||!data.length){body.innerHTML='<div class="hist-empty">Sin datos aÃºn.</div>';return;}
+    if(!Array.isArray(data)||!data.length){body.innerHTML='<div class="hist-empty">Sin datos aún.</div>';return;}
     var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
-    ['Suite','VNO','Total','OK','FAIL','Tasa OK','Tiempo prom.','Ãšltima ejecuciÃ³n'].forEach(function(c){h+='<th>'+c+'</th>';});
+    ['Suite','VNO','Total','OK','FAIL','Tasa OK','Tiempo prom.','Ãšltima ejecución'].forEach(function(c){h+='<th>'+c+'</th>';});
     h+='</tr></thead><tbody>';
     data.forEach(function(r){
       var total=parseInt(r.total)||0, ok=parseInt(r.ok)||0, fail=parseInt(r.fail)||0;
@@ -7915,7 +7915,7 @@ function loadConfig(){
   body.innerHTML='<div class="hist-empty">Cargandoâ€¦</div>';
   fetch('/api/config').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando config.</div>';return;}
-    var h='<div style="max-width:560px"><h3 style="margin:0 0 18px;font-size:.85rem;color:var(--txt);font-weight:700">ParÃ¡metros del runner</h3>';
+    var h='<div style="max-width:560px"><h3 style="margin:0 0 18px;font-size:.85rem;color:var(--txt);font-weight:700">Parámetros del runner</h3>';
     data.forEach(function(row){
       h+='<div style="margin-bottom:14px">';
       h+='<label style="display:block;font-size:.74rem;color:var(--txt2);margin-bottom:4px">'+esc(row.label||row.key)+'</label>';
@@ -8016,7 +8016,7 @@ function setIco(id,state){
   if(state==='running') ico.innerHTML='<span class="spin">â—Œ</span>';
   else if(state==='passed') ico.textContent='âœ“';
   else if(state==='failed') ico.textContent='âœ—';
-  else ico.textContent='Â·';
+  else ico.textContent='·';
 }
 function setActive(id){
   document.querySelectorAll('.si').forEach(el=>el.classList.remove('active'));
@@ -8028,30 +8028,30 @@ function setTop(state,title,txt){
   s.className='top-status'+(state?' '+state:''); s.textContent=txt;
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-// â”€â”€â”€ QA FulFillment Queue (diseÃ±o Humberto) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ QA FulFillment Queue (diseño Humberto) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // â”€â”€â”€ TC map por funcionalidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _ATRF_TC_MAP={
   "Factibilidad":                        {"03":"CP01","02":"CP02","05":"CP03","00":"CP03"},
-  "AsignaciÃ³n":                          {"03":"CP04","02":"CP05","05":"CP06","00":"CP06"},
-  "Inicio IntervenciÃ³n Asegurada":       {"03":"CP07","02":"CP08","05":"CP09","00":"CP09"},
-  "ActivaciÃ³n":                          {"03":"CP10","02":"CP13","05":"CP16","00":"CP16"},
+  "Asignación":                          {"03":"CP04","02":"CP05","05":"CP06","00":"CP06"},
+  "Inicio Intervención Asegurada":       {"03":"CP07","02":"CP08","05":"CP09","00":"CP09"},
+  "Activación":                          {"03":"CP10","02":"CP13","05":"CP16","00":"CP16"},
   "Consulta de Acceso":                  {"03":"CP11","02":"CP14","05":"CP17","00":"CP17"},
-  "DiagnÃ³stico de Acceso":               {"03":"CP12","02":"CP15","05":"CP18","00":"CP18"},
-  "ModificaciÃ³n de Dispositivo":         {"03":"CP19","02":"CP21","05":"CP22","00":"CP22"},
+  "Diagnóstico de Acceso":               {"03":"CP12","02":"CP15","05":"CP18","00":"CP18"},
+  "Modificación de Dispositivo":         {"03":"CP19","02":"CP21","05":"CP22","00":"CP22"},
   "Consulta Estado Vecino (GET)":        {"03":"CP23","02":"CP25","05":"CP26","00":"CP26"},
   "Consulta Estado Vecino (POST)":       {"03":"CP23","02":"CP25","05":"CP26","00":"CP26"},
   "Cambio de Pelo":                      {"03":"CP27","02":"CP30","05":"CP31","00":"CP31"},
-  "ModificaciÃ³n de Acceso":              {"03":"CP32","02":"CP34","05":"CP35","00":"CP35"},
-  "FinalizaciÃ³n IntervenciÃ³n Asegurada": {"03":"CP36","02":"CP62","05":"CP63","00":"CP63"},
+  "Modificación de Acceso":              {"03":"CP32","02":"CP34","05":"CP35","00":"CP35"},
+  "Finalización Intervención Asegurada": {"03":"CP36","02":"CP62","05":"CP63","00":"CP63"},
   "Reinicio ONT":                        {"03":"CP117","02":"CP40","05":"CP93","00":"CP93"},
   "RetrieveAccess":                      {"03":"CP119","02":"CP44","05":"CP95","00":"CP95"},
   "RetrieveAccess ONT":                  {"03":"CP42","02":"CP42","05":"CP42","00":"CP42"},
-  "CancelaciÃ³n IntervenciÃ³n Asegurada":  {"03":"CP67","02":"CP68","05":"CP69","00":"CP69"},
+  "Cancelación Intervención Asegurada":  {"03":"CP67","02":"CP68","05":"CP69","00":"CP69"},
   "Baja Total de Servicio":              {"03":"CP64","02":"CP65","05":"CP66","00":"CP66"},
-  "CancelaciÃ³n Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"}
+  "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
-var _ATRF_FUNCS=["Factibilidad","AsignaciÃ³n","ActivaciÃ³n","Inicio IntervenciÃ³n Asegurada","CancelaciÃ³n IntervenciÃ³n Asegurada","FinalizaciÃ³n IntervenciÃ³n Asegurada","CancelaciÃ³n Orden de Servicio","Baja Total de Servicio","ModificaciÃ³n de Acceso","ModificaciÃ³n de Dispositivo","Cambio de Pelo","Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","DiagnÃ³stico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
@@ -8122,7 +8122,7 @@ function _atrf_renderQueue(){
       +'<div class="atrf-qcb'+(q.checked?' on':'')+'" onclick="event.stopPropagation();_atrf_toggleCb('+qi+')" id="atrf-qcb-'+qi+'"></div>'
       +'<div class="atrf-q-info">'
       +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'â€”')+'</span>'+urlBadge
-      +'<div class="atrf-q-meta">'+q.funcs.length+' func Â· '+(q.ts||'')+'</div>'
+      +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
       +'</div>'
       +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
       +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">âœ•</button>'
@@ -8161,7 +8161,7 @@ function _atrf_buildDetailHtml(qi){
       var vno=q.cfg&&q.cfg.vno||'';
       var tc=tcMap[vno];if(!tc)return;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
-      tcHtml+='<span class="atrf-tc-badge pending">'+tc+' Â· '+vl+'</span>';
+      tcHtml+='<span class="atrf-tc-badge pending">'+tc+' · '+vl+'</span>';
     });
     tcHtml+='</div>';
   }
@@ -8171,7 +8171,7 @@ function _atrf_toggleDetail(qi){
   document.getElementById('atrf-qrow-'+qi).classList.toggle('open');
 }
 function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();_atrf_renderQueue();}
-function _atrf_removeItem(qi){if(!confirm('Â¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrf_renderQueue();_atrf_save();}
+function _atrf_removeItem(qi){if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrf_renderQueue();_atrf_save();}
 function _atrf_toggleSelAll(){
   var allChecked=_atrfQueue.length>0&&_atrfQueue.every(function(q){return q.checked;});
   _atrfQueue.forEach(function(q){q.checked=!allChecked;});
@@ -8180,11 +8180,11 @@ function _atrf_toggleSelAll(){
 function _atrf_deleteSelected(){
   var n=_atrfQueue.filter(function(q){return q.checked;}).length;
   if(!n)return;
-  if(!confirm('Â¿Eliminar '+n+' secuencia'+(n>1?'s':'')+' seleccionada'+(n>1?'s':'')+' ?'))return;
+  if(!confirm('¿Eliminar '+n+' secuencia'+(n>1?'s':'')+' seleccionada'+(n>1?'s':'')+' ?'))return;
   _atrfQueue=_atrfQueue.filter(function(q){return!q.checked;});
   _atrf_renderQueue();_atrf_save();
 }
-function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('Â¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
+function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
 
 function _atrf_openNew(){
   _atrfSel=[];_atrfFilter='';
@@ -8238,7 +8238,7 @@ function _atrf_updateAid(){
   var el=document.getElementById('atrf-aid');if(!el)return;
   var vnos=_atrf_getVnos();
   if(!vnos.length){el.value='';}
-  else if(vnos.length>1){el.value='Se genera automÃ¡ticamente al encolar';}
+  else if(vnos.length>1){el.value='Se genera automáticamente al encolar';}
   else{el.value=_atrf_buildAid(vnos[0]);}
 }
 function _atrf_onAidInput(){_atrfAutoState.aid=false;document.getElementById('atrf-auto-aid').classList.add('off');}
@@ -8249,7 +8249,7 @@ function _atrf_buildSerial(vno){
 }
 function _atrf_updateSerials(){
   var vnos=_atrf_getVnos();
-  var sn=!vnos.length?'':vnos.length>1?'Se genera automÃ¡ticamente al encolar':_atrf_buildSerial(vnos[0]);
+  var sn=!vnos.length?'':vnos.length>1?'Se genera automáticamente al encolar':_atrf_buildSerial(vnos[0]);
   if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=sn;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
   if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=sn;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
 }
@@ -8313,12 +8313,12 @@ function _atrf_enqueue(){
   var vnos=_atrf_getVnos();
   if(!name){errors.push('Nombre de la secuencia es obligatorio');document.getElementById('atrf-seq-name').classList.add('err');}
   if(!vnos.length){errors.push('Selecciona al menos una VNO');}
-  if(!_atrf_v('atrf-dir').trim()){errors.push('DirecciÃ³n es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
+  if(!_atrf_v('atrf-dir').trim()){errors.push('Dirección es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
   if(!_atrf_v('atrf-esc')){errors.push('Escenario es obligatorio');document.getElementById('atrf-esc').classList.add('err');}
-  if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecuciÃ³n es obligatorio');document.getElementById('atrf-tex').classList.add('err');}
+  if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecución es obligatorio');document.getElementById('atrf-tex').classList.add('err');}
   if(!_atrfSel.length){errors.push('Debes seleccionar al menos una funcionalidad');document.getElementById('atrf-funcs-err').classList.add('show');}
   var errEl=document.getElementById('atrf-val-err');
-  if(errors.length){errEl.innerHTML=errors.map(function(e){return'Â· '+e;}).join('<br>');errEl.classList.add('show');if(errors.length===1&&errors[0].includes('funcionalidad'))_atrf_switchTab('funcs');else _atrf_switchTab('cfg');return;}
+  if(errors.length){errEl.innerHTML=errors.map(function(e){return'· '+e;}).join('<br>');errEl.classList.add('show');if(errors.length===1&&errors[0].includes('funcionalidad'))_atrf_switchTab('funcs');else _atrf_switchTab('cfg');return;}
   errEl.classList.remove('show');
   var amb=_atrf_getAmb();var ts=document.getElementById('atrf-seq-ts').textContent;
   var dir=_atrf_v('atrf-dir').trim();
@@ -8341,17 +8341,17 @@ function _atrf_enqueue(){
 function _atrf_buildSimReq(funcName,cfg){
   var aid=cfg.accessId||'';var vno=cfg.vno||'';var svc=cfg.tsvc||'FTTH';var dir=cfg.direccion||'';
   var base={u_vno_id:vno,u_service_type:svc,u_address:dir};
-  if(funcName==='Factibilidad')return JSON.stringify(Object.assign({},base,{u_scenario:cfg.esc||'InstalaciÃ³n'}),null,2);
-  if(funcName==='AsignaciÃ³n')return JSON.stringify(Object.assign({},base,{u_plan:cfg.plan||'',u_serial_number:cfg.sn||'',u_with_bp:cfg.bp||'Con BP'}),null,2);
-  if(funcName==='Inicio IntervenciÃ³n Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_scenario:cfg.esc||'InstalaciÃ³n',u_service_type:svc},null,2);
-  if(funcName==='ActivaciÃ³n')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_plan:cfg.plan||'',u_serial_number:cfg.sn||'',u_new_serial_number:cfg.nsn||'',u_service_type:svc},null,2);
-  if(funcName==='ModificaciÃ³n de Dispositivo')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_serial_number:cfg.sn||'',u_new_serial_number:cfg.nsn||'',u_service_type:svc},null,2);
-  if(funcName==='CancelaciÃ³n Orden de Servicio')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc,u_reason:'CancelaciÃ³n solicitada por VNO'},null,2);
-  if(funcName==='CancelaciÃ³n IntervenciÃ³n Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
-  if(funcName==='FinalizaciÃ³n IntervenciÃ³n Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Factibilidad')return JSON.stringify(Object.assign({},base,{u_scenario:cfg.esc||'Instalación'}),null,2);
+  if(funcName==='Asignación')return JSON.stringify(Object.assign({},base,{u_plan:cfg.plan||'',u_serial_number:cfg.sn||'',u_with_bp:cfg.bp||'Con BP'}),null,2);
+  if(funcName==='Inicio Intervención Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_scenario:cfg.esc||'Instalación',u_service_type:svc},null,2);
+  if(funcName==='Activación')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_plan:cfg.plan||'',u_serial_number:cfg.sn||'',u_new_serial_number:cfg.nsn||'',u_service_type:svc},null,2);
+  if(funcName==='Modificación de Dispositivo')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_serial_number:cfg.sn||'',u_new_serial_number:cfg.nsn||'',u_service_type:svc},null,2);
+  if(funcName==='Cancelación Orden de Servicio')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc,u_reason:'Cancelación solicitada por VNO'},null,2);
+  if(funcName==='Cancelación Intervención Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Finalización Intervención Asegurada')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
   if(funcName==='Baja Total de Servicio')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
   if(funcName==='Consulta de Acceso'||funcName==='RetrieveAccess'||funcName==='RetrieveAccess ONT')return JSON.stringify({u_access_id:aid,u_vno_id:vno},null,2);
-  if(funcName==='DiagnÃ³stico de Acceso')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
+  if(funcName==='Diagnóstico de Acceso')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
   if(funcName==='Consulta Estado Vecino (GET)'||funcName==='Consulta Estado Vecino (POST)')return JSON.stringify({u_access_id:aid,u_vno_id:vno},null,2);
   if(funcName==='Reinicio ONT')return JSON.stringify({u_access_id:aid,u_vno_id:vno,u_service_type:svc},null,2);
   return JSON.stringify(Object.assign({u_access_id:aid},base,{u_function:funcName}),null,2);
@@ -8359,42 +8359,42 @@ function _atrf_buildSimReq(funcName,cfg){
 function _atrf_buildSimRes(funcName,cfg,pass){
   var aid=cfg.accessId||'';var vno=cfg.vno||'';
   if(pass){
-    if(funcName==='Factibilidad')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Flujo completado con Ã©xito",u_int_free_access:"falso",u_int_portable_access:"falso",u_access_id:aid,u_vno_id:vno,u_flow_status:"Finalizado con Ã©xito"}},null,2);
-    if(funcName==='AsignaciÃ³n')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"AsignaciÃ³n completada con Ã©xito",u_access_id:aid,u_vno_id:vno,u_flow_generation:"OK",u_flow_status:"Finalizado con Ã©xito"}},null,2);
-    if(funcName==='Inicio IntervenciÃ³n Asegurada')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"OperaciÃ³n aceptada, el flujo continÃºa",u_access_id:aid,u_vno_id:vno}},null,2);
-    if(funcName==='ActivaciÃ³n')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Solicitud de activaciÃ³n en curso. Customer Order: ORD000000",u_access_id:aid,u_flow_generation:"OK",u_flow_status:"Finalizado con Ã©xito"}},null,2);
-    if(funcName==='ModificaciÃ³n de Dispositivo')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"PeticiÃ³n realizada con Ã©xito",u_access_id:aid,u_new_serial_number:cfg.nsn||'',u_flow_generation:"OK",u_flow_status:"Finalizado con Ã©xito"}},null,2);
-    if(funcName==='CancelaciÃ³n Orden de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Solicitud registrada, el flujo continÃºa",u_service_order_id:"ORD-CANCEL-"+aid.slice(-6),u_flow_generation:"OK",u_flow_status:"Finalizado con Ã©xito"}},null,2);
-    if(funcName==='CancelaciÃ³n IntervenciÃ³n Asegurada')return JSON.stringify({result:{sys_id:"02cdefa44abc5e10c214f8a56aba1005",u_return_code:"0",u_return_code_desc:"CancelaciÃ³n de intervenciÃ³n registrada",u_access_id:aid}},null,2);
+    if(funcName==='Factibilidad')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Flujo completado con éxito",u_int_free_access:"falso",u_int_portable_access:"falso",u_access_id:aid,u_vno_id:vno,u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Asignación')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Asignación completada con éxito",u_access_id:aid,u_vno_id:vno,u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Inicio Intervención Asegurada')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Operación aceptada, el flujo continúa",u_access_id:aid,u_vno_id:vno}},null,2);
+    if(funcName==='Activación')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Solicitud de activación en curso. Customer Order: ORD000000",u_access_id:aid,u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Modificación de Dispositivo')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Petición realizada con éxito",u_access_id:aid,u_new_serial_number:cfg.nsn||'',u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Cancelación Orden de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Solicitud registrada, el flujo continúa",u_service_order_id:"ORD-CANCEL-"+aid.slice(-6),u_flow_generation:"OK",u_flow_status:"Finalizado con éxito"}},null,2);
+    if(funcName==='Cancelación Intervención Asegurada')return JSON.stringify({result:{sys_id:"02cdefa44abc5e10c214f8a56aba1005",u_return_code:"0",u_return_code_desc:"Cancelación de intervención registrada",u_access_id:aid}},null,2);
     if(funcName==='Consulta de Acceso'||funcName==='RetrieveAccess')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Consulta exitosa",u_access_id:aid,u_vno_id:vno,u_access_status:"ACTIVO"}},null,2);
-    if(funcName==='DiagnÃ³stico de Acceso')return JSON.stringify({result:{u_transaction_code:0,u_transaction_code_desc:"DiagnÃ³stico completado",u_access_id:aid,u_signal_level:"-18.5 dBm",u_ont_status:"OK"}},null,2);
+    if(funcName==='Diagnóstico de Acceso')return JSON.stringify({result:{u_transaction_code:0,u_transaction_code_desc:"Diagnóstico completado",u_access_id:aid,u_signal_level:"-18.5 dBm",u_ont_status:"OK"}},null,2);
     if(funcName==='Consulta Estado Vecino (GET)'||funcName==='Consulta Estado Vecino (POST)')return JSON.stringify({result:{u_transaction_code:6,u_transaction_code_desc:"Consulta vecinos exitosa",u_access_id:aid,u_neighbors:[]}},null,2);
-    if(funcName==='Baja Total de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Baja de acceso procesada",u_access_id:aid,u_flow_status:"Finalizado con Ã©xito"}},null,2);
+    if(funcName==='Baja Total de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Baja de acceso procesada",u_access_id:aid,u_flow_status:"Finalizado con éxito"}},null,2);
     if(funcName==='Reinicio ONT')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Reinicio ONT solicitado",u_access_id:aid}},null,2);
-    if(funcName==='RetrieveAccess ONT')return JSON.stringify({result:{u_return_code:"0",sys_id:aid,u_ont_model:"HG8145V5",u_temperature:"45Â°C",u_ont_status:"OK"}},null,2);
-    return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"OperaciÃ³n exitosa",u_access_id:aid}},null,2);
+    if(funcName==='RetrieveAccess ONT')return JSON.stringify({result:{u_return_code:"0",sys_id:aid,u_ont_model:"HG8145V5",u_temperature:"45°C",u_ont_status:"OK"}},null,2);
+    return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Operación exitosa",u_access_id:aid}},null,2);
   }
-  return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validaciÃ³n del servicio",u_error_detail:"ParÃ¡metros invÃ¡lidos o acceso no encontrado",u_access_id:aid}},null,2);
+  return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
 }
 var _ATRF_ENDPOINT_MAP={
   "Factibilidad":                        "presales-feasibility/v1/feasibility",
-  "AsignaciÃ³n":                          "fullFillment-assignment/v1/assignment",
-  "Inicio IntervenciÃ³n Asegurada":       "fullFillment-gIntervention/v1/assuredIntervention",
-  "ActivaciÃ³n":                          "fullFillment-activation/v1/registrationActivation",
+  "Asignación":                          "fullFillment-assignment/v1/assignment",
+  "Inicio Intervención Asegurada":       "fullFillment-gIntervention/v1/assuredIntervention",
+  "Activación":                          "fullFillment-activation/v1/registrationActivation",
   "Consulta de Acceso":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
-  "DiagnÃ³stico de Acceso":               "fullFillment-diagnose/v1/diagnose",
-  "ModificaciÃ³n de Dispositivo":         "fullFillment-deviceModification/v1/deviceModification",
+  "Diagnóstico de Acceso":               "fullFillment-diagnose/v1/diagnose",
+  "Modificación de Dispositivo":         "fullFillment-deviceModification/v1/deviceModification",
   "Consulta Estado Vecino (GET)":        "fullFillment-neighbor/v1/neighbor",
   "Consulta Estado Vecino (POST)":       "fullFillment-neighbor/v1/neighbor",
   "Cambio de Pelo":                      "fullFillment-fiberChange/v1/fiberChange",
-  "ModificaciÃ³n de Acceso":              "fullFillment-modification/v1/registrationModification",
-  "FinalizaciÃ³n IntervenciÃ³n Asegurada": "fullFillment-finalization/v1/interventionFinalization",
-  "CancelaciÃ³n IntervenciÃ³n Asegurada":  "fullFillment-cancelIntervention/v1/interventionCancellation",
+  "Modificación de Acceso":              "fullFillment-modification/v1/registrationModification",
+  "Finalización Intervención Asegurada": "fullFillment-finalization/v1/interventionFinalization",
+  "Cancelación Intervención Asegurada":  "fullFillment-cancelIntervention/v1/interventionCancellation",
   "Reinicio ONT":                        "reinicioONT/v1/ONTRestart",
   "RetrieveAccess":                      "fullFillment-retrieveAccess/v1/retrieveAccess",
   "RetrieveAccess ONT":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
   "Baja Total de Servicio":              "fullFillment-unsubcription/v1/accessDeregistration",
-  "CancelaciÃ³n Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation"
+  "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='â€”')return s||'â€”';
@@ -8416,7 +8416,7 @@ function _atrf_openTcModal(qi,idx){
   var vnoLabel=_ATRF_TC_VNO_LABEL[(q.cfg&&q.cfg.vno)||'']||((q.cfg&&q.cfg.vno)||'â€”');
   document.getElementById('atrf-tc-modal-vno').textContent=vnoLabel;
   var badge=document.getElementById('atrf-tc-modal-badge');
-  badge.textContent=r.pass?'âœ“ PasÃ³':'âœ— FallÃ³';
+  badge.textContent=r.pass?'âœ“ Pasó':'âœ— Falló';
   badge.className='atrf-badge '+(r.pass?'atrf-badge-ok':'atrf-badge-err');
   document.getElementById('atrf-tc-modal-endpoint').textContent=_ATRF_ENDPOINT_MAP[r.func]||'/api/'+r.func;
   var stBadge=document.getElementById('atrf-tc-status-badge');
@@ -8440,13 +8440,13 @@ function _atrf_openView(qi){
   document.getElementById('atrf-view-ts').textContent=q.ts||'â€”';
   _atrf_switchView('cfg');
   var c=q.cfg||{};
-  var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'â€”'],['Tipo DirecciÃ³n',c.tdir],['DirecciÃ³n',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo EjecuciÃ³n',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'â€”'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'â€”']];
+  var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'â€”'],['Tipo Dirección',c.tdir],['Dirección',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo Ejecución',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'â€”'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'â€”']];
   document.getElementById('atrf-vcfg-grid').innerHTML=fields.map(function(f){return'<div class="atrf-dcfg-item"><div class="atrf-dcfg-lbl">'+f[0]+'</div><div class="atrf-dcfg-val">'+(f[1]||'â€”')+'</div></div>';}).join('');
   document.getElementById('atrf-vfunc-list').innerHTML=(q.funcs||[]).map(function(fi,i){return'<div class="atrf-view-func-item"><span class="atrf-view-func-pos">'+(i+1)+'</span><span>'+(_ATRF_FUNCS[fi]||fi)+'</span></div>';}).join('');
   document.getElementById('atrf-modal-view').classList.add('show');
 }
 function _atrf_closeView(){document.getElementById('atrf-modal-view').classList.remove('show');_atrfViewIdx=-1;}
-function _atrf_deleteFromView(){if(_atrfViewIdx<0)return;if(!confirm('Â¿Eliminar esta secuencia?'))return;_atrfQueue.splice(_atrfViewIdx,1);_atrf_closeView();_atrf_renderQueue();_atrf_save();}
+function _atrf_deleteFromView(){if(_atrfViewIdx<0)return;if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(_atrfViewIdx,1);_atrf_closeView();_atrf_renderQueue();_atrf_save();}
 function _atrf_switchView(t){
   ['cfg','funcs'].forEach(function(x){
     document.getElementById('atrf-vtab-'+x).classList.toggle('active',x===t);
@@ -8533,7 +8533,7 @@ async function _atrf_runSelected(){
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
-      q.tcResults.push({func:fn,tc:tc,label:tc+' Â· '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
+      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
@@ -8559,7 +8559,7 @@ async function _atrf_runSelected(){
     <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);font-size:11px">
       <span style="background:#3c6ff5;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--atrf-mono);font-weight:700;font-size:10px">POST</span>
       <span id="atrf-tc-modal-endpoint" style="font-family:var(--atrf-mono);color:var(--atrf-text2)">â€”</span>
-      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">â€”</b> &nbsp;Â·&nbsp; VNO: <b id="atrf-tc-modal-vno">â€”</b></span>
+      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">â€”</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">â€”</b></span>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--atrf-border)">
       <button id="atrf-tc-tab-req" class="atrf-tc-tab active" onclick="_atrf_tcTab('req')">Body (Request)</button>
@@ -8592,7 +8592,7 @@ async function _atrf_runSelected(){
     <div class="atrf-ts-row">Fecha registro: <span id="atrf-seq-ts">â€”</span></div>
     <div class="atrf-val-err" id="atrf-val-err"></div>
     <div class="atrf-tabs">
-      <div class="atrf-tab active" id="atrf-ntab-cfg" onclick="_atrf_switchTab('cfg')">ConfiguraciÃ³n</div>
+      <div class="atrf-tab active" id="atrf-ntab-cfg" onclick="_atrf_switchTab('cfg')">Configuración</div>
       <div class="atrf-tab" id="atrf-ntab-funcs" onclick="_atrf_switchTab('funcs')">Funcionalidades <span id="atrf-funcs-cnt" style="font-size:10px;opacity:.6"></span></div>
     </div>
     <div class="atrf-modal-body" id="atrf-nbody-cfg">
@@ -8622,22 +8622,22 @@ async function _atrf_runSelected(){
           <div class="atrf-vno-multi-note" id="atrf-vno-multi-note">Genera una fila por VNO con Access ID y S/N independientes</div>
         </div>
         <div class="atrf-field atrf-col-3">
-          <label>Tipo direcciÃ³n <span class="req">â˜…</span></label>
+          <label>Tipo dirección <span class="req">â˜…</span></label>
           <select id="atrf-tdir">
             <option value="XYGO">XYGO</option><option value="OSP">OSP</option>
             <option value="SGO">SGO</option><option value="MANUAL">MANUAL</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-5">
-          <label>DirecciÃ³n <span class="req">â˜…</span></label>
-          <input type="text" id="atrf-dir" placeholder="Ingresa la direcciÃ³n"/>
+          <label>Dirección <span class="req">â˜…</span></label>
+          <input type="text" id="atrf-dir" placeholder="Ingresa la dirección"/>
         </div>
         <div class="atrf-field atrf-col-4">
           <label>Access ID <span class="req">â˜…</span>
             <span class="atrf-tag" id="atrf-auto-aid" onclick="_atrf_toggleAuto('aid')">Auto</span>
           </label>
           <input type="text" id="atrf-aid" placeholder="â€”" oninput="_atrf_onAidInput()"/>
-          <span class="atrf-hint">VNO Â· Ambiente Â· DirecciÃ³n Â· HH:MM</span>
+          <span class="atrf-hint">VNO · Ambiente · Dirección · HH:MM</span>
         </div>
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Servicio</div>
@@ -8652,17 +8652,17 @@ async function _atrf_runSelected(){
           <label>Escenario <span class="req">â˜…</span></label>
           <select id="atrf-esc">
             <option value="">â€” Selecciona â€”</option>
-            <option value="InstalaciÃ³n">InstalaciÃ³n</option>
-            <option value="ReparaciÃ³n">ReparaciÃ³n</option>
+            <option value="Instalación">Instalación</option>
+            <option value="Reparación">Reparación</option>
             <option value="Retiro de Drop">Retiro de Drop</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-3">
-          <label>Tipo ejecuciÃ³n <span class="req">â˜…</span></label>
+          <label>Tipo ejecución <span class="req">â˜…</span></label>
           <select id="atrf-tex">
             <option value="">â€” Selecciona â€”</option>
-            <option value="SÃ­ncrono">SÃ­ncrono</option>
-            <option value="AsÃ­ncrono">AsÃ­ncrono</option>
+            <option value="Síncrono">Síncrono</option>
+            <option value="Asíncrono">Asíncrono</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-3">
@@ -8709,7 +8709,7 @@ async function _atrf_runSelected(){
             <span class="atrf-slen" id="atrf-sn-len">0 car.</span>
           </label>
           <input type="text" id="atrf-sn" placeholder="â€”" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
-          <span class="atrf-hint">Prefijo VNO + MM DD HH mm Â· 12 o 16 car.</span>
+          <span class="atrf-hint">Prefijo VNO + MM DD HH mm · 12 o 16 car.</span>
         </div>
         <div class="atrf-field atrf-col-5">
           <label>Nuevo Serial Number
@@ -8751,7 +8751,7 @@ async function _atrf_runSelected(){
     </div>
     <div class="atrf-ts-row">Fecha registro: <span id="atrf-view-ts">â€”</span></div>
     <div class="atrf-tabs">
-      <div class="atrf-tab active" id="atrf-vtab-cfg" onclick="_atrf_switchView('cfg')">ConfiguraciÃ³n</div>
+      <div class="atrf-tab active" id="atrf-vtab-cfg" onclick="_atrf_switchView('cfg')">Configuración</div>
       <div class="atrf-tab" id="atrf-vtab-funcs" onclick="_atrf_switchView('funcs')">Funcionalidades</div>
     </div>
     <div class="atrf-modal-body" id="atrf-vbody-cfg"><div class="atrf-dcfg-grid" id="atrf-vcfg-grid"></div></div>
@@ -8771,7 +8771,7 @@ async function _atrf_runSelected(){
     <div class="gfm-meta" id="gfm-date">Fecha registro: --</div>
     <div class="gfm-err-bar" id="gfm-err-bar"></div>
     <div class="gfm-tabs">
-      <span class="gfm-tab active" id="gfmt-cfg" onclick="switchGFMTab('cfg')">ConfiguraciÃ³n</span>
+      <span class="gfm-tab active" id="gfmt-cfg" onclick="switchGFMTab('cfg')">Configuración</span>
       <span class="gfm-tab" id="gfmt-func" onclick="switchGFMTab('func')">Funcionalidades (<span id="gfm-seq-count">0</span>)</span>
     </div>
     <div class="gfm-body">
@@ -8797,7 +8797,7 @@ async function _atrf_runSelected(){
               </select>
             </div>
             <div class="gf-f">
-              <label>Tipo de direcciÃ³n <span class="r">â˜…</span></label>
+              <label>Tipo de dirección <span class="r">â˜…</span></label>
               <select id="gf-addrtype" class="gfm-wmd">
                 <option value="XYGO">XYGO</option>
                 <option value="OSP">OSP</option>
@@ -8806,7 +8806,7 @@ async function _atrf_runSelected(){
               </select>
             </div>
             <div class="gf-f gfm-fw">
-              <label>DirecciÃ³n <span class="r">â˜…</span>
+              <label>Dirección <span class="r">â˜…</span>
                 <span class="gfm-pill amber" id="gfm-por-pos">POR POSICIÃ“N</span>
               </label>
               <input id="gf-addr" class="gfm-fw" placeholder="ej: dddddd" oninput="_autoGenAccessId(true)" />
@@ -8821,7 +8821,7 @@ async function _atrf_runSelected(){
                 <input id="gf-access" class="mono gfm-fw" placeholder="ej: 02-XXXXX-01" oninput="_onGFAccessInput()" />
                 <button class="gfm-abtn" onclick="_autoGenAccessId(false)">Auto</button>
               </div>
-              <div class="gfm-hint">VNO Â· Ambiente Â· DirecciÃ³n Â· HH:MM</div>
+              <div class="gfm-hint">VNO · Ambiente · Dirección · HH:MM</div>
             </div>
           </div>
         </div>
@@ -8838,15 +8838,15 @@ async function _atrf_runSelected(){
             <div class="gf-f gfm-wmd">
               <label>Escenario <span class="r">â˜…</span></label>
               <select id="ia-scenario" onchange="document.getElementById('ia-esc-badge')&&(document.getElementById('ia-esc-badge').textContent=this.value)">
-                <option value="InstalaciÃ³n" selected>InstalaciÃ³n</option>
-                <option value="ReparaciÃ³n">ReparaciÃ³n</option>
+                <option value="Instalación" selected>Instalación</option>
+                <option value="Reparación">Reparación</option>
               </select>
             </div>
             <div class="gf-f gfm-wmd">
-              <label>Tipo de ejecuciÃ³n <span class="r">â˜…</span></label>
+              <label>Tipo de ejecución <span class="r">â˜…</span></label>
               <select id="gf-exec">
-                <option value="SÃ­ncrono">SÃ­ncrono</option>
-                <option value="AsÃ­ncrono">AsÃ­ncrono</option>
+                <option value="Síncrono">Síncrono</option>
+                <option value="Asíncrono">Asíncrono</option>
               </select>
             </div>
             <div class="gf-f gfm-wmd">
@@ -8959,7 +8959,7 @@ async function _atrf_runSelected(){
 </body>
 </html>"""
 
-# â”€â”€â”€ Generar env files desde variables de entorno (Railway/producciÃ³n) â”€â”€â”€â”€â”€â”€â”€â”€
+# â”€â”€â”€ Generar env files desde variables de entorno (Railway/producción) â”€â”€â”€â”€â”€â”€â”€â”€
 def _generate_env_files():
     """Si existen las env vars, genera los archivos .postman_environment.json."""
     print(f"  [env] BP_DIR = {BP_DIR}  (existe: {BP_DIR.exists()})")
