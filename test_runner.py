@@ -2062,7 +2062,7 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     if _step_code != 0:
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
                             try:
                                 _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2107,7 +2107,7 @@ async def api_run(suite_id: str, request: Request):
                             pass
                     if _hc_step and _hc_step not in (200, 201, 202):
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} — HTTP {_hc_step} {_hs_step}"))
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} — HTTP {_hc_step} {_hs_step}"))
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
                         await _out_q_activ.put(("D", tr, 1, _last_json))
                         return
@@ -2126,7 +2126,7 @@ async def api_run(suite_id: str, request: Request):
                                     _actual_rc = _parsed_v.get("u_return_code") or _parsed_v.get("result", {}).get("u_return_code")
                                     if str(_actual_rc) != _expected_rc:
                                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                                        await _out_q_activ.put(("L", tr["tc"], f"✗ VERIFICACIÃ“N FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc}', se obtuvo={_actual_rc!r}"))
+                                        await _out_q_activ.put(("L", tr["tc"], f"✗ VERIFICACIÓN FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc}', se obtuvo={_actual_rc!r}"))
                                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
                                         await _out_q_activ.put(("D", tr, 1, _last_json))
                                         return
@@ -2505,7 +2505,7 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     if _step_code != 0:
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
                             try:
                                 _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2550,7 +2550,7 @@ async def api_run(suite_id: str, request: Request):
                             pass
                     if _hc_step_dm and _hc_step_dm not in (200, 201, 202):
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} — HTTP {_hc_step_dm} {_hs_step_dm}"))
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÓ en {_step_lbl} — HTTP {_hc_step_dm} {_hs_step_dm}"))
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
                         await _out_q_dm.put(("D", tr, 1, _last_json))
                         return
@@ -2569,7 +2569,7 @@ async def api_run(suite_id: str, request: Request):
                                     _actual_rc_dm = _parsed_v_dm.get("u_return_code") or _parsed_v_dm.get("result", {}).get("u_return_code")
                                     if str(_actual_rc_dm) != _expected_rc_dm:
                                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                                        await _out_q_dm.put(("L", tr["tc"], f"✗ VERIFICACIÃ“N FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc_dm}', se obtuvo={_actual_rc_dm!r}"))
+                                        await _out_q_dm.put(("L", tr["tc"], f"✗ VERIFICACIÓN FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc_dm}', se obtuvo={_actual_rc_dm!r}"))
                                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
                                         await _out_q_dm.put(("D", tr, 1, _last_json))
                                         return
@@ -2879,7 +2879,7 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"── Response Factibilidad: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 1/5 Factibilidad (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 1/5 Factibilidad (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -2891,7 +2891,7 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 1/5 Factibilidad — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 1/5 Factibilidad — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
                     return
@@ -2906,7 +2906,7 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"── Response Asignación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 2/5 Asignación (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 2/5 Asignación (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -2918,7 +2918,7 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 2/5 Asignación — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 2/5 Asignación — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
@@ -2986,7 +2986,7 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"── Response IA Inicio: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 3/5 IA Inicio (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 3/5 IA Inicio (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -2998,7 +2998,7 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 3/5 IA Inicio — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 3/5 IA Inicio — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
@@ -3035,7 +3035,7 @@ async def api_run(suite_id: str, request: Request):
                 await _out_q_cancel.put(("L", _tc, f"── Response Activación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 4/5 Activación (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 4/5 Activación (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -3047,7 +3047,7 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 4/5 Activación — HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 4/5 Activación — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
@@ -5525,7 +5525,7 @@ function _renderGFMSeqList(){
       +'<span class="gfm-shandle">⠿</span>'
       +'<span class="gfm-snum">'+(i+1)+'</span>'
       +'<span class="gfm-sname">'+esc(f?f.name:id)+'</span>'
-      +'<button class="gfm-srm" data-sid="'+id+'" onclick="_removeGFSeq(this.dataset.sid)">Ã—</button>'
+      +'<button class="gfm-srm" data-sid="'+id+'" onclick="_removeGFSeq(this.dataset.sid)">×</button>'
       +'</div>';
   }).join('');
   var n=_gfFuncSeq.length;
@@ -7887,7 +7887,7 @@ function loadStats(){
   fetch('/api/stats').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)||!data.length){body.innerHTML='<div class="hist-empty">Sin datos aún.</div>';return;}
     var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
-    ['Suite','VNO','Total','OK','FAIL','Tasa OK','Tiempo prom.','Ãšltima ejecución'].forEach(function(c){h+='<th>'+c+'</th>';});
+    ['Suite','VNO','Total','OK','FAIL','Tasa OK','Tiempo prom.','Última ejecución'].forEach(function(c){h+='<th>'+c+'</th>';});
     h+='</tr></thead><tbody>';
     data.forEach(function(r){
       var total=parseInt(r.total)||0, ok=parseInt(r.ok)||0, fail=parseInt(r.fail)||0;
@@ -8294,7 +8294,7 @@ function _atrf_renderSeq(){
   el.innerHTML='';
   _atrfSel.forEach(function(fi,pos){
     var d=document.createElement('div');d.className='atrf-seq-item';d.draggable=true;d.dataset.pos=pos;
-    d.innerHTML='<span class="atrf-drag-handle">⠿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_ATRF_FUNCS[fi]||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">Ã—</button>';
+    d.innerHTML='<span class="atrf-drag-handle">⠿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_ATRF_FUNCS[fi]||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">×</button>';
     d.ondragstart=function(e){_atrfDragSrc=pos;e.dataTransfer.effectAllowed='move';d.style.opacity='.4';};
     d.ondragend=function(){d.style.opacity='1';document.querySelectorAll('#atrf-seq-list .atrf-seq-item').forEach(function(x){x.classList.remove('drag-over');});};
     d.ondragover=function(e){e.preventDefault();d.classList.add('drag-over');};
@@ -8775,7 +8775,7 @@ async function _atrf_runSelected(){
       <span class="gfm-tab" id="gfmt-func" onclick="switchGFMTab('func')">Funcionalidades (<span id="gfm-seq-count">0</span>)</span>
     </div>
     <div class="gfm-body">
-      <!-- ── CONFIGURACIÃ“N ── -->
+      <!-- ── CONFIGURACIÓN ── -->
       <div class="gfm-tc active" id="gfmc-cfg">
         <div class="gfm-sec">
           <div class="gfm-sec-ttl">Ambiente <span class="r">★</span></div>
@@ -8807,7 +8807,7 @@ async function _atrf_runSelected(){
             </div>
             <div class="gf-f gfm-fw">
               <label>Dirección <span class="r">★</span>
-                <span class="gfm-pill amber" id="gfm-por-pos">POR POSICIÃ“N</span>
+                <span class="gfm-pill amber" id="gfm-por-pos">POR POSICIÓN</span>
               </label>
               <input id="gf-addr" class="gfm-fw" placeholder="ej: dddddd" oninput="_autoGenAccessId(true)" />
             </div>
