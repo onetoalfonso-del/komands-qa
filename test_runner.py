@@ -3758,7 +3758,7 @@ async def atrf_run_step(request: Request):
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         if func_name == "Inicio Intervención Asegurada":
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
-                             "u_scenario": "instalacion", "u_service_type": svc_type}
+                             "u_scenario": "Instalación", "u_service_type": svc_type}
         elif func_name == "Finalización Intervención Asegurada":
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
                              "u_scenario": "Instalación", "u_service_type": svc_type}
