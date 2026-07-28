@@ -47,7 +47,7 @@ QA_ASSIGNMENT_FOLDER_MAP = {
 QA_ASSIGNMENT_OPERATION_TYPE = {
     "00": "Alta",
     "02": "Alta",
-    "03": "Alta",
+    "03": "A",
     "05": "A",
 }
 QA_ASSIGNMENT_ADDRESS_MCD = {
