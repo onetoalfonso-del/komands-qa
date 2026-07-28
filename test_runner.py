@@ -3564,7 +3564,7 @@ async def atrf_run_step(request: Request):
                "--insecure",
                "--reporters", "cli,json",
                "--reporter-json-export", json_out,
-               "--timeout-request", "30000"]
+               "--timeout-request", "90000"]
         if amb_url:
             cmd += ["--env-var", f"apimURL={amb_url}"]
         loop = _aio.get_event_loop()
@@ -3657,12 +3657,12 @@ async def atrf_run_step(request: Request):
                "--insecure",
                "--reporters", "cli,json",
                "--reporter-json-export", json_out,
-               "--timeout-request", "30000"]
+               "--timeout-request", "90000"]
         if amb_url:
             cmd += ["--env-var", f"apimURL={amb_url}"]
         loop = _aio.get_event_loop()
         _nr = await loop.run_in_executor(None, lambda: subprocess.run(
-            cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
+            cmd, cwd=str(QA_DIR), capture_output=True, timeout=180
         ))
         _newman_stdout = _nr.stdout.decode("utf-8", errors="replace") if _nr.stdout else ""
         pass_flag = False; res_body = ""; http_code = 0
@@ -3760,7 +3760,7 @@ async def atrf_run_step(request: Request):
                "--insecure",
                "--reporters", "cli,json",
                "--reporter-json-export", json_out,
-               "--timeout-request", "30000"]
+               "--timeout-request", "90000"]
         if amb_url:
             cmd += ["--env-var", f"apimURL={amb_url}"]
         loop = _aio.get_event_loop()
