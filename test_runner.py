@@ -97,11 +97,11 @@ QA_CANCEL_COLLECTION = "08-CancelOrdenServicio.postman_collection.json"
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
 
-# â”€â”€â”€ Suites â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Suites ──────────────────────────────────────────────────────────────────
 SUITES = [
     {
         "id": "t1", "group": "hidden",
-        "label": "T1 â€” Spec API + Regresión",
+        "label": "T1 — Spec API + Regresión",
         "desc":  "675 casos pytest",
         "note":  [
             "================================================================",
@@ -128,7 +128,7 @@ SUITES = [
     },
     {
         "id": "t1-contract", "group": "hidden",
-        "label": "T1-C â€” Contrato OpenAPI (Schemathesis)",
+        "label": "T1-C — Contrato OpenAPI (Schemathesis)",
         "desc":  "docs/openapi.json v2.2.3 · genera casos automáticos · mock",
         "note":  [
             "================================================================",
@@ -146,8 +146,8 @@ SUITES = [
     },
     {
         "id": "t1c-real", "group": "hidden",
-        "label": "T1-C â€” Contrato OpenAPI (Real)",
-        "desc":  "Schemathesis â†’ onf-komands.cl:9016 · servidor real",
+        "label": "T1-C — Contrato OpenAPI (Real)",
+        "desc":  "Schemathesis → onf-komands.cl:9016 · servidor real",
         "note":  [
             "================================================================",
             "  T1-C Real - Schemathesis contra servidor REAL :9016",
@@ -173,7 +173,7 @@ SUITES = [
     },
     {
         "id": "t2", "group": "hidden",
-        "label": "T2 â€” Comandos CLI",
+        "label": "T2 — Comandos CLI",
         "desc":  "Nokia/Huawei · comandos CLI",
         "note":  [
             "================================================================",
@@ -197,7 +197,7 @@ SUITES = [
     },
     {
         "id": "t3", "group": "hidden",
-        "label": "T3 â€” Respuesta OLT",
+        "label": "T3 — Respuesta OLT",
         "desc":  "Parseo Nokia + INDEX Huawei",
         "note":  [
             "================================================================",
@@ -251,10 +251,10 @@ SUITES = [
     },
     {
         "id": "apim-vno03", "group": "hidden",
-        "label": "Endpoints SN â€” VNO-03 Entel",
+        "label": "Endpoints SN — VNO-03 Entel",
         "desc":  "APIM PRE VNO-03 Entel · auto-token",
         "cmd":   [NEWMAN, "run",
-                  "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
+                  "Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid03 PRE.postman_environment.json",
                   "--env-var", "accessId=03-TESTPREPROD-DIR02873675-8",
                   "--env-var", "serial=SCOM13032001",
@@ -280,10 +280,10 @@ SUITES = [
     },
     {
         "id": "apim-vno02", "group": "hidden",
-        "label": "Endpoints SN â€” VNO-02 ClaroVTR",
+        "label": "Endpoints SN — VNO-02 ClaroVTR",
         "desc":  "APIM PRE VNO-02 ClaroVTR · auto-token",
         "cmd":   [NEWMAN, "run",
-                  "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
+                  "Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json",
                   "--env-var", "accessId=02-TESTPREPROD-DIR02803674-2",
                   "--env-var", "serial=SCOM13022002",
@@ -309,10 +309,10 @@ SUITES = [
     },
     {
         "id": "apim-vno05", "group": "hidden",
-        "label": "Endpoints SN â€” VNO-05 DTV",
+        "label": "Endpoints SN — VNO-05 DTV",
         "desc":  "APIM PRE VNO-05 DTV · auto-token",
         "cmd":   [NEWMAN, "run",
-                  "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
+                  "Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid05 PRE.postman_environment.json",
                   "--env-var", "accessId=05-TESTPREPROD-",
                   "--env-var", "serial=",
@@ -338,10 +338,10 @@ SUITES = [
     },
     {
         "id": "apim-vno00", "group": "hidden",
-        "label": "Endpoints SN â€” VNO-00 TCH",
+        "label": "Endpoints SN — VNO-00 TCH",
         "desc":  "APIM PRE VNO-00 TCH · auto-token",
         "cmd":   [NEWMAN, "run",
-                  "Komands â€” APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
+                  "Komands — APIM PRE VNOs 02-03 Claro-Entel (Auto-Token).postman_collection.json",
                   "-e", "VnoB1_vnoid00 PRE.postman_environment.json",
                   "--env-var", "accessId=00-TESTPREPROD-",
                   "--env-var", "serial=",
@@ -375,9 +375,9 @@ SUITES = [
             "  Ejecuta el flujo de activacion real via Axway API Management",
             "  en ambiente PREPROD contra OLTs de laboratorio.",
             "  VNO-03 Entel · VNO-02 ClaroVTR · VNO-05 DTV · VNO-00 TCH",
-            "  Fase 1 â€” Provisioning : Factibilidad + Consulta + Asignacion + Activacion",
-            "  Fase 2 â€” Operaciones  : DevMod Sync/Async + Modification Sync/Async",
-            "  Fase 3 â€” Baja         : Desregistracion del acceso FTTH",
+            "  Fase 1 — Provisioning : Factibilidad + Consulta + Asignacion + Activacion",
+            "  Fase 2 — Operaciones  : DevMod Sync/Async + Modification Sync/Async",
+            "  Fase 3 — Baja         : Desregistracion del acceso FTTH",
             "================================================================",
         ],
         "cmd": None, "cwd": None, "report": None, "requires": None,
@@ -385,7 +385,7 @@ SUITES = [
     },
     {
         "id": "t7", "group": "hidden",
-        "label": "T7 â€” Seguridad OWASP",
+        "label": "T7 — Seguridad OWASP",
         "desc":  "JWT · Headers · Métodos HTTP · onf-komands.cl:9016",
         "note":  [
             "================================================================",
@@ -409,7 +409,7 @@ SUITES = [
     },
     {
         "id": "t5", "group": "hidden",
-        "label": "T5 â€” Base de Datos PostgreSQL",
+        "label": "T5 — Base de Datos PostgreSQL",
         "desc":  "transaction_listener · audit_log · UUID únicos",
         "blocker": "Requiere PostgreSQL DEV con schema Komands desplegado",
         "note":  [
@@ -427,8 +427,8 @@ SUITES = [
     },
     {
         "id": "t4", "group": "hidden",
-        "label": "T4 â€” Flujo E2E OLTs reales",
-        "desc":  "POSTâ†’callback no disponible aún",
+        "label": "T4 — Flujo E2E OLTs reales",
+        "desc":  "POST→callback no disponible aún",
         "blocker": "Requiere endpoint de callback accesible desde servidor DEV",
         "note":  [
             "================================================================",
@@ -445,7 +445,7 @@ SUITES = [
     },
     {
         "id": "t6", "group": "hidden",
-        "label": "T6 â€” Paridad VNO + OLT",
+        "label": "T6 — Paridad VNO + OLT",
         "desc":  "VNO-02 ClaroVTR · VNO-03 Entel",
         "blocker": "Requiere datos reales de VNO-02 y VNO-03",
         "note":  [
@@ -461,7 +461,7 @@ SUITES = [
     },
     {
         "id": "t8", "group": "hidden",
-        "label": "T8 â€” Performance k6 / SLOs",
+        "label": "T8 — Performance k6 / SLOs",
         "desc":  "Latencia p95 · throughput · error rate",
         "blocker": "Requiere ambiente dedicado y SLOs definidos",
         "note":  [
@@ -477,7 +477,7 @@ SUITES = [
     },
     {
         "id": "t-flg", "group": "hidden",
-        "label": "T-FLG â€” Feature Flags Komands â†” BluePlanet",
+        "label": "T-FLG — Feature Flags Komands ↔ BluePlanet",
         "desc":  "PV-FLG-001/003 · REG-FF-001/004 · conmutación < 5 min",
         "blocker": "Requiere tabla feature_flag en PostgreSQL DEV",
         "note":  [
@@ -500,10 +500,10 @@ SUITES = [
                   "--html=reporte_tflg.html", "--self-contained-html"],
         "cwd":   str(ROOT), "report": str(ROOT / "reporte_tflg.html"), "requires": None,
     },
-    # â”€â”€â”€ Suites QA OnnetFibra â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ─── Suites QA OnnetFibra ──────────────────────────────────────────────────
     {
         "id": "qa-tch", "group": "hidden",
-        "label": "QA FulFillment â€” VNO-00 TCH",
+        "label": "QA FulFillment — VNO-00 TCH",
         "desc":  "TCH · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
@@ -529,7 +529,7 @@ SUITES = [
     },
     {
         "id": "qa-kao", "group": "hidden",
-        "label": "QA FulFillment â€” VNO-02 KAO",
+        "label": "QA FulFillment — VNO-02 KAO",
         "desc":  "KAO · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
@@ -555,7 +555,7 @@ SUITES = [
     },
     {
         "id": "qa-b1", "group": "hidden",
-        "label": "QA FulFillment â€” VNO-03 B1/Entel",
+        "label": "QA FulFillment — VNO-03 B1/Entel",
         "desc":  "B1/Entel · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
@@ -581,7 +581,7 @@ SUITES = [
     },
     {
         "id": "qa-dtv", "group": "hidden",
-        "label": "QA FulFillment â€” VNO-05 DTV",
+        "label": "QA FulFillment — VNO-05 DTV",
         "desc":  "DTV · FulFillment QA · eqapi.onnetfibra.cl",
         "cmd":   [NEWMAN, "run",
                   "01-FulFillment.postman_collection.json",
@@ -633,7 +633,7 @@ SUITES = [
         "type":  "ep-explorer",
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
-    # â”€â”€ QA FulFillment â€” endpoints individuales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA FulFillment — endpoints individuales ──────────────────────
     {"id":"qa-ep-factibilidad",  "group":"qa-child","parent":"qa-fulfillment",
      "label":"Factibilidad",    "desc":"feasibility · chequeo de puerto OLT",
      "env_type":"qa_factibilidad","folder":"01-Factibilidad",
@@ -694,9 +694,9 @@ SUITES = [
      "env_type":"qa_vno","folder":"12-APIS TCH PRE-CUTOVER",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_precutovertch.html"),"requires":None},
-    # â”€â”€ Suite Factibilidad â€” casos de prueba TC-01..TC-04 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Suite Factibilidad — casos de prueba TC-01..TC-04 ──────────────────────
     {"id":"qa-fact-suite",  "group":"qa-child","parent":"qa-fact",
-     "label":"â–¶ Ejecutar",
+     "label":"▶ Ejecutar",
      "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
      "env_type":"qa_fact_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"factibilidad"/"index.html"),"requires":None},
@@ -708,12 +708,12 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-03.html")},
     {"id":"qa-fact-tc04","group":"hidden","label":"TC-04 Factibilidad TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"factibilidad"/"TC-04.html")},
-    # â”€â”€ QA Asignación â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA Asignación — suite paralela ────────────────────────────────────────
     {"id":"qa-asig",       "group":"qa-child","parent":"qa-fulfillment",
      "label":"Suite Asignación","desc":"TC-01..TC-04 · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-asig-suite", "group":"qa-child","parent":"qa-asig",
-     "label":"â–¶ Ejecutar",
+     "label":"▶ Ejecutar",
      "desc":"TC-01 Entel · TC-02 KAO · TC-03 DTV · TC-04 TCH",
      "env_type":"qa_asig_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"asignacion"/"index.html"),"requires":None},
@@ -725,17 +725,17 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-07.html")},
     {"id":"qa-asig-tc08","group":"hidden","label":"TC-08 Asignación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-08.html")},
-    # â”€â”€ QA Intervención Asegurada â€” suites paralelas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA Intervención Asegurada — suites paralelas ──────────────────────────
     {"id":"qa-ia-par",        "group":"qa-child","parent":"qa-fulfillment",
      "label":"Suite Interv. Asegurada","desc":"Inicio · Fin · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-ia-inicio-suite","group":"qa-child","parent":"qa-ia-par",
-     "label":"â–¶ Inicio",
+     "label":"▶ Inicio",
      "desc":"TC-09..TC-12 · 01-Inicio Intervención",
      "env_type":"qa_ia_inicio_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"inicio_index.html"),"requires":None},
     {"id":"qa-ia-fin-suite",  "group":"qa-child","parent":"qa-ia-par",
-     "label":"â–¶ Fin",
+     "label":"▶ Fin",
      "desc":"TC-13..TC-16 · 03-Finalización Intervención",
      "env_type":"qa_ia_fin_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"fin_index.html"),"requires":None},
@@ -755,12 +755,12 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-15.html")},
     {"id":"qa-ia-tc16","group":"hidden","label":"TC-16 IA Fin TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-16.html")},
-    # â”€â”€ QA Activación â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA Activación — suite paralela ─────────────────────────────────────────
     {"id":"qa-activ-par",  "group":"qa-child","parent":"qa-fulfillment",
      "label":"Suite Activación","desc":"TC-17..TC-20 · 3 pasos por VNO · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-activ-suite","group":"qa-child","parent":"qa-activ-par",
-     "label":"â–¶ Activación",
+     "label":"▶ Activación",
      "desc":"TC-17..TC-20 · Activation + Idempotencia + Retrieve",
      "env_type":"qa_activ_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"activacion"/"index.html"),"requires":None},
@@ -772,12 +772,12 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-19_act.html")},
     {"id":"qa-activ-tc20","group":"hidden","label":"TC-20 Activación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"activacion"/"TC-20_act.html")},
-    # â”€â”€ QA Device Modification â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA Device Modification — suite paralela ─────────────────────────────────
     {"id":"qa-dm-par",   "group":"qa-child","parent":"qa-fulfillment",
      "label":"Suite Device Modification","desc":"TC-21..TC-24 · 6 pasos por VNO · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-dm-suite", "group":"qa-child","parent":"qa-dm-par",
-     "label":"â–¶ Device Modification",
+     "label":"▶ Device Modification",
      "desc":"TC-21..TC-24 · Activación + Device Modification + Consulta Acceso",
      "env_type":"qa_dm_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"device_mod"/"index.html"),"requires":None},
@@ -789,12 +789,12 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-23.html")},
     {"id":"qa-dm-tc24","group":"hidden","label":"TC-24 Device Mod TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"device_mod"/"TC-24.html")},
-    # â”€â”€ QA Cancelación â€” suite paralela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA Cancelación — suite paralela ────────────────────────────────────────
     {"id":"qa-cancel-par",   "group":"qa-child","parent":"qa-fulfillment",
      "label":"Suite Cancelación","desc":"TC-25..TC-28 · 1 paso por VNO · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-cancel-suite", "group":"qa-child","parent":"qa-cancel-par",
-     "label":"â–¶ Cancelación",
+     "label":"▶ Cancelación",
      "desc":"TC-25..TC-28 · Cancel Service Order",
      "env_type":"qa_cancel_suite",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"cancelacion"/"index.html"),"requires":None},
@@ -806,16 +806,16 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-27.html")},
     {"id":"qa-cancel-tc28","group":"hidden","label":"TC-28 Cancelación TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"cancelacion"/"TC-28.html")},
-    # â”€â”€ Teardown Masivo â€” cancelación bulk de access IDs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Teardown Masivo — cancelación bulk de access IDs ───────────────────────
     {"id":"qa-teardown-par",   "group":"qa-child","parent":"qa-fulfillment",
      "label":"Teardown Masivo","desc":"Cancela access IDs activos via oossCancellation",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-teardown-masivo","group":"qa-child","parent":"qa-teardown-par",
-     "label":"â–¶ Teardown Masivo (bulk cancel)",
+     "label":"▶ Teardown Masivo (bulk cancel)",
      "desc":"Cancela una lista de access IDs directamente sin cadena completa",
      "env_type":"qa_teardown_masivo",
      "cmd":None,"cwd":str(QA_DIR),"report":None,"requires":None},
-    # â”€â”€ QA Consultas â€” endpoints individuales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
      "env_type":"qa_vno","folder":"ConsultaDataONT",
@@ -885,7 +885,7 @@ SUITES = [
 
 SUITE_MAP = {s["id"]: s for s in SUITES}
 
-# â”€â”€â”€ Subprocess en hilo (evita problemas asyncio/Windows) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Subprocess en hilo (evita problemas asyncio/Windows) ─────────────────────
 ANSI_RE = re.compile(r"\x1b(?:\[[0-9;]*[a-zA-Z]|\][^\x07]*\x07|[^[\]])")
 
 def _worker(cmd, cwd, env, q: _queue.SimpleQueue):
@@ -920,7 +920,7 @@ async def _iter_proc(cmd, cwd, env):
             return
 
 
-# â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _apply_params(cmd: list, overrides: dict) -> list:
     """Reemplaza valores de --env-var key=val con los overrides dados."""
@@ -933,7 +933,7 @@ def _apply_params(cmd: list, overrides: dict) -> list:
     return cmd
 
 
-# â”€â”€â”€ FastAPI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── FastAPI ──────────────────────────────────────────────────────────────────
 try:
     from fastapi import FastAPI, Request
     from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
@@ -944,7 +944,7 @@ except ImportError:
 
 app = FastAPI(title="Pruebas de Regresion ambiente QA OnnetFibra")
 
-# â”€â”€â”€ Base de datos (asyncpg â†’ Supabase PostgreSQL) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Base de datos (asyncpg → Supabase PostgreSQL) ────────────────────────────
 import asyncpg as _apg
 import ssl as _ssl_mod
 
@@ -1571,7 +1571,7 @@ async def api_run(suite_id: str, request: Request):
                          "--reporters", "cli,json,htmlextra",
                          "--reporter-json-export", _json_out,
                          "--reporter-htmlextra-export", _rp_out,
-                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']} â€“ OnnetFibra",
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']} – OnnetFibra",
                          "--reporter-htmlextra-logo", _logo_uri]
             if _gf_url_fact:
                 _fact_cmd += ["--env-var", f"apimURL={_gf_url_fact}"]
@@ -1690,7 +1690,7 @@ async def api_run(suite_id: str, request: Request):
                             "--reporters", "cli,json,htmlextra",
                             "--reporter-json-export", _json_out,
                             "--reporter-htmlextra-export", _rp_out,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']} â€“ OnnetFibra",
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']} – OnnetFibra",
                             "--reporter-htmlextra-logo", _logo_uri_a],
                 "cwd":        str(QA_DIR),
                 "rp_out":     _rp_out,
@@ -1800,14 +1800,14 @@ async def api_run(suite_id: str, request: Request):
                             "--reporters", "cli,json,htmlextra",
                             "--reporter-json-export", _json_out,
                             "--reporter-htmlextra-export", _rp_out,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} {_op_lbl} · {_tcd['vno_label']} â€“ OnnetFibra",
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} {_op_lbl} · {_tcd['vno_label']} – OnnetFibra",
                             "--reporter-htmlextra-logo", _logo_uri_ia],
                 "cwd":        str(QA_DIR),
                 "rp_out":     _rp_out,
                 "json_out":   _json_out,
             })
 
-    # â”€â”€ Suite Activación â€” cadena completa 6 pasos por VNO en paralelo â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Suite Activación — cadena completa 6 pasos por VNO en paralelo ─────────
     _activ_runs = None
     if suite.get("env_type") == "qa_activ_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
@@ -1891,7 +1891,7 @@ async def api_run(suite_id: str, request: Request):
                          "--reporters", "cli,json,htmlextra",
                          "--reporter-htmlextra-logo", _logo_uri_activ]
 
-            # â”€â”€ Paso 1: Factibilidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 1: Factibilidad ────────────────────────────────────────────
             _col_fact = _cp.deepcopy(_col_ff)
             _fact_body = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
                                    "u_address_id": _ADDR_ID_ACTIV, "u_address_mcd": "OSP",
@@ -1910,9 +1910,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_fact += ["--folder", _fact_folder,
                           "--reporter-json-export", _js_fact,
                           "--reporter-htmlextra-export", _rp_fact,
-                          "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
+                          "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 2: Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 2: Asignación ──────────────────────────────────────────────
             _col_asig = _cp.deepcopy(_col_ff)
             _asig_body = _j.dumps({
                 "u_access_id_vno": _access_id, "u_id_vno": _vno,
@@ -1936,9 +1936,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_asig += ["--folder", _asig_folder,
                           "--reporter-json-export", _js_asig,
                           "--reporter-htmlextra-export", _rp_asig,
-                          "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
+                          "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 3: IA Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 3: IA Inicio ───────────────────────────────────────────────
             _col_ia = _cp.deepcopy(_col_ff)
             _ia_body = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
                                   "u_scenario": "Instalación", "u_service_type": "FTTH"},
@@ -1959,9 +1959,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_ia += ["--folder", "01-Inicio Intervención",
                         "--reporter-json-export", _js_ia,
                         "--reporter-htmlextra-export", _rp_ia,
-                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
+                        "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 4: Activación (primera) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 4: Activación (primera) ────────────────────────────────────
             _activ_body_j = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
                 "u_operation_type": "A", "u_speed_plan": _speed_plan,
@@ -1982,9 +1982,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_act = list(_base_cmd); _cmd_act[2] = _tmp_act
             _cmd_act += ["--reporter-json-export", _js_act,
                          "--reporter-htmlextra-export", _rp_act,
-                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Activación · {_tcd['vno_label']}"]
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 5: Idempotencia (segunda activación) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 5: Idempotencia (segunda activación) ───────────────────────
             _act_req_idem = _cp.deepcopy(_act_req)
             if _act_req_idem: _act_req_idem["name"] = _act_req_idem.get("name","") + " (idempotencia)"
             _tmp_act_idem = str(QA_DIR / f"_tmp_activ_idem_{_vno}.json")
@@ -1995,9 +1995,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_act_idem = list(_base_cmd); _cmd_act_idem[2] = _tmp_act_idem
             _cmd_act_idem += ["--reporter-json-export", _js_act_idem,
                               "--reporter-htmlextra-export", _rp_act_idem,
-                              "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Idempotencia · {_tcd['vno_label']}"]
+                              "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Idempotencia · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 6: Retrieve Access â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 6: Retrieve Access ─────────────────────────────────────────
             _ret_req = _find_req_in_col(_cp.deepcopy(_col_con), _ret_req_nm)
             _ret_body_j = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
                                      "u_flag_scope": "0"}, indent=4, ensure_ascii=False)
@@ -2012,7 +2012,7 @@ async def api_run(suite_id: str, request: Request):
             _cmd_ret = list(_base_cmd); _cmd_ret[2] = _tmp_ret
             _cmd_ret += ["--reporter-json-export", _js_ret,
                          "--reporter-htmlextra-export", _rp_ret,
-                         "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Retrieve Access · {_tcd['vno_label']}"]
+                         "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Retrieve Access · {_tcd['vno_label']}"]
 
             _activ_runs.append({
                 "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
@@ -2036,7 +2036,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_activ():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación â€” {len(_activ_runs)} TCs · 6 pasos · sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Activación — {len(_activ_runs)} TCs · 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _env_activ = {**os.environ,
                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2047,11 +2047,11 @@ async def api_run(suite_id: str, request: Request):
 
             async def _run_activ(tr):
               try:
-                await _out_q_activ.put(("L", tr["tc"], f"â–¶ {tr['label']} iniciandoâ€¦"))
+                await _out_q_activ.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
                 _last_json = None
                 _overall   = 1
                 for _step_lbl, _step_cmd, _step_json in tr["steps"]:
-                    await _out_q_activ.put(("L", tr["tc"], f"â”€â”€ Paso {_step_lbl} â”€â”€"))
+                    await _out_q_activ.put(("L", tr["tc"], f"── Paso {_step_lbl} ──"))
                     _step_code = 1
                     async for _k, _v in _iter_proc(_step_cmd, tr["cwd"], _env_activ):
                         if _k == "L":
@@ -2062,7 +2062,7 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     if _step_code != 0:
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_activ.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
                             try:
                                 _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2099,19 +2099,19 @@ async def api_run(suite_id: str, request: Request):
                                     _rj_ok = _j.loads(_rb_ok)
                                     _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
                                     _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
-                                    _msg_ok = f"   â†’ HTTP {_hc_step} {_hs_step}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    _msg_ok = f"   → HTTP {_hc_step} {_hs_step}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_activ.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
-                                    await _out_q_activ.put(("L", tr["tc"], f"   â†’ HTTP {_hc_step} {_hs_step}"))
+                                    await _out_q_activ.put(("L", tr["tc"], f"   → HTTP {_hc_step} {_hs_step}"))
                         except Exception:
                             pass
                     if _hc_step and _hc_step not in (200, 201, 202):
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_activ.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} â€” HTTP {_hc_step} {_hs_step}"))
+                        await _out_q_activ.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} — HTTP {_hc_step} {_hs_step}"))
                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
                         await _out_q_activ.put(("D", tr, 1, _last_json))
                         return
-                    # â”€â”€ Verificar u_return_code esperado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # ── Verificar u_return_code esperado ──────────────────────────
                     _expected_rc = {"5/6 Idempotencia": "21", "6/6 Retrieve Access": "0"}.get(_step_lbl)
                     if _expected_rc is not None and _step_json and Path(_step_json).exists():
                         try:
@@ -2126,31 +2126,31 @@ async def api_run(suite_id: str, request: Request):
                                     _actual_rc = _parsed_v.get("u_return_code") or _parsed_v.get("result", {}).get("u_return_code")
                                     if str(_actual_rc) != _expected_rc:
                                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
-                                        await _out_q_activ.put(("L", tr["tc"], f"âœ— VERIFICACIÃ“N FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc}', se obtuvo={_actual_rc!r}"))
+                                        await _out_q_activ.put(("L", tr["tc"], f"✗ VERIFICACIÃ“N FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc}', se obtuvo={_actual_rc!r}"))
                                         await _out_q_activ.put(("L", tr["tc"], "â”"*50))
                                         await _out_q_activ.put(("D", tr, 1, _last_json))
                                         return
-                                    await _out_q_activ.put(("L", tr["tc"], f"   âœ“ u_return_code='{_expected_rc}' OK"))
+                                    await _out_q_activ.put(("L", tr["tc"], f"   ✓ u_return_code='{_expected_rc}' OK"))
                                 except Exception:
                                     pass
                         except Exception:
                             pass
                 await _out_q_activ.put(("D", tr, 0, _last_json))
               except Exception as _exc_run:
-                await _out_q_activ.put(("L", tr["tc"], f"âœ— Error inesperado en TC: {_exc_run}"))
+                await _out_q_activ.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
                 await _out_q_activ.put(("D", tr, 1, _last_json))
 
             async def _hb_activ():
                 while True:
                     await asyncio.sleep(15)
-                    await _out_q_activ.put(("K", "", "â€¦"))
+                    await _out_q_activ.put(("K", "", "…"))
             _hbt_activ = asyncio.create_task(_hb_activ())
             _tasks_activ = [asyncio.create_task(_run_activ(tr)) for tr in _activ_runs]
             _remaining_activ = len(_activ_runs)
             while _remaining_activ > 0:
                 _item = await _out_q_activ.get()
                 if _item[0] == "K":
-                    yield f"data: {json.dumps({'e':'line','t':'â€¦'})}\n\n"
+                    yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
@@ -2158,13 +2158,13 @@ async def api_run(suite_id: str, request: Request):
                     _remaining_activ -= 1
                     _tr2, _code, _last_json = _item[1], _item[2], _item[3]
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
-                    _sym = "âœ“" if _code == 0 else "âœ—"
+                    _sym = "✓" if _code == 0 else "✗"
                     _results_activ.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                            "vno_lbl": _tr2["vno_lbl"],
                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                            "access_id": _tr2.get("access_id", ""),
                                            "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg = f"{_sym} {_tr2['label']} â€” código {_code}"
+                    _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     try:
@@ -2213,9 +2213,9 @@ async def api_run(suite_id: str, request: Request):
                 _rows_activ = ""
                 for _r in sorted(_results_activ, key=lambda x: x["tc"]):
                     _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                    _st    = "âœ“ OK" if _r["code"] == 0 else "âœ— FAIL"
+                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
                     _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                              if _r["has_rp"] else "â€”")
+                              if _r["has_rp"] else "—")
                     _rows_activ += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
                                     f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
                 _idx_activ = (
@@ -2242,7 +2242,7 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
-    # â”€â”€ Suite Device Modification â€” cadena completa 7 pasos por VNO en paralelo â”€
+    # ── Suite Device Modification — cadena completa 7 pasos por VNO en paralelo ─
     _dm_runs = None
     if suite.get("env_type") == "qa_dm_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
@@ -2327,7 +2327,7 @@ async def api_run(suite_id: str, request: Request):
                             "--reporters", "cli,json,htmlextra",
                             "--reporter-htmlextra-logo", _logo_uri_dm]
 
-            # â”€â”€ Paso 1: Factibilidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 1: Factibilidad ────────────────────────────────────────────
             _col_fact_dm = _cp.deepcopy(_col_ff_dm)
             _fact_body_dm = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
                                       "u_address_id": _ADDR_ID_DM, "u_address_mcd": "OSP",
@@ -2346,9 +2346,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_fact_dm += ["--folder", _fact_folder,
                              "--reporter-json-export", _js_fact_dm,
                              "--reporter-htmlextra-export", _rp_fact_dm,
-                             "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
+                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 2: Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 2: Asignación ──────────────────────────────────────────────
             _col_asig_dm = _cp.deepcopy(_col_ff_dm)
             _asig_body_dm = _j.dumps({
                 "u_access_id_vno": _access_id, "u_id_vno": _vno,
@@ -2372,9 +2372,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_asig_dm += ["--folder", _asig_folder,
                              "--reporter-json-export", _js_asig_dm,
                              "--reporter-htmlextra-export", _rp_asig_dm,
-                             "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
+                             "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 3: IA Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 3: IA Inicio ───────────────────────────────────────────────
             _col_ia_dm = _cp.deepcopy(_col_ff_dm)
             _ia_body_dm = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _access_id,
                                      "u_scenario": "Instalación", "u_service_type": "FTTH"},
@@ -2395,9 +2395,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_ia_dm += ["--folder", "01-Inicio Intervención",
                            "--reporter-json-export", _js_ia_dm,
                            "--reporter-htmlextra-export", _rp_ia_dm,
-                           "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
+                           "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} IA Inicio · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 4: Activación (una sola vez) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 4: Activación (una sola vez) ──────────────────────────────
             _activ_body_dm = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
                 "u_operation_type": "A", "u_speed_plan": _dm_speed_plan,
@@ -2418,9 +2418,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_act_dm = list(_base_cmd_dm); _cmd_act_dm[2] = _tmp_act_dm
             _cmd_act_dm += ["--reporter-json-export", _js_act_dm,
                             "--reporter-htmlextra-export", _rp_act_dm,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Activación · {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Activación · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 6: Device Modification (una sola vez) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 6: Device Modification (una sola vez) ─────────────────────
             _dm_new_serial = QA_ACTIV_SERIAL_BASE[_vno] + _dm_new_suffix if _vno in QA_ACTIV_SERIAL_BASE else None
             _dm_body_j = _j.dumps({
                 "u_id_vno": _vno, "u_access_id_vno": _access_id,
@@ -2438,9 +2438,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_dm = list(_base_cmd_dm); _cmd_dm[2] = _tmp_dm_req
             _cmd_dm += ["--reporter-json-export", _js_dm,
                         "--reporter-htmlextra-export", _rp_dm,
-                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Device Modification · {_tcd['vno_label']}"]
+                        "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Device Modification · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 6: Consulta Acceso (GET) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 6: Consulta Acceso (GET) ───────────────────────────────────
             _ca_req = _find_req_in_col(_cp.deepcopy(_col_con_dm), "Consulta Acceso")
             _tmp_ca = str(QA_DIR / f"_tmp_dm_ca_{_vno}.json")
             _j.dump({"info": _col_con_dm.get("info", {}), "item": [_ca_req] if _ca_req else []},
@@ -2451,7 +2451,7 @@ async def api_run(suite_id: str, request: Request):
             _cmd_ca += ["--env-var", f"access_id_vno={_access_id}",
                         "--reporter-json-export", _js_ca,
                         "--reporter-htmlextra-export", _rp_ca,
-                        "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Consulta Acceso · {_tcd['vno_label']}"]
+                        "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Consulta Acceso · {_tcd['vno_label']}"]
 
             _dm_runs.append({
                 "tc":        _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
@@ -2477,7 +2477,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_dm():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification â€” {len(_dm_runs)} TCs · cadena completa 6 pasos · sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Device Modification — {len(_dm_runs)} TCs · cadena completa 6 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _env_dm = {**os.environ,
                        "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2488,13 +2488,13 @@ async def api_run(suite_id: str, request: Request):
 
             async def _run_dm(tr):
               try:
-                await _out_q_dm.put(("L", tr["tc"], f"â–¶ {tr['label']} iniciandoâ€¦"))
+                await _out_q_dm.put(("L", tr["tc"], f"▶ {tr['label']} iniciando…"))
                 _last_json = None
                 for _step_lbl, _step_cmd, _step_json in tr["steps"]:
                     if "5/6" in _step_lbl:
-                        await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Serial actual (activación): {tr['act_serial']} â”€â”€"))
-                        await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Serial nuevo (DM): {tr['dm_serial']} â”€â”€"))
-                    await _out_q_dm.put(("L", tr["tc"], f"â”€â”€ Paso {_step_lbl} â”€â”€"))
+                        await _out_q_dm.put(("L", tr["tc"], f"── Serial actual (activación): {tr['act_serial']} ──"))
+                        await _out_q_dm.put(("L", tr["tc"], f"── Serial nuevo (DM): {tr['dm_serial']} ──"))
+                    await _out_q_dm.put(("L", tr["tc"], f"── Paso {_step_lbl} ──"))
                     _step_code = 1
                     async for _k, _v in _iter_proc(_step_cmd, tr["cwd"], _env_dm):
                         if _k == "L":
@@ -2505,7 +2505,7 @@ async def api_run(suite_id: str, request: Request):
                         _last_json = _step_json
                     if _step_code != 0:
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_dm.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} (Newman código {_step_code})"))
                         if _step_json and Path(_step_json).exists():
                             try:
                                 _jd_e = _j.loads(Path(_step_json).read_text(encoding="utf-8"))
@@ -2542,19 +2542,19 @@ async def api_run(suite_id: str, request: Request):
                                     _rj_ok = _j.loads(_rb_ok)
                                     _rc_ok = _rj_ok.get("u_return_code") or _rj_ok.get("result", {}).get("u_return_code")
                                     _rd_ok = _rj_ok.get("u_return_code_desc") or _rj_ok.get("result", {}).get("u_return_code_desc", "")
-                                    _msg_ok = f"   â†’ HTTP {_hc_step_dm} {_hs_step_dm}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
+                                    _msg_ok = f"   → HTTP {_hc_step_dm} {_hs_step_dm}" + (f" · u_return_code={_rc_ok!r}" + (f" · {_rd_ok}" if _rd_ok else "") if _rc_ok is not None else "")
                                     await _out_q_dm.put(("L", tr["tc"], _msg_ok))
                                 except Exception:
-                                    await _out_q_dm.put(("L", tr["tc"], f"   â†’ HTTP {_hc_step_dm} {_hs_step_dm}"))
+                                    await _out_q_dm.put(("L", tr["tc"], f"   → HTTP {_hc_step_dm} {_hs_step_dm}"))
                         except Exception:
                             pass
                     if _hc_step_dm and _hc_step_dm not in (200, 201, 202):
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                        await _out_q_dm.put(("L", tr["tc"], f"âœ— {tr['tc']} FALLÃ“ en {_step_lbl} â€” HTTP {_hc_step_dm} {_hs_step_dm}"))
+                        await _out_q_dm.put(("L", tr["tc"], f"✗ {tr['tc']} FALLÃ“ en {_step_lbl} — HTTP {_hc_step_dm} {_hs_step_dm}"))
                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
                         await _out_q_dm.put(("D", tr, 1, _last_json))
                         return
-                    # â”€â”€ Verificar u_return_code esperado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    # ── Verificar u_return_code esperado ──────────────────────────
                     _expected_rc_dm = {"6/6 Consulta Acceso": "0"}.get(_step_lbl)
                     if _expected_rc_dm is not None and _step_json and Path(_step_json).exists():
                         try:
@@ -2569,31 +2569,31 @@ async def api_run(suite_id: str, request: Request):
                                     _actual_rc_dm = _parsed_v_dm.get("u_return_code") or _parsed_v_dm.get("result", {}).get("u_return_code")
                                     if str(_actual_rc_dm) != _expected_rc_dm:
                                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
-                                        await _out_q_dm.put(("L", tr["tc"], f"âœ— VERIFICACIÃ“N FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc_dm}', se obtuvo={_actual_rc_dm!r}"))
+                                        await _out_q_dm.put(("L", tr["tc"], f"✗ VERIFICACIÃ“N FALLIDA en {_step_lbl}: se esperaba u_return_code='{_expected_rc_dm}', se obtuvo={_actual_rc_dm!r}"))
                                         await _out_q_dm.put(("L", tr["tc"], "â”"*50))
                                         await _out_q_dm.put(("D", tr, 1, _last_json))
                                         return
-                                    await _out_q_dm.put(("L", tr["tc"], f"   âœ“ u_return_code='{_expected_rc_dm}' OK"))
+                                    await _out_q_dm.put(("L", tr["tc"], f"   ✓ u_return_code='{_expected_rc_dm}' OK"))
                                 except Exception:
                                     pass
                         except Exception:
                             pass
                 await _out_q_dm.put(("D", tr, 0, _last_json))
               except Exception as _exc_run:
-                await _out_q_dm.put(("L", tr["tc"], f"âœ— Error inesperado en TC: {_exc_run}"))
+                await _out_q_dm.put(("L", tr["tc"], f"✗ Error inesperado en TC: {_exc_run}"))
                 await _out_q_dm.put(("D", tr, 1, _last_json))
 
             async def _hb_dm():
                 while True:
                     await asyncio.sleep(15)
-                    await _out_q_dm.put(("K", "", "â€¦"))
+                    await _out_q_dm.put(("K", "", "…"))
             _hbt_dm = asyncio.create_task(_hb_dm())
             _tasks_dm = [asyncio.create_task(_run_dm(tr)) for tr in _dm_runs]
             _remaining_dm = len(_dm_runs)
             while _remaining_dm > 0:
                 _item = await _out_q_dm.get()
                 if _item[0] == "K":
-                    yield f"data: {json.dumps({'e':'line','t':'â€¦'})}\n\n"
+                    yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
@@ -2601,13 +2601,13 @@ async def api_run(suite_id: str, request: Request):
                     _remaining_dm -= 1
                     _tr2, _code, _last_json = _item[1], _item[2], _item[3]
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
-                    _sym = "âœ“" if _code == 0 else "âœ—"
+                    _sym = "✓" if _code == 0 else "✗"
                     _results_dm.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                         "vno_lbl": _tr2["vno_lbl"],
                                         "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                         "access_id": _tr2.get("access_id", ""),
                                         "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg = f"{_sym} {_tr2['label']} â€” código {_code}"
+                    _tc_msg = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     try:
@@ -2656,9 +2656,9 @@ async def api_run(suite_id: str, request: Request):
                 _rows_dm = ""
                 for _r in sorted(_results_dm, key=lambda x: x["tc"]):
                     _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                    _st    = "âœ“ OK" if _r["code"] == 0 else "âœ— FAIL"
+                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
                     _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                              if _r["has_rp"] else "â€”")
+                              if _r["has_rp"] else "—")
                     _rows_dm += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
                                  f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
                 _idx_dm = (
@@ -2685,7 +2685,7 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
-    # â”€â”€ Suite Cancelación â€” cadena completa 5 pasos por VNO en paralelo â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Suite Cancelación — cadena completa 5 pasos por VNO en paralelo ─────────
     _cancel_runs = None
     if suite.get("env_type") == "qa_cancel_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
@@ -2764,7 +2764,7 @@ async def api_run(suite_id: str, request: Request):
                                 "--reporters", "cli,json,htmlextra",
                                 "--reporter-htmlextra-logo", _logo_uri_cancel]
 
-            # â”€â”€ Paso 1: Factibilidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 1: Factibilidad ─────────────────────────────────────────────
             _col_fact_c = _cp.deepcopy(_col_ff_cancel)
             _fact_body_c = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
                                      "u_address_id": _ADDR_ID_CANCEL, "u_address_mcd": "OSP",
@@ -2783,9 +2783,9 @@ async def api_run(suite_id: str, request: Request):
             _cmd_fact_c += ["--folder", _fact_folder,
                             "--reporter-json-export", _js_fact_c,
                             "--reporter-htmlextra-export", _rp_fact_c,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
 
-            # â”€â”€ Paso 2: Asignación (sin u_access_id_vno â€” API lo asigna) â”€â”€â”€â”€â”€â”€â”€â”€
+            # ── Paso 2: Asignación (sin u_access_id_vno — API lo asigna) ────────
             _col_asig_c = _cp.deepcopy(_col_ff_cancel)
             _asig_body_c = _j.dumps({
                 "u_id_vno": _vno, "u_operation_type": "Alta",
@@ -2808,7 +2808,7 @@ async def api_run(suite_id: str, request: Request):
             _cmd_asig_c += ["--folder", _asig_folder,
                             "--reporter-json-export", _js_asig_c,
                             "--reporter-htmlextra-export", _rp_asig_c,
-                            "--reporter-htmlextra-title", f"Reporte QA â€“ {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
+                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
 
             _cancel_runs.append({
                 "tc":          _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
@@ -2838,7 +2838,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_cancel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación â€” {len(_cancel_runs)} TCs · cadena completa 5 pasos · sin delays entre pasos'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación — {len(_cancel_runs)} TCs · cadena completa 5 pasos · sin delays entre pasos'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _env_cancel = {**os.environ,
                            "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
@@ -2846,7 +2846,7 @@ async def api_run(suite_id: str, request: Request):
                            "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q_cancel = asyncio.Queue()
             _results_cancel = []
-            _cancel_aids = {}  # tc â†’ access_id dinámico asignado por API
+            _cancel_aids = {}  # tc → access_id dinámico asignado por API
 
             def _read_rsp(js_path):
                 try:
@@ -2867,19 +2867,19 @@ async def api_run(suite_id: str, request: Request):
             async def _run_cancel(tr):
               try:
                 _tc = tr["tc"]; _vno = tr["vno"]
-                await _out_q_cancel.put(("L", _tc, f"â–¶ {tr['label']} iniciandoâ€¦"))
+                await _out_q_cancel.put(("L", _tc, f"▶ {tr['label']} iniciando…"))
 
-                # â”€â”€ Paso 1/5: Factibilidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 1/5 Factibilidad â”€â”€"))
+                # ── Paso 1/5: Factibilidad ────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 1/5 Factibilidad ──"))
                 _sc = 1
                 async for _k, _v in _iter_proc(tr["cmd_fact"], tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(tr["js_fact"])
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Factibilidad: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Response Factibilidad: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 1/5 Factibilidad (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 1/5 Factibilidad (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -2891,22 +2891,22 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 1/5 Factibilidad â€” HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 1/5 Factibilidad — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
                     return
 
-                # â”€â”€ Paso 2/5: Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 2/5 Asignación â”€â”€"))
+                # ── Paso 2/5: Asignación ──────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 2/5 Asignación ──"))
                 _sc = 1
                 async for _k, _v in _iter_proc(tr["cmd_asig"], tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(tr["js_asig"])
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Asignación: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Response Asignación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 2/5 Asignación (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 2/5 Asignación (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -2918,12 +2918,12 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 2/5 Asignación â€” HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 2/5 Asignación — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
 
-                # â”€â”€ Extraer u_access_id_vno de la respuesta de Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # ── Extraer u_access_id_vno de la respuesta de Asignación ─────────
                 _aid = ""
                 try:
                     _jd2 = _j.loads(open(tr["js_asig"], encoding="utf-8").read())
@@ -2944,17 +2944,17 @@ async def api_run(suite_id: str, request: Request):
                 except Exception:
                     pass
                 _cancel_aids[_tc] = _aid
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Access ID asignado por API: {_aid or '(no encontrado)'} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Access ID asignado por API: {_aid or '(no encontrado)'} ──"))
                 if not _aid:
-                    await _out_q_cancel.put(("L", _tc, "âœ— No se pudo extraer u_access_id_vno â€” deteniendo"))
+                    await _out_q_cancel.put(("L", _tc, "✗ No se pudo extraer u_access_id_vno — deteniendo"))
                     await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
                     return
 
                 _cdir  = Path(tr["cancel_dir"])
                 _base  = list(tr["base_cmd"])
 
-                # â”€â”€ Paso 3/5: IA Inicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 3/5 IA Inicio â”€â”€"))
+                # ── Paso 3/5: IA Inicio ───────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 3/5 IA Inicio ──"))
                 _col_ia_c = _cp.deepcopy(tr["col_ff"])
                 _ia_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
                                         "u_scenario": "Instalación",
@@ -2977,16 +2977,16 @@ async def api_run(suite_id: str, request: Request):
                 _cmd_ia_c += ["--folder", "01-Inicio Intervención",
                               "--reporter-json-export", _js_ia_c,
                               "--reporter-htmlextra-export", _rp_ia_c,
-                              "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} IA Inicio · {tr['vno_lbl']}"]
+                              "--reporter-htmlextra-title", f"Reporte QA – {_tc} IA Inicio · {tr['vno_lbl']}"]
                 _sc = 1
                 async for _k, _v in _iter_proc(_cmd_ia_c, tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(_js_ia_c)
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response IA Inicio: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Response IA Inicio: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 3/5 IA Inicio (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 3/5 IA Inicio (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -2998,14 +2998,14 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 3/5 IA Inicio â€” HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 3/5 IA Inicio — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
                     return
 
-                # â”€â”€ Paso 4/5: Activación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                # ── Paso 4/5: Activación ──────────────────────────────────────────
                 _serial_log = (QA_ACTIV_SERIAL_BASE.get(_vno, "") + tr["serial_sfx"]) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)"
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Paso 4/5 Activación (serial: {_serial_log}) â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Paso 4/5 Activación (serial: {_serial_log}) ──"))
                 _activ_body_c = _j.dumps({
                     "u_id_vno": _vno, "u_access_id_vno": _aid,
                     "u_operation_type": "A", "u_speed_plan": tr["speed_plan"],
@@ -3026,16 +3026,16 @@ async def api_run(suite_id: str, request: Request):
                 _cmd_act_c = list(_base); _cmd_act_c[2] = _tmp_act_c
                 _cmd_act_c += ["--reporter-json-export", _js_act_c,
                                "--reporter-htmlextra-export", _rp_act_c,
-                               "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} Activación · {tr['vno_lbl']}"]
+                               "--reporter-htmlextra-title", f"Reporte QA – {_tc} Activación · {tr['vno_lbl']}"]
                 _sc = 1
                 async for _k, _v in _iter_proc(_cmd_act_c, tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(_js_act_c)
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Activación: HTTP {_hc} {_hs} â€” {_rb[:400]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Response Activación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
                 if _sc != 0:
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 4/5 Activación (Newman código {_sc})"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 4/5 Activación (Newman código {_sc})"))
                     try:
                         _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
                         await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
@@ -3047,13 +3047,13 @@ async def api_run(suite_id: str, request: Request):
                     return
                 if _hc and _hc not in (200, 201, 202):
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"âœ— {_tc} FALLÃ“ en Paso 4/5 Activación â€” HTTP {_hc} {_hs}"))
+                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÃ“ en Paso 4/5 Activación — HTTP {_hc} {_hs}"))
                     await _out_q_cancel.put(("L", _tc, "â”"*50))
                     await _out_q_cancel.put(("D", tr, 1, _js_act_c))
                     return
 
-                # â”€â”€ Paso 5/5: Cancelación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                await _out_q_cancel.put(("L", _tc, "â”€â”€ Paso 5/5 Cancelación â”€â”€"))
+                # ── Paso 5/5: Cancelación ─────────────────────────────────────────
+                await _out_q_cancel.put(("L", _tc, "── Paso 5/5 Cancelación ──"))
                 _cancel_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
                                             "u_service_type": tr["svc_type"]},
                                            indent=4, ensure_ascii=False)
@@ -3069,31 +3069,31 @@ async def api_run(suite_id: str, request: Request):
                 _cmd_cancel_c = list(_base); _cmd_cancel_c[2] = _tmp_cancel_c
                 _cmd_cancel_c += ["--reporter-json-export", _js_cancel_c,
                                   "--reporter-htmlextra-export", _rp_cancel_c,
-                                  "--reporter-htmlextra-title", f"Reporte QA â€“ {_tc} Cancelación · {tr['vno_lbl']}"]
+                                  "--reporter-htmlextra-title", f"Reporte QA – {_tc} Cancelación · {tr['vno_lbl']}"]
                 _sc = 1
                 async for _k, _v in _iter_proc(_cmd_cancel_c, tr["cwd"], _env_cancel):
                     if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
                     elif _k == "D": _sc = _v
                 _hc, _hs, _rb = _read_rsp(_js_cancel_c)
-                await _out_q_cancel.put(("L", _tc, f"â”€â”€ Response Cancelación: HTTP {_hc} {_hs} â€” {_rb[:600]} â”€â”€"))
+                await _out_q_cancel.put(("L", _tc, f"── Response Cancelación: HTTP {_hc} {_hs} — {_rb[:600]} ──"))
                 if _hc and _hc not in (200, 201, 202): _sc = 1
                 await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
               except Exception as _exc_run:
                 _tc_safe = tr.get("tc", "?")
-                await _out_q_cancel.put(("L", _tc_safe, f"âœ— Error inesperado en TC: {_exc_run}"))
+                await _out_q_cancel.put(("L", _tc_safe, f"✗ Error inesperado en TC: {_exc_run}"))
                 await _out_q_cancel.put(("D", tr, 1, None))
 
             async def _hb_cancel():
                 while True:
                     await asyncio.sleep(15)
-                    await _out_q_cancel.put(("K", "", "â€¦"))
+                    await _out_q_cancel.put(("K", "", "…"))
             _hbt_cancel = asyncio.create_task(_hb_cancel())
             [asyncio.create_task(_run_cancel(tr)) for tr in _cancel_runs]
             _remaining_cancel = len(_cancel_runs)
             while _remaining_cancel > 0:
                 _item = await _out_q_cancel.get()
                 if _item[0] == "K":
-                    yield f"data: {json.dumps({'e':'line','t':'â€¦'})}\n\n"
+                    yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
@@ -3101,13 +3101,13 @@ async def api_run(suite_id: str, request: Request):
                     _remaining_cancel -= 1
                     _tr2, _code, _last_json = _item[1], _item[2], _item[3]
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
-                    _sym = "âœ“" if _code == 0 else "âœ—"
+                    _sym = "✓" if _code == 0 else "✗"
                     _results_cancel.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                             "vno_lbl": _tr2["vno_lbl"],
                                             "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                             "access_id": _cancel_aids.get(_tr2["tc"], ""),
                                             "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg_c = f"{_sym} {_tr2['label']} â€” código {_code}"
+                    _tc_msg_c = f"{_sym} {_tr2['label']} — código {_code}"
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg_c})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     if _last_json:
@@ -3156,9 +3156,9 @@ async def api_run(suite_id: str, request: Request):
                 _rows_c = ""
                 for _r in sorted(_results_cancel, key=lambda x: x["tc"]):
                     _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                    _st    = "âœ“ OK" if _r["code"] == 0 else "âœ— FAIL"
+                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
                     _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                              if _r["has_rp"] else "â€”")
+                              if _r["has_rp"] else "—")
                     _rows_c += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
                                 f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
                 _idx_c = (
@@ -3185,7 +3185,7 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
-    # â”€â”€ Teardown Masivo â€” cancela access IDs directamente via HTTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Teardown Masivo — cancela access IDs directamente via HTTP ───────────────
     if suite.get("env_type") == "qa_teardown_masivo":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64
 
@@ -3225,7 +3225,7 @@ async def api_run(suite_id: str, request: Request):
         async def sse_teardown():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Teardown Masivo â€” {len(_td_dedup)} access IDs · tipo: {_td_svc_type}'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Teardown Masivo — {len(_td_dedup)} access IDs · tipo: {_td_svc_type}'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _td_q = asyncio.Queue()
             _td_results = []
@@ -3262,15 +3262,15 @@ async def api_run(suite_id: str, request: Request):
 
             _missing = [_a for _a in _td_dedup if not _td_tokens.get(_a[:2])]
             for _ma in _missing:
-                yield f"data: {json.dumps({'e':'line','t':f'âš  Sin token para VNO {_ma[:2]} â€” omitiendo {_ma}'})}\n\n"
+                yield f"data: {json.dumps({'e':'line','t':f'⚠ Sin token para VNO {_ma[:2]} — omitiendo {_ma}'})}\n\n"
 
             _rem_td = len(_td_dedup) - len(_missing)
             while _rem_td > 0:
                 _aid2, _vno2, _ok2, _msg2 = await _td_q.get()
                 _rem_td -= 1
-                _sym2 = "âœ“" if _ok2 else "âœ—"
+                _sym2 = "✓" if _ok2 else "✗"
                 _td_results.append({"aid": _aid2, "vno": _vno2, "ok": _ok2, "msg": _msg2})
-                yield f"data: {json.dumps({'e':'line','t':f'{_sym2} VNO {_vno2}  {_aid2}  â€” {_msg2}'})}\n\n"
+                yield f"data: {json.dumps({'e':'line','t':f'{_sym2} VNO {_vno2}  {_aid2}  — {_msg2}'})}\n\n"
 
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _n_ok_td   = sum(1 for r in _td_results if r["ok"])
@@ -3289,11 +3289,11 @@ async def api_run(suite_id: str, request: Request):
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
             _suite_lbl = suite.get("label","Suite")
-            yield f"data: {json.dumps({'e':'line','t':f'{_suite_lbl} â€” {len(_tc_runs)} TCs en paralelo'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'{_suite_lbl} — {len(_tc_runs)} TCs en paralelo'})}\n\n"
             if _gf_url_fact:
-                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} â†’ {_gf_url_fact}'})}\n\n"
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} → {_gf_url_fact}'})}\n\n"
             elif _gf_env_fact:
-                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] âš  {_gf_env_fact} â€” URL no encontrada en Settings (usando env por defecto)'})}\n\n"
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] ⚠ {_gf_env_fact} — URL no encontrada en Settings (usando env por defecto)'})}\n\n"
             yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
 
             _env = {**os.environ,
@@ -3304,7 +3304,7 @@ async def api_run(suite_id: str, request: Request):
             _results = []
 
             async def _run_tc(tr):
-                await _out_q.put(("L", tr["tc"], "â–¶ " + tr["label"] + " iniciandoâ€¦"))
+                await _out_q.put(("L", tr["tc"], "▶ " + tr["label"] + " iniciando…"))
                 async for _k, _v in _iter_proc(tr["cmd"], tr["cwd"], _env):
                     if _k == "L":
                         await _out_q.put(("L", tr["tc"], _v))
@@ -3328,14 +3328,14 @@ async def api_run(suite_id: str, request: Request):
                     _tr2, _code = _item[1], _item[2]
                     _remaining -= 1
                     _has_rp = bool(Path(_tr2["rp_out"]).exists())
-                    _sym = "âœ“" if _code == 0 else "âœ—"
+                    _sym = "✓" if _code == 0 else "✗"
                     _results.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
                                      "vno_lbl": _tr2["vno_lbl"],
                                      "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
                                      "address_id": _tr2.get("address_id", ""),
                                      "access_id": _tr2.get("access_id", ""),
                                      "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg = _sym + " " + _tr2["label"] + " â€” código " + str(_code)
+                    _tc_msg = _sym + " " + _tr2["label"] + " — código " + str(_code)
                     yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
                     # Emitir respuestas HTTP del TC
@@ -3376,16 +3376,16 @@ async def api_run(suite_id: str, request: Request):
             _n_fail = len(_results) - _n_ok
             yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok}/{len(_results)} TCs OK'})}\n\n"
             if _gf_url_fact:
-                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} â†’ {_gf_url_fact}'})}\n\n"
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_fact} → {_gf_url_fact}'})}\n\n"
             elif _gf_env_fact:
-                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] âš  {_gf_env_fact} â€” URL no configurada en Settings'})}\n\n"
+                yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] ⚠ {_gf_env_fact} — URL no configurada en Settings'})}\n\n"
 
             _rows = ""
             for _r in sorted(_results, key=lambda x: x["tc"]):
                 _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                _st    = "âœ“ OK" if _r["code"] == 0 else "âœ— FAIL"
+                _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
                 _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                          if _r["has_rp"] else "â€”")
+                          if _r["has_rp"] else "—")
                 _rows += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
                           f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
 
@@ -3460,7 +3460,7 @@ async def api_run(suite_id: str, request: Request):
             cmd = list(cmd) + ["--vno", vno_code]
         passed = failed = requests = 0
         if _injected_url:
-            yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_name} â†’ {_injected_url}'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'[Ambiente] {_gf_env_name} → {_injected_url}'})}\n\n"
 
         async for kind, val in _iter_proc(cmd, suite["cwd"], env):
             if kind == "L":
@@ -3468,9 +3468,9 @@ async def api_run(suite_id: str, request: Request):
                 if m: passed = int(m.group(1))
                 m = re.search(r"(\d+) failed", val)
                 if m: failed = int(m.group(1))
-                m = re.search(r"requests\s*\â”‚\s*(\d+)", val)
+                m = re.search(r"requests\s*\│\s*(\d+)", val)
                 if m: requests = int(m.group(1))
-                m = re.search(r"assertions\s*\â”‚\s*(\d+)\s*\â”‚\s*(\d+)", val)
+                m = re.search(r"assertions\s*\│\s*(\d+)\s*\│\s*(\d+)", val)
                 if m: failed = max(failed, int(m.group(2)))
                 yield f"data: {json.dumps({'e':'line','t':val})}\n\n"
             elif kind == "D":
@@ -3510,7 +3510,7 @@ async def atrf_run_step(request: Request):
     service_voip= body.get("serviceVoip", True)
     service_iptv= body.get("serviceIptv", True)
 
-    # â”€â”€ Factibilidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
         env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         folder_name = QA_FACTIBILIDAD_FOLDER_MAP.get(vno, "feasibility-KAO")
@@ -3602,7 +3602,7 @@ async def atrf_run_step(request: Request):
                              "res": res_body, "vno": vno, "func": func_name,
                              "httpCode": http_code})
 
-    # â”€â”€ Asignación â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Asignación ────────────────────────────────────────────────────────────
     if func_name == "Asignación":
         env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         folder_name = QA_ASSIGNMENT_FOLDER_MAP.get(vno, "assigment- KAO")
@@ -3666,7 +3666,7 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
-    # â”€â”€ Cancelación Orden de Servicio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
         env_file   = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         cancel_req = QA_CANCEL_REQUEST_MAP.get(vno, "cancel service order KAO")
@@ -3726,7 +3726,7 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
-    # â”€â”€ Resto de funcionalidades: pendiente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
 
 
@@ -3852,9 +3852,9 @@ async def api_run_parallel(request: Request):
                 if m: passed += int(m.group(1))
                 m = re.search(r"(\d+) failed", val)
                 if m: failed += int(m.group(1))
-                m = re.search(r"requests\s*\â”‚\s*(\d+)", val)
+                m = re.search(r"requests\s*\│\s*(\d+)", val)
                 if m: requests += int(m.group(1))
-                m = re.search(r"assertions\s*\â”‚\s*(\d+)\s*\â”‚\s*(\d+)", val)
+                m = re.search(r"assertions\s*\│\s*(\d+)\s*\│\s*(\d+)", val)
                 if m: failed += int(m.group(2))
                 yield f"data: {json.dumps({'e':'line','t':val,'vno':label})}\n\n"
             elif kind == "D":
@@ -3987,7 +3987,7 @@ async def api_report(suite_id: str):
     })
 
 
-# â”€â”€â”€ Historial API (Supabase PostgreSQL) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Historial API (Supabase PostgreSQL) ─────────────────────────────────────
 
 @app.get("/api/historial")
 async def api_historial(limit: int = 200, suite_id: str = "", vno: str = "", resultado: str = ""):
@@ -4154,7 +4154,7 @@ async def api_environments_delete(env_id: int):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# â”€â”€â”€ UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── UI ───────────────────────────────────────────────────────────────────────
 HTML = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -4374,7 +4374,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .olt-info-bar .oib-vendor{color:var(--txt2)}
 /* TERMINAL */
 .terminal{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px;background:var(--term);font-family:var(--mono);font-size:.76rem;line-height:1.6}
-/* â”€â”€ Fact view: 4 consolas paralelas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Fact view: 4 consolas paralelas ───────────────────────────────────────── */
 #fact-sel-bar{display:flex;align-items:center;gap:6px;padding:6px 10px 4px;flex-shrink:0;flex-wrap:wrap;border-bottom:1px solid var(--brd)}
 #fact-sel-bar .fsb-lbl{font-size:.62rem;color:var(--txt3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
 .tc-sel-btn{font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid var(--brd);background:transparent;color:var(--txt3);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
@@ -4541,7 +4541,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .hist-badge.err{background:var(--errd);color:var(--err)}
 .hist-badge.warn{background:rgba(255,179,71,.15);color:var(--warn)}
 .hist-empty{padding:40px;text-align:center;color:var(--txt3);font-size:.8rem}
-/* â”€â”€ QA FulFillment Queue (Humberto design) â”€â”€ */
+/* ── QA FulFillment Queue (Humberto design) ── */
 #fulfillment-view{background:var(--atrf-bg);color:var(--atrf-text);overflow-y:auto}
 #fulfillment-view *{box-sizing:border-box}
 .atrf-layout{max-width:1380px;margin:0 auto;padding:1.5rem 2rem 4rem;display:flex;flex-direction:column;gap:1rem}
@@ -4707,16 +4707,16 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <span class="top-status" id="top-status">Listo</span>
       <select class="vno-sel" id="vno-sel" title="VNO a probar (solo suites con soporte VNO)">
         <option value="">Todas las VNOs</option>
-        <option value="00">00 â€” TCH</option>
-        <option value="02">02 â€” ClaroVTR</option>
-        <option value="03">03 â€” Entel</option>
-        <option value="05">05 â€” DTV</option>
+        <option value="00">00 — TCH</option>
+        <option value="02">02 — ClaroVTR</option>
+        <option value="03">03 — Entel</option>
+        <option value="05">05 — DTV</option>
       </select>
       <button class="exec-btn" id="exec-btn" onclick="executeSelected()" disabled>&#9654; Ejecutar</button>
       <button class="rpt-btn" id="rpt-btn" onclick="openReport()">&#128196; Ver reporte</button>
       <button class="rpt-btn" id="dl-btn" onclick="downloadReport()">&#11015; Descargar</button>
       <button class="clr-btn" onclick="clearTerm()">Limpiar</button>
-      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">â˜€</button>
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">☀</button>
     </div>
     <div id="gf-panel" style="display:none;flex-shrink:0"></div>
     <!-- Vista estándar -->
@@ -4726,7 +4726,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="terminal" id="term"></div>
       <div class="resp-panel" id="resp-panel"></div>
     </div>
-    <!-- Vista Endpoints QA â€” acordeon individual -->
+    <!-- Vista Endpoints QA — acordeon individual -->
     <!-- Vista formulario parametros endpoint -->
     <div id="ep-form-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="vno-bar" id="epf-vno-bar"></div>
@@ -4736,19 +4736,19 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="vno-bar" id="ep-vno-bar"></div>
       <div style="flex:1;overflow-y:auto;padding:10px 14px" id="ep-list"></div>
     </div>
-    <!-- Vista Factibilidad â€” 4 consolas paralelas -->
+    <!-- Vista Factibilidad — 4 consolas paralelas -->
     <div id="fact-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="fact-sel-bar"></div>
       <div id="fact-grid"></div>
     </div>
-    <!-- Vista Intervención Asegurada â€” 4 consolas paralelas -->
+    <!-- Vista Intervención Asegurada — 4 consolas paralelas -->
     <div id="ia-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="ia-form-bar"></div>
       <div id="ia-access-preview"></div>
       <div id="ia-sel-bar"></div>
       <div id="ia-grid"></div>
     </div>
-    <!-- Vista Activación â€” 4 consolas paralelas -->
+    <!-- Vista Activación — 4 consolas paralelas -->
     <div id="activ-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="activ-form-bar"></div>
       <div id="activ-access-preview"></div>
@@ -4760,7 +4760,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="teardown-form-bar" style="display:flex;align-items:center;gap:10px;padding:8px 14px;flex-shrink:0;border-bottom:1px solid var(--brd);background:var(--card);flex-wrap:wrap"></div>
       <div id="teardown-console" style="flex:1;overflow-y:auto;padding:10px 14px;font-family:monospace;font-size:.75rem;background:var(--bg2);white-space:pre-wrap;word-break:break-all"></div>
     </div>
-    <!-- Vista Cancelación â€” 4 consolas paralelas -->
+    <!-- Vista Cancelación — 4 consolas paralelas -->
     <div id="cancel-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="cancel-form-bar"></div>
       <div id="cancel-access-preview"></div>
@@ -4778,7 +4778,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
               <div class="atrf-qcb" id="atrf-selall-cb" onclick="event.preventDefault();_atrf_toggleSelAll()"></div>
               Todas
             </label>
-            <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">ðŸ—‘ Eliminar seleccionadas</button>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected()">&#9654; Ejecutar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
@@ -4795,38 +4795,38 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
         <button id="htab-stats" onclick="_hTab('stats')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128200; Estadísticas</button>
         <button id="htab-cfg" onclick="_hTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; Configuración</button>
         <div style="flex:1"></div>
-        <input id="historial-filter" type="text" placeholder="Filtrarâ€¦" oninput="_filterHistorial()" style="display:none;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:150px;align-self:center;margin-bottom:4px">
+        <input id="historial-filter" type="text" placeholder="Filtrar…" oninput="_filterHistorial()" style="display:none;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:150px;align-self:center;margin-bottom:4px">
         <button id="hist-refresh-btn" onclick="_hTabRefresh()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer;align-self:center;margin-bottom:4px">&#8635;</button>
         <button id="hist-del-all-btn" onclick="_histDeleteAll()" style="display:none;padding:4px 10px;border-radius:5px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.73rem;cursor:pointer;align-self:center;margin-bottom:4px">&#128465; Borrar todo</button>
       </div>
       <!-- Historial tab -->
       <div id="hpane-hist" style="flex:1;overflow:auto;padding:12px 14px">
-        <div class="hist-empty">Cargandoâ€¦</div>
+        <div class="hist-empty">Cargando…</div>
       </div>
       <!-- Stats tab -->
       <div id="hpane-stats" style="display:none;flex:1;overflow:auto;padding:12px 14px">
-        <div class="hist-empty">Cargando estadísticasâ€¦</div>
+        <div class="hist-empty">Cargando estadísticas…</div>
       </div>
       <!-- Config tab -->
       <div id="hpane-cfg" style="display:none;flex:1;overflow:auto;padding:16px 18px">
-        <div class="hist-empty">Cargando configuraciónâ€¦</div>
+        <div class="hist-empty">Cargando configuración…</div>
       </div>
     </div>
-    <!-- Vista Device Modification â€” 4 consolas paralelas -->
+    <!-- Vista Device Modification — 4 consolas paralelas -->
     <div id="dm-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="dm-form-bar"></div>
       <div id="dm-access-preview"></div>
       <div id="dm-sel-bar"></div>
       <div id="dm-grid"></div>
     </div>
-    <!-- Vista Asignación â€” 4 consolas paralelas -->
+    <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div id="asig-form-bar"></div>
       <div id="asig-access-preview"></div>
       <div id="asig-sel-bar"></div>
       <div id="asig-grid"></div>
     </div>
-    <!-- Vista Services Now â€” doble terminal -->
+    <!-- Vista Services Now — doble terminal -->
     <div id="sn-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
       <div class="sn-form" id="sn-form"></div>
       <div class="sn-terms" id="sn-terms"></div>
@@ -5184,7 +5184,7 @@ function selectSuite(id){
     if(suiteTopState[id]){
       setTop(suiteTopState[id].cls,suiteTopState[id].title,suiteTopState[id].status);
     } else {
-      setTop('',s.label,'Seleccionado â€” presiona Ejecutar');
+      setTop('',s.label,'Seleccionado — presiona Ejecutar');
     }
   }
   var eb=document.getElementById('exec-btn');
@@ -5321,17 +5321,17 @@ function renderGlobalForm(){
   p.innerHTML='<div class="gf-bar">'
     +'<span class="gf-bar-ttl">Parámetros</span>'
     +'<div class="gf-bar-sep"></div>'
-    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Access ID</span>&nbsp;<span class="gf-bar-val empty" id="gfb-access">â€”</span></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Access ID</span>&nbsp;<span class="gf-bar-val empty" id="gfb-access">—</span></div>'
     +'<div class="gf-bar-sep"></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Plan</span>&nbsp;<span class="gf-bar-val" id="gfb-speed">400/400</span></div>'
-    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Serial</span>&nbsp;<span class="gf-bar-val empty" id="gfb-serial">â€”</span></div>'
+    +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Serial</span>&nbsp;<span class="gf-bar-val empty" id="gfb-serial">—</span></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Tipo</span>&nbsp;<span class="gf-bar-val" id="gfb-stype">FTTH</span></div>'
     +'<div class="gf-bar-chip"><span class="gf-bar-lbl">Svc</span>&nbsp;<span class="gf-bar-val" id="gfb-svcs">BA · VoIP · IPTV</span></div>'
-    +'<button class="gf-config-btn" onclick="openGFModal()">âœŽ Configurar</button>'
+    +'<button class="gf-config-btn" onclick="openGFModal()">✎ Configurar</button>'
     +'</div>';
 }
 
-// â”€â”€ Global Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Global Form Modal ────────────────────────────────────────────────────────
 var _gfEnv='QA';
 var _gfFuncSeq=[];
 var _GF_FUNCS=[
@@ -5401,7 +5401,7 @@ function _updateGFSummaryBar(){
   if(iptv!=='false') svcs.push('IPTV');
   function _set(id, val, empty){
     var el=document.getElementById(id); if(!el) return;
-    el.textContent=val||'â€”';
+    el.textContent=val||'—';
     el.className='gf-bar-val'+(empty||!val?' empty':'');
   }
   _set('gfb-access', acc.trim(), !acc.trim());
@@ -5522,7 +5522,7 @@ function _renderGFMSeqList(){
   sb.innerHTML=_gfFuncSeq.map(function(id,i){
     var f=_GF_FUNCS.filter(function(x){return x.id===id;})[0];
     return '<div class="gfm-sitem" data-sid="'+id+'">'
-      +'<span class="gfm-shandle">â ¿</span>'
+      +'<span class="gfm-shandle">⠿</span>'
       +'<span class="gfm-snum">'+(i+1)+'</span>'
       +'<span class="gfm-sname">'+esc(f?f.name:id)+'</span>'
       +'<button class="gfm-srm" data-sid="'+id+'" onclick="_removeGFSeq(this.dataset.sid)">Ã—</button>'
@@ -5548,7 +5548,7 @@ function _filterFuncList(q){
   });
 }
 
-// â”€â”€ Factibilidad: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Factibilidad: vista multi-consola ────────────────────────────────────────
 var _FACT_TC_META = [
   {tc:'TC-01', label:'TC-01 · Entel', vno:'VNO 03', sid:'qa-fact-tc01', color:'#A8FF78'},
   {tc:'TC-02', label:'TC-02 · KAO',   vno:'VNO 02', sid:'qa-fact-tc02', color:'#00C8D4'},
@@ -5621,7 +5621,7 @@ function renderFactView(){
       +'<span class="fr-label">Response</span>'
       +'<span id="frs-'+_tc+'"></span>'
       +'</div>'
-      +'<div class="fp-resp" id="fr-'+_tc+'"><span class="fr-empty">â€”</span></div>';
+      +'<div class="fp-resp" id="fr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
   });
 }
@@ -5656,7 +5656,7 @@ function _factApp(tc, text, cls){
 function _factSetState(tc, state){
   var dot=document.getElementById('fpd-'+tc);
   var badge=document.getElementById('fpb-'+tc);
-  var states={idle:'espera',running:'ejecutando',passed:'OK âœ“',failed:'FAIL âœ—'};
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
   if(dot){ dot.className='fp-dot '+state; }
   if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
 }
@@ -5666,14 +5666,14 @@ function _doRunFact(s){
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
   delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
-  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutandoâ€¦</span>';
-  setTop('running',s.label,'Ejecutando 4 VNOs en paraleloâ€¦');
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando 4 VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   // Reset panels
   _FACT_TC_META.forEach(function(m){
     var ft=document.getElementById('ft-'+m.tc); if(ft) ft.innerHTML='';
-    var fr=document.getElementById('fr-'+m.tc); if(fr) fr.innerHTML='<span class="fr-empty">â€”</span>';
+    var fr=document.getElementById('fr-'+m.tc); if(fr) fr.innerHTML='<span class="fr-empty">—</span>';
     var frs=document.getElementById('frs-'+m.tc); if(frs) frs.innerHTML='';
     var fpr=document.getElementById('fpr-'+m.tc); if(fpr) fpr.classList.remove('show');
     _factSetState(m.tc,'idle');
@@ -5716,7 +5716,7 @@ function _doRunFact(s){
   };
 }
 
-// â”€â”€ Asignación: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Asignación: vista multi-consola ─────────────────────────────────────────
 var _ASIG_TC_META = [
   {tc:'TC-05', label:'TC-05 · Entel', vno:'VNO 03', sid:'qa-asig-tc05', color:'#98F5A4'},
   {tc:'TC-06', label:'TC-06 · KAO',   vno:'VNO 02', sid:'qa-asig-tc06', color:'#7EC8E3'},
@@ -5825,7 +5825,7 @@ function renderAsigView(){
       +'<span class="fr-label">Response</span>'
       +'<span id="afrs-'+_tc+'"></span>'
       +'</div>'
-      +'<div class="fp-resp" id="afr-'+_tc+'"><span class="fr-empty">â€”</span></div>';
+      +'<div class="fp-resp" id="afr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
   });
 }
@@ -5842,7 +5842,7 @@ function _asigApp(tc, text, cls){
 function _asigSetState(tc, state){
   var dot=document.getElementById('apd-'+tc);
   var badge=document.getElementById('apb-'+tc);
-  var states={idle:'espera',running:'ejecutando',passed:'OK âœ“',failed:'FAIL âœ—'};
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
   if(dot){ dot.className='fp-dot '+state; }
   if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
 }
@@ -5881,13 +5881,13 @@ function _doRunAsig(s){
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
   delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
-  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutandoâ€¦</span>';
-  setTop('running',s.label,'Ejecutando VNOs en paraleloâ€¦');
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _ASIG_TC_META.forEach(function(m){
     var at=document.getElementById('at-'+m.tc); if(at) at.innerHTML='';
-    var afr=document.getElementById('afr-'+m.tc); if(afr) afr.innerHTML='<span class="fr-empty">â€”</span>';
+    var afr=document.getElementById('afr-'+m.tc); if(afr) afr.innerHTML='<span class="fr-empty">—</span>';
     var afrs=document.getElementById('afrs-'+m.tc); if(afrs) afrs.innerHTML='';
     var apr=document.getElementById('apr-'+m.tc); if(apr) apr.classList.remove('show');
     _asigSetState(m.tc,'idle');
@@ -5936,7 +5936,7 @@ function _doRunAsig(s){
   };
 }
 
-// â”€â”€ Intervención Asegurada: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Intervención Asegurada: vista multi-consola ──────────────────────────────
 var _iaMode = 'inicio';
 var _IA_INICIO_META = [
   {tc:'TC-09', label:'TC-09 · Entel', vno:'VNO 03', sid:'qa-ia-tc09', color:'#FF9F8B'},
@@ -6038,7 +6038,7 @@ function renderIAView(){
       +'<span class="fr-label">Response</span>'
       +'<span id="ifrs-'+_tc+'"></span>'
       +'</div>'
-      +'<div class="fp-resp" id="ifr-'+_tc+'"><span class="fr-empty">â€”</span></div>';
+      +'<div class="fp-resp" id="ifr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
   });
 }
@@ -6054,7 +6054,7 @@ function _iaApp(tc,text,cls){
 function _iaSetState(tc,state){
   var dot=document.getElementById('ipd-'+tc);
   var badge=document.getElementById('ipb-'+tc);
-  var states={idle:'espera',running:'ejecutando',passed:'OK âœ“',failed:'FAIL âœ—'};
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
   if(dot){ dot.className='fp-dot '+state; }
   if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
 }
@@ -6083,13 +6083,13 @@ function _doRunIA(s){
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
   delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
-  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutandoâ€¦</span>';
-  setTop('running',s.label,'Ejecutando VNOs en paraleloâ€¦');
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _iaMeta().forEach(function(m){
     var it=document.getElementById('it-'+m.tc); if(it) it.innerHTML='';
-    var ifr=document.getElementById('ifr-'+m.tc); if(ifr) ifr.innerHTML='<span class="fr-empty">â€”</span>';
+    var ifr=document.getElementById('ifr-'+m.tc); if(ifr) ifr.innerHTML='<span class="fr-empty">—</span>';
     var ifrs=document.getElementById('ifrs-'+m.tc); if(ifrs) ifrs.innerHTML='';
     var ipr=document.getElementById('ipr-'+m.tc); if(ipr) ipr.classList.remove('show');
     _iaSetState(m.tc,'idle');
@@ -6134,7 +6134,7 @@ function _doRunIA(s){
   };
 }
 
-// â”€â”€ Suite Activación: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Suite Activación: vista multi-consola ────────────────────────────────────
 var _ACTIV_META = [
   {tc:'TC-17', label:'TC-17 · Entel', vno:'VNO 03', sid:'qa-activ-tc17', color:'#FF9F8B'},
   {tc:'TC-18', label:'TC-18 · KAO',   vno:'VNO 02', sid:'qa-activ-tc18', color:'#85E89D'},
@@ -6220,7 +6220,7 @@ function renderActivView(){
       +'<span class="fr-label">Response</span>'
       +'<span id="acfrs-'+_tc+'"></span>'
       +'</div>'
-      +'<div class="fp-resp" id="acfr-'+_tc+'"><span class="fr-empty">â€”</span></div>';
+      +'<div class="fp-resp" id="acfr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
   });
 }
@@ -6236,7 +6236,7 @@ function _activApp(tc,text,cls){
 function _activSetState(tc,state){
   var dot=document.getElementById('acpd-'+tc);
   var badge=document.getElementById('acpb-'+tc);
-  var states={idle:'espera',running:'ejecutando',passed:'OK âœ“',failed:'FAIL âœ—'};
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
   if(dot){ dot.className='fp-dot '+state; }
   if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
 }
@@ -6265,13 +6265,13 @@ function _doRunActiv(s){
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
   delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
-  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutandoâ€¦</span>';
-  setTop('running',s.label,'Ejecutando VNOs en paraleloâ€¦');
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
   setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _ACTIV_META.forEach(function(m){
     var at=document.getElementById('act-'+m.tc); if(at) at.innerHTML='';
-    var afr=document.getElementById('acfr-'+m.tc); if(afr) afr.innerHTML='<span class="fr-empty">â€”</span>';
+    var afr=document.getElementById('acfr-'+m.tc); if(afr) afr.innerHTML='<span class="fr-empty">—</span>';
     var afrs=document.getElementById('acfrs-'+m.tc); if(afrs) afrs.innerHTML='';
     var acpr=document.getElementById('acpr-'+m.tc); if(acpr) acpr.classList.remove('show');
     _activSetState(m.tc,'idle');
@@ -6324,7 +6324,7 @@ function _doRunActiv(s){
   };
 }
 
-// â”€â”€ Suite Device Modification: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Suite Device Modification: vista multi-consola ─────────────────────────
 var _DM_META = [
   {tc:'TC-21', label:'TC-21 · Entel', vno:'VNO 03', sid:'qa-dm-tc21', color:'#FF9F8B'},
   {tc:'TC-22', label:'TC-22 · KAO',   vno:'VNO 02', sid:'qa-dm-tc22', color:'#85E89D'},
@@ -6423,7 +6423,7 @@ function renderDmView(){
       +'<span class="fr-label">Response</span>'
       +'<span id="dmfrs-'+_tc+'"></span>'
       +'</div>'
-      +'<div class="fp-resp" id="dmfr-'+_tc+'"><span class="fr-empty">â€”</span></div>';
+      +'<div class="fp-resp" id="dmfr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
   });
 }
@@ -6439,7 +6439,7 @@ function _dmApp(tc,text,cls){
 function _dmSetState(tc,state){
   var dot=document.getElementById('dmpd-'+tc);
   var badge=document.getElementById('dmpb-'+tc);
-  var states={idle:'espera',running:'ejecutando',passed:'OK âœ“',failed:'FAIL âœ—'};
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
   if(dot){ dot.className='fp-dot '+state; }
   if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
 }
@@ -6470,7 +6470,7 @@ function _doRunDm(s){
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _DM_META.forEach(function(m){
     var dt=document.getElementById('dmt-'+m.tc); if(dt) dt.innerHTML='';
-    var dfr=document.getElementById('dmfr-'+m.tc); if(dfr) dfr.innerHTML='<span class="fr-empty">â€”</span>';
+    var dfr=document.getElementById('dmfr-'+m.tc); if(dfr) dfr.innerHTML='<span class="fr-empty">—</span>';
     var dfrs=document.getElementById('dmfrs-'+m.tc); if(dfrs) dfrs.innerHTML='';
     _dmSetState(m.tc,'idle');
     var pr=document.getElementById('dmpr-'+m.tc); if(pr){ pr.href='#'; pr.classList.remove('show'); }
@@ -6525,7 +6525,7 @@ function _doRunDm(s){
   };
 }
 
-// â”€â”€ Teardown Masivo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Teardown Masivo ───────────────────────────────────────────────────────────
 function renderTeardownFormBar(){
   var bar=document.getElementById('teardown-form-bar'); if(!bar) return;
   bar.innerHTML=
@@ -6538,7 +6538,7 @@ function renderTeardownFormBar(){
     +'<option value="FTTH">FTTH</option><option value="SSAA">SSAA</option>'
     +'</select>'
     +'</div>'
-    +'<span style="font-size:.63rem;color:var(--txt3);max-width:160px">El VNO se detecta automáticamente del prefijo (02-xxx â†’ VNO 02)</span>'
+    +'<span style="font-size:.63rem;color:var(--txt3);max-width:160px">El VNO se detecta automáticamente del prefijo (02-xxx → VNO 02)</span>'
     +'</div>';
   var ta=document.getElementById('td-ids');
   if(ta) ta.oninput=_syncTeardownExecBtn;
@@ -6591,7 +6591,7 @@ function _doRunTeardown(s){
   if(ta) ta.oninput=_syncTeardownExecBtn;
 }
 
-// â”€â”€ Suite Cancelación: vista multi-consola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Suite Cancelación: vista multi-consola ───────────────────────────────────
 var _CANCEL_META = [
   {tc:'TC-25', label:'TC-25 · Entel', vno:'VNO 03', sid:'qa-cancel-tc25', color:'#C586C0'},
   {tc:'TC-26', label:'TC-26 · KAO',   vno:'VNO 02', sid:'qa-cancel-tc26', color:'#4EC9B0'},
@@ -6677,7 +6677,7 @@ function renderCancelView(){
       +'<span class="fr-label">Response</span>'
       +'<span id="cancelfrs-'+_tc+'"></span>'
       +'</div>'
-      +'<div class="fp-resp" id="cancelfr-'+_tc+'"><span class="fr-empty">â€”</span></div>';
+      +'<div class="fp-resp" id="cancelfr-'+_tc+'"><span class="fr-empty">—</span></div>';
     grid.appendChild(p);
   });
 }
@@ -6693,7 +6693,7 @@ function _cancelApp(tc,text,cls){
 function _cancelSetState(tc,state){
   var dot=document.getElementById('cancelpd-'+tc);
   var badge=document.getElementById('cancelpb-'+tc);
-  var states={idle:'espera',running:'ejecutando',passed:'OK âœ“',failed:'FAIL âœ—'};
+  var states={idle:'espera',running:'ejecutando',passed:'OK ✓',failed:'FAIL ✗'};
   if(dot){ dot.className='fp-dot '+state; }
   if(badge){ badge.className='fp-badge '+state; badge.textContent=states[state]||state; }
 }
@@ -6721,7 +6721,7 @@ function _doRunCancel(s){
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _CANCEL_META.forEach(function(m){
     var ct=document.getElementById('cancelt-'+m.tc); if(ct) ct.innerHTML='';
-    var cfr=document.getElementById('cancelfr-'+m.tc); if(cfr) cfr.innerHTML='<span class="fr-empty">â€”</span>';
+    var cfr=document.getElementById('cancelfr-'+m.tc); if(cfr) cfr.innerHTML='<span class="fr-empty">—</span>';
     var cfrs=document.getElementById('cancelfrs-'+m.tc); if(cfrs) cfrs.innerHTML='';
     _cancelSetState(m.tc,'idle');
     var pr=document.getElementById('cancelpr-'+m.tc); if(pr){ pr.href='#'; pr.classList.remove('show'); }
@@ -6876,7 +6876,7 @@ function checkApimConfig(){
     var fields=document.getElementById('apim-fields');
     if(!st) return;
     if(ok){
-      st.textContent='âœ“ Configurado';st.style.color='var(--ok)';
+      st.textContent='✓ Configurado';st.style.color='var(--ok)';
       if(fields) fields.style.display='none';
     }
   });
@@ -6886,21 +6886,21 @@ function saveApimConfig(){
   var cs=(document.getElementById('apim-cs')||{}).value||'';
   if(!ck.trim()||!cs.trim()){alert('Ingresa Consumer Key y Consumer Secret');return;}
   var st=document.getElementById('apim-status');
-  if(st){st.textContent='Guardandoâ€¦';st.style.color='var(--warn)';}
+  if(st){st.textContent='Guardando…';st.style.color='var(--warn)';}
   fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({consumer_key:ck.trim(),consumer_secret:cs.trim()})
   }).then(function(r){return r.json();}).then(function(d){
     if(d.ok){
-      if(st){st.textContent='âœ“ Configurado';st.style.color='var(--ok)';}
+      if(st){st.textContent='✓ Configurado';st.style.color='var(--ok)';}
       var fields=document.getElementById('apim-fields');
       if(fields) fields.style.display='none';
     } else {
       alert('Error: '+(d.error||'Desconocido'));
-      if(st){st.textContent='âš  Error';st.style.color='var(--err)';}
+      if(st){st.textContent='⚠ Error';st.style.color='var(--err)';}
     }
   }).catch(function(e){
     alert('Error de red: '+e);
-    if(st){st.textContent='âš  Error';st.style.color='var(--err)';}
+    if(st){st.textContent='⚠ Error';st.style.color='var(--err)';}
   });
 }
 function toggleVNO(vno){
@@ -6929,14 +6929,14 @@ function executeSN(phase){
     }
   });
   var sp=suites.find(function(x){return x.id===_activeParallelId;});
-  var phaseLabels={provisioning:'Fase 1 â€” Provisioning',operations:'Fase 2 â€” Operaciones',baja:'Fase 3 â€” Baja',all:'Completo'};
+  var phaseLabels={provisioning:'Fase 1 — Provisioning',operations:'Fase 2 — Operaciones',baja:'Fase 3 — Baja',all:'Completo'};
   _doRunSN(params,sp,phaseLabels[params.phase]||params.phase);
 }
 
 function _doRunSN(params,s,phaseLabel){
   running=true; tStart=Date.now();
-  var topLabel=phaseLabel?s.label+' â€” '+phaseLabel:s.label;
-  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutandoâ€¦</span>';
+  var topLabel=phaseLabel?s.label+' — '+phaseLabel:s.label;
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',topLabel,'Ejecutando'); setIco(s.id,'running');
   document.querySelectorAll('.sn-phase-btn').forEach(function(b){b.disabled=true;});
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
@@ -7002,9 +7002,9 @@ function snTerm(vno,text){
 function setSnIco(vno,state){
   var ico=document.getElementById('ico-sn'+vno); if(!ico) return;
   ico.className='ico '+state;
-  if(state==='running') ico.innerHTML='<span class="spin" style="font-size:.7rem">â—Œ</span>';
-  else if(state==='passed') ico.textContent='âœ“';
-  else if(state==='failed') ico.textContent='âœ—';
+  if(state==='running') ico.innerHTML='<span class="spin" style="font-size:.7rem">◌</span>';
+  else if(state==='passed') ico.textContent='✓';
+  else if(state==='failed') ico.textContent='✗';
   else ico.textContent='·';
 }
 
@@ -7016,10 +7016,10 @@ function _doRun(url, params, s){
   document.getElementById('term').innerHTML='';
   document.getElementById('rpt-btn').classList.remove('show');
   document.getElementById('dl-btn').classList.remove('show');
-  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutandoâ€¦</span>';
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
   setTop('running',s.label,'Ejecutando'); setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
-  app('â–¶ '+s.label,'acc bold'); app('','');
+  app('▶ '+s.label,'acc bold'); app('','');
 
   var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
   if(qs) url+='?'+qs;
@@ -7078,28 +7078,28 @@ function _saveHistorialRecord(d,s){
 }
 function _doAutoTeardown(accessIds){
   app('','');
-  app('â”€â”€ Teardown automático · '+accessIds.length+' acceso'+(accessIds.length===1?'':'s')+' â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€','dim');
+  app('── Teardown automático · '+accessIds.length+' acceso'+(accessIds.length===1?'':'s')+' ──────────────','dim');
   var _es2=new EventSource('/api/run/qa-teardown-masivo?access_ids='+encodeURIComponent(accessIds.join('\\n'))+'&service_type=FTTH');
   _es2.onmessage=function(ev){
     var d2=JSON.parse(ev.data);
     if(d2.e==='start') return;
     if(d2.e==='line') app(d2.t,col(d2.t));
     else if(d2.e==='done'){
-      app('â”€â”€ Teardown: '+(d2.code===0?'âœ“ accesos liberados':'âœ— finalizó con errores'),d2.code===0?'ok bold':'err bold');
+      app('── Teardown: '+(d2.code===0?'✓ accesos liberados':'✗ finalizó con errores'),d2.code===0?'ok bold':'err bold');
       _es2.close();
-    } else if(d2.e==='error'){app('â”€â”€ Teardown error: '+(d2.msg||''),'err');_es2.close();}
+    } else if(d2.e==='error'){app('── Teardown error: '+(d2.msg||''),'err');_es2.close();}
   };
-  _es2.onerror=function(){app('â”€â”€ Teardown: error de conexión','err');_es2.close();};
+  _es2.onerror=function(){app('── Teardown: error de conexión','err');_es2.close();};
 }
 function onDone(d,s){
   running=false; runningId=null;
   _saveHistorialRecord(d,s);
   var elapsed=((Date.now()-tStart)/1000).toFixed(1)+'s';
   var ok=d.code===0;
-  app('',''); app('â”€â”€ Fin: '+s.label+' '+'â”€'.repeat(30),'dim');
+  app('',''); app('── Fin: '+s.label+' '+'─'.repeat(30),'dim');
   app('Código de salida: '+d.code+'  Tiempo: '+elapsed, ok?'ok bold':'err bold');
   setIco(s.id, ok?'passed':'failed');
-  var topCls=ok?'passed':'failed', topStatus=ok?'Completado âœ“':'Falló âœ—';
+  var topCls=ok?'passed':'failed', topStatus=ok?'Completado ✓':'Falló ✗';
   setTop(topCls, s.label, topStatus);
   suiteTopState[s.id]={cls:topCls, title:s.label, status:topStatus};
   var h='';
@@ -7190,7 +7190,7 @@ function renderFactibilidadForm(){
   var f1=document.createElement("div"); f1.className="epf-field";
   var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
   var v1=document.createElement("div"); v1.className="epf-readonly";
-  v1.style.color=clr; v1.textContent=vno+" â€” "+(_QA_VNO_LABELS[vno]||vno);
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
   f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
   var f2=document.createElement("div"); f2.className="epf-field";
   var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_address_id";
@@ -7220,7 +7220,7 @@ function renderFactibilidadForm(){
   vop.style.color="var(--txt3)"; vop.style.borderStyle="dashed";
   vop.textContent="Direccion Exacta";
   fop.appendChild(lop); fop.appendChild(vop); card.appendChild(fop);
-  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="â–¶ Ejecutar";
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
   eb.disabled=running;
   eb.onclick=function(){
     var addrEl=document.getElementById("epf-address");
@@ -7268,7 +7268,7 @@ function renderAssignmentForm(){
   var f1=document.createElement("div"); f1.className="epf-field";
   var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
   var v1=document.createElement("div"); v1.className="epf-readonly";
-  v1.style.color=clr; v1.textContent=vno+" â€” "+(_QA_VNO_LABELS[vno]||vno);
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
   f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
   // u_access_id_vno (text)
   var f2=document.createElement("div"); f2.className="epf-field";
@@ -7318,7 +7318,7 @@ function renderAssignmentForm(){
     vx.style.color="var(--txt3)"; vx.style.borderStyle="dashed"; vx.textContent=pair[1];
     fx.appendChild(lx); fx.appendChild(vx); card.appendChild(fx);
   });
-  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="â–¶ Ejecutar";
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
   eb.disabled=running;
   eb.onclick=function(){
     var accessEl=document.getElementById("epf-asig-access");
@@ -7370,7 +7370,7 @@ function _buildIACard(title, folderLabel, inputId, placeholder, runFn){
   var f1=document.createElement("div"); f1.className="epf-field";
   var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
   var v1=document.createElement("div"); v1.className="epf-readonly";
-  v1.style.color=clr; v1.textContent=vno+" â€” "+(_QA_VNO_LABELS[vno]||vno);
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
   f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
   // u_access_id_vno (text)
   var f2=document.createElement("div"); f2.className="epf-field";
@@ -7400,7 +7400,7 @@ function _buildIACard(title, folderLabel, inputId, placeholder, runFn){
     cg4.appendChild(ch);
   });
   f4.appendChild(l4); f4.appendChild(cg4); card.appendChild(f4);
-  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="â–¶ Ejecutar";
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
   eb.disabled=running;
   eb.onclick=function(){
     var accessEl=document.getElementById(inputId);
@@ -7461,9 +7461,9 @@ function renderActivacionForm(){
   var f1=document.createElement("div"); f1.className="epf-field";
   var l1=document.createElement("label"); l1.className="epf-label"; l1.textContent="u_id_vno (auto)";
   var v1=document.createElement("div"); v1.className="epf-readonly";
-  v1.style.color=clr; v1.textContent=vno+" â€” "+(_QA_VNO_LABELS[vno]||vno);
+  v1.style.color=clr; v1.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
   f1.appendChild(l1); f1.appendChild(v1); card.appendChild(f1);
-  // u_access_id_vno (text â€” placeholder cambia por VNO)
+  // u_access_id_vno (text — placeholder cambia por VNO)
   var f2=document.createElement("div"); f2.className="epf-field";
   var l2=document.createElement("label"); l2.className="epf-label"; l2.textContent="u_access_id_vno";
   var i2=document.createElement("input"); i2.type="text"; i2.className="epf-input"; i2.id="epf-activ-access";
@@ -7479,7 +7479,7 @@ function renderActivacionForm(){
     s3.appendChild(o);
   });
   f3.appendChild(l3); f3.appendChild(s3); card.appendChild(f3);
-  // u_serial_number (text â€” solo VNOs distintos de 00)
+  // u_serial_number (text — solo VNOs distintos de 00)
   if(vno!=='00'){
     var f4=document.createElement("div"); f4.className="epf-field";
     var l4=document.createElement("label"); l4.className="epf-label"; l4.textContent="u_serial_number";
@@ -7501,7 +7501,7 @@ function renderActivacionForm(){
   var vop=document.createElement("div"); vop.className="epf-readonly";
   vop.style.color="var(--txt3)"; vop.style.borderStyle="dashed"; vop.textContent="A";
   fop.appendChild(lop); fop.appendChild(vop); card.appendChild(fop);
-  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="â–¶ Ejecutar";
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
   eb.disabled=running;
   eb.onclick=function(){
     var accessEl=document.getElementById("epf-activ-access");
@@ -7575,7 +7575,7 @@ function runEndpoint(id,btn){
   selectedId=id; _isQAChild=true;
   // Update icon in ep-view
   var eico=document.getElementById('ep-ico-'+id);
-  if(eico) eico.textContent='â–º';
+  if(eico) eico.textContent='►';
   // Disable all ep-run-btns
   document.querySelectorAll('.ep-run-btn').forEach(function(b){b.disabled=true;});
   // Switch to std view to show log
@@ -7634,7 +7634,7 @@ function renderResponsePanel(data){
 function stat(cls,n,lbl){
   return '<div class="sum-stat"><div class="sdot '+cls+'"></div><span class="sn">'+n+'</span><span class="sl">&nbsp;'+lbl+'</span></div>';
 }
-// â”€â”€ Historial â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Historial ───────────────────────────────────────────────────────────────
 var _histData=[];
 var _histSort={col:0,asc:false};
 var _histTab='hist';
@@ -7695,9 +7695,9 @@ function _renderEnvTable(data){
     var activo=r.active!==false;
     h+='<tr>';
     h+='<td style="font-weight:700;font-size:.78rem">'+esc(r.name)+'</td>';
-    h+='<td style="font-size:.75rem;color:var(--txt2)">'+esc(r.label||'â€”')+'</td>';
-    h+='<td style="font-size:.73rem;font-family:monospace;color:var(--acc)">'+esc(r.base_url||'â€”')+'</td>';
-    h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:var(--accd);color:var(--acc)">'+esc(typeLabel[r.env_type]||r.env_type||'â€”')+'</span></td>';
+    h+='<td style="font-size:.75rem;color:var(--txt2)">'+esc(r.label||'—')+'</td>';
+    h+='<td style="font-size:.73rem;font-family:monospace;color:var(--acc)">'+esc(r.base_url||'—')+'</td>';
+    h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:var(--accd);color:var(--acc)">'+esc(typeLabel[r.env_type]||r.env_type||'—')+'</span></td>';
     h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:'+(activo?'var(--okd)':'var(--errd)')+';color:'+(activo?'var(--ok)':'var(--err)')+'">'+( activo?'Activo':'Inactivo')+'</span></td>';
     h+='<td style="white-space:nowrap">';
     h+='<button data-eid="'+r.id+'" onclick="_envEdit(this.dataset.eid)" style="padding:2px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.68rem;cursor:pointer;margin-right:4px">&#9998; Editar</button>';
@@ -7815,7 +7815,7 @@ function _hTabRefresh(){
 }
 function loadHistorial(){
   var body=document.getElementById('hpane-hist');
-  body.innerHTML='<div class="hist-empty">Cargandoâ€¦</div>';
+  body.innerHTML='<div class="hist-empty">Cargando…</div>';
   fetch('/api/historial').then(function(r){return r.json().then(function(j){return{ok:r.ok,data:j};});})
   .then(function(res){
     if(!res.ok||!Array.isArray(res.data)){
@@ -7845,16 +7845,16 @@ function _renderHistorialTable(){
   if(!rows.length){body.innerHTML='<div class="hist-empty">'+(q?'Sin registros para "'+esc(q)+'"':'Sin ejecuciones aún.')+'</div>';return;}
   var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
   _HIST_COLS.forEach(function(c,i){
-    var ico=_histSort.col===i?(_histSort.asc?'â–²':'â–¼'):'â‡…';
+    var ico=_histSort.col===i?(_histSort.asc?'▲':'▼'):'⇅';
     h+='<th onclick="_histSortBy('+i+')">'+esc(c.lbl)+' <span class="sort-ico">'+ico+'</span></th>';
   });
   h+='<th>Acción</th></tr></thead><tbody>';
   rows.forEach(function(r){
     var res=r.resultado||''; var bc=res==='ok'?'ok':'err';
     var vno=r.vno_lbl||r.vno||'';
-    var vnoHtml=vno?'<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</span>':'<span style="color:var(--txt3)">â€”</span>';
+    var vnoHtml=vno?'<span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</span>':'<span style="color:var(--txt3)">—</span>';
     var dir=r.direccion||'';
-    var dirHtml=dir?'<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;white-space:nowrap">'+esc(dir)+'</span>':'<span style="color:var(--txt3);font-size:.68rem">â€”</span>';
+    var dirHtml=dir?'<span style="font-size:.65rem;background:var(--accd);color:var(--acc);border-radius:4px;padding:1px 5px;white-space:nowrap">'+esc(dir)+'</span>':'<span style="color:var(--txt3);font-size:.68rem">—</span>';
     var tiempoSeg=r.tiempo_ms!=null?((r.tiempo_ms/1000).toFixed(1)+'s'):'';
     var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):(r.ts||'');
     h+='<tr>';
@@ -7883,7 +7883,7 @@ function _histDeleteAll(){
 }
 function loadStats(){
   var body=document.getElementById('hpane-stats');
-  body.innerHTML='<div class="hist-empty">Cargandoâ€¦</div>';
+  body.innerHTML='<div class="hist-empty">Cargando…</div>';
   fetch('/api/stats').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)||!data.length){body.innerHTML='<div class="hist-empty">Sin datos aún.</div>';return;}
     var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>';
@@ -7893,11 +7893,11 @@ function loadStats(){
       var total=parseInt(r.total)||0, ok=parseInt(r.ok)||0, fail=parseInt(r.fail)||0;
       var pct=total?Math.round(ok/total*100):0;
       var pc=pct>=80?'ok':pct>=50?'warn':'err';
-      var avg=r.avg_ms!=null?((parseInt(r.avg_ms)/1000).toFixed(1)+'s'):'â€”';
-      var fecha=r.last_run?new Date(r.last_run).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'â€”';
+      var avg=r.avg_ms!=null?((parseInt(r.avg_ms)/1000).toFixed(1)+'s'):'—';
+      var fecha=r.last_run?new Date(r.last_run).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
       h+='<tr>';
       h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
-      h+='<td><span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(r.vno_lbl||r.vno||'â€”')+'</span></td>';
+      h+='<td><span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(r.vno_lbl||r.vno||'—')+'</span></td>';
       h+='<td style="text-align:center;font-variant-numeric:tabular-nums">'+total+'</td>';
       h+='<td style="text-align:center;color:var(--ok);font-variant-numeric:tabular-nums">'+ok+'</td>';
       h+='<td style="text-align:center;color:var(--err);font-variant-numeric:tabular-nums">'+fail+'</td>';
@@ -7912,7 +7912,7 @@ function loadStats(){
 }
 function loadConfig(){
   var body=document.getElementById('hpane-cfg');
-  body.innerHTML='<div class="hist-empty">Cargandoâ€¦</div>';
+  body.innerHTML='<div class="hist-empty">Cargando…</div>';
   fetch('/api/config').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando config.</div>';return;}
     var h='<div style="max-width:560px"><h3 style="margin:0 0 18px;font-size:.85rem;color:var(--txt);font-weight:700">Parámetros del runner</h3>';
@@ -7958,14 +7958,14 @@ function downloadReport(){
 }
 function toggleTheme(){
   var isLight=document.body.classList.toggle('light');
-  document.getElementById('theme-btn').textContent=isLight?'â˜¾':'â˜€';
+  document.getElementById('theme-btn').textContent=isLight?'☾':'☀';
   localStorage.setItem('kmq-theme',isLight?'light':'dark');
 }
 (function(){
   var t=localStorage.getItem('kmq-theme')||'light';
   var btn=document.getElementById('theme-btn');
-  if(t==='light'){document.body.classList.add('light');if(btn)btn.textContent='â˜¾';}
-  else{document.body.classList.remove('light');if(btn)btn.textContent='â˜€';}
+  if(t==='light'){document.body.classList.add('light');if(btn)btn.textContent='☾';}
+  else{document.body.classList.remove('light');if(btn)btn.textContent='☀';}
 })();
 function clearTerm(){
   if(selectedId){
@@ -7994,7 +7994,7 @@ function app(text,cls){
   }
 }
 function col(t){
-  if(/^\\s+âˆš/.test(t)||/^\\s+âœ”/.test(t)) return 'ok';
+  if(/^\\s+√/.test(t)||/^\\s+✔/.test(t)) return 'ok';
   if(/^\\s+\\d+\\.\\s+[A-Z]/.test(t)&&!/GET|POST|PUT|DELETE|PATCH/.test(t)) return 'err';
   if(/^\\s+(GET|POST|PUT|DELETE|PATCH)\\s+https?:/.test(t)) return 'acc';
   if(/expected\\s+|AssertionError/.test(t)) return 'err';
@@ -8007,15 +8007,15 @@ function col(t){
   if(/\\d+ passed/.test(t)&&!/failed/.test(t)) return 'sum-ok';
   if(/\\d+ failed/.test(t)) return 'sum-err';
   if(/warnings? summary/i.test(t)) return 'warn';
-  if(/^[â”€â”‚â”Œâ”â””â”˜â”œâ”¤â”¬â”´â”¼= -]+$/.test(t.trim())) return 'dim';
+  if(/^[─│┌â”└┘├┤┬┴┼= -]+$/.test(t.trim())) return 'dim';
   return '';
 }
 function setIco(id,state){
   var ico=document.getElementById('ico-'+id); if(!ico)return;
   ico.className='si-ico '+state;
-  if(state==='running') ico.innerHTML='<span class="spin">â—Œ</span>';
-  else if(state==='passed') ico.textContent='âœ“';
-  else if(state==='failed') ico.textContent='âœ—';
+  if(state==='running') ico.innerHTML='<span class="spin">◌</span>';
+  else if(state==='passed') ico.textContent='✓';
+  else if(state==='failed') ico.textContent='✗';
   else ico.textContent='·';
 }
 function setActive(id){
@@ -8028,8 +8028,8 @@ function setTop(state,title,txt){
   s.className='top-status'+(state?' '+state:''); s.textContent=txt;
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-// â”€â”€â”€ QA FulFillment Queue (diseño Humberto) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â”€â”€â”€ TC map por funcionalidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── QA FulFillment Queue (diseño Humberto) ──────────────────────────────
+// ─── TC map por funcionalidad ─────────────────────────────────────────────
 var _ATRF_TC_MAP={
   "Factibilidad":                        {"03":"CP01","02":"CP02","05":"CP03","00":"CP03"},
   "Asignación":                          {"03":"CP04","02":"CP05","05":"CP06","00":"CP06"},
@@ -8102,7 +8102,7 @@ function _atrf_updateAmbUrl(){
   var amb=_atrf_getAmb();
   var url=_atrfEnvUrls[amb]||'';
   var el=document.getElementById('atrf-amb-url');
-  if(el){el.style.display=url?'inline':'none';el.textContent=url?('â†’ '+url):''}
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):''}
 }
 
 function _atrf_renderQueue(){
@@ -8118,14 +8118,14 @@ function _atrf_renderQueue(){
     var urlBadge=q.cfg&&q.cfg.ambUrl?('<span class="atrf-url-badge">'+esc(q.cfg.ambUrl)+'</span>'):'';
     rows+='<div class="atrf-qrow" id="atrf-qrow-'+qi+'">'
       +'<div class="atrf-qrow-main">'
-      +'<span class="atrf-qrow-arrow" onclick="event.stopPropagation();_atrf_toggleDetail('+qi+')" id="atrf-qarrow-'+qi+'">â–¶</span>'
+      +'<span class="atrf-qrow-arrow" onclick="event.stopPropagation();_atrf_toggleDetail('+qi+')" id="atrf-qarrow-'+qi+'">▶</span>'
       +'<div class="atrf-qcb'+(q.checked?' on':'')+'" onclick="event.stopPropagation();_atrf_toggleCb('+qi+')" id="atrf-qcb-'+qi+'"></div>'
       +'<div class="atrf-q-info">'
-      +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'â€”')+'</span>'+urlBadge
+      +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'—')+'</span>'+urlBadge
       +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
       +'</div>'
       +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
-      +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">âœ•</button>'
+      +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
       +'</div>'
       +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'">'+_atrf_buildDetailHtml(qi)+'</div>'
       +'</div>';
@@ -8149,7 +8149,7 @@ function _atrf_buildDetailHtml(qi){
     tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
     q.tcResults.forEach(function(r,idx){
       var cls=r.pass?'pass':'fail';
-      var icon=r.pass?'âœ“':'âœ—';
+      var icon=r.pass?'✓':'✗';
       tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
     });
     tcHtml+='</div>';
@@ -8294,7 +8294,7 @@ function _atrf_renderSeq(){
   el.innerHTML='';
   _atrfSel.forEach(function(fi,pos){
     var d=document.createElement('div');d.className='atrf-seq-item';d.draggable=true;d.dataset.pos=pos;
-    d.innerHTML='<span class="atrf-drag-handle">â ¿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_ATRF_FUNCS[fi]||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">Ã—</button>';
+    d.innerHTML='<span class="atrf-drag-handle">⠿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_ATRF_FUNCS[fi]||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">Ã—</button>';
     d.ondragstart=function(e){_atrfDragSrc=pos;e.dataTransfer.effectAllowed='move';d.style.opacity='.4';};
     d.ondragend=function(){d.style.opacity='1';document.querySelectorAll('#atrf-seq-list .atrf-seq-item').forEach(function(x){x.classList.remove('drag-over');});};
     d.ondragover=function(e){e.preventDefault();d.classList.add('drag-over');};
@@ -8397,7 +8397,7 @@ var _ATRF_ENDPOINT_MAP={
   "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation"
 };
 function _atrf_prettyJson(s){
-  if(!s||s==='â€”')return s||'â€”';
+  if(!s||s==='—')return s||'—';
   try{return JSON.stringify(JSON.parse(s),null,2);}catch(e){return s;}
 }
 function _atrf_tcTab(t){
@@ -8413,10 +8413,10 @@ function _atrf_openTcModal(qi,idx){
   var r=q.tcResults[idx];if(!r)return;
   document.getElementById('atrf-tc-modal-title').textContent=r.tc;
   document.getElementById('atrf-tc-modal-func').textContent=r.func;
-  var vnoLabel=_ATRF_TC_VNO_LABEL[(q.cfg&&q.cfg.vno)||'']||((q.cfg&&q.cfg.vno)||'â€”');
+  var vnoLabel=_ATRF_TC_VNO_LABEL[(q.cfg&&q.cfg.vno)||'']||((q.cfg&&q.cfg.vno)||'—');
   document.getElementById('atrf-tc-modal-vno').textContent=vnoLabel;
   var badge=document.getElementById('atrf-tc-modal-badge');
-  badge.textContent=r.pass?'âœ“ Pasó':'âœ— Falló';
+  badge.textContent=r.pass?'✓ Pasó':'✗ Falló';
   badge.className='atrf-badge '+(r.pass?'atrf-badge-ok':'atrf-badge-err');
   document.getElementById('atrf-tc-modal-endpoint').textContent=_ATRF_ENDPOINT_MAP[r.func]||'/api/'+r.func;
   var stBadge=document.getElementById('atrf-tc-status-badge');
@@ -8424,8 +8424,8 @@ function _atrf_openTcModal(qi,idx){
   stBadge.textContent=code?String(code):'';
   stBadge.style.background=r.pass?'rgba(0,200,100,.18)':'rgba(240,60,60,.18)';
   stBadge.style.color=r.pass?'var(--atrf-green)':'var(--atrf-red)';
-  document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(r.req||'â€”');
-  document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(r.res||'â€”');
+  document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(r.req||'—');
+  document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(r.res||'—');
   var nwmTab=document.getElementById('atrf-tc-tab-nwm');
   var nwmEl=document.getElementById('atrf-tc-modal-nwm');
   if(r.newmanOut){nwmTab.style.display='';nwmEl.textContent=r.newmanOut;}
@@ -8437,11 +8437,11 @@ function _atrf_closeTcModal(){document.getElementById('atrf-modal-tc').classList
 function _atrf_openView(qi){
   _atrfViewIdx=qi;var q=_atrfQueue[qi];
   document.getElementById('atrf-view-name').value=q.name||'';
-  document.getElementById('atrf-view-ts').textContent=q.ts||'â€”';
+  document.getElementById('atrf-view-ts').textContent=q.ts||'—';
   _atrf_switchView('cfg');
   var c=q.cfg||{};
-  var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'â€”'],['Tipo Dirección',c.tdir],['Dirección',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo Ejecución',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'â€”'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'â€”']];
-  document.getElementById('atrf-vcfg-grid').innerHTML=fields.map(function(f){return'<div class="atrf-dcfg-item"><div class="atrf-dcfg-lbl">'+f[0]+'</div><div class="atrf-dcfg-val">'+(f[1]||'â€”')+'</div></div>';}).join('');
+  var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'—'],['Tipo Dirección',c.tdir],['Dirección',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo Ejecución',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'—'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'—']];
+  document.getElementById('atrf-vcfg-grid').innerHTML=fields.map(function(f){return'<div class="atrf-dcfg-item"><div class="atrf-dcfg-lbl">'+f[0]+'</div><div class="atrf-dcfg-val">'+(f[1]||'—')+'</div></div>';}).join('');
   document.getElementById('atrf-vfunc-list').innerHTML=(q.funcs||[]).map(function(fi,i){return'<div class="atrf-view-func-item"><span class="atrf-view-func-pos">'+(i+1)+'</span><span>'+(_ATRF_FUNCS[fi]||fi)+'</span></div>';}).join('');
   document.getElementById('atrf-modal-view').classList.add('show');
 }
@@ -8459,12 +8459,12 @@ async function _atrf_runSelected(){
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
   if(!toRun.length){if(typeof showToast==='function')showToast('No hay secuencias seleccionadas en espera','err');return;}
   _atrfRunning=true;
-  var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='â³ Ejecutandoâ€¦';btn.disabled=true;}
+  var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='â³ Ejecutando…';btn.disabled=true;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
   for(var qi=0;qi<_atrfQueue.length;qi++){
     var q=_atrfQueue[qi];
     if(!q.checked||q.status!=='espera')continue;
-    if(prog)prog.textContent=(qi+1)+'/'+_atrfQueue.length+' â†’ '+q.name;
+    if(prog)prog.textContent=(qi+1)+'/'+_atrfQueue.length+' → '+q.name;
     q.status='ejecutando';
     var stEl=document.getElementById('atrf-qst-'+qi);
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
@@ -8475,7 +8475,7 @@ async function _atrf_runSelected(){
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
       var tc=tcMap[vno];if(!tc)continue;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
-      if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' â†’ '+fn;
+      if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0;
       try{
         var resp=await fetch('/api/atrf/run-step',{
@@ -8496,7 +8496,7 @@ async function _atrf_runSelected(){
         var newmanOut='';
         if(resp.status===501){
           var p2=Math.random()>0.25;
-          pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado â€” pendiente implementar)';
+          pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado — pendiente implementar)';
         } else {
           var rd=await resp.json();
           if(rd.mode==='direct'){
@@ -8544,22 +8544,22 @@ async function _atrf_runSelected(){
   }
   _atrfRunning=false;
   if(prog)prog.style.display='none';
-  if(btn){btn.textContent='â–¶ Ejecutar seleccionadas';btn.disabled=false;}
+  if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
 }
 </script>
-<!-- â”€â”€ ATRF Modal TC Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
 <div class="atrf-overlay" id="atrf-modal-tc">
   <div class="atrf-modal" style="max-width:860px">
     <div class="atrf-modal-head">
       <div class="atrf-modal-head-title" id="atrf-tc-modal-title">TC</div>
       <span id="atrf-tc-modal-badge" class="atrf-badge" style="margin-left:6px"></span>
       <div style="flex:1"></div>
-      <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeTcModal()">âœ• Cerrar</button>
+      <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeTcModal()">✕ Cerrar</button>
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);font-size:11px">
       <span style="background:#3c6ff5;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--atrf-mono);font-weight:700;font-size:10px">POST</span>
-      <span id="atrf-tc-modal-endpoint" style="font-family:var(--atrf-mono);color:var(--atrf-text2)">â€”</span>
-      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">â€”</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">â€”</b></span>
+      <span id="atrf-tc-modal-endpoint" style="font-family:var(--atrf-mono);color:var(--atrf-text2)">—</span>
+      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">—</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">—</b></span>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--atrf-border)">
       <button id="atrf-tc-tab-req" class="atrf-tc-tab active" onclick="_atrf_tcTab('req')">Body (Request)</button>
@@ -8580,16 +8580,16 @@ async function _atrf_runSelected(){
     <div class="atrf-modal-footer"><button class="atrf-btn" onclick="_atrf_closeTcModal()">Cerrar</button></div>
   </div>
 </div>
-<!-- â”€â”€ ATRF Modal Nueva Secuencia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── ATRF Modal Nueva Secuencia ─────────────────────────────────────────── -->
 <div class="atrf-overlay" id="atrf-modal-new">
   <div class="atrf-modal">
     <div class="atrf-modal-head">
-      <div class="atrf-modal-head-title">Nueva secuencia â€”</div>
-      <input type="text" class="atrf-name-inp" id="atrf-seq-name" placeholder="Nombre de la secuenciaâ€¦"/>
+      <div class="atrf-modal-head-title">Nueva secuencia —</div>
+      <input type="text" class="atrf-name-inp" id="atrf-seq-name" placeholder="Nombre de la secuencia…"/>
       <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_closeNew()">Cancelar</button>
       <button class="atrf-btn atrf-btn-sm atrf-btn-primary" onclick="_atrf_enqueue()">Encolar</button>
     </div>
-    <div class="atrf-ts-row">Fecha registro: <span id="atrf-seq-ts">â€”</span></div>
+    <div class="atrf-ts-row">Fecha registro: <span id="atrf-seq-ts">—</span></div>
     <div class="atrf-val-err" id="atrf-val-err"></div>
     <div class="atrf-tabs">
       <div class="atrf-tab active" id="atrf-ntab-cfg" onclick="_atrf_switchTab('cfg')">Configuración</div>
@@ -8598,7 +8598,7 @@ async function _atrf_runSelected(){
     <div class="atrf-modal-body" id="atrf-nbody-cfg">
       <div class="atrf-grid">
         <div class="atrf-field atrf-col-12">
-          <label>Ambiente <span class="req">â˜…</span></label>
+          <label>Ambiente <span class="req">★</span></label>
           <div class="atrf-amb-wrap" id="atrf-amb-wrap">
             <input type="radio" name="atrf-amb" id="atrf-amb-qa" value="QA" class="atrf-amb-radio" onchange="_atrf_onAmbChange()" checked/>
             <label for="atrf-amb-qa" class="atrf-amb-lbl">QA</label>
@@ -8612,7 +8612,7 @@ async function _atrf_runSelected(){
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Datos base</div>
         <div class="atrf-field atrf-col-5">
-          <label>VNO <span class="req">â˜…</span></label>
+          <label>VNO <span class="req">★</span></label>
           <div class="atrf-vno-checks" id="atrf-vno-checks">
             <span class="atrf-vno-lbl" data-vno="00" onclick="_atrf_toggleVno(this)">00</span>
             <span class="atrf-vno-lbl" data-vno="02" onclick="_atrf_toggleVno(this)">02</span>
@@ -8622,45 +8622,45 @@ async function _atrf_runSelected(){
           <div class="atrf-vno-multi-note" id="atrf-vno-multi-note">Genera una fila por VNO con Access ID y S/N independientes</div>
         </div>
         <div class="atrf-field atrf-col-3">
-          <label>Tipo dirección <span class="req">â˜…</span></label>
+          <label>Tipo dirección <span class="req">★</span></label>
           <select id="atrf-tdir">
             <option value="XYGO">XYGO</option><option value="OSP">OSP</option>
             <option value="SGO">SGO</option><option value="MANUAL">MANUAL</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-5">
-          <label>Dirección <span class="req">â˜…</span></label>
+          <label>Dirección <span class="req">★</span></label>
           <input type="text" id="atrf-dir" placeholder="Ingresa la dirección"/>
         </div>
         <div class="atrf-field atrf-col-4">
-          <label>Access ID <span class="req">â˜…</span>
+          <label>Access ID <span class="req">★</span>
             <span class="atrf-tag" id="atrf-auto-aid" onclick="_atrf_toggleAuto('aid')">Auto</span>
           </label>
-          <input type="text" id="atrf-aid" placeholder="â€”" oninput="_atrf_onAidInput()"/>
+          <input type="text" id="atrf-aid" placeholder="—" oninput="_atrf_onAidInput()"/>
           <span class="atrf-hint">VNO · Ambiente · Dirección · HH:MM</span>
         </div>
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Servicio</div>
         <div class="atrf-field atrf-col-3">
-          <label>Tipo servicio <span class="req">â˜…</span></label>
+          <label>Tipo servicio <span class="req">★</span></label>
           <select id="atrf-tsvc">
             <option value="FTTH">FTTH</option><option value="FTTE">FTTE</option>
             <option value="SSAA">SSAA</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-3">
-          <label>Escenario <span class="req">â˜…</span></label>
+          <label>Escenario <span class="req">★</span></label>
           <select id="atrf-esc">
-            <option value="">â€” Selecciona â€”</option>
+            <option value="">— Selecciona —</option>
             <option value="Instalación">Instalación</option>
             <option value="Reparación">Reparación</option>
             <option value="Retiro de Drop">Retiro de Drop</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-3">
-          <label>Tipo ejecución <span class="req">â˜…</span></label>
+          <label>Tipo ejecución <span class="req">★</span></label>
           <select id="atrf-tex">
-            <option value="">â€” Selecciona â€”</option>
+            <option value="">— Selecciona —</option>
             <option value="Síncrono">Síncrono</option>
             <option value="Asíncrono">Asíncrono</option>
           </select>
@@ -8688,7 +8688,7 @@ async function _atrf_runSelected(){
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Plan / Perfil</div>
         <div class="atrf-field atrf-col-3">
-          <label>Plan / Perfil <span class="req">â˜…</span></label>
+          <label>Plan / Perfil <span class="req">★</span></label>
           <select id="atrf-plan">
             <option selected>600/600</option>
             <option>800/800</option><option>940/940</option>
@@ -8704,11 +8704,11 @@ async function _atrf_runSelected(){
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Serial Numbers</div>
         <div class="atrf-field atrf-col-5">
-          <label>Serial Number <span class="req">â˜…</span>
+          <label>Serial Number <span class="req">★</span>
             <span class="atrf-tag" id="atrf-auto-sn" onclick="_atrf_toggleAuto('sn')">Auto</span>
             <span class="atrf-slen" id="atrf-sn-len">0 car.</span>
           </label>
-          <input type="text" id="atrf-sn" placeholder="â€”" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
+          <input type="text" id="atrf-sn" placeholder="—" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
           <span class="atrf-hint">Prefijo VNO + MM DD HH mm · 12 o 16 car.</span>
         </div>
         <div class="atrf-field atrf-col-5">
@@ -8716,7 +8716,7 @@ async function _atrf_runSelected(){
             <span class="atrf-tag" id="atrf-auto-nsn" onclick="_atrf_toggleAuto('nsn')">Auto</span>
             <span class="atrf-slen" id="atrf-nsn-len">0 car.</span>
           </label>
-          <input type="text" id="atrf-nsn" placeholder="â€”" oninput="_atrf_onSnEdit('atrf-nsn','atrf-nsn-len')"/>
+          <input type="text" id="atrf-nsn" placeholder="—" oninput="_atrf_onSnEdit('atrf-nsn','atrf-nsn-len')"/>
         </div>
       </div>
     </div>
@@ -8740,16 +8740,16 @@ async function _atrf_runSelected(){
     </div>
   </div>
 </div>
-<!-- â”€â”€ ATRF Modal Ver Secuencia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── ATRF Modal Ver Secuencia ──────────────────────────────────────────── -->
 <div class="atrf-overlay" id="atrf-modal-view">
   <div class="atrf-modal">
     <div class="atrf-modal-head">
-      <div class="atrf-modal-head-title">Secuencia â€”</div>
+      <div class="atrf-modal-head-title">Secuencia —</div>
       <input type="text" class="atrf-name-inp" id="atrf-view-name" readonly style="background:transparent;border-color:transparent;font-size:14px;color:var(--atrf-text)"/>
       <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_deleteFromView()">Eliminar</button>
-      <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeView()">âœ• Cerrar</button>
+      <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeView()">✕ Cerrar</button>
     </div>
-    <div class="atrf-ts-row">Fecha registro: <span id="atrf-view-ts">â€”</span></div>
+    <div class="atrf-ts-row">Fecha registro: <span id="atrf-view-ts">—</span></div>
     <div class="atrf-tabs">
       <div class="atrf-tab active" id="atrf-vtab-cfg" onclick="_atrf_switchView('cfg')">Configuración</div>
       <div class="atrf-tab" id="atrf-vtab-funcs" onclick="_atrf_switchView('funcs')">Funcionalidades</div>
@@ -8759,11 +8759,11 @@ async function _atrf_runSelected(){
     <div class="atrf-modal-footer"><button class="atrf-btn" onclick="_atrf_closeView()">Cerrar</button></div>
   </div>
 </div>
-<!-- â”€â”€ Global Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+<!-- ── Global Form Modal ─────────────────────────────────────────────────── -->
 <div id="gf-modal">
   <div class="gfm-card">
     <div class="gfm-hdr">
-      <span class="gfm-hdr-ttl">Nueva secuencia â€”</span>
+      <span class="gfm-hdr-ttl">Nueva secuencia —</span>
       <input class="gfm-name-inp" id="gfm-name" placeholder="Nombre de la secuencia..." />
       <button class="gfm-btn-c" onclick="closeGFModal()">Cancelar</button>
       <button class="gfm-btn-ok" onclick="applyGFModal()">Aplicar</button>
@@ -8775,10 +8775,10 @@ async function _atrf_runSelected(){
       <span class="gfm-tab" id="gfmt-func" onclick="switchGFMTab('func')">Funcionalidades (<span id="gfm-seq-count">0</span>)</span>
     </div>
     <div class="gfm-body">
-      <!-- â”€â”€ CONFIGURACIÃ“N â”€â”€ -->
+      <!-- ── CONFIGURACIÃ“N ── -->
       <div class="gfm-tc active" id="gfmc-cfg">
         <div class="gfm-sec">
-          <div class="gfm-sec-ttl">Ambiente <span class="r">â˜…</span></div>
+          <div class="gfm-sec-ttl">Ambiente <span class="r">★</span></div>
           <div class="gfm-env" id="gfm-env-group">
             <span class="gfm-ec on" data-env="QA"   onclick="selectEnv(this)">QA</span>
             <span class="gfm-ec"    data-env="PRD"  onclick="selectEnv(this)">PRD</span>
@@ -8789,7 +8789,7 @@ async function _atrf_runSelected(){
           <div class="gfm-sec-ttl">Datos base</div>
           <div class="gfm-row">
             <div class="gf-f">
-              <label>VNO <span class="r">â˜…</span></label>
+              <label>VNO <span class="r">★</span></label>
               <select id="gf-vno" class="gfm-wsm" onchange="_autoGenAccessId(true)">
                 <option value="00">00</option><option value="01">01</option>
                 <option value="02">02</option><option value="03">03</option>
@@ -8797,7 +8797,7 @@ async function _atrf_runSelected(){
               </select>
             </div>
             <div class="gf-f">
-              <label>Tipo de dirección <span class="r">â˜…</span></label>
+              <label>Tipo de dirección <span class="r">★</span></label>
               <select id="gf-addrtype" class="gfm-wmd">
                 <option value="XYGO">XYGO</option>
                 <option value="OSP">OSP</option>
@@ -8806,7 +8806,7 @@ async function _atrf_runSelected(){
               </select>
             </div>
             <div class="gf-f gfm-fw">
-              <label>Dirección <span class="r">â˜…</span>
+              <label>Dirección <span class="r">★</span>
                 <span class="gfm-pill amber" id="gfm-por-pos">POR POSICIÃ“N</span>
               </label>
               <input id="gf-addr" class="gfm-fw" placeholder="ej: dddddd" oninput="_autoGenAccessId(true)" />
@@ -8814,7 +8814,7 @@ async function _atrf_runSelected(){
           </div>
           <div class="gfm-row" style="margin-top:4px">
             <div class="gf-f gfm-fw">
-              <label>Access ID <span class="r">â˜…</span>
+              <label>Access ID <span class="r">★</span>
                 <span class="gfm-pill blue" id="gfm-auto-badge">AUTO</span>
               </label>
               <div class="gfm-ar">
@@ -8829,21 +8829,21 @@ async function _atrf_runSelected(){
           <div class="gfm-sec-ttl">Servicio</div>
           <div class="gfm-row">
             <div class="gf-f gfm-wmd">
-              <label>Tipo de servicio <span class="r">â˜…</span></label>
+              <label>Tipo de servicio <span class="r">★</span></label>
               <select id="gf-stype">
                 <option value="FTTH">FTTH</option>
                 <option value="SSAA">SSAA</option>
               </select>
             </div>
             <div class="gf-f gfm-wmd">
-              <label>Escenario <span class="r">â˜…</span></label>
+              <label>Escenario <span class="r">★</span></label>
               <select id="ia-scenario" onchange="document.getElementById('ia-esc-badge')&&(document.getElementById('ia-esc-badge').textContent=this.value)">
                 <option value="Instalación" selected>Instalación</option>
                 <option value="Reparación">Reparación</option>
               </select>
             </div>
             <div class="gf-f gfm-wmd">
-              <label>Tipo de ejecución <span class="r">â˜…</span></label>
+              <label>Tipo de ejecución <span class="r">★</span></label>
               <select id="gf-exec">
                 <option value="Síncrono">Síncrono</option>
                 <option value="Asíncrono">Asíncrono</option>
@@ -8862,7 +8862,7 @@ async function _atrf_runSelected(){
           <div class="gfm-sec-ttl">Plan / Perfil</div>
           <div class="gfm-row">
             <div class="gf-f gfm-wmd">
-              <label>Plan / Perfil <span class="r">â˜…</span></label>
+              <label>Plan / Perfil <span class="r">★</span></label>
               <select id="gf-speed">
                 <option value="100/10">100/10</option><option value="100/100">100/100</option>
                 <option value="300/300">300/300</option><option value="400/400" selected>400/400</option>
@@ -8885,22 +8885,22 @@ async function _atrf_runSelected(){
           <div class="gfm-sec-ttl">Serial Numbers</div>
           <div class="gfm-row">
             <div class="gf-f gfm-fw">
-              <label>Serial Number <span class="r">â˜…</span>
+              <label>Serial Number <span class="r">★</span>
                 <span class="gfm-pill grn" id="gfm-schar">0 CAR.</span>
               </label>
               <div class="gfm-ar">
-                <input id="gf-serial" class="mono gfm-fw" placeholder="â€”"
+                <input id="gf-serial" class="mono gfm-fw" placeholder="—"
                   oninput="_updateSerialCharCounter();_updateActivAccessPreview();_updateDmAccessPreview();_updateCancelPreview();" />
                 <button class="gfm-abtn grn" onclick="_autoGenSerial()">Auto</button>
               </div>
-              <div class="gfm-hint">Prefijo VNO + MM DD HH mm â€” 12 o 16 car.</div>
+              <div class="gfm-hint">Prefijo VNO + MM DD HH mm — 12 o 16 car.</div>
             </div>
             <div class="gf-f gfm-fw">
               <label>Nuevo Serial Number
                 <span class="gfm-pill grn" id="gfm-nschar">0 CAR.</span>
               </label>
               <div class="gfm-ar">
-                <input id="gf-newserial" class="mono gfm-fw" placeholder="â€”"
+                <input id="gf-newserial" class="mono gfm-fw" placeholder="—"
                   oninput="_updateNSerialCharCounter();" />
                 <button class="gfm-abtn grn" onclick="_autoGenNewSerial()">Auto</button>
               </div>
@@ -8913,28 +8913,28 @@ async function _atrf_runSelected(){
             <div class="gf-f">
               <label>BA</label>
               <select id="gf-ba" style="min-width:95px">
-                <option value="true" selected>Con BA âœ“</option>
-                <option value="false">Sin BA âœ—</option>
+                <option value="true" selected>Con BA ✓</option>
+                <option value="false">Sin BA ✗</option>
               </select>
             </div>
             <div class="gf-f">
               <label>VoIP</label>
               <select id="gf-voip" style="min-width:104px">
-                <option value="true" selected>Con VoIP âœ“</option>
-                <option value="false">Sin VoIP âœ—</option>
+                <option value="true" selected>Con VoIP ✓</option>
+                <option value="false">Sin VoIP ✗</option>
               </select>
             </div>
             <div class="gf-f">
               <label>IPTV</label>
               <select id="gf-iptv" style="min-width:100px">
-                <option value="true" selected>Con IPTV âœ“</option>
-                <option value="false">Sin IPTV âœ—</option>
+                <option value="true" selected>Con IPTV ✓</option>
+                <option value="false">Sin IPTV ✗</option>
               </select>
             </div>
           </div>
         </div>
       </div>
-      <!-- â”€â”€ FUNCIONALIDADES â”€â”€ -->
+      <!-- ── FUNCIONALIDADES ── -->
       <div class="gfm-tc" id="gfmc-func">
         <div class="gfm-funcs">
           <div class="gfm-flist">
@@ -8959,7 +8959,7 @@ async function _atrf_runSelected(){
 </body>
 </html>"""
 
-# â”€â”€â”€ Generar env files desde variables de entorno (Railway/producción) â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Generar env files desde variables de entorno (Railway/producción) ────────
 def _generate_env_files():
     """Si existen las env vars, genera los archivos .postman_environment.json."""
     print(f"  [env] BP_DIR = {BP_DIR}  (existe: {BP_DIR.exists()})")
@@ -8969,7 +8969,7 @@ def _generate_env_files():
     print(f"  [env] SN_CONSUMER_KEY={'SET' if ck else 'NO ENCONTRADA'}")
     print(f"  [env] SN_CONSUMER_SECRET={'SET' if cs else 'NO ENCONTRADA'}")
     if not (ck and cs):
-        print("  [env] ADVERTENCIA: sin credenciales APIM â†’ los archivos .postman_environment.json deben existir localmente")
+        print("  [env] ADVERTENCIA: sin credenciales APIM → los archivos .postman_environment.json deben existir localmente")
         return
 
     def _write(path, name, idvno, access_id, serial, speed, addr_id, addr_mcd, ck_vno=None, cs_vno=None):
@@ -9084,7 +9084,7 @@ def _generate_env_files():
         print(f"  [env] generado: {dev_path.name}")
 
 
-# â”€â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     try:
         import uvicorn
