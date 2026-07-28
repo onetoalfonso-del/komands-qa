@@ -3612,9 +3612,10 @@ async def atrf_run_step(request: Request):
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
-        auth_b64 = _b64.b64encode(
-            f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()
-        ).decode()
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
             _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
@@ -3637,16 +3638,33 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        direct_url = f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment"
-        return JSONResponse({
-            "mode": "direct",
-            "directUrl": direct_url,
-            "token": token,
-            "vno": vno,
-            "func": func_name,
-            "req": req_body_str,
-            "body": req_body_dict,
-        })
+        _asgn_url = f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_asgn_url,
+                data=_j.dumps(req_body_dict).encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = _http_code in (200, 201) and _rc not in ("1",)
+        except Exception:
+            _pass = _http_code in (200, 201)
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
+                             "vno": vno, "func": func_name, "httpCode": _http_code})
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
@@ -3658,9 +3676,10 @@ async def atrf_run_step(request: Request):
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
-        auth_b64 = _b64.b64encode(
-            f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()
-        ).decode()
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
             _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
@@ -3679,16 +3698,33 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        direct_url = f"{apim_url.rstrip('/')}/fullFillment-cancelServiceOrder/v1/oossCancellation"
-        return JSONResponse({
-            "mode": "direct",
-            "directUrl": direct_url,
-            "token": token,
-            "vno": vno,
-            "func": func_name,
-            "req": req_body_str,
-            "body": req_body_dict,
-        })
+        _cncl_url = f"{apim_url.rstrip('/')}/fullFillment-cancelServiceOrder/v1/oossCancellation"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_cncl_url,
+                data=_j.dumps(req_body_dict).encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = _http_code in (200, 201) and _rc not in ("1",)
+        except Exception:
+            _pass = _http_code in (200, 201)
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
+                             "vno": vno, "func": func_name, "httpCode": _http_code})
 
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
