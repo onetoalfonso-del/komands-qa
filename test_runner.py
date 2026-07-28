@@ -3726,6 +3726,74 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
+    # ── Intervención Asegurada: Inicio / Finalización / Cancelación ──────────
+    _IA_ENDPOINTS = {
+        "Inicio Intervención Asegurada":       "/fullFillment-gIntervention/v1/assuredIntervention",
+        "Finalización Intervención Asegurada": "/fullFillment-finalization/v1/interventionFinalization",
+        "Cancelación Intervención Asegurada":  "/fullFillment-cancelIntervention/v1/interventionCancellation",
+    }
+    if func_name in _IA_ENDPOINTS:
+        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
+        token = ""
+        try:
+            _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        if func_name == "Inicio Intervención Asegurada":
+            req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
+                             "u_scenario": "instalacion", "u_service_type": svc_type}
+        elif func_name == "Finalización Intervención Asegurada":
+            req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
+                             "u_scenario": "Instalación", "u_service_type": svc_type}
+        else:  # Cancelación
+            req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
+                             "u_service_type": svc_type}
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        _ia_url = f"{apim_url.rstrip('/')}{_IA_ENDPOINTS[func_name]}"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_ia_url,
+                data=_j.dumps(req_body_dict).encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = _http_code in (200, 201) and _rc not in ("1",)
+        except Exception:
+            _pass = _http_code in (200, 201)
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
+                             "vno": vno, "func": func_name, "httpCode": _http_code})
+
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
 
