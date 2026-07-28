@@ -45,10 +45,16 @@ QA_ASSIGNMENT_FOLDER_MAP = {
     "05": "assigment-DTV",
 }
 QA_ASSIGNMENT_OPERATION_TYPE = {
-    "00": "A",
+    "00": "Alta",
     "02": "Alta",
-    "03": "A",
+    "03": "Alta",
     "05": "A",
+}
+QA_ASSIGNMENT_ADDRESS_MCD = {
+    "00": "",
+    "02": "OSP",
+    "03": "XYGO",
+    "05": "OSP",
 }
 QA_IA_VNO_SUBFOLDER = {
     "00": "TCH",
@@ -3493,7 +3499,7 @@ async def atrf_run_step(request: Request):
     func_name   = body.get("func", "")
     vno         = body.get("vno", "02")
     direccion   = body.get("direccion", "")
-    address_mcd = body.get("addressMcd", "OSP")
+    address_mcd = body.get("addressMcd") or QA_ASSIGNMENT_ADDRESS_MCD.get(vno, "OSP")
     svc_type    = body.get("serviceType", "FTTH")
     access_id   = body.get("accessId", "")
     serial_num  = body.get("serialNumber", "")
@@ -8469,8 +8475,10 @@ function _atrf_prettyJson(s){
 function _atrf_tcTab(t){
   document.getElementById('atrf-tc-panel-req').style.display=t==='req'?'block':'none';
   document.getElementById('atrf-tc-panel-res').style.display=t==='res'?'block':'none';
+  document.getElementById('atrf-tc-panel-nwm').style.display=t==='nwm'?'block':'none';
   document.getElementById('atrf-tc-tab-req').classList.toggle('active',t==='req');
   document.getElementById('atrf-tc-tab-res').classList.toggle('active',t==='res');
+  document.getElementById('atrf-tc-tab-nwm').classList.toggle('active',t==='nwm');
 }
 function _atrf_openTcModal(qi,idx){
   var q=_atrfQueue[qi];if(!q||!q.tcResults)return;
@@ -8490,6 +8498,10 @@ function _atrf_openTcModal(qi,idx){
   stBadge.style.color=r.pass?'var(--atrf-green)':'var(--atrf-red)';
   document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(r.req||'—');
   document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(r.res||'—');
+  var nwmTab=document.getElementById('atrf-tc-tab-nwm');
+  var nwmEl=document.getElementById('atrf-tc-modal-nwm');
+  if(r.newmanOut){nwmTab.style.display='';nwmEl.textContent=r.newmanOut;}
+  else{nwmTab.style.display='none';nwmEl.textContent='';}
   _atrf_tcTab('req');
   document.getElementById('atrf-modal-tc').classList.add('show');
 }
@@ -8543,7 +8555,7 @@ async function _atrf_runSelected(){
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({func:fn,vno:vno,
             direccion:q.cfg.direccion||'',
-            addressMcd:q.cfg.tdir||'OSP',
+            addressMcd:q.cfg.tdir||'',
             serviceType:q.cfg.tsvc||'FTTH',
             accessId:q.cfg.accessId||'',
             serialNumber:q.cfg.sn||'',
@@ -8553,6 +8565,7 @@ async function _atrf_runSelected(){
             serviceBa:q.cfg.ba!==false,
             serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false})});
+        var newmanOut='';
         if(resp.status===501){
           var p2=Math.random()>0.25;
           pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado — pendiente implementar)';
@@ -8563,11 +8576,12 @@ async function _atrf_runSelected(){
           res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
           if(rd.error&&!rd.req)res_s='Error: '+rd.error;
           httpCode=rd.httpCode||0;
+          newmanOut=rd.newmanOut||'';
         }
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
-      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode});
+      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
@@ -8598,6 +8612,7 @@ async function _atrf_runSelected(){
     <div style="display:flex;border-bottom:1px solid var(--atrf-border)">
       <button id="atrf-tc-tab-req" class="atrf-tc-tab active" onclick="_atrf_tcTab('req')">Body (Request)</button>
       <button id="atrf-tc-tab-res" class="atrf-tc-tab" onclick="_atrf_tcTab('res')">Response <span id="atrf-tc-status-badge" style="font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px"></span></button>
+      <button id="atrf-tc-tab-nwm" class="atrf-tc-tab" onclick="_atrf_tcTab('nwm')" style="display:none">Newman Log</button>
     </div>
     <div class="atrf-modal-body" style="padding:0">
       <div id="atrf-tc-panel-req" style="display:block">
@@ -8605,6 +8620,9 @@ async function _atrf_runSelected(){
       </div>
       <div id="atrf-tc-panel-res" style="display:none">
         <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-res" style="border-radius:0;border:none;border-bottom:none;margin:0;max-height:380px"></pre>
+      </div>
+      <div id="atrf-tc-panel-nwm" style="display:none">
+        <pre class="atrf-tc-modal-pre" id="atrf-tc-modal-nwm" style="border-radius:0;border:none;border-bottom:none;margin:0;max-height:380px;font-size:10px;white-space:pre-wrap"></pre>
       </div>
     </div>
     <div class="atrf-modal-footer"><button class="atrf-btn" onclick="_atrf_closeTcModal()">Cerrar</button></div>
