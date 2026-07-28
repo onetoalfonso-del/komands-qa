@@ -8426,6 +8426,34 @@ function _atrf_openTcModal(qi,idx){
   stBadge.style.color=r.pass?'var(--atrf-green)':'var(--atrf-red)';
   document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(r.req||'—');
   document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(r.res||'—');
+  // Banner y código de retorno API
+  var _retCode='',_retDesc='',_retDetail='';
+  try{
+    var _rj=JSON.parse(r.res||'{}');
+    var _rr=_rj.result||_rj;
+    _retCode=String(_rr.u_return_code||_rr.returnCode||'');
+    _retDesc=_rr.u_return_code_desc||_rr.returnCodeDesc||'';
+    _retDetail=_rr.u_error_detail||_rr.errorDetail||'';
+  }catch(e){}
+  var _rcEl=document.getElementById('atrf-tc-modal-retcode');
+  var _rcVal=document.getElementById('atrf-tc-modal-retcode-val');
+  var _banner=document.getElementById('atrf-tc-api-banner');
+  var _bannerIcon=document.getElementById('atrf-tc-api-banner-icon');
+  var _bannerMsg=document.getElementById('atrf-tc-api-banner-msg');
+  var _bannerDetail=document.getElementById('atrf-tc-api-banner-detail');
+  if(_retCode){
+    _rcEl.style.display='';_rcVal.textContent=_retCode;
+    var _isOk=_retCode==='0'||_retCode==='21';
+    var _isWarn=!_isOk&&_retCode!=='1';
+    _banner.style.display='flex';
+    _banner.style.background=_isOk?'rgba(0,180,90,.10)':_isWarn?'rgba(240,160,0,.10)':'rgba(220,50,50,.10)';
+    _bannerIcon.textContent=_isOk?'✅':_isWarn?'⚠️':'❌';
+    _bannerMsg.textContent='Código '+_retCode+(_retDesc?' · '+_retDesc:'');
+    _bannerMsg.style.color=_isOk?'var(--atrf-green)':_isWarn?'#c8820a':'var(--atrf-red)';
+    _bannerDetail.textContent=_retDetail||'';
+  } else {
+    _rcEl.style.display='none';_banner.style.display='none';
+  }
   var nwmTab=document.getElementById('atrf-tc-tab-nwm');
   var nwmEl=document.getElementById('atrf-tc-modal-nwm');
   if(r.newmanOut){nwmTab.style.display='';nwmEl.textContent=r.newmanOut;}
@@ -8559,7 +8587,12 @@ async function _atrf_runSelected(){
     <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);font-size:11px">
       <span style="background:#3c6ff5;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--atrf-mono);font-weight:700;font-size:10px">POST</span>
       <span id="atrf-tc-modal-endpoint" style="font-family:var(--atrf-mono);color:var(--atrf-text2)">—</span>
-      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">—</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">—</b></span>
+      <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">—</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">—</b> &nbsp;<span id="atrf-tc-modal-retcode" style="display:none">&nbsp;·&nbsp; Cód <b id="atrf-tc-modal-retcode-val"></b></span></span>
+    </div>
+    <div id="atrf-tc-api-banner" style="display:none;align-items:center;gap:8px;padding:7px 16px;font-size:12px;border-bottom:1px solid var(--atrf-border)">
+      <span id="atrf-tc-api-banner-icon" style="font-size:14px"></span>
+      <span id="atrf-tc-api-banner-msg" style="font-weight:500"></span>
+      <span id="atrf-tc-api-banner-detail" style="color:var(--atrf-text2);font-size:11px"></span>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--atrf-border)">
       <button id="atrf-tc-tab-req" class="atrf-tc-tab active" onclick="_atrf_tcTab('req')">Body (Request)</button>
