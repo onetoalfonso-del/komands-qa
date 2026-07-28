@@ -3637,71 +3637,16 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
-        col_tmp_o = _cp.deepcopy(col_src)
-        for sec in col_tmp_o.get("item", []):
-            if "Assignment" in sec.get("name", ""):
-                for req in sec.get("item", []):
-                    if req.get("name", "") == folder_name:
-                        b = req.get("request", {}).get("body", {})
-                        if b.get("mode") == "raw":
-                            b["raw"] = req_body_str
-        run_id   = _uid.uuid4().hex[:8]
-        tmp_col  = str(QA_DIR / f"_atrf_asig_{vno}_{run_id}.json")
-        json_out = str(QA_DIR / f"_atrf_asig_{vno}_{run_id}.result.json")
-        _j.dump(col_tmp_o, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-        cmd = [NEWMAN, "run", tmp_col, "-e", env_file,
-               "--folder", folder_name,
-               "--env-var", f"Token={token}",
-               "--env-var", f"idvno={vno}",
-               "--insecure",
-               "--reporters", "cli,json",
-               "--reporter-json-export", json_out,
-               "--timeout-request", "90000"]
-        if amb_url:
-            cmd += ["--env-var", f"apimURL={amb_url}"]
-        loop = _aio.get_event_loop()
-        _nr = await loop.run_in_executor(None, lambda: subprocess.run(
-            cmd, cwd=str(QA_DIR), capture_output=True, timeout=180
-        ))
-        _newman_stdout = _nr.stdout.decode("utf-8", errors="replace") if _nr.stdout else ""
-        pass_flag = False; res_body = ""; http_code = 0
-        try:
-            jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
-            execs = jdata.get("run", {}).get("executions", [])
-            if execs:
-                ex  = execs[-1]
-                r   = ex.get("response") or {}
-                st  = r.get("stream") or {}
-                if isinstance(st, dict) and st.get("type") == "Buffer":
-                    res_body = bytes(st["data"]).decode("utf-8", errors="replace")
-                else:
-                    res_body = r.get("body", "")
-                http_code = r.get("code", 0)
-                failures  = jdata.get("run", {}).get("failures", [])
-                try:
-                    rj = _j.loads(res_body)
-                    rc = rj.get("u_return_code") or rj.get("result", {}).get("u_return_code")
-                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0"
-                except Exception:
-                    pass_flag = http_code in (200, 201) and not failures
-        except Exception as pe:
-            res_body = f"Error parseando resultado Newman: {pe}"
-        access_id_vno_gen = ""
-        try:
-            _rj_asig = _j.loads(res_body)
-            access_id_vno_gen = (_rj_asig.get("result") or {}).get("u_access_id_vno", "")
-        except Exception:
-            pass
-        try:
-            Path(tmp_col).unlink(missing_ok=True)
-            Path(json_out).unlink(missing_ok=True)
-        except Exception:
-            pass
-        return JSONResponse({"pass": pass_flag, "req": req_body_str,
-                             "res": res_body, "vno": vno, "func": func_name,
-                             "httpCode": http_code, "accessIdVno": access_id_vno_gen,
-                             "newmanOut": _newman_stdout[-3000:] if '_newman_stdout' in dir() else ""})
+        direct_url = f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment"
+        return JSONResponse({
+            "mode": "direct",
+            "directUrl": direct_url,
+            "token": token,
+            "vno": vno,
+            "func": func_name,
+            "req": req_body_str,
+            "body": req_body_dict,
+        })
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
@@ -3734,69 +3679,16 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        col_src  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
-        def _find_req(col, name):
-            for it in col.get("item", []):
-                if it.get("name") == name and "request" in it:
-                    return it
-                if "item" in it:
-                    found = _find_req(it, name)
-                    if found:
-                        return found
-            return None
-        req_item = _find_req(_cp.deepcopy(col_src), cancel_req)
-        if req_item:
-            b = req_item.get("request", {}).get("body", {})
-            if b.get("mode") == "raw":
-                b["raw"] = req_body_str
-        mini_col = {"info": col_src.get("info", {}), "item": [req_item] if req_item else []}
-        run_id   = _uid.uuid4().hex[:8]
-        tmp_col  = str(QA_DIR / f"_atrf_cancel_{vno}_{run_id}.json")
-        json_out = str(QA_DIR / f"_atrf_cancel_{vno}_{run_id}.result.json")
-        _j.dump(mini_col, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-        cmd = [NEWMAN, "run", tmp_col, "-e", env_file,
-               "--env-var", f"Token={token}",
-               "--env-var", f"idvno={vno}",
-               "--insecure",
-               "--reporters", "cli,json",
-               "--reporter-json-export", json_out,
-               "--timeout-request", "90000"]
-        if amb_url:
-            cmd += ["--env-var", f"apimURL={amb_url}"]
-        loop = _aio.get_event_loop()
-        await loop.run_in_executor(None, lambda: subprocess.run(
-            cmd, cwd=str(QA_DIR), capture_output=True, timeout=120
-        ))
-        pass_flag = False; res_body = ""; http_code = 0
-        try:
-            jdata = _j.loads(Path(json_out).read_text(encoding="utf-8"))
-            execs = jdata.get("run", {}).get("executions", [])
-            if execs:
-                ex  = execs[-1]
-                r   = ex.get("response") or {}
-                st  = r.get("stream") or {}
-                if isinstance(st, dict) and st.get("type") == "Buffer":
-                    res_body = bytes(st["data"]).decode("utf-8", errors="replace")
-                else:
-                    res_body = r.get("body", "")
-                http_code = r.get("code", 0)
-                failures  = jdata.get("run", {}).get("failures", [])
-                try:
-                    rj = _j.loads(res_body)
-                    rc = rj.get("u_return_code") or rj.get("result", {}).get("u_return_code")
-                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0"
-                except Exception:
-                    pass_flag = http_code in (200, 201) and not failures
-        except Exception as pe:
-            res_body = f"Error parseando resultado Newman: {pe}"
-        try:
-            Path(tmp_col).unlink(missing_ok=True)
-            Path(json_out).unlink(missing_ok=True)
-        except Exception:
-            pass
-        return JSONResponse({"pass": pass_flag, "req": req_body_str,
-                             "res": res_body, "vno": vno, "func": func_name,
-                             "httpCode": http_code})
+        direct_url = f"{apim_url.rstrip('/')}/fullFillment-cancelServiceOrder/v1/oossCancellation"
+        return JSONResponse({
+            "mode": "direct",
+            "directUrl": direct_url,
+            "token": token,
+            "vno": vno,
+            "func": func_name,
+            "req": req_body_str,
+            "body": req_body_dict,
+        })
 
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
@@ -8571,12 +8463,36 @@ async function _atrf_runSelected(){
           pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado — pendiente implementar)';
         } else {
           var rd=await resp.json();
-          pass=!!rd.pass;
-          req_s=rd.req||_atrf_buildSimReq(fn,q.cfg);
-          res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
-          if(rd.error&&!rd.req)res_s='Error: '+rd.error;
-          httpCode=rd.httpCode||0;
-          newmanOut=rd.newmanOut||'';
+          if(rd.mode==='direct'){
+            req_s=rd.req||'';
+            try{
+              var dResp=await fetch(rd.directUrl,{
+                method:'POST',
+                headers:{
+                  'Authorization':'Bearer '+rd.token,
+                  'Content-Type':'application/json',
+                  'vnoId':rd.vno
+                },
+                body:JSON.stringify(rd.body)
+              });
+              var dJson=await dResp.json();
+              var rc=((dJson.result||dJson).u_return_code)||'';
+              pass=(dResp.status===200||dResp.status===201)&&rc!=='1';
+              res_s=JSON.stringify(dJson,null,4);
+              httpCode=dResp.status;
+            }catch(corsErr){
+              pass=false;
+              res_s='Error de llamada directa: '+String(corsErr);
+              httpCode=0;
+            }
+          } else {
+            pass=!!rd.pass;
+            req_s=rd.req||_atrf_buildSimReq(fn,q.cfg);
+            res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
+            if(rd.error&&!rd.req)res_s='Error: '+rd.error;
+            httpCode=rd.httpCode||0;
+            newmanOut=rd.newmanOut||'';
+          }
         }
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
