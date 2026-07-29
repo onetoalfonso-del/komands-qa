@@ -4722,16 +4722,16 @@ async def api_dashboard():
             FROM qa_executions WHERE vno != ''
             GROUP BY vno, vno_lbl ORDER BY vno
         """)
-        # Por funcionalidad (suite_label)
+        # Por funcionalidad (suite_id)
         by_func = await pool.fetch("""
-            SELECT suite_label,
+            SELECT suite_id, MAX(suite_label) as suite_label,
                    COUNT(*) as total,
                    SUM(CASE WHEN resultado='ok' THEN 1 ELSE 0 END) as ok,
                    SUM(CASE WHEN resultado!='ok' THEN 1 ELSE 0 END) as fail,
                    ROUND(AVG(tiempo_ms)) as avg_ms,
                    MAX(created_at) as last_run
-            FROM qa_executions WHERE suite_label != ''
-            GROUP BY suite_label ORDER BY total DESC LIMIT 20
+            FROM qa_executions WHERE suite_id != ''
+            GROUP BY suite_id ORDER BY total DESC LIMIT 20
         """)
         # Tendencia 7 días
         trend = await pool.fetch("""
@@ -4744,7 +4744,7 @@ async def api_dashboard():
         """)
         # Últimas 8 ejecuciones
         recent = await pool.fetch("""
-            SELECT suite_label, tc, vno_lbl, vno, resultado, tiempo_ms, created_at
+            SELECT suite_id, suite_label, tc, vno_lbl, vno, resultado, tiempo_ms, created_at
             FROM qa_executions ORDER BY id DESC LIMIT 8
         """)
         return {
@@ -8367,7 +8367,7 @@ var _histSort={col:0,asc:false};
 var _histTab='hist';
 var _HIST_COLS=[
   {k:'created_at',  lbl:'Fecha'},
-  {k:'suite_label', lbl:'Suite'},
+  {k:'suite_name',  lbl:'Suite'},
   {k:'tc',          lbl:'TC'},
   {k:'escenario',   lbl:'Escenario'},
   {k:'vno_lbl',     lbl:'VNO'},
@@ -8375,6 +8375,12 @@ var _HIST_COLS=[
   {k:'resultado',   lbl:'Resultado'},
   {k:'tiempo_ms',   lbl:'Tiempo'},
 ];
+var _SUITE_NAMES={'qa-fact-suite':'Factibilidad','qa-asig-suite':'Asignación','qa-ia-inicio-suite':'Inicio Intervención','qa-ia-fin-suite':'Fin Intervención','qa-activ-suite':'Activación','qa-dm-suite':'DM','qa-cancel-suite':'Cancelación','qa-teardown-suite':'Teardown'};
+function _suiteName(id,lbl){
+  if(id&&_SUITE_NAMES[id]) return _SUITE_NAMES[id];
+  var s=lbl||id||'';
+  return s.replace(/^[▶►▷●►▶]\s*/,'').trim()||'—';
+}
 function showHistorial(){
   _dashStopRefresh();
   switchView('historial');
@@ -8505,8 +8511,9 @@ function _renderDashboard(d,cont){
     var fp=parseInt(f.total)?Math.round(parseInt(f.ok)/parseInt(f.total)*100):0;
     var fc=fp>=80?'ok':fp>=50?'warn':'err';
     var fms=parseInt(f.avg_ms)||0;
-    h+='<tr class="d-link" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(f.suite_label||'')+'">';
-    h+='<td style="font-size:.71rem;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.suite_label||'—')+'</td>';
+    var fName=_suiteName(f.suite_id,f.suite_label);
+    h+='<tr class="d-link" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(fName)+'">';
+    h+='<td style="font-size:.71rem;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(fName)+'</td>';
     h+='<td style="font-family:monospace;font-size:.7rem">'+esc(String(f.total))+'</td>';
     h+='<td style="font-family:monospace;font-size:.7rem">'+esc(String(f.ok))+'</td>';
     h+='<td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:var(--brd);border-radius:3px"><div style="height:100%;width:'+fp+'%;background:'+(fp>=80?'#4EC9B0':fp>=50?'#CE9178':'#e06c75')+';border-radius:3px"></div></div><span class="hist-badge '+fc+'" style="font-size:.6rem;padding:1px 4px">'+fp+'%</span></div></td>';
@@ -8521,9 +8528,10 @@ function _renderDashboard(d,cont){
     var rc=r.resultado==='ok'?'ok':'err';
     var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
     var tms=parseInt(r.tiempo_ms)||0;
-    h+='<div class="d-link-row" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(r.suite_label||'')+'" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--brd);font-size:.71rem;transition:background .15s">';
+    var rName=_suiteName(r.suite_id,r.suite_label);
+    h+='<div class="d-link-row" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(rName)+'" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--brd);font-size:.71rem;transition:background .15s">';
     h+='<span class="hist-badge '+rc+'" style="font-size:.6rem;padding:1px 5px;flex-shrink:0">'+esc(r.resultado==='ok'?'OK':'Error')+'</span>';
-    h+='<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+esc(r.suite_label||'—')+'</span>';
+    h+='<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+esc(rName)+'</span>';
     h+='<span style="color:'+_dashColor(r.vno||'')+';font-weight:700;font-size:.68rem;flex-shrink:0">'+esc(r.vno_lbl||r.vno||'—')+'</span>';
     h+='<span style="color:var(--txt3);font-size:.65rem;flex-shrink:0">'+esc(tms?(tms/1000).toFixed(1)+'s':'')+'</span>';
     h+='</div>';
@@ -8698,14 +8706,14 @@ function _dashDrawFunc(byFunc){
     var bH=Math.min(rowH-4,16);
     var by=y+(rowH-bH)/2;
     ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
-    var lbl=(f.suite_label||'').slice(0,18);
+    var lbl=_suiteName(f.suite_id,f.suite_label).slice(0,18);
     ctx.fillText(lbl,pad.l-4,by+bH/2+3);
     ctx.fillStyle=_dashGetColor('--brd');ctx.fillRect(pad.l,by,cW,bH);
     var barColor=pct>=0.8?'#4EC9B0':pct>=0.5?'#CE9178':'#e06c75';
     ctx.fillStyle=barColor;ctx.fillRect(pad.l,by,Math.round(pct*cW),bH);
     ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='left';
     ctx.fillText(Math.round(pct*100)+'%',pad.l+cW+4,by+bH/2+3);
-    fHits.push({label:f.suite_label||'',pct:Math.round(pct*100),ok:parseInt(f.ok)||0,total:parseInt(f.total)||0,y1:by-4,y2:by+bH+4});
+    fHits.push({label:_suiteName(f.suite_id,f.suite_label),pct:Math.round(pct*100),ok:parseInt(f.ok)||0,total:parseInt(f.total)||0,y1:by-4,y2:by+bH+4});
   });
   var canvF=document.getElementById('dash-func-chart');
   if(canvF){
@@ -8753,12 +8761,12 @@ function _dashDrawTime(byFunc){
     var bH=Math.min(rowH-4,14);
     var by=y+(rowH-bH)/2;
     ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
-    ctx.fillText((f.suite_label||'').slice(0,18),pad.l-4,by+bH/2+3);
+    ctx.fillText(_suiteName(f.suite_id,f.suite_label).slice(0,18),pad.l-4,by+bH/2+3);
     ctx.fillStyle=borderColor;ctx.fillRect(pad.l,by,cW,bH);
     ctx.fillStyle='#4FC1FF';ctx.fillRect(pad.l,by,Math.round(ms/maxMs*cW),bH);
     ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='left';
     ctx.fillText((ms/1000).toFixed(1)+'s',pad.l+Math.round(ms/maxMs*cW)+3,by+bH/2+3);
-    tmHits.push({label:f.suite_label||'',ms:ms,y1:by-4,y2:by+bH+4});
+    tmHits.push({label:_suiteName(f.suite_id,f.suite_label),ms:ms,y1:by-4,y2:by+bH+4});
   });
   var canvTm=document.getElementById('dash-time-chart');
   if(canvTm){
@@ -8936,7 +8944,7 @@ function loadHistorial(){
     if(!res.ok||!Array.isArray(res.data)){
       body.innerHTML='<div class="hist-empty" style="color:var(--err)">'+(res.data&&res.data.error?esc(res.data.error):'Error cargando')+'</div>';return;
     }
-    _histData=res.data; _renderHistorialTable();
+    _histData=res.data.map(function(r){r.suite_name=_suiteName(r.suite_id,r.suite_label);return r;}); _renderHistorialTable();
   }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
 }
 function _filterHistorial(){_renderHistorialTable();}
@@ -8974,7 +8982,7 @@ function _renderHistorialTable(){
     var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):(r.ts||'');
     h+='<tr>';
     h+='<td style="color:var(--txt3);white-space:nowrap;font-size:.68rem">'+esc(fecha)+'</td>';
-    h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
+    h+='<td style="font-weight:600">'+esc(r.suite_name||r.suite_id||'')+'</td>';
     h+='<td style="font-size:.7rem">'+esc(r.tc||'')+'</td>';
     h+='<td style="font-size:.72rem">'+esc(r.escenario||'')+'</td>';
     h+='<td>'+vnoHtml+'</td><td>'+dirHtml+'</td>';
@@ -9010,7 +9018,7 @@ function _histDetail(id){
   var resBadge='<span class="hist-badge '+(r.resultado==='ok'?'ok':'err')+'" style="font-size:.68rem">'+esc(r.resultado==='ok'?'OK':'Error')+'</span>';
   var h='<div style="padding:14px 18px;border-bottom:1px solid var(--brd);display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;font-size:.75rem">';
   h+='<div><span style="color:var(--txt2);font-size:.68rem">Fecha</span><br><b style="font-size:.72rem">'+esc(fecha)+'</b></div>';
-  h+='<div><span style="color:var(--txt2);font-size:.68rem">Suite</span><br><b>'+esc(r.suite_label||'—')+'</b></div>';
+  h+='<div><span style="color:var(--txt2);font-size:.68rem">Suite</span><br><b>'+esc(r.suite_name||_suiteName(r.suite_id,r.suite_label))+'</b></div>';
   if(r.tc)h+='<div><span style="color:var(--txt2);font-size:.68rem">TC</span><br><b style="font-family:monospace">'+esc(r.tc)+'</b></div>';
   h+='<div><span style="color:var(--txt2);font-size:.68rem">Escenario</span><br><b>'+esc(r.escenario||'—')+'</b></div>';
   h+='<div><span style="color:var(--txt2);font-size:.68rem">VNO</span><br><b style="color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</b></div>';
@@ -9106,7 +9114,7 @@ function loadStats(){
       var avg=r.avg_ms!=null?((parseInt(r.avg_ms)/1000).toFixed(1)+'s'):'—';
       var fecha=r.last_run?new Date(r.last_run).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
       h+='<tr>';
-      h+='<td style="font-weight:600">'+esc(r.suite_label||r.suite_id||'')+'</td>';
+      h+='<td style="font-weight:600">'+esc(_suiteName(r.suite_id,r.suite_label))+'</td>';
       h+='<td><span style="font-weight:700;font-size:.68rem;color:'+_histVnoColor(r.vno||'')+'">'+esc(r.vno_lbl||r.vno||'—')+'</span></td>';
       h+='<td style="text-align:center;font-variant-numeric:tabular-nums">'+total+'</td>';
       h+='<td style="text-align:center;color:var(--ok);font-variant-numeric:tabular-nums">'+ok+'</td>';
