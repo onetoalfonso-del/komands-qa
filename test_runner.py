@@ -2045,6 +2045,7 @@ async def api_run(suite_id: str, request: Request):
                           "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q_activ = asyncio.Queue()
             _results_activ = []
+            _tc_rsp_map_activ = {}
 
             async def _run_activ(tr):
               try:
@@ -2195,6 +2196,7 @@ async def api_run(suite_id: str, request: Request):
                                 })
                             if _rsps:
                                 yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                                _tc_rsp_map_activ[_tr2["tc"]] = _rsps
                     except Exception:
                         pass
             _hbt_activ.cancel()
@@ -2207,7 +2209,8 @@ async def api_run(suite_id: str, request: Request):
             _tc_results_activ = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                                    "code":r["code"],"direccion":r.get("access_id",""),
                                    "access_id":r.get("access_id",""),
-                                   "escenario":r.get("tc_label","")}
+                                   "escenario":r.get("tc_label",""),
+                                   "responses":_tc_rsp_map_activ.get(r["tc"],[])}
                                   for r in _results_activ]
             _has_idx_activ = False
             try:
@@ -2486,6 +2489,7 @@ async def api_run(suite_id: str, request: Request):
                        "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q_dm = asyncio.Queue()
             _results_dm = []
+            _tc_rsp_map_dm = {}
 
             async def _run_dm(tr):
               try:
@@ -2638,6 +2642,7 @@ async def api_run(suite_id: str, request: Request):
                                 })
                             if _rsps:
                                 yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                                _tc_rsp_map_dm[_tr2["tc"]] = _rsps
                     except Exception:
                         pass
             _hbt_dm.cancel()
@@ -2650,7 +2655,8 @@ async def api_run(suite_id: str, request: Request):
             _tc_results_dm = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                                 "code":r["code"],"direccion":r.get("access_id",""),
                                 "access_id":r.get("access_id",""),
-                                "escenario":r.get("tc_label","")}
+                                "escenario":r.get("tc_label",""),
+                                "responses":_tc_rsp_map_dm.get(r["tc"],[])}
                                for r in _results_dm]
             _has_idx_dm = False
             try:
@@ -2847,7 +2853,8 @@ async def api_run(suite_id: str, request: Request):
                            "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q_cancel = asyncio.Queue()
             _results_cancel = []
-            _cancel_aids = {}  # tc → access_id dinámico asignado por API
+            _cancel_aids = {}
+            _tc_rsp_map_cancel = {}
 
             def _read_rsp(js_path):
                 try:
@@ -3139,6 +3146,7 @@ async def api_run(suite_id: str, request: Request):
                                     })
                                 if _rsps:
                                     yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                                    _tc_rsp_map_cancel[_tr2["tc"]] = _rsps
                         except Exception:
                             pass
             _hbt_cancel.cancel()
@@ -3150,7 +3158,8 @@ async def api_run(suite_id: str, request: Request):
             _vnos_cancel = sorted({r.get("vno","") for r in _results_cancel if r.get("vno")})
             _tc_results_cancel = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                                     "code":r["code"],"direccion":r.get("access_id",""),
-                                    "escenario":r.get("tc_label","")}
+                                    "escenario":r.get("tc_label",""),
+                                    "responses":_tc_rsp_map_cancel.get(r["tc"],[])}
                                    for r in _results_cancel]
             _has_idx_c = False
             try:
@@ -3303,6 +3312,7 @@ async def api_run(suite_id: str, request: Request):
                     "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
             _out_q = asyncio.Queue()
             _results = []
+            _tc_rsp_map = {}
 
             async def _run_tc(tr):
                 await _out_q.put(("L", tr["tc"], "▶ " + tr["label"] + " iniciando…"))
@@ -3369,6 +3379,7 @@ async def api_run(suite_id: str, request: Request):
                                 })
                             if _rsps:
                                 yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
+                                _tc_rsp_map[_tr2["tc"]] = _rsps
                     except Exception:
                         pass
 
@@ -3410,7 +3421,8 @@ async def api_run(suite_id: str, request: Request):
             _tc_results = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
                             "code":r["code"],"direccion":r.get("address_id","") or r.get("access_id",""),
                             "access_id":r.get("access_id",""),
-                            "escenario":r.get("tc_label","")}
+                            "escenario":r.get("tc_label",""),
+                            "responses":_tc_rsp_map.get(r["tc"],[])}
                            for r in _results]
             yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':_has_idx,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos,'tc_results':_tc_results})}\n\n"
             await asyncio.sleep(0.15)
@@ -7772,6 +7784,11 @@ function _saveHistorialRecord(d,s){
         resultado:tc.code===0?'ok':'error',
         code:tc.code,tiempo_ms:tiempo_ms
       };
+      if(tc.responses&&tc.responses.length){
+        record.steps_json=JSON.stringify(tc.responses.map(function(r){
+          return {func:r.name||'',tc:tc.tc||'',httpCode:r.code,pass:r.code>=200&&r.code<300,req:(r.method||'GET')+' '+(r.url||''),res:r.body||''};
+        }));
+      }
       fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(record)}).catch(function(){});
     });
   } else {
