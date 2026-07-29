@@ -9785,21 +9785,32 @@ async function _atrf_runSelected(){
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
-    // Guardar en historial persistente
-    var _tElapsed=Date.now()-(_atrf_qStartTs||Date.now());
-    var _passCount=q.tcResults.filter(function(r){return r.pass;}).length;
-    var _totalCount=q.tcResults.length;
+    // Guardar en historial — un registro por paso
+    var _now=Date.now();
     var _vno=q.cfg&&q.cfg.vno||'';
-    fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      ts:Date.now(),suite_id:'atrf',suite_label:q.name,
-      tc:_passCount+'/'+_totalCount,
-      vno:_vno,vno_lbl:_ATRF_TC_VNO_LABEL[_vno]||_vno,
-      escenario:(q.cfg&&q.cfg.esc)||'',
-      direccion:(q.cfg&&q.cfg.accessId)||'',
-      resultado:anyFail?'error':'ok',code:anyFail?1:0,
-      tiempo_ms:_tElapsed,
-      steps_json:JSON.stringify(q.tcResults)
-    })}).catch(function(){});
+    var _vnoLbl=_ATRF_TC_VNO_LABEL[_vno]||_vno;
+    var _dir=(q.cfg&&q.cfg.accessId)||'';
+    if(q.tcResults.length){
+      q.tcResults.forEach(function(r){
+        fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          ts:_now,suite_id:'atrf',suite_label:q.name,
+          tc:r.tc||'',vno:_vno,vno_lbl:_vnoLbl,
+          escenario:r.func||'',
+          direccion:_dir,
+          resultado:r.pass?'ok':'error',code:r.pass?0:1,
+          tiempo_ms:0,
+          steps_json:JSON.stringify([r])
+        })}).catch(function(){});
+      });
+    } else {
+      // Sin pasos (VNO no configurado) — guarda un registro resumen
+      fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        ts:_now,suite_id:'atrf',suite_label:q.name,
+        tc:'',vno:_vno,vno_lbl:_vnoLbl,
+        escenario:'',direccion:_dir,
+        resultado:'ok',code:0,tiempo_ms:0
+      })}).catch(function(){});
+    }
     _atrf_save();
     _atrf_renderQueue();
     var rowEl=document.getElementById('atrf-qrow-'+qi);
