@@ -9013,8 +9013,24 @@ function _histDetail(id){
       h+='<td style="font-family:monospace;font-size:.7rem">'+esc(s.tc||'—')+'</td>';
       h+='<td style="font-family:monospace;font-size:.7rem">'+esc(s.httpCode?String(s.httpCode):'—')+'</td>';
       h+='<td><span class="hist-badge '+bc+'">'+esc(s.pass?'Pasó':'Falló')+'</span></td>';
-      h+='<td><button onclick="_histDetailStep('+id+','+i+')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--acc);font-size:.65rem;cursor:pointer">Req/Res</button></td>';
-      h+='</tr>';
+      var rrid='hdr-'+id+'-'+i;
+      h+='<td>';
+      if(s.req||s.res)h+='<button id="'+rrid+'-btn" onclick="_hdrToggle(&quot;'+rrid+'&quot;)" style="padding:2px 8px;border-radius:4px;border:1px solid var(--acc);background:var(--accd);color:var(--acc);font-size:.65rem;cursor:pointer">&#9660; Req/Res</button>';
+      else h+='<span style="color:var(--txt3);font-size:.65rem">—</span>';
+      h+='</td></tr>';
+      if(s.req||s.res){
+        h+='<tr id="'+rrid+'" style="display:none"><td colspan="6" style="padding:0">';
+        h+='<div style="display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-top:1px solid var(--brd)">';
+        h+='<div style="padding:8px 14px;border-right:1px solid var(--brd)">';
+        h+='<div style="font-size:.63rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Request</div>';
+        h+='<pre style="margin:0;font-size:.67rem;white-space:pre-wrap;word-break:break-all;color:var(--txt);max-height:160px;overflow:auto">'+esc(s.req||'—')+'</pre>';
+        h+='</div>';
+        h+='<div style="padding:8px 14px">';
+        h+='<div style="font-size:.63rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Response</div>';
+        h+='<pre style="margin:0;font-size:.67rem;white-space:pre-wrap;word-break:break-all;color:var(--txt);max-height:160px;overflow:auto">'+esc(s.res||'—')+'</pre>';
+        h+='</div>';
+        h+='</div></td></tr>';
+      }
     });
     h+='</tbody></table></div>';
   }else{h+='<div class="hist-empty" style="padding:24px">Sin pasos registrados.</div>';}
@@ -9050,6 +9066,13 @@ function _hdsTab(t){
   document.getElementById('hds-tab-res').style.background=t==='res'?'var(--accd)':'var(--card)';
   document.getElementById('hds-tab-res').style.color=t==='res'?'var(--acc)':'var(--txt2)';
   document.getElementById('hds-tab-res').style.fontWeight=t==='res'?'700':'400';
+}
+function _hdrToggle(id){
+  var row=document.getElementById(id);if(!row)return;
+  var open=row.style.display==='none';
+  row.style.display=open?'table-row':'none';
+  var btn=document.getElementById(id+'-btn');
+  if(btn)btn.innerHTML=open?'&#9650; Ocultar':'&#9660; Req/Res';
 }
 function loadStats(){
   var body=document.getElementById('hpane-stats');
