@@ -8359,6 +8359,7 @@ var _HIST_COLS=[
   {k:'tiempo_ms',   lbl:'Tiempo'},
 ];
 function showHistorial(){
+  _dashStopRefresh();
   switchView('historial');
   var _sb2=document.getElementById('settings-btn'); if(_sb2) _sb2.classList.remove('active');
   document.getElementById('hist-btn').classList.add('active');
@@ -8366,18 +8367,23 @@ function showHistorial(){
   _hTab(_histTab);
 }
 function showSettings(){
+  _dashStopRefresh();
   switchView('settings');
   var hb=document.getElementById('hist-btn'); if(hb) hb.classList.remove('active');
   var sb=document.getElementById('settings-btn'); if(sb) sb.classList.add('active');
   setTop('','Settings','Ambientes y configuraci\xf3n del runner');
   _stTab(_stCurTab);
 }
+var _dashRefreshTimer=null;
+function _dashStopRefresh(){if(_dashRefreshTimer){clearInterval(_dashRefreshTimer);_dashRefreshTimer=null;}}
 function showDashboard(){
   switchView('dashboard');
   ['hist-btn','settings-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
   var db=document.getElementById('dashboard-btn');if(db)db.classList.add('active');
   setTop('','Dashboard','Resumen de ejecuciones y calidad');
   loadDashboard();
+  _dashStopRefresh();
+  _dashRefreshTimer=setInterval(loadDashboard,60000);
 }
 function _dashColor(vno){
   return {'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'}[vno]||'#888';
