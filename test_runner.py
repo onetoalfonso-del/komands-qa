@@ -8371,6 +8371,7 @@ function showHistorialFiltered(q){
   if(fi) fi.value=q||'';
   showHistorial();
   if(q) setTop('','Historial de ejecuciones','Filtrado por: '+q);
+  if(_histData.length) _renderHistorialTable();
 }
 function showSettings(){
   _dashStopRefresh();
