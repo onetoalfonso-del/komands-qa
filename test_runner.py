@@ -8573,8 +8573,8 @@ function _histDetailStep(id,stepIdx){
   if(s.httpCode)h+='<span style="font-family:monospace;font-size:.7rem;color:var(--txt2)">HTTP '+esc(String(s.httpCode))+'</span>';
   h+='</div>';
   h+='<div style="display:flex;border-bottom:1px solid var(--brd)">';
-  h+='<button id="hds-tab-req" onclick="_hdsTab(\'req\')" style="padding:6px 16px;font-size:.73rem;border:none;background:var(--accd);color:var(--acc);cursor:pointer;font-weight:700">Request</button>';
-  h+='<button id="hds-tab-res" onclick="_hdsTab(\'res\')" style="padding:6px 16px;font-size:.73rem;border:none;background:var(--card);color:var(--txt2);cursor:pointer">Response</button>';
+  h+='<button id="hds-tab-req" onclick="_hdsTab(&quot;req&quot;)" style="padding:6px 16px;font-size:.73rem;border:none;background:var(--accd);color:var(--acc);cursor:pointer;font-weight:700">Request</button>';
+  h+='<button id="hds-tab-res" onclick="_hdsTab(&quot;res&quot;)" style="padding:6px 16px;font-size:.73rem;border:none;background:var(--card);color:var(--txt2);cursor:pointer">Response</button>';
   h+='</div>';
   h+='<div id="hds-panel-req" style="overflow:auto;max-height:340px"><pre style="margin:0;padding:14px 18px;font-size:.72rem;white-space:pre-wrap;word-break:break-all">'+esc(s.req||'—')+'</pre></div>';
   h+='<div id="hds-panel-res" style="display:none;overflow:auto;max-height:340px"><pre style="margin:0;padding:14px 18px;font-size:.72rem;white-space:pre-wrap;word-break:break-all">'+esc(s.res||'—')+'</pre></div>';
