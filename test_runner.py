@@ -5726,7 +5726,7 @@ function selectSuite(id){
   var _sb=document.getElementById('settings-btn'); if(_sb) _sb.classList.remove('active');
   if(id==='qa-fulfillment'){
     switchView('fulfillment');
-    setTop('','QA FulFillment','Cola de secuencias de prueba');
+    setTop('','Pruebas Automatizadas (FullFillment)','');
     _atrf_load();
     _atrf_renderQueue();
     return;
