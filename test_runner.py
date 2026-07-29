@@ -5463,14 +5463,12 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Factibilidad — 4 consolas paralelas -->
     <div id="fact-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="fact-form-bar" style="flex-shrink:0;overflow-y:auto;max-height:260px;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
+      <div id="fact-form-bar" style="flex-shrink:0;overflow-y:auto;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="fact-grid"></div>
     </div>
     <!-- Vista Intervención Asegurada — 4 consolas paralelas -->
     <div id="ia-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="ia-form-bar"></div>
-      <div id="ia-access-preview"></div>
-      <div id="ia-sel-bar"></div>
+      <div id="ia-form-bar" style="flex-shrink:0;overflow-y:auto;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="ia-grid"></div>
     </div>
     <!-- Vista Activación — 4 consolas paralelas -->
@@ -5545,7 +5543,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="asig-form-bar" style="flex-shrink:0;overflow-y:auto;max-height:300px;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
+      <div id="asig-form-bar" style="flex-shrink:0;overflow-y:auto;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="asig-grid"></div>
     </div>
     <!-- Vista Services Now — doble terminal -->
@@ -5816,11 +5814,9 @@ function selectSuite(id){
     _iaMode=id==='qa-ia-inicio-suite'?'inicio':'fin';
     switchView('ia');
     renderIAFormBar();
-    renderIASelBar();
     renderIAView();
-    var _iaTcs=_iaMode==='inicio'?'TC-09..TC-12':'TC-13..TC-16';
-    var _iaLbl=_iaMode==='inicio'?'IA Inicio':'IA Fin';
-    setTop('','Suite: '+_iaLbl,_iaTcs+' · presiona Ejecutar');
+    var _iaLbl=_iaMode==='inicio'?'Inicio Intervención':'Finalización Intervención';
+    setTop('','Suite: '+_iaLbl,'Configura los parámetros y presiona Ejecutar');
     _syncIAExecBtn();
     return;
   }
@@ -6039,7 +6035,7 @@ function switchView(mode){
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
-  if(_gfp){var _gfModes=['ia','activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'block':'none';}
+  if(_gfp){var _gfModes=['activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'block':'none';}
 }
 
 function renderGlobalForm(){
@@ -6107,7 +6103,6 @@ function applyGFModal(){
   closeGFModal();
   _updateGFSummaryBar();
   _updateAsigAccessPreview();
-  _updateIAAccessPreview();
   _updateActivAccessPreview();
   _updateDmAccessPreview();
   _updateCancelPreview();
@@ -6213,7 +6208,6 @@ function _updateNSerialCharCounter(){
 
 function _onGFAccessInput(){
   _updateAsigAccessPreview();
-  _updateIAAccessPreview();
   _updateActivAccessPreview();
   _updateDmAccessPreview();
   var badge=document.getElementById('gfm-auto-badge');
@@ -6297,7 +6291,7 @@ function renderFactFormBar(){
     var on=_factSel[v.tc]?'on':'';
     return '<span class="atrf-vno-lbl '+on+'" data-tc="'+v.tc+'" onclick="_factToggleVno(this)" style="'+(on?'border-color:'+v.color+';color:'+v.color:'')+'">'+esc(v.lbl)+'</span>';
   }).join('');
-  bar.innerHTML='<div class="atrf-grid">'
+  bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
     +'<div class="atrf-field atrf-col-12">'
       +'<label>Ambiente <span class="req">★</span></label>'
       +'<div class="atrf-amb-wrap" id="fact-amb-wrap">'
@@ -6525,7 +6519,7 @@ function renderAsigFormBar(){
   var speedOpts=_QA_SPEED_PLANS_ASIG.map(function(p){
     return '<option value="'+p+'"'+(p==='600/600'?' selected':'')+'>'+p+'</option>';
   }).join('');
-  bar.innerHTML='<div class="atrf-grid">'
+  bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
     +'<div class="atrf-field atrf-col-12">'
       +'<label>Ambiente <span class="req">★</span></label>'
       +'<div class="atrf-amb-wrap">'
@@ -6743,16 +6737,16 @@ function _doRunAsig(s){
 // ── Intervención Asegurada: vista multi-consola ──────────────────────────────
 var _iaMode = 'inicio';
 var _IA_INICIO_META = [
-  {tc:'TC-09', label:'TC-09 · Entel', vno:'VNO 03', sid:'qa-ia-tc09', color:'#FF9F8B'},
-  {tc:'TC-10', label:'TC-10 · KAO',   vno:'VNO 02', sid:'qa-ia-tc10', color:'#85E89D'},
-  {tc:'TC-11', label:'TC-11 · DTV',   vno:'VNO 05', sid:'qa-ia-tc11', color:'#FFD580'},
-  {tc:'TC-12', label:'TC-12 · TCH',   vno:'VNO 00', sid:'qa-ia-tc12', color:'#79C8FF'},
+  {tc:'TC-09', label:'TC-09 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-ia-tc09', color:'#FF9F8B'},
+  {tc:'TC-10', label:'TC-10 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-ia-tc10', color:'#85E89D'},
+  {tc:'TC-11', label:'TC-11 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-ia-tc11', color:'#FFD580'},
+  {tc:'TC-12', label:'TC-12 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-ia-tc12', color:'#79C8FF'},
 ];
 var _IA_FIN_META = [
-  {tc:'TC-13', label:'TC-13 · Entel', vno:'VNO 03', sid:'qa-ia-tc13', color:'#C7CEEA'},
-  {tc:'TC-14', label:'TC-14 · KAO',   vno:'VNO 02', sid:'qa-ia-tc14', color:'#B5EAD7'},
-  {tc:'TC-15', label:'TC-15 · DTV',   vno:'VNO 05', sid:'qa-ia-tc15', color:'#FFDAC1'},
-  {tc:'TC-16', label:'TC-16 · TCH',   vno:'VNO 00', sid:'qa-ia-tc16', color:'#B39DFF'},
+  {tc:'TC-13', label:'TC-13 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-ia-tc13', color:'#C7CEEA'},
+  {tc:'TC-14', label:'TC-14 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-ia-tc14', color:'#B5EAD7'},
+  {tc:'TC-15', label:'TC-15 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-ia-tc15', color:'#FFDAC1'},
+  {tc:'TC-16', label:'TC-16 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-ia-tc16', color:'#B39DFF'},
 ];
 var _iaSel={};
 (function(){ _IA_INICIO_META.concat(_IA_FIN_META).forEach(function(m){ _iaSel[m.tc]=true; }); })();
@@ -6764,56 +6758,88 @@ function _iaSuiteId(){ return _iaMode==='inicio'?'qa-ia-inicio-suite':'qa-ia-fin
 
 function renderIAFormBar(){
   var bar=document.getElementById('ia-form-bar'); if(!bar) return;
-  var modeLabel=_iaMode==='inicio'
-    ?'<span class="ia-mode-badge inicio">Inicio</span>'
-    :'<span class="ia-mode-badge fin">Fin</span>';
-  bar.innerHTML='<span class="afb-lbl">Modo:</span>'+modeLabel
-    +'<span class="afb-lbl" style="margin-left:10px;color:var(--txt3)">'
-    +'Escenario: <b style="color:var(--txt);font-weight:600" id="ia-esc-badge">'
-    +((document.getElementById('ia-scenario')||{}).value||'Instalación')
-    +'</b></span>';
-  _updateIAAccessPreview();
-}
-
-function _updateIAAccessPreview(){
-  var el=document.getElementById('ia-access-preview'); if(!el) return;
-  var raw=(document.getElementById('gf-access')||{}).value||'';
-  if(!raw.trim()){
-    el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
-    return;
-  }
-  var h='';
-  _iaMeta().forEach(function(m){
-    var resolved=_resolveAccessId(raw.trim(),_IA_VNO_CODES[m.tc]);
-    h+='<span class="aap-item"><span class="aap-vno">'+esc(m.label)+':</span>'
-      +'<span class="aap-id">'+esc(resolved)+'</span></span>';
-  });
-  el.innerHTML=h;
-}
-
-function renderIASelBar(){
-  var bar=document.getElementById('ia-sel-bar'); if(!bar) return;
-  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
-  _iaMeta().forEach(function(m){
+  var meta=_iaMeta();
+  var vnoBtns=meta.map(function(m){
     var on=_iaSel[m.tc]?'on':'';
-    h+='<button class="tc-sel-btn '+on+'" id="iasb-'+m.tc+'">'+esc(m.label)+'</button>';
+    return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_iaToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
+  }).join('');
+  var modeColor=_iaMode==='inicio'?'var(--atrf-accent)':'#B39DFF';
+  var modeLabel=_iaMode==='inicio'?'Inicio Intervención':'Finalización Intervención';
+  bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
+    +'<div class="atrf-field atrf-col-12" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<span style="font-size:11px;font-family:var(--atrf-mono);font-weight:600;color:'+modeColor+';text-transform:uppercase;letter-spacing:.06em">'+esc(modeLabel)+'</span>'
+      +'<div class="atrf-amb-wrap">'
+        +'<input type="radio" name="ia-amb" id="ia-amb-qa" value="QA" class="atrf-amb-radio" onchange="_iaOnAmbChange()" checked/>'
+        +'<label for="ia-amb-qa" class="atrf-amb-lbl">QA</label>'
+        +'<input type="radio" name="ia-amb" id="ia-amb-prd" value="PRD" class="atrf-amb-radio" onchange="_iaOnAmbChange()"/>'
+        +'<label for="ia-amb-prd" class="atrf-amb-lbl">PRD</label>'
+        +'<input type="radio" name="ia-amb" id="ia-amb-pprd" value="PPRD" class="atrf-amb-radio" onchange="_iaOnAmbChange()"/>'
+        +'<label for="ia-amb-pprd" class="atrf-amb-lbl">PPRD</label>'
+        +'<span id="ia-amb-url" style="font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-green);margin-left:8px;display:none"></span>'
+      +'</div>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Datos base</div>'
+    +'<div class="atrf-field atrf-col-5">'
+      +'<label>VNO <span class="req">★</span></label>'
+      +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-7">'
+      +'<label>Access ID <span class="req">★</span></label>'
+      +'<input type="text" id="ia-addr-inp" placeholder="ej: 03-XYGO123456" oninput="_iaUpdateAccessPreview()"/>'
+      +'<span class="atrf-hint" id="ia-addr-preview" style="color:var(--atrf-text2)"></span>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Servicio</div>'
+    +'<div class="atrf-field atrf-col-4">'
+      +'<label>Escenario <span class="req">★</span></label>'
+      +'<select id="ia-scenario-inp">'
+        +'<option value="Instalación">Instalación</option>'
+        +'<option value="Reparación">Reparación</option>'
+        +'<option value="Retiro de Drop">Retiro de Drop</option>'
+      +'</select>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Tipo Servicio</label>'
+      +'<select id="ia-svc-sel"><option value="FTTH">FTTH</option><option value="SSAA">SSAA</option></select>'
+    +'</div>'
+    +'</div>';
+  _iaOnAmbChange();
+}
+
+function _iaToggleVno(el){
+  var tc=el.dataset.tc;
+  _iaSel[tc]=!_iaSel[tc];
+  var meta=_iaMeta().find(function(m){return m.tc===tc;});
+  if(_iaSel[tc]){
+    el.classList.add('on');
+    el.style.borderColor=meta?meta.color:'';
+    el.style.color=meta?meta.color:'';
+  } else {
+    el.classList.remove('on');
+    el.style.borderColor='';
+    el.style.color='';
+  }
+  renderIAView();
+  _syncIAExecBtn();
+}
+
+function _iaOnAmbChange(){
+  var rad=document.querySelector('input[name="ia-amb"]:checked');
+  var amb=rad?rad.value:'QA';
+  var url=_atrfEnvUrls[amb]||'';
+  var el=document.getElementById('ia-amb-url');
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):'';}
+}
+
+function _iaUpdateAccessPreview(){
+  var raw=(document.getElementById('ia-addr-inp')||{}).value||'';
+  var el=document.getElementById('ia-addr-preview'); if(!el) return;
+  if(!raw.trim()){el.textContent='';return;}
+  var parts=_iaMeta().filter(function(m){return _iaSel[m.tc];}).map(function(m){
+    return m.vno_code+': '+_resolveAccessId(raw.trim(),m.vno_code);
   });
-  h+='<span class="fsb-sep"></span>'
-    +'<button class="fsb-all" id="iasb-all">Todos</button>'
-    +'<button class="fsb-all" id="iasb-none">Ninguno</button>';
-  bar.innerHTML=h;
-  _iaMeta().forEach(function(m){
-    document.getElementById('iasb-'+m.tc).onclick=(function(tc){
-      return function(){ _iaSel[tc]=!_iaSel[tc];
-        var btn=document.getElementById('iasb-'+tc);
-        if(btn) btn.className='tc-sel-btn'+(_iaSel[tc]?' on':'');
-        renderIAView(); _syncIAExecBtn(); };
-    })(m.tc);
-  });
-  document.getElementById('iasb-all').onclick=function(){
-    _iaMeta().forEach(function(m){ _iaSel[m.tc]=true; }); renderIASelBar(); renderIAView(); _syncIAExecBtn(); };
-  document.getElementById('iasb-none').onclick=function(){
-    _iaMeta().forEach(function(m){ _iaSel[m.tc]=false; }); renderIASelBar(); renderIAView(); _syncIAExecBtn(); };
+  el.textContent=parts.join(' · ');
 }
 
 function _syncIAExecBtn(){
@@ -6881,7 +6907,7 @@ function _iaSetResponse(tc,responses){
 
 function _doRunIA(s){
   if(running) return;
-  var accessEl=document.getElementById('gf-access');
+  var accessEl=document.getElementById('ia-addr-inp');
   if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
@@ -6902,14 +6928,15 @@ function _doRunIA(s){
   var _rawAccess=accessEl.value.trim();
   var _selTcs=_iaMeta().filter(function(m){return _iaSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
-  _iaMeta().forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_IA_VNO_CODES[m.tc]); });
-  var _sc=(document.getElementById('ia-scenario')||{}).value||'Instalación';
-  var _sv=(document.getElementById('gf-stype')||{}).value||'FTTH';
+  _iaMeta().forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,m.vno_code); });
+  var _sc=(document.getElementById('ia-scenario-inp')||{}).value||'Instalación';
+  var _sv=(document.getElementById('ia-svc-sel')||{}).value||'FTTH';
+  var _envIA=(document.querySelector('input[name="ia-amb"]:checked')||{}).value||_gfEnv||'QA';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&scenario='+encodeURIComponent(_sc)
     +'&service_type='+encodeURIComponent(_sv)
-    +'&gf_env='+encodeURIComponent(_gfEnv);
+    +'&gf_env='+encodeURIComponent(_envIA);
   var es=new EventSource('/api/run/'+_iaSuiteId()+'?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
