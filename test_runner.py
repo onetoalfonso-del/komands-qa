@@ -93,6 +93,12 @@ QA_CANCEL_REQUEST_MAP = {
     "05": "cancel service order DTV",
 }
 QA_CANCEL_COLLECTION = "08-CancelOrdenServicio.postman_collection.json"
+QA_MODIF_REQUEST_MAP = {
+    "00": "Modification TCH",
+    "02": "Modification KAO",
+    "03": "Modification LASER",
+    "05": "Modification DTV",
+}
 
 PY     = sys.executable
 NEWMAN = shutil.which("newman") or "newman"
@@ -654,6 +660,11 @@ SUITES = [
      "env_type":"qa_ia_fin","folder":"03-IntervencionAsegurada",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia_fin.html"),"requires":None},
+    {"id":"qa-ep-ia-cancel",     "group":"qa-child","parent":"qa-fulfillment",
+     "label":"IA Cancelación",   "desc":"cancela intervención asegurada · cierre anticipado",
+     "env_type":"qa_ia_cancel","folder":"03-IntervencionAsegurada",
+     "collection":"01-FulFillment.postman_collection.json",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_ia_cancel.html"),"requires":None},
     {"id":"qa-ep-activacion",    "group":"qa-child","parent":"qa-fulfillment",
      "label":"Activación",      "desc":"registrationActivation · activación ONT FTTH",
      "env_type":"qa_activacion","folder":"04-Activacion",
@@ -666,22 +677,22 @@ SUITES = [
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_fiberchange.html"),"requires":None},
     {"id":"qa-ep-devmod",        "group":"qa-child","parent":"qa-fulfillment",
      "label":"Device Modification","desc":"modificación de dispositivo",
-     "env_type":"qa_vno","folder":"06-DeviceModification",
+     "env_type":"qa_devmod","folder":"06-DeviceModification",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_devmod.html"),"requires":None},
     {"id":"qa-ep-modificacion",  "group":"qa-child","parent":"qa-fulfillment",
      "label":"Modificación Acceso","desc":"modificación de acceso FTTH",
-     "env_type":"qa_vno","folder":"07-Modificacion De Acceso",
+     "env_type":"qa_modificacion","folder":"07-Modificacion De Acceso",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_modificacion.html"),"requires":None},
     {"id":"qa-ep-cancel",        "group":"qa-child","parent":"qa-fulfillment",
      "label":"Cancel Orden Servicio","desc":"cancelación de orden de servicio",
-     "env_type":"qa_vno","folder":"08-CancelOrdenServicio",
+     "env_type":"qa_cancel_svc","folder":"08-CancelOrdenServicio",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_cancel.html"),"requires":None},
     {"id":"qa-ep-unsub",         "group":"qa-child","parent":"qa-fulfillment",
      "label":"Unsubscription",  "desc":"desuscripción / baja de acceso",
-     "env_type":"qa_vno","folder":"10-Unsubscription",
+     "env_type":"qa_unsub","folder":"10-Unsubscription",
      "collection":"01-FulFillment.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_ep_unsub.html"),"requires":None},
     {"id":"qa-ep-reinicio",      "group":"qa-child","parent":"qa-fulfillment",
@@ -818,52 +829,52 @@ SUITES = [
     # ── QA Consultas — endpoints individuales ──────────────────────────────────
     {"id":"qa-cons-dataont",     "group":"qa-child","parent":"qa-consultas",
      "label":"ConsultaDataONT", "desc":"consulta datos ONT",
-     "env_type":"qa_vno","folder":"ConsultaDataONT",
+     "env_type":"qa_dataont","folder":"ConsultaDataONT",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_dataont.html"),"requires":None},
     {"id":"qa-cons-retrievetch", "group":"qa-child","parent":"qa-consultas",
      "label":"RetrieveAccess TCH","desc":"retrieve access VNO TCH",
-     "env_type":"qa_vno","folder":"RetrieveAccess (TCH)",
+     "env_type":"qa_retrieve","folder":"RetrieveAccess ( TCH)",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_retrievetch.html"),"requires":None},
     {"id":"qa-cons-retrievetch-mas","group":"qa-child","parent":"qa-consultas",
      "label":"RetrieveAccess TCH Masivo","desc":"retrieve access masivo TCH",
-     "env_type":"qa_vno","folder":"RetrieveAccess (TCH) MASIVO",
+     "env_type":"qa_vno","folder":"RetrieveAccess ( TCH) MASIVO",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_retrievetch_mas.html"),"requires":None},
     {"id":"qa-cons-consultaacceso","group":"qa-child","parent":"qa-consultas",
-     "label":"ConsultaAcceso",  "desc":"consulta de acceso",
-     "env_type":"qa_vno","folder":"ConsultaAcceso",
+     "label":"ConsultaAcceso",  "desc":"consulta de acceso · GET",
+     "env_type":"qa_consultaacceso","folder":"ConsultaAcceso",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_consultaacceso.html"),"requires":None},
     {"id":"qa-cons-diagnostico", "group":"qa-child","parent":"qa-consultas",
      "label":"DiagnosticoAcceso","desc":"diagnóstico de acceso FTTH",
-     "env_type":"qa_vno","folder":"DiagnosticoAcceso",
+     "env_type":"qa_access_id_ep","folder":"DiagnosticoAcceso",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_diagnostico.html"),"requires":None},
     {"id":"qa-cons-accessstate", "group":"qa-child","parent":"qa-consultas",
-     "label":"AccessStateResponse","desc":"estado del acceso",
-     "env_type":"qa_vno","folder":"AccessStateResponse",
+     "label":"AccessStateResponse","desc":"estado del acceso · PUT callback",
+     "env_type":"qa_accessstate_ep","folder":"AccessStateResponse",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_accessstate.html"),"requires":None},
     {"id":"qa-cons-cevvecino",   "group":"qa-child","parent":"qa-consultas",
-     "label":"CEVEstadoVecino",  "desc":"estado vecino CEV",
-     "env_type":"qa_vno","folder":"CEVEstadoVecino",
+     "label":"CEVEstadoVecino",  "desc":"estado vecino CEV · GET",
+     "env_type":"qa_cevvecino","folder":"CEVEstadoVecino",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_cevvecino.html"),"requires":None},
     {"id":"qa-cons-estadovecino","group":"qa-child","parent":"qa-consultas",
      "label":"EstadoVecino",    "desc":"estado vecino V",
-     "env_type":"qa_vno","folder":"EstadoVecino V",
+     "env_type":"qa_access_id_ep","folder":"EstadoVecino V",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_estadovecino.html"),"requires":None},
     {"id":"qa-cons-queryneighbors","group":"qa-child","parent":"qa-consultas",
-     "label":"QueryNeighborsState","desc":"query neighbors state response",
-     "env_type":"qa_vno","folder":"QueryNeighborsStateResponse",
+     "label":"QueryNeighborsState","desc":"query neighbors state response · PUT",
+     "env_type":"qa_queryneighbors_ep","folder":"QueryNeighborsStateResponse",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_queryneighbors.html"),"requires":None},
     {"id":"qa-cons-retrievekao", "group":"qa-child","parent":"qa-consultas",
      "label":"RetrieveAccess KAO","desc":"retrieve access VNO KAO",
-     "env_type":"qa_vno","folder":"RetrieveAccess KAO",
+     "env_type":"qa_retrieve","folder":"RetrieveAccess KAO",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_retrievekao.html"),"requires":None},
     {"id":"qa-cons-modification","group":"qa-child","parent":"qa-consultas",
@@ -873,7 +884,7 @@ SUITES = [
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_modification.html"),"requires":None},
     {"id":"qa-cons-reinicio",   "group":"qa-child","parent":"qa-consultas",
      "label":"ReinicioONT",     "desc":"reinicio ONT",
-     "env_type":"qa_vno","folder":"ReinicioONT",
+     "env_type":"qa_reinicio","folder":"ReinicioONT",
      "collection":"03-Consultas.postman_collection.json",
      "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"rp_qa_cons_reinicio.html"),"requires":None},
     {"id":"qa-cons-fiberchange", "group":"qa-child","parent":"qa-consultas",
@@ -1493,6 +1504,844 @@ async def api_run(suite_id: str, request: Request):
                  "--reporter-htmlextra-logo", _logo_uri],
             report=rp_out,
             requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_ia_cancel":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        scenario      = overrides.pop("scenario", "Instalación")
+        service_type  = overrides.pop("service_type", "FTTH")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        vno_subfolder = QA_IA_VNO_SUBFOLDER.get(vno_code, "KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken ia_cancel] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_scenario": scenario,
+            "u_service_type": service_type,
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Interven" in sec.get("name", ""):
+                sec["item"] = [sf for sf in sec.get("item", []) if sf.get("name", "") == vno_subfolder]
+                for subfolder in sec.get("item", []):
+                    for req in subfolder.get("item", []):
+                        nm = req.get("name", "")
+                        if "Cancela" in nm and "Masiva" not in nm and "Masivo" not in nm:
+                            b = req.get("request", {}).get("body", {})
+                            if b.get("mode") == "raw":
+                                b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_ia_cancel_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", "05-Cancela Intervención",
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_devmod":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        serial_number = overrides.pop("serial_number", "")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        req_name      = QA_DM_REQUEST_MAP.get(vno_code, "DeviceModification KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken devmod] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        body_dict = {"u_id_vno": vno_code, "u_access_id_vno": access_id_vno}
+        if serial_number:
+            body_dict["u_serial_number"] = serial_number
+        new_body = _j.dumps(body_dict, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "DeviceModif" in sec.get("name", "") or "06-Device" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == req_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_devmod_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", req_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_modificacion":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        speed_plan    = overrides.pop("speed_plan", "600/600")
+        service_ba    = overrides.pop("service_ba", "true") == "true"
+        service_voip  = overrides.pop("service_voip", "true") == "true"
+        service_iptv  = overrides.pop("service_iptv", "true") == "true"
+        serial_number = overrides.pop("serial_number", "")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        req_name      = QA_MODIF_REQUEST_MAP.get(vno_code, "Modification KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken modificacion] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        body_dict = {
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_operation_type": "M",
+            "u_speed_plan": speed_plan,
+            "u_service_ba": service_ba,
+            "u_service_voip": service_voip,
+            "u_service_iptv": service_iptv,
+        }
+        if serial_number:
+            body_dict["u_serial_number"] = serial_number
+        new_body = _j.dumps(body_dict, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Modificacion" in sec.get("name", "") or "07-" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == req_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_modif_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", req_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_cancel_svc":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        service_type  = overrides.pop("service_type", "FTTH")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        req_name      = QA_CANCEL_REQUEST_MAP.get(vno_code, "cancel service order KAO")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken cancel_svc] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_service_type": service_type,
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Cancel" in sec.get("name", "") or "08-" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "") == req_name:
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_cancel_svc_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", req_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_unsub":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        service_type  = overrides.pop("service_type", "FTTH")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken unsub] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_service_type": service_type,
+        }, indent=4, ensure_ascii=False)
+        for sec in col_tmp.get("item", []):
+            if "Unsub" in sec.get("name", "") or "10-" in sec.get("name", ""):
+                for req in sec.get("item", []):
+                    if req.get("name", "").lower() == "ususcription":
+                        b = req.get("request", {}).get("body", {})
+                        if b.get("mode") == "raw":
+                            b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_unsub_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", "ususcription",
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_retrieve":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        flag_scope    = overrides.pop("flag_scope", "0")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        folder_name   = suite.get("folder", "RetrieveAccess ( TCH)")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken retrieve] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_id_vno": vno_code,
+            "u_access_id_vno": access_id_vno,
+            "u_flag_scope": flag_scope,
+        }, indent=4, ensure_ascii=False)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == folder_name:
+                b = item.get("request", {}).get("body", {})
+                if b.get("mode") == "raw":
+                    b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_retrieve_{suite_id}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", folder_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_access_id_ep":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        folder_name   = suite.get("folder", "DiagnosticoAcceso")
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken access_id_ep] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({"u_access_id_vno": access_id_vno}, indent=4, ensure_ascii=False)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == folder_name:
+                b = item.get("request", {}).get("body", {})
+                if b.get("mode") == "raw":
+                    b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_access_id_{suite_id}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", folder_name,
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_accessstate_ep":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code  = overrides.pop("vno", "02")
+        env_file  = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out  = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out    = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data  = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev        = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url  = ev.get("apimURL", "")
+        auth_b64  = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken accessstate_ep] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_node":              overrides.pop("u_node", ""),
+            "u_element":           overrides.pop("u_element", ""),
+            "u_access_status":     overrides.pop("u_access_status", ""),
+            "u_access_status_msg": overrides.pop("u_access_status_msg", ""),
+            "u_current_rx":        overrides.pop("u_current_rx", ""),
+            "u_historical_rx":     overrides.pop("u_historical_rx", ""),
+        }, indent=4, ensure_ascii=False)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == "AccessStateResponse":
+                b = item.get("request", {}).get("body", {})
+                if b.get("mode") == "raw":
+                    b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_accessstate.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col, "-e", env_file,
+                 "--folder", "AccessStateResponse",
+                 "--env-var", f"Token={token}", "--env-var", f"idvno={vno_code}",
+                 "--insecure", "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out, requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_queryneighbors_ep":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code  = overrides.pop("vno", "02")
+        env_file  = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out  = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out    = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data  = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev        = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url  = ev.get("apimURL", "")
+        auth_b64  = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken queryneighbors_ep] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_node":             overrides.pop("u_node", ""),
+            "u_element":          overrides.pop("u_element", ""),
+            "u_access_status":    overrides.pop("u_access_status", ""),
+            "u_access_status_msg":overrides.pop("u_access_status_msg", ""),
+            "u_current_rx":       overrides.pop("u_current_rx", ""),
+            "u_historical_rx":    overrides.pop("u_historical_rx", ""),
+            "u_current_tx":       overrides.pop("u_current_tx", ""),
+            "u_historical_tx":    overrides.pop("u_historical_tx", ""),
+            "u_laser_temp":       overrides.pop("u_laser_temp", ""),
+            "u_laser_voltage":    overrides.pop("u_laser_voltage", ""),
+            "u_current_bip8":     overrides.pop("u_current_bip8", ""),
+            "u_historical_bip8":  overrides.pop("u_historical_bip8", ""),
+        }, indent=4, ensure_ascii=False)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == "QueryNeighborsStateResponse":
+                b = item.get("request", {}).get("body", {})
+                if b.get("mode") == "raw":
+                    b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_queryneighbors.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col, "-e", env_file,
+                 "--folder", "QueryNeighborsStateResponse",
+                 "--env-var", f"Token={token}", "--env-var", f"idvno={vno_code}",
+                 "--insecure", "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out, requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_reinicio":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code      = overrides.pop("vno", "02")
+        access_id_vno = overrides.pop("access_id_vno", "")
+        reset_type    = overrides.pop("reset_type", "1")
+        port          = overrides.pop("port", "")
+        env_file      = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken reinicio] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_access_id_vno": access_id_vno,
+            "u_id_vno": vno_code,
+            "u_reset_type": reset_type,
+            "u_port": port,
+        }, indent=4, ensure_ascii=False)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == "ReinicioONT":
+                b = item.get("request", {}).get("body", {})
+                if b.get("mode") == "raw":
+                    b["raw"] = new_body
+        tmp_col = str(QA_DIR / f"_tmp_reinicio_{vno_code}.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col,
+                 "-e", env_file,
+                 "--folder", "ReinicioONT",
+                 "--env-var", f"Token={token}",
+                 "--env-var", f"idvno={vno_code}",
+                 "--insecure",
+                 "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out,
+            requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_consultaacceso":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code  = overrides.pop("vno", "02")
+        access_id = overrides.pop("access_id_vno", "")
+        env_file  = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out  = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out    = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data  = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev        = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url  = ev.get("apimURL", "")
+        auth_b64  = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken consultaacceso] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == "ConsultaAcceso":
+                url_obj = item.get("request", {}).get("url", {})
+                raw = url_obj.get("raw", "")
+                parts = raw.rsplit("/", 1)
+                url_obj["raw"] = (parts[0] + "/" + access_id) if len(parts) == 2 else raw
+                if url_obj.get("path") and url_obj["path"]:
+                    url_obj["path"][-1] = access_id
+        tmp_col = str(QA_DIR / "_tmp_consultaacceso.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col, "-e", env_file,
+                 "--folder", "ConsultaAcceso",
+                 "--env-var", f"Token={token}", "--env-var", f"idvno={vno_code}",
+                 "--insecure", "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out, requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_cevvecino":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code = overrides.pop("vno", "02")
+        olt_id   = overrides.pop("olt_id", "")
+        env_file = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out   = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev       = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = ev.get("apimURL", "")
+        auth_b64 = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken cevvecino] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == "CEVEstadoVecino":
+                url_obj = item.get("request", {}).get("url", {})
+                raw = url_obj.get("raw", "")
+                parts = raw.rsplit("/", 1)
+                url_obj["raw"] = (parts[0] + "/" + olt_id) if len(parts) == 2 else raw
+                if url_obj.get("path") and url_obj["path"]:
+                    url_obj["path"][-1] = olt_id
+        tmp_col = str(QA_DIR / "_tmp_cevvecino.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col, "-e", env_file,
+                 "--folder", "CEVEstadoVecino",
+                 "--env-var", f"Token={token}", "--env-var", f"idvno={vno_code}",
+                 "--insecure", "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out, requires=None,
+        )
+
+    elif suite.get("env_type") == "qa_dataont":
+        import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
+        vno_code  = overrides.pop("vno", "02")
+        env_file  = QA_VNO_ENV_MAP.get(vno_code, QA_VNO_ENV_MAP["02"])
+        json_out  = str(QA_DIR / f"rsp_{suite_id}.json")
+        rp_out    = str(QA_DIR / f"rp_{suite_id}.html")
+        env_data  = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        ev        = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url  = ev.get("apimURL", "")
+        auth_b64  = _b64.b64encode(f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()).decode()
+        token = ""
+        try:
+            body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            tok_req = _ur.Request(f"{apim_url}/token", data=body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as _te:
+            print(f"[GetToken dataont] error: {_te}", flush=True)
+        col_src = _j.load(open(QA_DIR / "03-Consultas.postman_collection.json", encoding="utf-8"))
+        col_tmp = _cp.deepcopy(col_src)
+        new_body = _j.dumps({
+            "u_access_id":  overrides.pop("u_access_id", ""),
+            "u_operation_id": overrides.pop("u_operation_id", "string"),
+            "u_user_id":    overrides.pop("u_user_id", "string"),
+            "u_area":       overrides.pop("u_area", "string"),
+            "u_msg_id":     overrides.pop("u_msg_id", "string"),
+            "u_msg_date":   overrides.pop("u_msg_date", "string"),
+        }, indent=4, ensure_ascii=False)
+        for item in col_tmp.get("item", []):
+            if item.get("name", "") == "ConsultaDataONT":
+                b = item.get("request", {}).get("body", {})
+                if b.get("mode") == "raw":
+                    b["raw"] = new_body
+        tmp_col = str(QA_DIR / "_tmp_dataont.json")
+        _j.dump(col_tmp, open(tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        _logo_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
+            b'<rect width="220" height="44" rx="4" fill="#0D1B3E"/>'
+            b'<text x="12" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="700" fill="#00C8FF">ONNET</text>'
+            b'<text x="105" y="30" font-family="Arial,Helvetica,sans-serif"'
+            b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
+            b'</svg>'
+        )
+        _logo_uri = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg).decode()
+        suite = dict(suite,
+            cmd=[NEWMAN, "run", tmp_col, "-e", env_file,
+                 "--folder", "ConsultaDataONT",
+                 "--env-var", f"Token={token}", "--env-var", f"idvno={vno_code}",
+                 "--insecure", "--reporters", "cli,json,htmlextra",
+                 "--reporter-json-export", json_out,
+                 "--reporter-htmlextra-export", rp_out,
+                 "--reporter-htmlextra-title", "Reporte QA - OnnetFibra",
+                 "--reporter-htmlextra-logo", _logo_uri],
+            report=rp_out, requires=None,
         )
 
     elif suite.get("env_type") == "qa_fact_suite":
@@ -5684,6 +6533,7 @@ function renderSB(){
         el.appendChild(row);
         if(isOpen){
           var _sections=[
+            {lbl:'Endpoints FulFillment',par:'qa-fulfillment',onlyEp:true},
             {lbl:'Suite Factibilidad',par:'qa-fact'},
             {lbl:'Suite Asignación',par:'qa-asig'},
             {lbl:'Suite Interv. Asegurada',par:'qa-ia-par'},
@@ -5782,6 +6632,85 @@ function selectSuite(id){
     renderActivacionForm();
     setTop('','Activación','registrationActivation · configura y ejecuta');
     var _eb0d=document.getElementById('exec-btn'); if(_eb0d) _eb0d.disabled=true;
+    return;
+  }
+  if(id==='qa-ep-ia-cancel'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderIACancelForm();
+    setTop('','IA Cancelación','cancela intervención asegurada · configura y ejecuta');
+    var _ebiac=document.getElementById('exec-btn'); if(_ebiac) _ebiac.disabled=true;
+    return;
+  }
+  if(id==='qa-ep-devmod'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderDevModForm();
+    setTop('','Device Modification','modificación de dispositivo · configura y ejecuta');
+    var _ebdm=document.getElementById('exec-btn'); if(_ebdm) _ebdm.disabled=true;
+    return;
+  }
+  if(id==='qa-ep-modificacion'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderModificacionForm();
+    setTop('','Modificación Acceso','modificación de acceso FTTH · configura y ejecuta');
+    var _ebmod=document.getElementById('exec-btn'); if(_ebmod) _ebmod.disabled=true;
+    return;
+  }
+  if(id==='qa-ep-cancel'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderCancelSvcForm();
+    setTop('','Cancel Orden Servicio','cancelación de orden · configura y ejecuta');
+    var _ebcsv=document.getElementById('exec-btn'); if(_ebcsv) _ebcsv.disabled=true;
+    return;
+  }
+  if(id==='qa-ep-unsub'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderUnsubForm();
+    setTop('','Unsubscription','desuscripción / baja de acceso · configura y ejecuta');
+    var _ebus=document.getElementById('exec-btn'); if(_ebus) _ebus.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-retrievetch'||id==='qa-cons-retrievekao'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderRetrieveForm();
+    setTop('','RetrieveAccess','retrieve access · configura y ejecuta');
+    var _ebrtv=document.getElementById('exec-btn'); if(_ebrtv) _ebrtv.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-diagnostico'||id==='qa-cons-estadovecino'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderAccessIdEpForm();
+    var _lblAi=id==='qa-cons-diagnostico'?'DiagnosticoAcceso':'EstadoVecino V';
+    setTop('',_lblAi,'u_access_id_vno · configura y ejecuta');
+    var _ebai=document.getElementById('exec-btn'); if(_ebai) _ebai.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-accessstate'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderAccessStateForm();
+    setTop('','AccessStateResponse','PUT callback · configura y ejecuta');
+    var _ebas=document.getElementById('exec-btn'); if(_ebas) _ebas.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-queryneighbors'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderQueryNeighborsForm();
+    setTop('','QueryNeighborsStateResponse','PUT callback · configura y ejecuta');
+    var _ebqn=document.getElementById('exec-btn'); if(_ebqn) _ebqn.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-reinicio'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderReinicioForm();
+    setTop('','ReinicioONT','reinicio de ONT · configura y ejecuta');
+    var _ebrei=document.getElementById('exec-btn'); if(_ebrei) _ebrei.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-consultaacceso'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderConsultaAccesoForm();
+    setTop('','ConsultaAcceso','GET · ingresa ID de acceso');
+    var _ebca=document.getElementById('exec-btn'); if(_ebca) _ebca.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-cevvecino'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderCEVVecinoForm();
+    setTop('','CEVEstadoVecino','GET · ingresa OLT ID');
+    var _ebcev=document.getElementById('exec-btn'); if(_ebcev) _ebcev.disabled=true;
+    return;
+  }
+  if(id==='qa-cons-dataont'){
+    _isQAChild=true; switchView('ep-form'); renderEPFVNOBar(); renderConsultaDataONTForm();
+    setTop('','ConsultaDataONT','consulta datos ONT · configura y ejecuta');
+    var _ebdont=document.getElementById('exec-btn'); if(_ebdont) _ebdont.disabled=true;
     return;
   }
   if(id==='qa-fact-suite'){
@@ -8126,7 +9055,20 @@ function renderEPFVNOBar(){
       if(selectedId==='qa-ep-assignment') renderAssignmentForm();
       else if(selectedId==='qa-ep-ia') renderIAForm();
       else if(selectedId==='qa-ep-ia-fin') renderIAFinForm();
+      else if(selectedId==='qa-ep-ia-cancel') renderIACancelForm();
       else if(selectedId==='qa-ep-activacion') renderActivacionForm();
+      else if(selectedId==='qa-ep-devmod') renderDevModForm();
+      else if(selectedId==='qa-ep-modificacion') renderModificacionForm();
+      else if(selectedId==='qa-ep-cancel') renderCancelSvcForm();
+      else if(selectedId==='qa-ep-unsub') renderUnsubForm();
+      else if(selectedId==='qa-cons-retrievetch'||selectedId==='qa-cons-retrievekao') renderRetrieveForm();
+      else if(selectedId==='qa-cons-diagnostico'||selectedId==='qa-cons-estadovecino') renderAccessIdEpForm();
+      else if(selectedId==='qa-cons-accessstate') renderAccessStateForm();
+      else if(selectedId==='qa-cons-queryneighbors') renderQueryNeighborsForm();
+      else if(selectedId==='qa-cons-reinicio') renderReinicioForm();
+      else if(selectedId==='qa-cons-consultaacceso') renderConsultaAccesoForm();
+      else if(selectedId==='qa-cons-cevvecino') renderCEVVecinoForm();
+      else if(selectedId==='qa-cons-dataont') renderConsultaDataONTForm();
       else if(_s&&_s.env_type==='qa_vno') renderVnoEpForm(_s);
       else renderFactibilidadForm();
     };})(code);
@@ -8544,6 +9486,332 @@ function runActivacion(params){
   var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
   suiteLogs[sid]=[]; document.getElementById("term").innerHTML="";
   _doRun("/api/run/"+sid,params,s);
+}
+// ── helpers shared by new ep forms ────────────────────────────────────────────
+function _epfVnoReadonly(card,vno,clr){
+  var f=document.createElement("div"); f.className="epf-field";
+  var l=document.createElement("label"); l.className="epf-label"; l.textContent="u_id_vno (auto)";
+  var v=document.createElement("div"); v.className="epf-readonly";
+  v.style.color=clr; v.textContent=vno+" — "+(_QA_VNO_LABELS[vno]||vno);
+  f.appendChild(l); f.appendChild(v); card.appendChild(f);
+}
+function _epfTextInput(card,id,lbl,ph){
+  var f=document.createElement("div"); f.className="epf-field";
+  var l=document.createElement("label"); l.className="epf-label"; l.textContent=lbl;
+  var i=document.createElement("input"); i.type="text"; i.className="epf-input"; i.id=id; i.placeholder=ph||"";
+  f.appendChild(l); f.appendChild(i); card.appendChild(f); return i;
+}
+function _epfSelectInput(card,id,lbl,opts,defVal){
+  var f=document.createElement("div"); f.className="epf-field";
+  var l=document.createElement("label"); l.className="epf-label"; l.textContent=lbl;
+  var s=document.createElement("select"); s.className="epf-select"; s.id=id;
+  opts.forEach(function(o){var op=document.createElement("option");op.value=o;op.textContent=o;if(o===defVal)op.selected=true;s.appendChild(op);});
+  f.appendChild(l); f.appendChild(s); card.appendChild(f); return s;
+}
+function _epfExecBtn(card,running,fn){
+  var eb=document.createElement("button"); eb.className="epf-exec"; eb.textContent="▶ Ejecutar";
+  eb.disabled=running; eb.onclick=fn; card.appendChild(eb); return eb;
+}
+function _epfDoRun(sid,params){
+  if(running) return;
+  var s=suites.find(function(x){return x.id===sid;});
+  if(!s) return;
+  selectedId=sid; _isQAChild=true;
+  switchView("std"); renderVNOBar();
+  var rp=document.getElementById("resp-panel"); if(rp) rp.style.display="none";
+  suiteLogs[sid]=[]; document.getElementById("term").innerHTML="";
+  _doRun("/api/run/"+sid,params,s);
+}
+// ── IA Cancelación ─────────────────────────────────────────────────────────────
+function renderIACancelForm(){
+  _buildIACard("IA Cancelación","05-Cancela Intervención","epf-iac-access","ej. 02-QASM-2307-1",runIACancel);
+}
+function runIACancel(params){ _epfDoRun("qa-ep-ia-cancel",params); }
+// ── Device Modification ────────────────────────────────────────────────────────
+function renderDevModForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Device Modification";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>06-DeviceModification</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-dm-access","u_access_id_vno","ej. 02-OrderCharacteristics-30");
+  _epfTextInput(card,"epf-dm-serial","u_serial_number","ej. HTWC022A0430");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-dm-access");
+    var sn=document.getElementById("epf-dm-serial");
+    if(!ai) return;
+    _epfDoRun("qa-ep-devmod",{vno:_globalVNO,access_id_vno:ai.value,serial_number:sn?sn.value:""});
+  });
+  container.appendChild(card);
+}
+// ── Modificación de Acceso ─────────────────────────────────────────────────────
+function renderModificacionForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Modificación de Acceso";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>07-Modificacion De Acceso</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-mod-access","u_access_id_vno","ej. 02-DIR00765088-RANOKIA-1");
+  _epfSelectInput(card,"epf-mod-speed","u_speed_plan",QA_SPEED_PLANS,"600/600");
+  _epfSelectInput(card,"epf-mod-ba","u_service_ba",["true","false"],"true");
+  _epfSelectInput(card,"epf-mod-voip","u_service_voip",["true","false"],"true");
+  _epfSelectInput(card,"epf-mod-iptv","u_service_iptv",["true","false"],"true");
+  _epfTextInput(card,"epf-mod-serial","u_serial_number (opcional)","ej. ZTEGD16683E9");
+  var fop=document.createElement("div"); fop.className="epf-field";
+  var lop=document.createElement("label"); lop.className="epf-label"; lop.textContent="u_operation_type (fijo)";
+  var vop=document.createElement("div"); vop.className="epf-readonly"; vop.style.color="var(--txt3)"; vop.style.borderStyle="dashed"; vop.textContent="M";
+  fop.appendChild(lop); fop.appendChild(vop); card.appendChild(fop);
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-mod-access");
+    var sp=document.getElementById("epf-mod-speed");
+    var ba=document.getElementById("epf-mod-ba");
+    var vo=document.getElementById("epf-mod-voip");
+    var it=document.getElementById("epf-mod-iptv");
+    var sn=document.getElementById("epf-mod-serial");
+    if(!ai||!sp) return;
+    _epfDoRun("qa-ep-modificacion",{vno:_globalVNO,access_id_vno:ai.value,speed_plan:sp.value,
+      service_ba:ba.value,service_voip:vo.value,service_iptv:it.value,serial_number:sn?sn.value:""});
+  });
+  container.appendChild(card);
+}
+// ── Cancel Orden Servicio ──────────────────────────────────────────────────────
+function renderCancelSvcForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Cancel Orden Servicio";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>08-CancelOrdenServicio</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-csvc-access","u_access_id_vno","ej. 02-QASM2703-SM01");
+  _epfSelectInput(card,"epf-csvc-svctype","u_service_type",["FTTH","SSAA"],"FTTH");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-csvc-access");
+    var st=document.getElementById("epf-csvc-svctype");
+    if(!ai) return;
+    _epfDoRun("qa-ep-cancel",{vno:_globalVNO,access_id_vno:ai.value,service_type:st.value});
+  });
+  container.appendChild(card);
+}
+// ── Unsubscription ─────────────────────────────────────────────────────────────
+function renderUnsubForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Unsubscription";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>10-Unsubscription</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-unsub-access","u_access_id_vno","ej. 03-QAAPOQ_OLT_10-04");
+  _epfSelectInput(card,"epf-unsub-svctype","u_service_type",["FTTH","SSAA"],"FTTH");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-unsub-access");
+    var st=document.getElementById("epf-unsub-svctype");
+    if(!ai) return;
+    _epfDoRun("qa-ep-unsub",{vno:_globalVNO,access_id_vno:ai.value,service_type:st.value});
+  });
+  container.appendChild(card);
+}
+// ── RetrieveAccess ─────────────────────────────────────────────────────────────
+function renderRetrieveForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var s=suites.find(function(x){return x.id===selectedId;});
+  var fldr=s?s.folder:"RetrieveAccess";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="RetrieveAccess";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>'+esc(fldr)+'</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-rtr-access","u_access_id_vno","ej. 02-1-P0FGUDQ");
+  _epfSelectInput(card,"epf-rtr-scope","u_flag_scope",["0","1","2"],"0");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-rtr-access");
+    var fs=document.getElementById("epf-rtr-scope");
+    if(!ai) return;
+    _epfDoRun(selectedId,{vno:_globalVNO,access_id_vno:ai.value,flag_scope:fs.value});
+  });
+  container.appendChild(card);
+}
+// ── DiagnosticoAcceso / EstadoVecino V (access_id_vno only) ───────────────────
+function renderAccessIdEpForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var s=suites.find(function(x){return x.id===selectedId;});
+  var ttl=s?s.label:"Diagnóstico"; var fldr=s?s.folder:"";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent=ttl;
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>'+esc(fldr)+'</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-aid-access","u_access_id_vno","ej. 03-REGRE-1607-SM2");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-aid-access"); if(!ai) return;
+    _epfDoRun(selectedId,{vno:_globalVNO,access_id_vno:ai.value});
+  });
+  container.appendChild(card);
+}
+// ── AccessStateResponse (PUT callback) ────────────────────────────────────────
+function renderAccessStateForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="AccessStateResponse";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Method: <span>PUT · diagnosticoAcceso/v1/AccessStateResponse</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-acs-node","u_node","ej. PITA_OLT_4");
+  _epfTextInput(card,"epf-acs-element","u_element","ej. 0/1/0/1");
+  _epfTextInput(card,"epf-acs-status","u_access_status","ej. access status");
+  _epfTextInput(card,"epf-acs-msg","u_access_status_msg","ej. Status access msg");
+  _epfTextInput(card,"epf-acs-rx","u_current_rx","ej. -20 dBm");
+  _epfTextInput(card,"epf-acs-hrx","u_historical_rx","ej. -20 dBm");
+  _epfExecBtn(card,running,function(){
+    _epfDoRun("qa-cons-accessstate",{
+      vno:_globalVNO,
+      u_node:(document.getElementById("epf-acs-node")||{}).value||"",
+      u_element:(document.getElementById("epf-acs-element")||{}).value||"",
+      u_access_status:(document.getElementById("epf-acs-status")||{}).value||"",
+      u_access_status_msg:(document.getElementById("epf-acs-msg")||{}).value||"",
+      u_current_rx:(document.getElementById("epf-acs-rx")||{}).value||"",
+      u_historical_rx:(document.getElementById("epf-acs-hrx")||{}).value||"",
+    });
+  });
+  container.appendChild(card);
+}
+// ── QueryNeighborsStateResponse (PUT callback) ────────────────────────────────
+function renderQueryNeighborsForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="QueryNeighborsStateResponse";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Method: <span>PUT · estadoVecino/v1/QueryNeighborsStateResponse</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  [["epf-qn-node","u_node","ej. PITA_OLT_5"],
+   ["epf-qn-element","u_element","ej. 0/5/2/63"],
+   ["epf-qn-status","u_access_status","ej. OK"],
+   ["epf-qn-msg","u_access_status_msg","ej. Access OK"],
+   ["epf-qn-rx","u_current_rx","ej. -19.83 dBm"],
+   ["epf-qn-hrx","u_historical_rx","ej. -25 dBm"],
+   ["epf-qn-tx","u_current_tx","ej. 2.18 dBm"],
+   ["epf-qn-htx","u_historical_tx","ej. -25 dBm"],
+   ["epf-qn-temp","u_laser_temp","ej. 42 Cdeg"],
+   ["epf-qn-volt","u_laser_voltage","ej. 3280 mV"],
+   ["epf-qn-bip8","u_current_bip8","ej.  packets"],
+   ["epf-qn-hbip8","u_historical_bip8","ej. 0 packets"]
+  ].forEach(function(t){ _epfTextInput(card,t[0],t[1],t[2]); });
+  _epfExecBtn(card,running,function(){
+    function g(id){return (document.getElementById(id)||{}).value||"";}
+    _epfDoRun("qa-cons-queryneighbors",{
+      vno:_globalVNO,
+      u_node:g("epf-qn-node"), u_element:g("epf-qn-element"),
+      u_access_status:g("epf-qn-status"), u_access_status_msg:g("epf-qn-msg"),
+      u_current_rx:g("epf-qn-rx"), u_historical_rx:g("epf-qn-hrx"),
+      u_current_tx:g("epf-qn-tx"), u_historical_tx:g("epf-qn-htx"),
+      u_laser_temp:g("epf-qn-temp"), u_laser_voltage:g("epf-qn-volt"),
+      u_current_bip8:g("epf-qn-bip8"), u_historical_bip8:g("epf-qn-hbip8"),
+    });
+  });
+  container.appendChild(card);
+}
+// ── ReinicioONT ────────────────────────────────────────────────────────────────
+function renderReinicioForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="ReinicioONT";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>ReinicioONT</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-rei-access","u_access_id_vno","ej. 02-1-OPGKCQI");
+  _epfSelectInput(card,"epf-rei-resettype","u_reset_type",["1","2","3"],"1");
+  _epfTextInput(card,"epf-rei-port","u_port (opcional)","");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-rei-access");
+    var rt=document.getElementById("epf-rei-resettype");
+    var pt=document.getElementById("epf-rei-port");
+    if(!ai) return;
+    _epfDoRun("qa-cons-reinicio",{vno:_globalVNO,access_id_vno:ai.value,reset_type:rt.value,port:pt?pt.value:""});
+  });
+  container.appendChild(card);
+}
+// ── ConsultaAcceso GET ─────────────────────────────────────────────────────────
+function renderConsultaAccesoForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="ConsultaAcceso";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Method: <span>GET · fullFillment-consultaAcceso/v1/{access_id}</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-ca-access","access_id (en URL)","ej. 001130062264");
+  _epfExecBtn(card,running,function(){
+    var ai=document.getElementById("epf-ca-access"); if(!ai) return;
+    _epfDoRun("qa-cons-consultaacceso",{vno:_globalVNO,access_id_vno:ai.value});
+  });
+  container.appendChild(card);
+}
+// ── CEVEstadoVecino GET ────────────────────────────────────────────────────────
+function renderCEVVecinoForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="CEVEstadoVecino";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Method: <span>GET · fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{olt_id}</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-cev-olt","OLT ID (en URL)","ej. 03-QAAPOQ_OLT_10-01");
+  _epfExecBtn(card,running,function(){
+    var oi=document.getElementById("epf-cev-olt"); if(!oi) return;
+    _epfDoRun("qa-cons-cevvecino",{vno:_globalVNO,olt_id:oi.value});
+  });
+  container.appendChild(card);
+}
+// ── ConsultaDataONT ────────────────────────────────────────────────────────────
+function renderConsultaDataONTForm(){
+  var container=document.getElementById("epf-container"); if(!container) return;
+  container.innerHTML="";
+  var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
+  var card=document.createElement("div"); card.className="epf-card";
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="ConsultaDataONT";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>ConsultaDataONT</span>';
+  card.appendChild(tt); card.appendChild(sf);
+  _epfVnoReadonly(card,vno,clr);
+  _epfTextInput(card,"epf-dnt-access","u_access_id","ej. 03-UAT3021446");
+  _epfTextInput(card,"epf-dnt-opid","u_operation_id","string");
+  _epfTextInput(card,"epf-dnt-uid","u_user_id","string");
+  _epfTextInput(card,"epf-dnt-area","u_area","string");
+  _epfTextInput(card,"epf-dnt-msgid","u_msg_id","string");
+  _epfTextInput(card,"epf-dnt-msgdate","u_msg_date","string");
+  _epfExecBtn(card,running,function(){
+    function g(id){return (document.getElementById(id)||{}).value||"";}
+    _epfDoRun("qa-cons-dataont",{
+      vno:_globalVNO,
+      u_access_id:g("epf-dnt-access"),
+      u_operation_id:g("epf-dnt-opid"),
+      u_user_id:g("epf-dnt-uid"),
+      u_area:g("epf-dnt-area"),
+      u_msg_id:g("epf-dnt-msgid"),
+      u_msg_date:g("epf-dnt-msgdate"),
+    });
+  });
+  container.appendChild(card);
 }
 function renderEPVNOBar(){
   var bar=document.getElementById('ep-vno-bar');
