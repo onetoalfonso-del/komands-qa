@@ -966,6 +966,7 @@ CREATE TABLE IF NOT EXISTS qa_executions (
     tiempo_ms INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE qa_executions ADD COLUMN IF NOT EXISTS steps_json TEXT;
 CREATE TABLE IF NOT EXISTS qa_config (
     key        VARCHAR(100) PRIMARY KEY,
     value      TEXT NOT NULL DEFAULT '',
@@ -1028,13 +1029,13 @@ async def _db_save(record: dict):
         async with pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO qa_executions
-                   (ts,suite_id,suite_label,tc,vno,vno_lbl,escenario,direccion,resultado,code,tiempo_ms)
-                   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+                   (ts,suite_id,suite_label,tc,vno,vno_lbl,escenario,direccion,resultado,code,tiempo_ms,steps_json)
+                   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
                 record.get("ts"), record.get("suite_id",""), record.get("suite_label",""),
                 record.get("tc",""), record.get("vno",""), record.get("vno_lbl",""),
                 record.get("escenario",""), record.get("direccion",""),
                 record.get("resultado",""), record.get("code",1),
-                record.get("tiempo_ms",0)
+                record.get("tiempo_ms",0), record.get("steps_json",None)
             )
     except Exception as _e:
         print(f"[db] error guardando ejecución: {_e}")
@@ -8507,7 +8508,10 @@ function _renderHistorialTable(){
     h+='<td>'+vnoHtml+'</td><td>'+dirHtml+'</td>';
     h+='<td><span class="hist-badge '+bc+'">'+esc(res==='ok'?'OK':'Error')+'</span></td>';
     h+='<td style="text-align:right;font-variant-numeric:tabular-nums">'+esc(tiempoSeg)+'</td>';
-    h+='<td><button onclick="_histDelete('+r.id+')" style="padding:2px 7px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.65rem;cursor:pointer">&#128465;</button></td>';
+    h+='<td style="display:flex;gap:4px;align-items:center">';
+    if(r.steps_json){h+='<button onclick="_histDetail('+r.id+')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--accd);color:var(--acc);font-size:.65rem;cursor:pointer">Ver</button>';}
+    h+='<button onclick="_histDelete('+r.id+')" style="padding:2px 7px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.65rem;cursor:pointer">&#128465;</button>';
+    h+='</td>';
     h+='</tr>';
   });
   h+='</tbody></table></div>';
@@ -8522,6 +8526,70 @@ function _histDelete(id){
 function _histDeleteAll(){
   if(!confirm('¿Eliminar TODO el historial? Esta acción no se puede deshacer.')) return;
   fetch('/api/historial',{method:'DELETE'}).then(function(){_histData=[];_renderHistorialTable();});
+}
+function _histDetail(id){
+  var r=_histData.find(function(x){return x.id===id;});
+  if(!r)return;
+  var steps=[];try{steps=JSON.parse(r.steps_json||'[]');}catch(e){}
+  var vno=r.vno_lbl||r.vno||'—';
+  var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):(r.ts||'');
+  var passC=steps.filter(function(s){return s.pass;}).length;
+  var h='<div style="padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;gap:18px;flex-wrap:wrap;font-size:.75rem">';
+  h+='<div><span style="color:var(--txt2)">Secuencia</span><br><b>'+esc(r.suite_label||'—')+'</b></div>';
+  h+='<div><span style="color:var(--txt2)">VNO</span><br><b style="color:'+_histVnoColor(r.vno||'')+'">'+esc(vno)+'</b></div>';
+  h+='<div><span style="color:var(--txt2)">Access ID</span><br><b>'+esc(r.direccion||'—')+'</b></div>';
+  h+='<div><span style="color:var(--txt2)">Escenario</span><br><b>'+esc(r.escenario||'—')+'</b></div>';
+  h+='<div><span style="color:var(--txt2)">Fecha</span><br><b>'+esc(fecha)+'</b></div>';
+  h+='<div><span style="color:var(--txt2)">Resultado</span><br><b>'+passC+'/'+steps.length+' pasos OK</b></div>';
+  h+='</div>';
+  if(steps.length){
+    h+='<div style="overflow-x:auto;padding:12px 18px"><table class="hist-table"><thead><tr>';
+    h+='<th>#</th><th>Función</th><th>TC</th><th>HTTP</th><th>Resultado</th><th>Acción</th></tr></thead><tbody>';
+    steps.forEach(function(s,i){
+      var bc=s.pass?'ok':'err';
+      h+='<tr>';
+      h+='<td style="font-size:.68rem;color:var(--txt3)">'+(i+1)+'</td>';
+      h+='<td style="font-size:.72rem;font-weight:600">'+esc(s.func||'—')+'</td>';
+      h+='<td style="font-family:monospace;font-size:.7rem">'+esc(s.tc||'—')+'</td>';
+      h+='<td style="font-family:monospace;font-size:.7rem">'+esc(s.httpCode?String(s.httpCode):'—')+'</td>';
+      h+='<td><span class="hist-badge '+bc+'">'+esc(s.pass?'Pasó':'Falló')+'</span></td>';
+      h+='<td><button onclick="_histDetailStep('+id+','+i+')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--acc);font-size:.65rem;cursor:pointer">Req/Res</button></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }else{h+='<div class="hist-empty" style="padding:24px">Sin pasos registrados.</div>';}
+  document.getElementById('hist-detail-body').innerHTML=h;
+  document.getElementById('hist-detail-overlay').style.display='flex';
+}
+function _histDetailStep(id,stepIdx){
+  var r=_histData.find(function(x){return x.id===id;});
+  if(!r)return;
+  var steps=[];try{steps=JSON.parse(r.steps_json||'[]');}catch(e){}
+  var s=steps[stepIdx];if(!s)return;
+  var bc=s.pass?'ok':'err';
+  var h='<div style="padding:10px 18px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:10px;font-size:.75rem">';
+  h+='<b>'+esc(s.func||'')+'</b><span style="font-family:monospace;font-size:.7rem;color:var(--txt2)">'+esc(s.tc||'')+'</span>';
+  h+='<span class="hist-badge '+bc+'" style="margin-left:auto">'+esc(s.pass?'Pasó':'Falló')+'</span>';
+  if(s.httpCode)h+='<span style="font-family:monospace;font-size:.7rem;color:var(--txt2)">HTTP '+esc(String(s.httpCode))+'</span>';
+  h+='</div>';
+  h+='<div style="display:flex;border-bottom:1px solid var(--brd)">';
+  h+='<button id="hds-tab-req" onclick="_hdsTab(\'req\')" style="padding:6px 16px;font-size:.73rem;border:none;background:var(--accd);color:var(--acc);cursor:pointer;font-weight:700">Request</button>';
+  h+='<button id="hds-tab-res" onclick="_hdsTab(\'res\')" style="padding:6px 16px;font-size:.73rem;border:none;background:var(--card);color:var(--txt2);cursor:pointer">Response</button>';
+  h+='</div>';
+  h+='<div id="hds-panel-req" style="overflow:auto;max-height:340px"><pre style="margin:0;padding:14px 18px;font-size:.72rem;white-space:pre-wrap;word-break:break-all">'+esc(s.req||'—')+'</pre></div>';
+  h+='<div id="hds-panel-res" style="display:none;overflow:auto;max-height:340px"><pre style="margin:0;padding:14px 18px;font-size:.72rem;white-space:pre-wrap;word-break:break-all">'+esc(s.res||'—')+'</pre></div>';
+  document.getElementById('hist-step-body').innerHTML=h;
+  document.getElementById('hist-step-overlay').style.display='flex';
+}
+function _hdsTab(t){
+  document.getElementById('hds-panel-req').style.display=t==='req'?'block':'none';
+  document.getElementById('hds-panel-res').style.display=t==='res'?'block':'none';
+  document.getElementById('hds-tab-req').style.background=t==='req'?'var(--accd)':'var(--card)';
+  document.getElementById('hds-tab-req').style.color=t==='req'?'var(--acc)':'var(--txt2)';
+  document.getElementById('hds-tab-req').style.fontWeight=t==='req'?'700':'400';
+  document.getElementById('hds-tab-res').style.background=t==='res'?'var(--accd)':'var(--card)';
+  document.getElementById('hds-tab-res').style.color=t==='res'?'var(--acc)':'var(--txt2)';
+  document.getElementById('hds-tab-res').style.fontWeight=t==='res'?'700':'400';
 }
 function loadStats(){
   var body=document.getElementById('hpane-stats');
@@ -9123,11 +9191,13 @@ function _atrf_switchView(t){
   });
 }
 
+var _atrf_qStartTs=0;
 async function _atrf_runSelected(){
   if(_atrfRunning)return;
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
   if(!toRun.length){if(typeof showToast==='function')showToast('No hay secuencias seleccionadas en espera','err');return;}
   _atrfRunning=true;
+  _atrf_qStartTs=Date.now();
   var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='â³ Ejecutando…';btn.disabled=true;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
   for(var qi=0;qi<_atrfQueue.length;qi++){
@@ -9207,6 +9277,21 @@ async function _atrf_runSelected(){
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
+    // Guardar en historial persistente
+    var _tElapsed=Date.now()-(_atrf_qStartTs||Date.now());
+    var _passCount=q.tcResults.filter(function(r){return r.pass;}).length;
+    var _totalCount=q.tcResults.length;
+    var _vno=q.cfg&&q.cfg.vno||'';
+    fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      ts:Date.now(),suite_id:'atrf',suite_label:q.name,
+      tc:_passCount+'/'+_totalCount,
+      vno:_vno,vno_lbl:_ATRF_TC_VNO_LABEL[_vno]||_vno,
+      escenario:(q.cfg&&q.cfg.esc)||'',
+      direccion:(q.cfg&&q.cfg.accessId)||'',
+      resultado:anyFail?'error':'ok',code:anyFail?1:0,
+      tiempo_ms:_tElapsed,
+      steps_json:JSON.stringify(q.tcResults)
+    })}).catch(function(){});
     _atrf_save();
     _atrf_renderQueue();
     var rowEl=document.getElementById('atrf-qrow-'+qi);
@@ -9629,6 +9714,26 @@ async function _atrf_runSelected(){
         </div>
       </div>
     </div>
+  </div>
+</div>
+<!-- ── Modal Detalle Historial ──────────────────────────────────────────── -->
+<div id="hist-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.35);width:min(780px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;padding:12px 18px;border-bottom:1px solid var(--brd)">
+      <span style="font-weight:700;font-size:.85rem;color:var(--txt)">Detalle de ejecución</span>
+      <button onclick="document.getElementById('hist-detail-overlay').style.display='none'" style="margin-left:auto;padding:4px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.73rem;cursor:pointer">✕ Cerrar</button>
+    </div>
+    <div id="hist-detail-body" style="overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+<!-- ── Modal Req/Res paso ────────────────────────────────────────────────── -->
+<div id="hist-step-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3100;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.35);width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;padding:10px 18px;border-bottom:1px solid var(--brd)">
+      <span style="font-weight:700;font-size:.82rem;color:var(--txt)">Request / Response</span>
+      <button onclick="document.getElementById('hist-step-overlay').style.display='none'" style="margin-left:auto;padding:4px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.73rem;cursor:pointer">✕ Cerrar</button>
+    </div>
+    <div id="hist-step-body" style="overflow-y:auto;flex:1"></div>
   </div>
 </div>
 </body>
