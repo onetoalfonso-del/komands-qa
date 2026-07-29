@@ -5442,7 +5442,6 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div style="display:flex;gap:2px;padding:8px 14px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd)">
         <button id="htab-hist" onclick="_hTab('hist')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--bg);color:var(--acc);font-size:.76rem;cursor:pointer;font-weight:700">&#128203; Historial</button>
         <button id="htab-stats" onclick="_hTab('stats')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128200; Estadísticas</button>
-        <button id="htab-cfg" onclick="_hTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; Configuración</button>
         <div style="flex:1"></div>
         <input id="historial-filter" type="text" placeholder="Filtrar…" oninput="_filterHistorial()" style="display:none;padding:4px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.75rem;min-width:150px;align-self:center;margin-bottom:4px">
         <button id="hist-refresh-btn" onclick="_hTabRefresh()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer;align-self:center;margin-bottom:4px">&#8635;</button>
@@ -5455,10 +5454,6 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <!-- Stats tab -->
       <div id="hpane-stats" style="display:none;flex:1;overflow:auto;padding:12px 14px">
         <div class="hist-empty">Cargando estadísticas…</div>
-      </div>
-      <!-- Config tab -->
-      <div id="hpane-cfg" style="display:none;flex:1;overflow:auto;padding:16px 18px">
-        <div class="hist-empty">Cargando configuración…</div>
       </div>
     </div>
     <!-- Vista Device Modification — 4 consolas paralelas -->
@@ -8442,7 +8437,7 @@ function _saveSettingsCfg(key){
 }
 function _hTab(tab){
   _histTab=tab;
-  ['hist','stats','cfg'].forEach(function(t){
+  ['hist','stats'].forEach(function(t){
     var btn=document.getElementById('htab-'+t);
     var pane=document.getElementById('hpane-'+t);
     if(btn) btn.style.background=t===tab?'var(--bg)':'var(--card)';
@@ -8455,12 +8450,10 @@ function _hTab(tab){
   if(delBtn) delBtn.style.display=tab==='hist'?'inline-block':'none';
   if(tab==='hist'){ if(!_histData.length) loadHistorial(); }
   else if(tab==='stats') loadStats();
-  else if(tab==='cfg') loadConfig();
 }
 function _hTabRefresh(){
   if(_histTab==='hist'){_histData=[];loadHistorial();}
-  else if(_histTab==='stats') loadStats();
-  else loadConfig();
+  else loadStats();
 }
 function loadHistorial(){
   var body=document.getElementById('hpane-hist');
@@ -8560,7 +8553,7 @@ function loadStats(){
   }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
 }
 function loadConfig(){
-  var body=document.getElementById('hpane-cfg');
+  var body=document.getElementById('spane-cfg-body');
   body.innerHTML='<div class="hist-empty">Cargando…</div>';
   fetch('/api/config').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando config.</div>';return;}
