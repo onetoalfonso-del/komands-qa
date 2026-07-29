@@ -9606,18 +9606,40 @@ function renderUnsubForm(){
   container.innerHTML="";
   var vno=_globalVNO; var clr=_QA_VNO_COLORS[vno]||"var(--acc)";
   var card=document.createElement("div"); card.className="epf-card";
-  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Unsubscription";
-  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Folder: <span>10-Unsubscription</span>';
+  var tt=document.createElement("div"); tt.className="epf-title"; tt.textContent="Unsubscription · Baja Total de Servicio";
+  var sf=document.createElement("div"); sf.className="epf-folder"; sf.innerHTML='Endpoint: <span>fullFillment-unsubcription/v1/accessDeregistration</span>';
   card.appendChild(tt); card.appendChild(sf);
   _epfVnoReadonly(card,vno,clr);
   _epfTextInput(card,"epf-unsub-access","u_access_id_vno","ej. 03-QAAPOQ_OLT_10-04");
   _epfSelectInput(card,"epf-unsub-svctype","u_service_type",["FTTH","SSAA"],"FTTH");
-  _epfExecBtn(card,running,function(){
+  var resDiv=document.createElement("div"); resDiv.style.cssText="margin-top:12px;";
+  var btn=_epfExecBtn(card,running,function(){
     var ai=document.getElementById("epf-unsub-access");
     var st=document.getElementById("epf-unsub-svctype");
-    if(!ai) return;
-    _epfDoRun("qa-ep-unsub",{vno:_globalVNO,access_id_vno:ai.value,service_type:st.value});
+    if(!ai||!ai.value.trim()) return;
+    btn.disabled=true; btn.textContent="⏳ Ejecutando...";
+    resDiv.innerHTML='<div style="color:var(--txt-dim);font-size:13px;padding:8px 0">Ejecutando Baja Total de Servicio...</div>';
+    fetch("/api/atrf/run-step",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({func:"Baja Total de Servicio",vno:_globalVNO,accessId:ai.value.trim(),serviceType:st?st.value:"FTTH"})
+    }).then(function(r){return r.json();}).then(function(d){
+      btn.disabled=false; btn.textContent="▶ Ejecutar";
+      var pass=d.pass;
+      var badge=pass
+        ?'<span style="background:#22c55e;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:700">PASS</span>'
+        :'<span style="background:#ef4444;color:#fff;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:700">FAIL</span>';
+      var html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+badge
+        +'<span style="font-size:12px;color:var(--txt-dim)">HTTP '+d.httpCode+'</span></div>';
+      html+='<div style="font-size:12px;color:var(--txt-dim);margin-bottom:4px">Request:</div>';
+      html+='<pre style="background:var(--bg-card);border:1px solid var(--bdr);border-radius:4px;padding:8px;font-size:11px;overflow-x:auto;margin:0 0 8px 0">'+esc(d.req||'')+'</pre>';
+      html+='<div style="font-size:12px;color:var(--txt-dim);margin-bottom:4px">Response:</div>';
+      html+='<pre style="background:var(--bg-card);border:1px solid var(--bdr);border-radius:4px;padding:8px;font-size:11px;overflow-x:auto;margin:0">'+esc(d.res||d.error||'')+'</pre>';
+      resDiv.innerHTML=html;
+    }).catch(function(e){
+      btn.disabled=false; btn.textContent="▶ Ejecutar";
+      resDiv.innerHTML='<div style="color:#ef4444;font-size:13px">Error: '+esc(String(e))+'</div>';
+    });
   });
+  card.appendChild(resDiv);
   container.appendChild(card);
 }
 // ── RetrieveAccess ─────────────────────────────────────────────────────────────
