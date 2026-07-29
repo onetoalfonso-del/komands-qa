@@ -3922,8 +3922,8 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
-    # ── Consulta de Acceso ────────────────────────────────────────────────────
-    if func_name == "Consulta de Acceso":
+    # ── GET Consulta de Acceso ────────────────────────────────────────────────
+    if func_name == "GET Consulta de Acceso":
         env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         try:
             env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
@@ -8476,7 +8476,7 @@ var _ATRF_TC_MAP={
   "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
-var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","Consulta de Acceso","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
@@ -8806,7 +8806,8 @@ var _ATRF_ENDPOINT_MAP={
   "Asignación":                          "fullFillment-assignment/v1/assignment",
   "Inicio Intervención Asegurada":       "fullFillment-gIntervention/v1/assuredIntervention",
   "Activación":                          "fullFillment-activation/v1/registrationActivation",
-  "Consulta de Acceso":                  "fullFillment-consultaAcceso/v1/{accessId}",
+  "Consulta de Acceso":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
+  "GET Consulta de Acceso":              "fullFillment-consultaAcceso/v1/{accessId}",
   "Diagnóstico de Acceso":               "fullFillment-diagnose/v1/diagnose",
   "Modificación de Dispositivo":         "fullFillment-deviceModification/v1/deviceModification",
   "Consulta Estado Vecino (GET)":        "fullFillment-neighbor/v1/neighbor",
