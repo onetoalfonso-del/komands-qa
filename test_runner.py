@@ -8460,7 +8460,6 @@ var _ATRF_TC_MAP={
   "Asignación":                          {"03":"CP04","02":"CP05","05":"CP06","00":"CP06"},
   "Inicio Intervención Asegurada":       {"03":"CP07","02":"CP08","05":"CP09","00":"CP09"},
   "Activación":                          {"03":"CP10","02":"CP13","05":"CP16","00":"CP16"},
-  "Consulta de Acceso":                  {"03":"CP11","02":"CP14","05":"CP17","00":"CP17"},
   "Diagnóstico de Acceso":               {"03":"CP12","02":"CP15","05":"CP18","00":"CP18"},
   "Modificación de Dispositivo":         {"03":"CP19","02":"CP21","05":"CP22","00":"CP22"},
   "Consulta Estado Vecino (GET)":        {"03":"CP23","02":"CP25","05":"CP26","00":"CP26"},
@@ -8476,7 +8475,7 @@ var _ATRF_TC_MAP={
   "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
-var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","Consulta de Acceso","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
@@ -8806,7 +8805,6 @@ var _ATRF_ENDPOINT_MAP={
   "Asignación":                          "fullFillment-assignment/v1/assignment",
   "Inicio Intervención Asegurada":       "fullFillment-gIntervention/v1/assuredIntervention",
   "Activación":                          "fullFillment-activation/v1/registrationActivation",
-  "Consulta de Acceso":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
   "GET Consulta de Acceso":              "fullFillment-consultaAcceso/v1/{accessId}",
   "Diagnóstico de Acceso":               "fullFillment-diagnose/v1/diagnose",
   "Modificación de Dispositivo":         "fullFillment-deviceModification/v1/deviceModification",
