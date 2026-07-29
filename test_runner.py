@@ -3922,6 +3922,58 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
+    # ── Consulta Estado Vecino (GET) ──────────────────────────────────────────
+    if func_name == "Consulta Estado Vecino (GET)":
+        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
+        token = ""
+        try:
+            _body_b = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        _cev_url = f"{apim_url.rstrip('/')}/fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{access_id}"
+        req_body_str = f"GET {_cev_url}"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_cev_url,
+                headers={"Authorization": f"Bearer {token}",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = _http_code in (200, 201) and _rc not in ("1",)
+        except Exception:
+            _pass = _http_code in (200, 201)
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
+                             "vno": vno, "func": func_name, "httpCode": _http_code})
+
     # ── GET Consulta de Acceso ────────────────────────────────────────────────
     if func_name == "GET Consulta de Acceso":
         env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
@@ -8808,7 +8860,7 @@ var _ATRF_ENDPOINT_MAP={
   "GET Consulta de Acceso":              "fullFillment-consultaAcceso/v1/{accessId}",
   "Diagnóstico de Acceso":               "fullFillment-diagnose/v1/diagnose",
   "Modificación de Dispositivo":         "fullFillment-deviceModification/v1/deviceModification",
-  "Consulta Estado Vecino (GET)":        "fullFillment-neighbor/v1/neighbor",
+  "Consulta Estado Vecino (GET)":        "fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{accessId}",
   "Consulta Estado Vecino (POST)":       "fullFillment-neighbor/v1/neighbor",
   "Cambio de Pelo":                      "fullFillment-fiberChange/v1/fiberChange",
   "Modificación de Acceso":              "fullFillment-modification/v1/registrationModification",
