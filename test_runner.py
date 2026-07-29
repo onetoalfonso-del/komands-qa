@@ -4685,6 +4685,66 @@ async def api_historial_delete_all():
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.get("/api/dashboard")
+async def api_dashboard():
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "no db"}, status_code=503)
+    try:
+        # KPIs globales
+        kpi = await pool.fetchrow("""
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN resultado='ok' THEN 1 ELSE 0 END) as ok,
+                   SUM(CASE WHEN resultado!='ok' THEN 1 ELSE 0 END) as fail,
+                   ROUND(AVG(tiempo_ms)) as avg_ms,
+                   SUM(CASE WHEN created_at >= NOW() - INTERVAL '1 day' THEN 1 ELSE 0 END) as today
+            FROM qa_executions
+        """)
+        # Por VNO
+        by_vno = await pool.fetch("""
+            SELECT vno, COALESCE(NULLIF(vno_lbl,''),vno) as vno_lbl,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN resultado='ok' THEN 1 ELSE 0 END) as ok,
+                   SUM(CASE WHEN resultado!='ok' THEN 1 ELSE 0 END) as fail,
+                   MAX(created_at) as last_run
+            FROM qa_executions WHERE vno != ''
+            GROUP BY vno, vno_lbl ORDER BY vno
+        """)
+        # Por funcionalidad (suite_label)
+        by_func = await pool.fetch("""
+            SELECT suite_label,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN resultado='ok' THEN 1 ELSE 0 END) as ok,
+                   SUM(CASE WHEN resultado!='ok' THEN 1 ELSE 0 END) as fail,
+                   ROUND(AVG(tiempo_ms)) as avg_ms,
+                   MAX(created_at) as last_run
+            FROM qa_executions WHERE suite_label != ''
+            GROUP BY suite_label ORDER BY total DESC LIMIT 20
+        """)
+        # Tendencia 7 días
+        trend = await pool.fetch("""
+            SELECT TO_CHAR(created_at AT TIME ZONE 'America/Santiago','DD/MM') as day,
+                   SUM(CASE WHEN resultado='ok' THEN 1 ELSE 0 END) as ok,
+                   SUM(CASE WHEN resultado!='ok' THEN 1 ELSE 0 END) as fail
+            FROM qa_executions
+            WHERE created_at >= NOW() - INTERVAL '7 days'
+            GROUP BY day ORDER BY MIN(created_at)
+        """)
+        # Últimas 8 ejecuciones
+        recent = await pool.fetch("""
+            SELECT suite_label, tc, vno_lbl, vno, resultado, tiempo_ms, created_at
+            FROM qa_executions ORDER BY id DESC LIMIT 8
+        """)
+        return {
+            "kpi": dict(kpi) if kpi else {},
+            "by_vno": [dict(r) for r in by_vno],
+            "by_func": [dict(r) for r in by_func],
+            "trend": [dict(r) for r in trend],
+            "recent": [dict(r) for r in recent],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.get("/api/stats")
 async def api_stats():
     pool = await _db()
@@ -5348,6 +5408,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div class="sb-sub">Pruebas de Regresión</div>
     </div>
     <div class="sb-list" id="sb-list"></div>
+    <button class="hist-btn" id="dashboard-btn" onclick="showDashboard()">&#128200;&nbsp; Dashboard</button>
     <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;&nbsp; Historial de ejecuciones</button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;&nbsp; Settings</button>
   </aside>
@@ -5436,6 +5497,10 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
           <div id="atrf-exec-area"></div>
         </div>
       </div>
+    </div>
+    <!-- Vista Dashboard -->
+    <div id="dashboard-view" style="display:none;flex-direction:column;flex:1;overflow:auto;padding:18px 20px;gap:16px">
+      <div id="dash-content"><div style="padding:40px;text-align:center;color:var(--txt2);font-size:.8rem">Cargando dashboard&#8230;</div></div>
     </div>
     <!-- Vista Historial -->
     <div id="historial-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -5952,9 +6017,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view","settings-view","fulfillment-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","teardown-view","historial-view","settings-view","fulfillment-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -8306,6 +8371,275 @@ function showSettings(){
   var sb=document.getElementById('settings-btn'); if(sb) sb.classList.add('active');
   setTop('','Settings','Ambientes y configuraci\xf3n del runner');
   _stTab(_stCurTab);
+}
+function showDashboard(){
+  switchView('dashboard');
+  ['hist-btn','settings-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var db=document.getElementById('dashboard-btn');if(db)db.classList.add('active');
+  setTop('','Dashboard','Resumen de ejecuciones y calidad');
+  loadDashboard();
+}
+function _dashColor(vno){
+  return {'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'}[vno]||'#888';
+}
+function loadDashboard(){
+  var cont=document.getElementById('dash-content');
+  if(!cont)return;
+  cont.innerHTML='<div style="padding:40px;text-align:center;color:var(--txt2);font-size:.8rem">Cargando…</div>';
+  fetch('/api/dashboard').then(function(r){return r.json();}).then(function(d){
+    if(d.error){cont.innerHTML='<div style="padding:40px;text-align:center;color:var(--err)">Error: '+esc(d.error)+'</div>';return;}
+    _renderDashboard(d,cont);
+  }).catch(function(e){cont.innerHTML='<div style="padding:40px;text-align:center;color:var(--err)">Error: '+esc(e.message)+'</div>';});
+}
+function _renderDashboard(d,cont){
+  var kpi=d.kpi||{};
+  var total=parseInt(kpi.total)||0;
+  var ok=parseInt(kpi.ok)||0;
+  var fail=parseInt(kpi.fail)||0;
+  var avg_ms=parseInt(kpi.avg_ms)||0;
+  var today=parseInt(kpi.today)||0;
+  var pct=total?Math.round(ok/total*100):0;
+  var h='';
+  // ── Fila 1: KPI cards ──
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">';
+  h+=_dashKpi('Total ejecuciones',total,'#569CD6','&#128202;');
+  h+=_dashKpi('Tasa de \xe9xito',pct+'%',pct>=80?'#4EC9B0':pct>=50?'#CE9178':'#e06c75','&#10003;');
+  h+=_dashKpi('Ejecuciones hoy',today,'#C586C0','&#9728;');
+  h+=_dashKpi('Tiempo promedio',avg_ms?(avg_ms/1000).toFixed(1)+'s':'—','#4FC1FF','&#9201;');
+  h+='</div>';
+  // ── Fila 2: VNO cards ──
+  var vnoOrder=['02','03','05','00'];
+  var vnoMap={};(d.by_vno||[]).forEach(function(v){vnoMap[v.vno]=v;});
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">';
+  vnoOrder.forEach(function(code){
+    var v=vnoMap[code];
+    var lbl={'00':'TCH','02':'KAO','03':'Entel','05':'DTV'}[code]||code;
+    if(!v){h+=_dashVnoCard(lbl,code,0,0,0,'—');return;}
+    var vp=parseInt(v.total)?Math.round(parseInt(v.ok)/parseInt(v.total)*100):0;
+    var fecha=v.last_run?new Date(v.last_run).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
+    h+=_dashVnoCard(lbl,code,vp,parseInt(v.ok),parseInt(v.total),fecha);
+  });
+  h+='</div>';
+  // ── Fila 3: Gr\xe1ficos ──
+  h+='<div style="display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-bottom:16px">';
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px">';
+  h+='<div style="font-size:.75rem;font-weight:700;color:var(--txt);margin-bottom:10px">Tendencia \xfaltimos 7 d\xedas</div>';
+  h+='<canvas id="dash-trend-chart" style="width:100%;height:160px"></canvas>';
+  h+='</div>';
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px">';
+  h+='<div style="font-size:.75rem;font-weight:700;color:var(--txt);margin-bottom:10px">Distribuci\xf3n por VNO</div>';
+  h+='<canvas id="dash-vno-chart" style="width:100%;height:160px"></canvas>';
+  h+='</div>';
+  h+='</div>';
+  // ── Fila 4: Tasa OK por funcionalidad + Tiempo promedio ──
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">';
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px">';
+  h+='<div style="font-size:.75rem;font-weight:700;color:var(--txt);margin-bottom:10px">Tasa OK por funcionalidad</div>';
+  h+='<canvas id="dash-func-chart" style="width:100%;height:200px"></canvas>';
+  h+='</div>';
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px">';
+  h+='<div style="font-size:.75rem;font-weight:700;color:var(--txt);margin-bottom:10px">Tiempo promedio por funcionalidad (s)</div>';
+  h+='<canvas id="dash-time-chart" style="width:100%;height:200px"></canvas>';
+  h+='</div>';
+  h+='</div>';
+  // ── Fila 5: Tabla funcionalidades + \xdaltimas ejecuciones ──
+  h+='<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px">';
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;overflow:hidden">';
+  h+='<div style="padding:10px 14px;border-bottom:1px solid var(--brd);font-size:.75rem;font-weight:700;color:var(--txt)">Estado por funcionalidad</div>';
+  h+='<div style="overflow-x:auto"><table class="hist-table">';
+  h+='<thead><tr><th>Funcionalidad</th><th>Total</th><th>OK</th><th>Tasa</th><th>T.Prom</th></tr></thead><tbody>';
+  (d.by_func||[]).forEach(function(f){
+    var fp=parseInt(f.total)?Math.round(parseInt(f.ok)/parseInt(f.total)*100):0;
+    var fc=fp>=80?'ok':fp>=50?'warn':'err';
+    var fms=parseInt(f.avg_ms)||0;
+    h+='<tr>';
+    h+='<td style="font-size:.71rem;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.suite_label||'—')+'</td>';
+    h+='<td style="font-family:monospace;font-size:.7rem">'+esc(String(f.total))+'</td>';
+    h+='<td style="font-family:monospace;font-size:.7rem">'+esc(String(f.ok))+'</td>';
+    h+='<td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:var(--brd);border-radius:3px"><div style="height:100%;width:'+fp+'%;background:'+(fp>=80?'#4EC9B0':fp>=50?'#CE9178':'#e06c75')+';border-radius:3px"></div></div><span class="hist-badge '+fc+'" style="font-size:.6rem;padding:1px 4px">'+fp+'%</span></div></td>';
+    h+='<td style="font-family:monospace;font-size:.7rem">'+esc(fms?(fms/1000).toFixed(1)+'s':'—')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div></div>';
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;overflow:hidden">';
+  h+='<div style="padding:10px 14px;border-bottom:1px solid var(--brd);font-size:.75rem;font-weight:700;color:var(--txt)">\xdaltimas ejecuciones</div>';
+  h+='<div>';
+  (d.recent||[]).forEach(function(r){
+    var rc=r.resultado==='ok'?'ok':'err';
+    var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
+    var tms=parseInt(r.tiempo_ms)||0;
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--brd);font-size:.71rem">';
+    h+='<span class="hist-badge '+rc+'" style="font-size:.6rem;padding:1px 5px;flex-shrink:0">'+esc(r.resultado==='ok'?'OK':'Error')+'</span>';
+    h+='<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+esc(r.suite_label||'—')+'</span>';
+    h+='<span style="color:'+_dashColor(r.vno||'')+';font-weight:700;font-size:.68rem;flex-shrink:0">'+esc(r.vno_lbl||r.vno||'—')+'</span>';
+    h+='<span style="color:var(--txt3);font-size:.65rem;flex-shrink:0">'+esc(tms?(tms/1000).toFixed(1)+'s':'')+'</span>';
+    h+='</div>';
+  });
+  if(!(d.recent||[]).length)h+='<div style="padding:20px;text-align:center;color:var(--txt3);font-size:.75rem">Sin ejecuciones a\xfan</div>';
+  h+='</div></div>';
+  h+='</div>';
+  cont.innerHTML=h;
+  requestAnimationFrame(function(){
+    _dashDrawTrend(d.trend||[]);
+    _dashDrawVno(d.by_vno||[]);
+    _dashDrawFunc(d.by_func||[]);
+    _dashDrawTime(d.by_func||[]);
+  });
+}
+function _dashKpi(label,val,color,icon){
+  return '<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px">'
+    +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">'+icon+'</span><span style="font-size:.7rem;color:var(--txt2);font-weight:500">'+esc(label)+'</span></div>'
+    +'<div style="font-size:1.6rem;font-weight:800;color:'+color+';font-variant-numeric:tabular-nums;line-height:1">'+esc(String(val))+'</div>'
+    +'</div>';
+}
+function _dashVnoCard(lbl,code,pct,ok,total,fecha){
+  var color=_dashColor(code);
+  var bg=pct>=80?'rgba(78,201,176,.08)':pct>=50?'rgba(206,145,120,.08)':'rgba(224,108,117,.08)';
+  return '<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px;border-left:3px solid '+color+'">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+    +'<span style="font-weight:800;font-size:.9rem;color:'+color+'">'+esc(lbl)+'</span>'
+    +'<span class="hist-badge '+(pct>=80?'ok':pct>=50?'warn':'err')+'" style="font-size:.68rem">'+pct+'%</span>'
+    +'</div>'
+    +'<div style="font-size:.68rem;color:var(--txt2)">'+ok+' OK / '+total+' total</div>'
+    +'<div style="margin-top:8px;height:5px;background:var(--brd);border-radius:3px">'
+    +'<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:3px;transition:width .4s"></div>'
+    +'</div>'
+    +'<div style="font-size:.63rem;color:var(--txt3);margin-top:6px">\xdaltima: '+esc(fecha)+'</div>'
+    +'</div>';
+}
+function _dashCtx(id){
+  var c=document.getElementById(id);if(!c)return null;
+  c.width=c.offsetWidth*window.devicePixelRatio||c.offsetWidth;
+  c.height=c.offsetHeight*window.devicePixelRatio||c.offsetHeight;
+  var ctx=c.getContext('2d');
+  ctx.scale(window.devicePixelRatio||1,window.devicePixelRatio||1);
+  return {ctx:ctx,w:c.offsetWidth,h:c.offsetHeight};
+}
+function _dashGetColor(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim()||'#888';
+}
+function _dashDrawTrend(trend){
+  var d=_dashCtx('dash-trend-chart');if(!d)return;
+  var ctx=d.ctx,W=d.w,H=d.h;
+  var textColor=_dashGetColor('--txt2');
+  var borderColor=_dashGetColor('--brd');
+  ctx.clearRect(0,0,W,H);
+  if(!trend.length){ctx.fillStyle=textColor;ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos',W/2,H/2);return;}
+  var pad={t:8,r:8,b:28,l:32};
+  var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  var maxVal=Math.max.apply(null,trend.map(function(r){return (parseInt(r.ok)||0)+(parseInt(r.fail)||0);}));
+  maxVal=maxVal||1;
+  var barW=Math.floor(cW/trend.length*0.7);
+  var gap=Math.floor(cW/trend.length);
+  [0,0.25,0.5,0.75,1].forEach(function(f){
+    var y=pad.t+cH*(1-f);
+    ctx.strokeStyle=borderColor;ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cW,y);ctx.stroke();
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText(Math.round(maxVal*f),pad.l-3,y+3);
+  });
+  trend.forEach(function(r,i){
+    var ok=parseInt(r.ok)||0, fail=parseInt(r.fail)||0, total=ok+fail;
+    var x=pad.l+i*gap+(gap-barW)/2;
+    var hOk=Math.round(ok/maxVal*cH);
+    var hFail=Math.round(fail/maxVal*cH);
+    ctx.fillStyle='#4EC9B0';
+    ctx.fillRect(x,pad.t+cH-hOk,barW,hOk);
+    ctx.fillStyle='#e06c75';
+    ctx.fillRect(x,pad.t+cH-hOk-hFail,barW,hFail);
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText(r.day||'',x+barW/2,H-4);
+  });
+  ctx.fillStyle='#4EC9B0';ctx.fillRect(W-80,6,10,10);
+  ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='left';ctx.fillText('OK',W-66,15);
+  ctx.fillStyle='#e06c75';ctx.fillRect(W-45,6,10,10);
+  ctx.fillStyle=textColor;ctx.fillText('Error',W-31,15);
+}
+function _dashDrawVno(byVno){
+  var d=_dashCtx('dash-vno-chart');if(!d)return;
+  var ctx=d.ctx,W=d.w,H=d.h;
+  var textColor=_dashGetColor('--txt2');
+  ctx.clearRect(0,0,W,H);
+  var vnos=byVno.filter(function(v){return parseInt(v.total)>0;});
+  if(!vnos.length){ctx.fillStyle=textColor;ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos',W/2,H/2);return;}
+  var total=vnos.reduce(function(s,v){return s+parseInt(v.total);},0);
+  var colors=['#4EC9B0','#C586C0','#CE9178','#569CD6'];
+  var cx=W/2-20,cy=H/2,r=Math.min(cx,cy)-14;
+  var start=-Math.PI/2;
+  vnos.forEach(function(v,i){
+    var slice=parseInt(v.total)/total*2*Math.PI;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+slice);ctx.closePath();
+    ctx.fillStyle=colors[i%colors.length];ctx.fill();
+    ctx.strokeStyle=_dashGetColor('--card');ctx.lineWidth=2;ctx.stroke();
+    start+=slice;
+  });
+  ctx.beginPath();ctx.arc(cx,cy,r*0.55,0,2*Math.PI);ctx.fillStyle=_dashGetColor('--card');ctx.fill();
+  ctx.fillStyle=textColor;ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(total,cx,cy+4);
+  var lx=W-75,ly=H/2-(vnos.length*16)/2;
+  vnos.forEach(function(v,i){
+    ctx.fillStyle=colors[i%colors.length];ctx.fillRect(lx,ly+i*16,10,10);
+    ctx.fillStyle=textColor;ctx.font='10px sans-serif';ctx.textAlign='left';
+    var lbl=v.vno_lbl||v.vno;
+    ctx.fillText(lbl+' ('+v.total+')',lx+14,ly+i*16+9);
+  });
+}
+function _dashDrawFunc(byFunc){
+  var d=_dashCtx('dash-func-chart');if(!d)return;
+  var ctx=d.ctx,W=d.w,H=d.h;
+  var textColor=_dashGetColor('--txt2');
+  ctx.clearRect(0,0,W,H);
+  var funcs=byFunc.slice(0,8);
+  if(!funcs.length){ctx.fillStyle=textColor;ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos',W/2,H/2);return;}
+  var pad={t:8,r:50,b:8,l:130};
+  var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  var rowH=Math.floor(cH/funcs.length);
+  funcs.forEach(function(f,i){
+    var pct=parseInt(f.total)?parseInt(f.ok)/parseInt(f.total):0;
+    var y=pad.t+i*rowH;
+    var bH=Math.min(rowH-4,16);
+    var by=y+(rowH-bH)/2;
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
+    var lbl=(f.suite_label||'').slice(0,18);
+    ctx.fillText(lbl,pad.l-4,by+bH/2+3);
+    ctx.fillStyle=_dashGetColor('--brd');ctx.fillRect(pad.l,by,cW,bH);
+    var barColor=pct>=0.8?'#4EC9B0':pct>=0.5?'#CE9178':'#e06c75';
+    ctx.fillStyle=barColor;ctx.fillRect(pad.l,by,Math.round(pct*cW),bH);
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='left';
+    ctx.fillText(Math.round(pct*100)+'%',pad.l+cW+4,by+bH/2+3);
+  });
+}
+function _dashDrawTime(byFunc){
+  var d=_dashCtx('dash-time-chart');if(!d)return;
+  var ctx=d.ctx,W=d.w,H=d.h;
+  var textColor=_dashGetColor('--txt2');
+  var borderColor=_dashGetColor('--brd');
+  ctx.clearRect(0,0,W,H);
+  var funcs=byFunc.filter(function(f){return parseInt(f.avg_ms)>0;}).slice(0,8);
+  if(!funcs.length){ctx.fillStyle=textColor;ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos',W/2,H/2);return;}
+  var pad={t:8,r:8,b:40,l:130};
+  var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  var maxMs=Math.max.apply(null,funcs.map(function(f){return parseInt(f.avg_ms)||0;}));
+  maxMs=maxMs||1;
+  var rowH=Math.floor(cH/funcs.length);
+  [0,0.25,0.5,0.75,1].forEach(function(f){
+    var x=pad.l+f*cW;
+    ctx.strokeStyle=borderColor;ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+cH);ctx.stroke();
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText((maxMs*f/1000).toFixed(1)+'s',x,pad.t+cH+12);
+  });
+  funcs.forEach(function(f,i){
+    var ms=parseInt(f.avg_ms)||0;
+    var y=pad.t+i*rowH;
+    var bH=Math.min(rowH-4,14);
+    var by=y+(rowH-bH)/2;
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText((f.suite_label||'').slice(0,18),pad.l-4,by+bH/2+3);
+    ctx.fillStyle=borderColor;ctx.fillRect(pad.l,by,cW,bH);
+    ctx.fillStyle='#4FC1FF';ctx.fillRect(pad.l,by,Math.round(ms/maxMs*cW),bH);
+    ctx.fillStyle=textColor;ctx.font='9px sans-serif';ctx.textAlign='left';
+    ctx.fillText((ms/1000).toFixed(1)+'s',pad.l+Math.round(ms/maxMs*cW)+3,by+bH/2+3);
+  });
 }
 var _stCurTab='env';
 function _stTab(tab){
