@@ -8142,7 +8142,7 @@ function renderVnoEpForm(s){
   var vnoBtns=['00','02','03','05'].map(function(code){
     var on=code===vno?'on':'';
     var color=_QA_VNO_COLORS[code]||'var(--atrf-accent)';
-    return '<span class="atrf-vno-lbl '+on+'" data-vno="'+code+'" onclick="_setEpVno(\''+code+'\')" style="'+(on?'border-color:'+color+';color:'+color:'')+'">'+esc(_QA_VNO_LABELS[code]||code)+'</span>';
+    return '<span class="atrf-vno-lbl '+on+'" data-vno="'+code+'" onclick="_setEpVno(this.dataset.vno)" style="'+(on?'border-color:'+color+';color:'+color:'')+'">'+esc(_QA_VNO_LABELS[code]||code)+'</span>';
   }).join('');
   var envFile={'00':'00-TCH QA','02':'02 QA_KAO','03':'03-B1_vnoid03 QA','05':'05 QA_DTV'}[vno]||'02 QA_KAO';
   c.innerHTML='<div style="padding:16px 0">'
