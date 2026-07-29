@@ -5684,6 +5684,7 @@ function renderSB(){
         el.appendChild(row);
         if(isOpen){
           var _sections=[
+            {lbl:'Endpoints FulFillment',par:'qa-fulfillment',onlyEp:true},
             {lbl:'Suite Factibilidad',par:'qa-fact'},
             {lbl:'Suite Asignación',par:'qa-asig'},
             {lbl:'Suite Interv. Asegurada',par:'qa-ia-par'},
