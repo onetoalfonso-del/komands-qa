@@ -5473,9 +5473,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Activación — 4 consolas paralelas -->
     <div id="activ-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="activ-form-bar"></div>
-      <div id="activ-access-preview"></div>
-      <div id="activ-sel-bar"></div>
+      <div id="activ-form-bar" style="flex-shrink:0;overflow-y:auto;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="activ-grid"></div>
     </div>
     <!-- Vista Teardown Masivo -->
@@ -5485,9 +5483,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Cancelación — 4 consolas paralelas -->
     <div id="cancel-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="cancel-form-bar"></div>
-      <div id="cancel-access-preview"></div>
-      <div id="cancel-sel-bar"></div>
+      <div id="cancel-form-bar" style="flex-shrink:0;overflow-y:auto;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="cancel-grid"></div>
     </div>
     <!-- Vista QA FulFillment Queue -->
@@ -5536,9 +5532,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Device Modification — 4 consolas paralelas -->
     <div id="dm-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="dm-form-bar"></div>
-      <div id="dm-access-preview"></div>
-      <div id="dm-sel-bar"></div>
+      <div id="dm-form-bar" style="flex-shrink:0;overflow-y:auto;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="dm-grid"></div>
     </div>
     <!-- Vista Asignación — 4 consolas paralelas -->
@@ -5824,9 +5818,8 @@ function selectSuite(id){
     _isQAChild=false;
     switchView('activ');
     renderActivFormBar();
-    renderActivSelBar();
     renderActivView();
-    setTop('','Suite: Activación','TC-17..TC-20 · presiona Ejecutar');
+    setTop('','Suite: Activación','Configura los parámetros y presiona Ejecutar');
     _syncActivExecBtn();
     return;
   }
@@ -5834,9 +5827,8 @@ function selectSuite(id){
     _isQAChild=false;
     switchView('dm');
     renderDmFormBar();
-    renderDmSelBar();
     renderDmView();
-    setTop('','Suite: Device Modification','TC-21..TC-24 · presiona Ejecutar');
+    setTop('','Suite: Device Modification','Configura los parámetros y presiona Ejecutar');
     _syncDmExecBtn();
     return;
   }
@@ -5844,9 +5836,8 @@ function selectSuite(id){
     _isQAChild=false;
     switchView('cancel');
     renderCancelFormBar();
-    renderCancelSelBar();
     renderCancelView();
-    setTop('','Suite: Cancelación','TC-25..TC-28 · presiona Ejecutar');
+    setTop('','Suite: Cancelación','Configura los parámetros y presiona Ejecutar');
     _syncCancelExecBtn();
     return;
   }
@@ -6035,7 +6026,7 @@ function switchView(mode){
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
-  if(_gfp){var _gfModes=['activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'block':'none';}
+  if(_gfp) _gfp.style.display='none';
 }
 
 function renderGlobalForm(){
@@ -6103,9 +6094,6 @@ function applyGFModal(){
   closeGFModal();
   _updateGFSummaryBar();
   _updateAsigAccessPreview();
-  _updateActivAccessPreview();
-  _updateDmAccessPreview();
-  _updateCancelPreview();
 }
 
 function _updateGFSummaryBar(){
@@ -6175,9 +6163,6 @@ function _autoGenSerial(){
   var mn=String(now.getMinutes()).padStart(2,'0');
   el.value='HW'+vno.toUpperCase()+mo+dd+hh+mn;
   _updateSerialCharCounter();
-  _updateActivAccessPreview();
-  _updateDmAccessPreview();
-  _updateCancelPreview();
 }
 
 function _autoGenNewSerial(){
@@ -6208,8 +6193,6 @@ function _updateNSerialCharCounter(){
 
 function _onGFAccessInput(){
   _updateAsigAccessPreview();
-  _updateActivAccessPreview();
-  _updateDmAccessPreview();
   var badge=document.getElementById('gfm-auto-badge');
   if(badge) badge.style.display='none';
 }
@@ -6967,62 +6950,111 @@ function _doRunIA(s){
 
 // ── Suite Activación: vista multi-consola ────────────────────────────────────
 var _ACTIV_META = [
-  {tc:'TC-17', label:'TC-17 · Entel', vno:'VNO 03', sid:'qa-activ-tc17', color:'#FF9F8B'},
-  {tc:'TC-18', label:'TC-18 · KAO',   vno:'VNO 02', sid:'qa-activ-tc18', color:'#85E89D'},
-  {tc:'TC-19', label:'TC-19 · DTV',   vno:'VNO 05', sid:'qa-activ-tc19', color:'#FFD580'},
-  {tc:'TC-20', label:'TC-20 · TCH',   vno:'VNO 00', sid:'qa-activ-tc20', color:'#79C8FF'},
+  {tc:'TC-17', label:'TC-17 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-activ-tc17', color:'#FF9F8B'},
+  {tc:'TC-18', label:'TC-18 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-activ-tc18', color:'#85E89D'},
+  {tc:'TC-19', label:'TC-19 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-activ-tc19', color:'#FFD580'},
+  {tc:'TC-20', label:'TC-20 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-activ-tc20', color:'#79C8FF'},
 ];
 var _activSel={};
 (function(){ _ACTIV_META.forEach(function(m){ _activSel[m.tc]=true; }); })();
 var _ACTIV_VNO_CODES={'TC-17':'03','TC-18':'02','TC-19':'05','TC-20':'00'};
 var _ACTIV_SERIAL_BASE={'TC-17':'ZTEG1104','TC-18':'ZTEGD719','TC-19':'HTWC000A'};
+var _QA_SPEED_PLANS_ACTIV=['100/100','300/300','400/400','600/600','800/800','1000/1000'];
 
 function renderActivFormBar(){
   var bar=document.getElementById('activ-form-bar'); if(!bar) return;
-  bar.innerHTML=
-    '<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
-    +'<input type="checkbox" id="activ-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
-  _updateActivAccessPreview();
-}
-
-function _updateActivAccessPreview(){
-  var el=document.getElementById('activ-access-preview'); if(!el) return;
-  var raw=(document.getElementById('gf-access')||{}).value||'';
-  var suffix=(document.getElementById('gf-serial')||{}).value||'';
-  var h='';
-  _ACTIV_META.forEach(function(m){
-    var resolved=_resolveAccessId(raw.trim(),_ACTIV_VNO_CODES[m.tc]);
-    var serial=_ACTIV_SERIAL_BASE[m.tc]?(esc(_ACTIV_SERIAL_BASE[m.tc])+esc(suffix)):'(sin serial)';
-    h+='<span class="aap-item"><span class="aap-vno">'+esc(m.label)+':</span>'
-      +'<span class="aap-id">'+esc(resolved)+'</span>'
-      +'<span class="aap-serial">&#128273; '+serial+'</span></span>';
-  });
-  el.innerHTML=h||'<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
-}
-
-function renderActivSelBar(){
-  var bar=document.getElementById('activ-sel-bar'); if(!bar) return;
-  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
-  _ACTIV_META.forEach(function(m){
+  var vnoBtns=_ACTIV_META.map(function(m){
     var on=_activSel[m.tc]?'on':'';
-    h+='<button class="tc-sel-btn '+on+'" id="actsb-'+m.tc+'">'+esc(m.label)+'</button>';
+    return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_activToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
+  }).join('');
+  var speedOpts=_QA_SPEED_PLANS_ACTIV.map(function(p){
+    return '<option value="'+p+'"'+(p==='600/600'?' selected':'')+'>'+p+'</option>';
+  }).join('');
+  bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
+    +'<div class="atrf-field atrf-col-12">'
+      +'<label>Ambiente <span class="req">★</span></label>'
+      +'<div class="atrf-amb-wrap">'
+        +'<input type="radio" name="activ-amb" id="activ-amb-qa" value="QA" class="atrf-amb-radio" onchange="_activOnAmbChange()" checked/>'
+        +'<label for="activ-amb-qa" class="atrf-amb-lbl">QA</label>'
+        +'<input type="radio" name="activ-amb" id="activ-amb-prd" value="PRD" class="atrf-amb-radio" onchange="_activOnAmbChange()"/>'
+        +'<label for="activ-amb-prd" class="atrf-amb-lbl">PRD</label>'
+        +'<input type="radio" name="activ-amb" id="activ-amb-pprd" value="PPRD" class="atrf-amb-radio" onchange="_activOnAmbChange()"/>'
+        +'<label for="activ-amb-pprd" class="atrf-amb-lbl">PPRD</label>'
+        +'<span id="activ-amb-url" style="font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-green);margin-left:8px;display:none"></span>'
+      +'</div>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Selección VNO</div>'
+    +'<div class="atrf-field atrf-col-5">'
+      +'<label>VNO <span class="req">★</span></label>'
+      +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-7">'
+      +'<label>Access ID <span class="req">★</span></label>'
+      +'<input type="text" id="activ-access-inp" placeholder="ej: 03-XYGO123456" oninput="_activUpdateAccessPreview()"/>'
+      +'<span class="atrf-hint" id="activ-access-preview" style="color:var(--atrf-text2)"></span>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Servicio</div>'
+    +'<div class="atrf-field atrf-col-4">'
+      +'<label>Dirección ID</label>'
+      +'<input type="text" id="activ-addr-inp" placeholder="DIR02803636"/>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Speed Plan</label>'
+      +'<select id="activ-speed-sel">'+speedOpts+'</select>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Serial (últ. 4)</label>'
+      +'<input type="text" id="activ-serial-inp" maxlength="4" placeholder="0000" style="font-family:var(--atrf-mono);letter-spacing:.06em"/>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-field atrf-col-5" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<label style="white-space:nowrap">Servicios</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="activ-svc-ba" checked/> BA</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="activ-svc-voip"/> VoIP</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="activ-svc-iptv"/> IPTV</label>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-4" style="flex-direction:row;align-items:center">'
+      +'<label class="atrf-chk"><input type="checkbox" id="activ-teardown"/> Teardown auto</label>'
+    +'</div>'
+    +'</div>';
+  _activOnAmbChange();
+}
+
+function _activToggleVno(el){
+  var tc=el.dataset.tc;
+  _activSel[tc]=!_activSel[tc];
+  var meta=_ACTIV_META.find(function(m){return m.tc===tc;});
+  if(_activSel[tc]){
+    el.classList.add('on');
+    el.style.borderColor=meta?meta.color:'';
+    el.style.color=meta?meta.color:'';
+  } else {
+    el.classList.remove('on');
+    el.style.borderColor='';
+    el.style.color='';
+  }
+  renderActivView();
+  _syncActivExecBtn();
+}
+
+function _activOnAmbChange(){
+  var rad=document.querySelector('input[name="activ-amb"]:checked');
+  var amb=rad?rad.value:'QA';
+  var url=_atrfEnvUrls[amb]||'';
+  var el=document.getElementById('activ-amb-url');
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):'';}
+}
+
+function _activUpdateAccessPreview(){
+  var raw=(document.getElementById('activ-access-inp')||{}).value||'';
+  var el=document.getElementById('activ-access-preview'); if(!el) return;
+  if(!raw.trim()){el.textContent='';return;}
+  var parts=_ACTIV_META.filter(function(m){return _activSel[m.tc];}).map(function(m){
+    return m.vno_code+': '+_resolveAccessId(raw.trim(),m.vno_code);
   });
-  h+='<span class="fsb-sep"></span>'
-    +'<button class="fsb-all" id="actsb-all">Todos</button>'
-    +'<button class="fsb-all" id="actsb-none">Ninguno</button>';
-  bar.innerHTML=h;
-  _ACTIV_META.forEach(function(m){
-    document.getElementById('actsb-'+m.tc).onclick=(function(tc){
-      return function(){ _activSel[tc]=!_activSel[tc];
-        var btn=document.getElementById('actsb-'+tc);
-        if(btn) btn.className='tc-sel-btn'+(_activSel[tc]?' on':'');
-        renderActivView(); _syncActivExecBtn(); };
-    })(m.tc);
-  });
-  document.getElementById('actsb-all').onclick=function(){
-    _ACTIV_META.forEach(function(m){ _activSel[m.tc]=true; }); renderActivSelBar(); renderActivView(); _syncActivExecBtn(); };
-  document.getElementById('actsb-none').onclick=function(){
-    _ACTIV_META.forEach(function(m){ _activSel[m.tc]=false; }); renderActivSelBar(); renderActivView(); _syncActivExecBtn(); };
+  el.textContent=parts.join(' · ');
 }
 
 function _syncActivExecBtn(){
@@ -7090,7 +7122,7 @@ function _activSetResponse(tc,responses){
 
 function _doRunActiv(s){
   if(running) return;
-  var accessEl=document.getElementById('gf-access');
+  var accessEl=document.getElementById('activ-access-inp');
   if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
@@ -7111,13 +7143,14 @@ function _doRunActiv(s){
   var _rawAccess=accessEl.value.trim();
   var _selTcs=_ACTIV_META.filter(function(m){return _activSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
-  _ACTIV_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_ACTIV_VNO_CODES[m.tc]); });
-  var _speed=(document.getElementById('gf-speed')||{}).value||'600/600';
-  var _serial=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
-  var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
-  var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
-  var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
-  var _addrActiv=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
+  _ACTIV_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,m.vno_code); });
+  var _speed=(document.getElementById('activ-speed-sel')||{}).value||'600/600';
+  var _serial=(document.getElementById('activ-serial-inp')||{}).value||'0000';
+  var _sba=!!(document.getElementById('activ-svc-ba')||{}).checked;
+  var _svoip=!!(document.getElementById('activ-svc-voip')||{}).checked;
+  var _siptv=!!(document.getElementById('activ-svc-iptv')||{}).checked;
+  var _addrActiv=(document.getElementById('activ-addr-inp')||{}).value||'DIR02803636';
+  var _envActiv=(document.querySelector('input[name="activ-amb"]:checked')||{}).value||_gfEnv||'QA';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&speed_plan='+encodeURIComponent(_speed)
@@ -7126,7 +7159,7 @@ function _doRunActiv(s){
     +'&service_voip='+(_svoip?'true':'false')
     +'&service_iptv='+(_siptv?'true':'false')
     +'&addr_id='+encodeURIComponent(_addrActiv)
-    +'&gf_env='+encodeURIComponent(_gfEnv);
+    +'&gf_env='+encodeURIComponent(_envActiv);
   var es=new EventSource('/api/run/qa-activ-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -7157,75 +7190,117 @@ function _doRunActiv(s){
 
 // ── Suite Device Modification: vista multi-consola ─────────────────────────
 var _DM_META = [
-  {tc:'TC-21', label:'TC-21 · Entel', vno:'VNO 03', sid:'qa-dm-tc21', color:'#FF9F8B'},
-  {tc:'TC-22', label:'TC-22 · KAO',   vno:'VNO 02', sid:'qa-dm-tc22', color:'#85E89D'},
-  {tc:'TC-23', label:'TC-23 · DTV',   vno:'VNO 05', sid:'qa-dm-tc23', color:'#FFD580'},
-  {tc:'TC-24', label:'TC-24 · TCH',   vno:'VNO 00', sid:'qa-dm-tc24', color:'#79C8FF'},
+  {tc:'TC-21', label:'TC-21 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-dm-tc21', color:'#FF9F8B'},
+  {tc:'TC-22', label:'TC-22 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-dm-tc22', color:'#85E89D'},
+  {tc:'TC-23', label:'TC-23 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-dm-tc23', color:'#FFD580'},
+  {tc:'TC-24', label:'TC-24 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-dm-tc24', color:'#79C8FF'},
 ];
 var _dmSel={};
 (function(){ _DM_META.forEach(function(m){ _dmSel[m.tc]=true; }); })();
 var _DM_VNO_CODES={'TC-21':'03','TC-22':'02','TC-23':'05','TC-24':'00'};
 var _DM_SERIAL_BASE={'TC-21':'ZTEG1104','TC-22':'ZTEGD719','TC-23':'HTWC000A'};
+var _QA_SPEED_PLANS_DM=['100/100','300/300','400/400','600/600','800/800','1000/1000'];
 
 function renderDmFormBar(){
   var bar=document.getElementById('dm-form-bar'); if(!bar) return;
-  bar.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 12px;flex-wrap:nowrap;border-bottom:1px solid var(--brd);background:var(--card);flex-shrink:0;';
-  bar.innerHTML=
-    '<span class="afb-lbl">Serial DM nuevo (últ. 4):</span>'
-    +'<input id="dm-serial-dm" style="width:58px;font-family:monospace;letter-spacing:.05em" maxlength="4" placeholder="0000" />'
-    +'<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
-    +'<input type="checkbox" id="dm-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
-  var dmSer=document.getElementById('dm-serial-dm');
-  if(dmSer) dmSer.oninput=_updateDmAccessPreview;
-  _updateDmAccessPreview();
-}
-
-function _updateDmAccessPreview(){
-  var el=document.getElementById('dm-access-preview'); if(!el) return;
-  var raw=(document.getElementById('gf-access')||{}).value||'';
-  var sActiv=(document.getElementById('gf-serial')||{}).value||'';
-  var sDm=(document.getElementById('dm-serial-dm')||{}).value||'';
-  if(!raw.trim()){ el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>'; return; }
-  var h='<div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px">';
-  _DM_META.forEach(function(m){
-    var resolved=_resolveAccessId(raw.trim(),_DM_VNO_CODES[m.tc]);
-    var serActiv=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+'<b>'+esc(sActiv)+'</b>'):'<i style="color:var(--txt3)">sin serial</i>';
-    var serDm=_DM_SERIAL_BASE[m.tc]?(esc(_DM_SERIAL_BASE[m.tc])+'<b>'+esc(sDm)+'</b>'):'<i style="color:var(--txt3)">sin serial</i>';
-    h+='<span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg3,var(--bg2));border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:.72rem">'
-      +'<span style="color:'+m.color+';font-weight:600">'+esc(m.label)+'</span>'
-      +'<span style="color:var(--txt3)">'+esc(resolved)+'</span>'
-      +'<span style="color:var(--txt2)">&#128273; '+serActiv+'</span>'
-      +'<span style="color:var(--txt3);font-size:.8em">&#8594;</span>'
-      +'<span style="color:#C8A0FF">&#128273; '+serDm+'</span>'
-      +'</span>';
-  });
-  h+='</div>';
-  el.innerHTML=h;
-}
-
-function renderDmSelBar(){
-  var bar=document.getElementById('dm-sel-bar'); if(!bar) return;
-  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
-  _DM_META.forEach(function(m){
+  var vnoBtns=_DM_META.map(function(m){
     var on=_dmSel[m.tc]?'on':'';
-    h+='<button class="tc-sel-btn '+on+'" id="dmsb-'+m.tc+'">'+esc(m.label)+'</button>';
+    return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_dmToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
+  }).join('');
+  var speedOpts=_QA_SPEED_PLANS_DM.map(function(p){
+    return '<option value="'+p+'"'+(p==='600/600'?' selected':'')+'>'+p+'</option>';
+  }).join('');
+  bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
+    +'<div class="atrf-field atrf-col-12">'
+      +'<label>Ambiente <span class="req">★</span></label>'
+      +'<div class="atrf-amb-wrap">'
+        +'<input type="radio" name="dm-amb" id="dm-amb-qa" value="QA" class="atrf-amb-radio" onchange="_dmOnAmbChange()" checked/>'
+        +'<label for="dm-amb-qa" class="atrf-amb-lbl">QA</label>'
+        +'<input type="radio" name="dm-amb" id="dm-amb-prd" value="PRD" class="atrf-amb-radio" onchange="_dmOnAmbChange()"/>'
+        +'<label for="dm-amb-prd" class="atrf-amb-lbl">PRD</label>'
+        +'<input type="radio" name="dm-amb" id="dm-amb-pprd" value="PPRD" class="atrf-amb-radio" onchange="_dmOnAmbChange()"/>'
+        +'<label for="dm-amb-pprd" class="atrf-amb-lbl">PPRD</label>'
+        +'<span id="dm-amb-url" style="font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-green);margin-left:8px;display:none"></span>'
+      +'</div>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Selección VNO</div>'
+    +'<div class="atrf-field atrf-col-5">'
+      +'<label>VNO <span class="req">★</span></label>'
+      +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-7">'
+      +'<label>Access ID <span class="req">★</span></label>'
+      +'<input type="text" id="dm-access-inp" placeholder="ej: 03-XYGO123456" oninput="_dmUpdateAccessPreview()"/>'
+      +'<span class="atrf-hint" id="dm-access-preview" style="color:var(--atrf-text2)"></span>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Servicio</div>'
+    +'<div class="atrf-field atrf-col-4">'
+      +'<label>Dirección ID</label>'
+      +'<input type="text" id="dm-addr-inp" placeholder="DIR02803636"/>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Speed Plan</label>'
+      +'<select id="dm-speed-sel">'+speedOpts+'</select>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Seriales ONT</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Serial Activ. (últ. 4)</label>'
+      +'<input type="text" id="dm-serial-activ-inp" maxlength="4" placeholder="0000" style="font-family:var(--atrf-mono);letter-spacing:.06em"/>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Serial DM nuevo (últ. 4)</label>'
+      +'<input type="text" id="dm-serial-dm" maxlength="4" placeholder="0000" style="font-family:var(--atrf-mono);letter-spacing:.06em"/>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-field atrf-col-5" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<label style="white-space:nowrap">Servicios</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="dm-svc-ba" checked/> BA</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="dm-svc-voip"/> VoIP</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="dm-svc-iptv"/> IPTV</label>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-4" style="flex-direction:row;align-items:center">'
+      +'<label class="atrf-chk"><input type="checkbox" id="dm-teardown"/> Teardown auto</label>'
+    +'</div>'
+    +'</div>';
+  _dmOnAmbChange();
+}
+
+function _dmToggleVno(el){
+  var tc=el.dataset.tc;
+  _dmSel[tc]=!_dmSel[tc];
+  var meta=_DM_META.find(function(m){return m.tc===tc;});
+  if(_dmSel[tc]){
+    el.classList.add('on');
+    el.style.borderColor=meta?meta.color:'';
+    el.style.color=meta?meta.color:'';
+  } else {
+    el.classList.remove('on');
+    el.style.borderColor='';
+    el.style.color='';
+  }
+  renderDmView();
+  _syncDmExecBtn();
+}
+
+function _dmOnAmbChange(){
+  var rad=document.querySelector('input[name="dm-amb"]:checked');
+  var amb=rad?rad.value:'QA';
+  var url=_atrfEnvUrls[amb]||'';
+  var el=document.getElementById('dm-amb-url');
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):'';}
+}
+
+function _dmUpdateAccessPreview(){
+  var raw=(document.getElementById('dm-access-inp')||{}).value||'';
+  var el=document.getElementById('dm-access-preview'); if(!el) return;
+  if(!raw.trim()){el.textContent='';return;}
+  var parts=_DM_META.filter(function(m){return _dmSel[m.tc];}).map(function(m){
+    return m.vno_code+': '+_resolveAccessId(raw.trim(),m.vno_code);
   });
-  h+='<span class="fsb-sep"></span>'
-    +'<button class="fsb-all" id="dmsb-all">Todos</button>'
-    +'<button class="fsb-all" id="dmsb-none">Ninguno</button>';
-  bar.innerHTML=h;
-  _DM_META.forEach(function(m){
-    document.getElementById('dmsb-'+m.tc).onclick=(function(tc){
-      return function(){ _dmSel[tc]=!_dmSel[tc];
-        var btn=document.getElementById('dmsb-'+tc);
-        if(btn) btn.className='tc-sel-btn'+(_dmSel[tc]?' on':'');
-        renderDmView(); _syncDmExecBtn(); };
-    })(m.tc);
-  });
-  document.getElementById('dmsb-all').onclick=function(){
-    _DM_META.forEach(function(m){ _dmSel[m.tc]=true; }); renderDmSelBar(); renderDmView(); _syncDmExecBtn(); };
-  document.getElementById('dmsb-none').onclick=function(){
-    _DM_META.forEach(function(m){ _dmSel[m.tc]=false; }); renderDmSelBar(); renderDmView(); _syncDmExecBtn(); };
+  el.textContent=parts.join(' · ');
 }
 
 function _syncDmExecBtn(){
@@ -7293,11 +7368,15 @@ function _dmSetResponse(tc,responses){
 
 function _doRunDm(s){
   if(running) return;
-  var accessEl=document.getElementById('gf-access');
+  var accessEl=document.getElementById('dm-access-inp');
   if(!accessEl||!accessEl.value.trim()){ if(accessEl) accessEl.style.borderColor='var(--err)'; return; }
   accessEl.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
+  setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _DM_META.forEach(function(m){
     var dt=document.getElementById('dmt-'+m.tc); if(dt) dt.innerHTML='';
@@ -7310,14 +7389,15 @@ function _doRunDm(s){
   var _rawAccess=accessEl.value.trim();
   var _selTcs=_DM_META.filter(function(m){return _dmSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
-  _DM_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_DM_VNO_CODES[m.tc]); });
-  var _speed=(document.getElementById('gf-speed')||{}).value||'600/600';
-  var _sActiv=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
+  _DM_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,m.vno_code); });
+  var _speed=(document.getElementById('dm-speed-sel')||{}).value||'600/600';
+  var _sActiv=(document.getElementById('dm-serial-activ-inp')||{}).value||'0000';
   var _sDm=(document.getElementById('dm-serial-dm')||{}).value||'0000';
-  var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
-  var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
-  var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
-  var _addrDm=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
+  var _sba=!!(document.getElementById('dm-svc-ba')||{}).checked;
+  var _svoip=!!(document.getElementById('dm-svc-voip')||{}).checked;
+  var _siptv=!!(document.getElementById('dm-svc-iptv')||{}).checked;
+  var _addrDm=(document.getElementById('dm-addr-inp')||{}).value||'DIR02803636';
+  var _envDm=(document.querySelector('input[name="dm-amb"]:checked')||{}).value||_gfEnv||'QA';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
     +'&speed_plan='+encodeURIComponent(_speed)
@@ -7327,7 +7407,7 @@ function _doRunDm(s){
     +'&service_voip='+(_svoip?'true':'false')
     +'&service_iptv='+(_siptv?'true':'false')
     +'&addr_id='+encodeURIComponent(_addrDm)
-    +'&gf_env='+encodeURIComponent(_gfEnv);
+    +'&gf_env='+encodeURIComponent(_envDm);
   var es=new EventSource('/api/run/qa-dm-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -7424,62 +7504,96 @@ function _doRunTeardown(s){
 
 // ── Suite Cancelación: vista multi-consola ───────────────────────────────────
 var _CANCEL_META = [
-  {tc:'TC-25', label:'TC-25 · Entel', vno:'VNO 03', sid:'qa-cancel-tc25', color:'#C586C0'},
-  {tc:'TC-26', label:'TC-26 · KAO',   vno:'VNO 02', sid:'qa-cancel-tc26', color:'#4EC9B0'},
-  {tc:'TC-27', label:'TC-27 · DTV',   vno:'VNO 05', sid:'qa-cancel-tc27', color:'#CE9178'},
-  {tc:'TC-28', label:'TC-28 · TCH',   vno:'VNO 00', sid:'qa-cancel-tc28', color:'#569CD6'},
+  {tc:'TC-25', label:'TC-25 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-cancel-tc25', color:'#C586C0'},
+  {tc:'TC-26', label:'TC-26 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-cancel-tc26', color:'#4EC9B0'},
+  {tc:'TC-27', label:'TC-27 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-cancel-tc27', color:'#CE9178'},
+  {tc:'TC-28', label:'TC-28 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-cancel-tc28', color:'#569CD6'},
 ];
 var _cancelSel={};
 (function(){ _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=true; }); })();
 var _CANCEL_SERIAL_BASE={'TC-25':'ZTEG1104','TC-26':'ZTEGD719','TC-27':'HTWC000A'};
+var _QA_SPEED_PLANS_CANCEL=['100/10','100/100','300/300','400/400','600/600'];
 
 function renderCancelFormBar(){
   var bar=document.getElementById('cancel-form-bar'); if(!bar) return;
-  bar.style.cssText='flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd);';
-  bar.innerHTML='<div id="cancel-serial-preview" style="padding:4px 12px 5px;min-height:20px"></div>';
-  _updateCancelPreview();
-}
-
-function _updateCancelPreview(){
-  var el=document.getElementById('cancel-serial-preview'); if(!el) return;
-  var sfx=(document.getElementById('gf-serial')||{}).value||'';
-  if(!sfx.trim()){ el.innerHTML='<span class="aap-empty" style="font-size:.7rem">Ingresa el serial del equipo en Parámetros</span>'; return; }
-  var h='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-  _CANCEL_META.forEach(function(m){
-    var base=_CANCEL_SERIAL_BASE[m.tc];
-    var serTxt=base?('<span style="color:var(--txt3)">'+esc(base)+'</span><b>'+esc(sfx)+'</b>'):'<i style="color:var(--txt3)">sin serial</i>';
-    h+='<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3,var(--bg2));border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:.71rem">'
-      +'<span style="color:'+m.color+';font-weight:600">'+esc(m.label)+'</span>'
-      +'<span style="color:var(--txt3)">&#128273; '+serTxt+'</span>'
-      +'</span>';
-  });
-  h+='</div>';
-  el.innerHTML=h;
-}
-
-function renderCancelSelBar(){
-  var bar=document.getElementById('cancel-sel-bar'); if(!bar) return;
-  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
-  _CANCEL_META.forEach(function(m){
+  var vnoBtns=_CANCEL_META.map(function(m){
     var on=_cancelSel[m.tc]?'on':'';
-    h+='<button class="tc-sel-btn '+on+'" id="cancelsb-'+m.tc+'">'+esc(m.label)+'</button>';
-  });
-  h+='<span class="fsb-sep"></span>'
-    +'<button class="fsb-all" id="cancelsb-all">Todos</button>'
-    +'<button class="fsb-all" id="cancelsb-none">Ninguno</button>';
-  bar.innerHTML=h;
-  _CANCEL_META.forEach(function(m){
-    document.getElementById('cancelsb-'+m.tc).onclick=(function(tc){
-      return function(){ _cancelSel[tc]=!_cancelSel[tc];
-        var btn=document.getElementById('cancelsb-'+tc);
-        if(btn) btn.className='tc-sel-btn'+(_cancelSel[tc]?' on':'');
-        renderCancelView(); _syncCancelExecBtn(); };
-    })(m.tc);
-  });
-  document.getElementById('cancelsb-all').onclick=function(){
-    _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=true; }); renderCancelSelBar(); renderCancelView(); _syncCancelExecBtn(); };
-  document.getElementById('cancelsb-none').onclick=function(){
-    _CANCEL_META.forEach(function(m){ _cancelSel[m.tc]=false; }); renderCancelSelBar(); renderCancelView(); _syncCancelExecBtn(); };
+    return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_cancelToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
+  }).join('');
+  var speedOpts=_QA_SPEED_PLANS_CANCEL.map(function(p){
+    return '<option value="'+p+'"'+(p==='100/10'?' selected':'')+'>'+p+'</option>';
+  }).join('');
+  bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
+    +'<div class="atrf-field atrf-col-12">'
+      +'<label>Ambiente <span class="req">★</span></label>'
+      +'<div class="atrf-amb-wrap">'
+        +'<input type="radio" name="cancel-amb" id="cancel-amb-qa" value="QA" class="atrf-amb-radio" onchange="_cancelOnAmbChange()" checked/>'
+        +'<label for="cancel-amb-qa" class="atrf-amb-lbl">QA</label>'
+        +'<input type="radio" name="cancel-amb" id="cancel-amb-prd" value="PRD" class="atrf-amb-radio" onchange="_cancelOnAmbChange()"/>'
+        +'<label for="cancel-amb-prd" class="atrf-amb-lbl">PRD</label>'
+        +'<input type="radio" name="cancel-amb" id="cancel-amb-pprd" value="PPRD" class="atrf-amb-radio" onchange="_cancelOnAmbChange()"/>'
+        +'<label for="cancel-amb-pprd" class="atrf-amb-lbl">PPRD</label>'
+        +'<span id="cancel-amb-url" style="font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-green);margin-left:8px;display:none"></span>'
+      +'</div>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Selección VNO</div>'
+    +'<div class="atrf-field atrf-col-5">'
+      +'<label>VNO <span class="req">★</span></label>'
+      +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-7">'
+      +'<label>Dirección ID</label>'
+      +'<input type="text" id="cancel-addr-inp" placeholder="DIR02803636"/>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Servicio a cancelar</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Tipo Servicio <span class="req">★</span></label>'
+      +'<select id="cancel-stype-sel"><option value="FTTH">FTTH</option><option value="SSAA">SSAA</option></select>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Speed Plan</label>'
+      +'<select id="cancel-speed-sel">'+speedOpts+'</select>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Serial (últ. 4)</label>'
+      +'<input type="text" id="cancel-serial-inp" maxlength="4" placeholder="0000" style="font-family:var(--atrf-mono);letter-spacing:.06em"/>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-field atrf-col-6" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<label style="white-space:nowrap">Servicios</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="cancel-svc-ba" checked/> BA</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="cancel-svc-voip"/> VoIP</label>'
+      +'<label class="atrf-chk"><input type="checkbox" id="cancel-svc-iptv"/> IPTV</label>'
+    +'</div>'
+    +'</div>';
+  _cancelOnAmbChange();
+}
+
+function _cancelToggleVno(el){
+  var tc=el.dataset.tc;
+  _cancelSel[tc]=!_cancelSel[tc];
+  var meta=_CANCEL_META.find(function(m){return m.tc===tc;});
+  if(_cancelSel[tc]){
+    el.classList.add('on');
+    el.style.borderColor=meta?meta.color:'';
+    el.style.color=meta?meta.color:'';
+  } else {
+    el.classList.remove('on');
+    el.style.borderColor='';
+    el.style.color='';
+  }
+  renderCancelView();
+  _syncCancelExecBtn();
+}
+
+function _cancelOnAmbChange(){
+  var rad=document.querySelector('input[name="cancel-amb"]:checked');
+  var amb=rad?rad.value:'QA';
+  var url=_atrfEnvUrls[amb]||'';
+  var el=document.getElementById('cancel-amb-url');
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):'';}
 }
 
 function _syncCancelExecBtn(){
@@ -7549,6 +7663,10 @@ function _doRunCancel(s){
   if(running) return;
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
+  delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
+  document.getElementById('summary').innerHTML='<span class="sum-idle">Ejecutando…</span>';
+  setTop('running',s.label,'Ejecutando VNOs en paralelo…');
+  setIco(s.id,'running'); setActive(s.id);
   var eb=document.getElementById('exec-btn'); if(eb) eb.disabled=true;
   _CANCEL_META.forEach(function(m){
     var ct=document.getElementById('cancelt-'+m.tc); if(ct) ct.innerHTML='';
@@ -7559,13 +7677,14 @@ function _doRunCancel(s){
   });
   if(currentEs){currentEs.close();currentEs=null;}
   var _selTcs=_CANCEL_META.filter(function(m){return _cancelSel[m.tc];}).map(function(m){return m.tc;}).join(',');
-  var _speed=(document.getElementById('gf-speed')||{}).value||'100/10';
-  var _stype=(document.getElementById('gf-stype')||{}).value||'FTTH';
-  var _sba=(document.getElementById('gf-ba')||{}).value!=='false';
-  var _svoip=(document.getElementById('gf-voip')||{}).value!=='false';
-  var _siptv=(document.getElementById('gf-iptv')||{}).value!=='false';
-  var _serial=((document.getElementById('gf-serial')||{}).value||'0000').slice(-4);
-  var _addrCancel=(document.getElementById('gf-addr')||{}).value||'DIR02803636';
+  var _speed=(document.getElementById('cancel-speed-sel')||{}).value||'100/10';
+  var _stype=(document.getElementById('cancel-stype-sel')||{}).value||'FTTH';
+  var _sba=!!(document.getElementById('cancel-svc-ba')||{}).checked;
+  var _svoip=!!(document.getElementById('cancel-svc-voip')||{}).checked;
+  var _siptv=!!(document.getElementById('cancel-svc-iptv')||{}).checked;
+  var _serial=(document.getElementById('cancel-serial-inp')||{}).value||'0000';
+  var _addrCancel=(document.getElementById('cancel-addr-inp')||{}).value||'DIR02803636';
+  var _envCancel=(document.querySelector('input[name="cancel-amb"]:checked')||{}).value||_gfEnv||'QA';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&speed_plan='+encodeURIComponent(_speed)
     +'&service_type='+encodeURIComponent(_stype)
@@ -7574,7 +7693,7 @@ function _doRunCancel(s){
     +'&svc_iptv='+(_siptv?'true':'false')
     +'&serial_suffix='+encodeURIComponent(_serial)
     +'&addr_id='+encodeURIComponent(_addrCancel)
-    +'&gf_env='+encodeURIComponent(_gfEnv);
+    +'&gf_env='+encodeURIComponent(_envCancel);
   var es=new EventSource('/api/run/qa-cancel-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
@@ -10319,7 +10438,7 @@ async function _atrf_runSelected(){
               </label>
               <div class="gfm-ar">
                 <input id="gf-serial" class="mono gfm-fw" placeholder="—"
-                  oninput="_updateSerialCharCounter();_updateActivAccessPreview();_updateDmAccessPreview();_updateCancelPreview();" />
+                  oninput="_updateSerialCharCounter();" />
                 <button class="gfm-abtn grn" onclick="_autoGenSerial()">Auto</button>
               </div>
               <div class="gfm-hint">Prefijo VNO + MM DD HH mm — 12 o 16 car.</div>
