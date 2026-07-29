@@ -8366,6 +8366,12 @@ function showHistorial(){
   setTop('','Historial de ejecuciones','');
   _hTab(_histTab);
 }
+function showHistorialFiltered(q){
+  var fi=document.getElementById('historial-filter');
+  if(fi) fi.value=q||'';
+  showHistorial();
+  if(q) setTop('','Historial de ejecuciones','Filtrado por: '+q);
+}
 function showSettings(){
   _dashStopRefresh();
   switchView('settings');
@@ -8388,6 +8394,18 @@ function showDashboard(){
 function _dashColor(vno){
   return {'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'}[vno]||'#888';
 }
+function _dashInjectCss(){
+  if(document.getElementById('_dash-css'))return;
+  var s=document.createElement('style');s.id='_dash-css';
+  s.textContent='.d-link{cursor:pointer;transition:transform .15s,box-shadow .15s,opacity .15s}.d-link:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.22);opacity:.93}.d-link:active{transform:translateY(0)}tr.d-link:hover{transform:none;box-shadow:none;opacity:1;background:rgba(86,156,214,.10)}tr.d-link:active{background:rgba(86,156,214,.18)}.d-link-row:hover{background:rgba(86,156,214,.10);cursor:pointer}.d-link-row:active{background:rgba(86,156,214,.18)}';
+  document.head.appendChild(s);
+}
+function _dashClick(el){
+  var goto=el.getAttribute('data-goto');
+  var val=el.getAttribute('data-val')||'';
+  if(goto==='hist') showHistorial();
+  else showHistorialFiltered(val);
+}
 function loadDashboard(){
   var cont=document.getElementById('dash-content');
   if(!cont)return;
@@ -8405,13 +8423,14 @@ function _renderDashboard(d,cont){
   var avg_ms=parseInt(kpi.avg_ms)||0;
   var today=parseInt(kpi.today)||0;
   var pct=total?Math.round(ok/total*100):0;
+  _dashInjectCss();
   var h='';
   // ── Fila 1: KPI cards ──
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">';
-  h+=_dashKpi('Total ejecuciones',total,'#569CD6','&#128202;');
-  h+=_dashKpi('Tasa de \xe9xito',pct+'%',pct>=80?'#4EC9B0':pct>=50?'#CE9178':'#e06c75','&#10003;');
-  h+=_dashKpi('Ejecuciones hoy',today,'#C586C0','&#9728;');
-  h+=_dashKpi('Tiempo promedio',avg_ms?(avg_ms/1000).toFixed(1)+'s':'—','#4FC1FF','&#9201;');
+  h+=_dashKpi('Total ejecuciones',total,'#569CD6','&#128202;','hist','');
+  h+=_dashKpi('Tasa de \xe9xito',pct+'%',pct>=80?'#4EC9B0':pct>=50?'#CE9178':'#e06c75','&#10003;','hist','');
+  h+=_dashKpi('Ejecuciones hoy',today,'#C586C0','&#9728;','hist','');
+  h+=_dashKpi('Tiempo promedio',avg_ms?(avg_ms/1000).toFixed(1)+'s':'—','#4FC1FF','&#9201;','hist','');
   h+='</div>';
   // ── Fila 2: VNO cards ──
   var vnoOrder=['02','03','05','00'];
@@ -8458,7 +8477,7 @@ function _renderDashboard(d,cont){
     var fp=parseInt(f.total)?Math.round(parseInt(f.ok)/parseInt(f.total)*100):0;
     var fc=fp>=80?'ok':fp>=50?'warn':'err';
     var fms=parseInt(f.avg_ms)||0;
-    h+='<tr>';
+    h+='<tr class="d-link" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(f.suite_label||'')+'">';
     h+='<td style="font-size:.71rem;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.suite_label||'—')+'</td>';
     h+='<td style="font-family:monospace;font-size:.7rem">'+esc(String(f.total))+'</td>';
     h+='<td style="font-family:monospace;font-size:.7rem">'+esc(String(f.ok))+'</td>';
@@ -8474,7 +8493,7 @@ function _renderDashboard(d,cont){
     var rc=r.resultado==='ok'?'ok':'err';
     var fecha=r.created_at?new Date(r.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}):'—';
     var tms=parseInt(r.tiempo_ms)||0;
-    h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--brd);font-size:.71rem">';
+    h+='<div class="d-link-row" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(r.suite_label||'')+'" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--brd);font-size:.71rem;transition:background .15s">';
     h+='<span class="hist-badge '+rc+'" style="font-size:.6rem;padding:1px 5px;flex-shrink:0">'+esc(r.resultado==='ok'?'OK':'Error')+'</span>';
     h+='<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+esc(r.suite_label||'—')+'</span>';
     h+='<span style="color:'+_dashColor(r.vno||'')+';font-weight:700;font-size:.68rem;flex-shrink:0">'+esc(r.vno_lbl||r.vno||'—')+'</span>';
@@ -8492,8 +8511,9 @@ function _renderDashboard(d,cont){
     _dashDrawTime(d.by_func||[]);
   });
 }
-function _dashKpi(label,val,color,icon){
-  return '<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px">'
+function _dashKpi(label,val,color,icon,goto,gval){
+  var ca=goto?' class="d-link" onclick="_dashClick(this)" data-goto="'+goto+'" data-val="'+(gval||'')+'"':'';
+  return '<div'+ca+' style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px">'
     +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">'+icon+'</span><span style="font-size:.7rem;color:var(--txt2);font-weight:500">'+esc(label)+'</span></div>'
     +'<div style="font-size:1.6rem;font-weight:800;color:'+color+';font-variant-numeric:tabular-nums;line-height:1">'+esc(String(val))+'</div>'
     +'</div>';
@@ -8501,7 +8521,7 @@ function _dashKpi(label,val,color,icon){
 function _dashVnoCard(lbl,code,pct,ok,total,fecha){
   var color=_dashColor(code);
   var bg=pct>=80?'rgba(78,201,176,.08)':pct>=50?'rgba(206,145,120,.08)':'rgba(224,108,117,.08)';
-  return '<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px;border-left:3px solid '+color+'">'
+  return '<div class="d-link" onclick="_dashClick(this)" data-goto="label" data-val="'+esc(lbl)+'" style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px;border-left:3px solid '+color+'">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
     +'<span style="font-weight:800;font-size:.9rem;color:'+color+'">'+esc(lbl)+'</span>'
     +'<span class="hist-badge '+(pct>=80?'ok':pct>=50?'warn':'err')+'" style="font-size:.68rem">'+pct+'%</span>'
