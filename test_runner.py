@@ -628,8 +628,8 @@ SUITES = [
     },
     {
         "id": "qa-endpoints", "group": "disponible",
-        "label": "Endpoints QA",
-        "desc":  "FulFillment · Consultas · ejecución individual por VNO",
+        "label": "Endpoints & Suites QA",
+        "desc":  "Endpoints individuales + Suites paralelas FulFillment · Consultas",
         "type":  "ep-explorer",
         "cmd": None, "cwd": None, "report": None, "requires": None,
     },
@@ -5638,7 +5638,7 @@ var _activeParallelId='apim-parallel';
 var _globalVNO='02';
 var _QA_VNO_COLORS={'00':'#569CD6','02':'#4EC9B0','03':'#C586C0','05':'#CE9178'};
 var _QA_VNO_LABELS={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
-var _accordionOpen={'qa-fulfillment':true};
+var _accordionOpen={'qa-endpoints':false};
 var _isQAChild=false;
 var snEnabled={};
 var suiteLogs={};      // { suiteId: [{text,cls}] }
@@ -5679,26 +5679,31 @@ function renderSB(){
       row.id='si-'+s.id;
       row.className='si'+(s.group==='bloqueado'?' si-blk':'');
       row.title=s.group==='bloqueado'?('Bloqueado: '+(s.blocker||'')):s.label;
-      if(s.id==='qa-endpoints'||s.id==='qa-fulfillment'){
+      if(s.id==='qa-endpoints'){
         var isOpen=!!_accordionOpen[s.id];
-        var _accTitle=s.id==='qa-endpoints'?'Expandir endpoints':'Expandir suites de prueba';
         row.innerHTML='<div class="si-ico" id="ico-'+s.id+'">&#183;</div>'
           +'<div class="si-txt" style="flex:1">'
           +'<div class="si-name">'+esc(s.label)+'</div>'
           +'<div class="si-desc">'+esc(s.desc)+'</div></div>'
-          +'<button class="acc-toggle" title="'+_accTitle+'">'
+          +'<button class="acc-toggle" title="Expandir endpoints y suites">'
           +(isOpen?'&#9660;':'&#9654;')+'</button>';
         row.querySelector('.si-txt').onclick=(function(sid){return function(){selectSuite(sid);};})(s.id);
         row.querySelector('.acc-toggle').onclick=(function(pid){return function(e){e.stopPropagation();toggleAccordion(pid);};})(s.id);
         el.appendChild(row);
         if(isOpen){
-          var _sections=s.id==='qa-endpoints'
-            ?[{lbl:'FulFillment',par:'qa-fulfillment'},{lbl:'Consultas',par:'qa-consultas'}]
-            :s.id==='qa-fulfillment'
-            ?[{lbl:'Factibilidad',par:'qa-fact'},{lbl:'Asignación',par:'qa-asig'},{lbl:'Interv. Asegurada',par:'qa-ia-par'},{lbl:'Activación',par:'qa-activ-par'},{lbl:'Device Mod.',par:'qa-dm-par'},{lbl:'Cancelación',par:'qa-cancel-par'},{lbl:'Teardown',par:'qa-teardown-par'}]
-            :[{lbl:'Factibilidad',par:'qa-fact'}];
+          var _sections=[
+            {lbl:'Endpoints FulFillment',par:'qa-fulfillment',onlyEp:true},
+            {lbl:'Suite Factibilidad',par:'qa-fact'},
+            {lbl:'Suite Asignación',par:'qa-asig'},
+            {lbl:'Suite Interv. Asegurada',par:'qa-ia-par'},
+            {lbl:'Suite Activación',par:'qa-activ-par'},
+            {lbl:'Suite Device Mod.',par:'qa-dm-par'},
+            {lbl:'Suite Cancelación',par:'qa-cancel-par'},
+            {lbl:'Suite Teardown',par:'qa-teardown-par'},
+            {lbl:'Consultas',par:'qa-consultas'}
+          ];
           _sections.forEach(function(sec){
-            var kids=suites.filter(function(c){return c.parent===sec.par;});
+            var kids=suites.filter(function(c){return c.parent===sec.par&&(!sec.onlyEp||c.id.indexOf('qa-ep-')===0);});
             if(!kids.length) return;
             var gh=document.createElement('div'); gh.className='si-child-grp'; gh.textContent=sec.lbl; el.appendChild(gh);
             kids.forEach(function(c){
