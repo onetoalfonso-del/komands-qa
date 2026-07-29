@@ -738,7 +738,7 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"asignacion"/"TC-08.html")},
     # ── QA Intervención Asegurada — suites paralelas ──────────────────────────
     {"id":"qa-ia-par",        "group":"qa-child","parent":"qa-fulfillment",
-     "label":"Suite Interv. Asegurada","desc":"Inicio · Fin · paralelo",
+     "label":"Suite Interv. Asegurada","desc":"Inicio · Fin · Cancelación · paralelo",
      "cmd":None,"cwd":None,"report":None,"requires":None},
     {"id":"qa-ia-inicio-suite","group":"qa-child","parent":"qa-ia-par",
      "label":"▶ Inicio Intervención",
@@ -766,6 +766,19 @@ SUITES = [
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-15.html")},
     {"id":"qa-ia-tc16","group":"hidden","label":"TC-16 IA Fin TCH",
      "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-16.html")},
+    {"id":"qa-ia-cancel-suite","group":"qa-child","parent":"qa-ia-par",
+     "label":"▶ Cancelación Intervención",
+     "desc":"TC-33..TC-36 · 05-Cancela Intervención",
+     "env_type":"qa_ia_cancel_suite",
+     "cmd":None,"cwd":str(QA_DIR),"report":str(QA_DIR/"ia"/"cancel_index.html"),"requires":None},
+    {"id":"qa-ia-tc33","group":"hidden","label":"TC-33 IA Cancel Entel",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-33.html")},
+    {"id":"qa-ia-tc34","group":"hidden","label":"TC-34 IA Cancel KAO",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-34.html")},
+    {"id":"qa-ia-tc35","group":"hidden","label":"TC-35 IA Cancel DTV",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-35.html")},
+    {"id":"qa-ia-tc36","group":"hidden","label":"TC-36 IA Cancel TCH",
+     "cmd":None,"cwd":None,"requires":None,"report":str(QA_DIR/"ia"/"TC-36.html")},
     # ── QA Activación — suite paralela ─────────────────────────────────────────
     {"id":"qa-activ-par",  "group":"qa-child","parent":"qa-fulfillment",
      "label":"Suite Activación","desc":"TC-17..TC-20 · 3 pasos por VNO · paralelo",
@@ -2566,9 +2579,10 @@ async def api_run(suite_id: str, request: Request):
                 "json_out":   _json_out,
             })
 
-    elif suite.get("env_type") in ("qa_ia_inicio_suite", "qa_ia_fin_suite"):
+    elif suite.get("env_type") in ("qa_ia_inicio_suite", "qa_ia_fin_suite", "qa_ia_cancel_suite"):
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
         _is_inicio   = suite.get("env_type") == "qa_ia_inicio_suite"
+        _is_cancel   = suite.get("env_type") == "qa_ia_cancel_suite"
         _ia_dir      = QA_DIR / "ia"
         _ia_dir.mkdir(parents=True, exist_ok=True)
         _logo_svg_ia = (
@@ -2589,14 +2603,14 @@ async def api_run(suite_id: str, request: Request):
         _scenario    = overrides.get("scenario",     "Instalación")
         _service_type = overrides.get("service_type", "FTTH")
         _TC_DEFS_IA = [
-            {"tc": "TC-09" if _is_inicio else "TC-13", "vno": "03", "vno_label": "Entel",
-             "sid": "qa-ia-tc09" if _is_inicio else "qa-ia-tc13"},
-            {"tc": "TC-10" if _is_inicio else "TC-14", "vno": "02", "vno_label": "KAO",
-             "sid": "qa-ia-tc10" if _is_inicio else "qa-ia-tc14"},
-            {"tc": "TC-11" if _is_inicio else "TC-15", "vno": "05", "vno_label": "DTV",
-             "sid": "qa-ia-tc11" if _is_inicio else "qa-ia-tc15"},
-            {"tc": "TC-12" if _is_inicio else "TC-16", "vno": "00", "vno_label": "TCH",
-             "sid": "qa-ia-tc12" if _is_inicio else "qa-ia-tc16"},
+            {"tc": "TC-09" if _is_inicio else ("TC-33" if _is_cancel else "TC-13"), "vno": "03", "vno_label": "Entel",
+             "sid": "qa-ia-tc09" if _is_inicio else ("qa-ia-tc33" if _is_cancel else "qa-ia-tc13")},
+            {"tc": "TC-10" if _is_inicio else ("TC-34" if _is_cancel else "TC-14"), "vno": "02", "vno_label": "KAO",
+             "sid": "qa-ia-tc10" if _is_inicio else ("qa-ia-tc34" if _is_cancel else "qa-ia-tc14")},
+            {"tc": "TC-11" if _is_inicio else ("TC-35" if _is_cancel else "TC-15"), "vno": "05", "vno_label": "DTV",
+             "sid": "qa-ia-tc11" if _is_inicio else ("qa-ia-tc35" if _is_cancel else "qa-ia-tc15")},
+            {"tc": "TC-12" if _is_inicio else ("TC-36" if _is_cancel else "TC-16"), "vno": "00", "vno_label": "TCH",
+             "sid": "qa-ia-tc12" if _is_inicio else ("qa-ia-tc36" if _is_cancel else "qa-ia-tc16")},
         ]
         _tcs_param_ia  = overrides.get("tcs", "")
         _tcs_filter_ia = set(_tcs_param_ia.split(",")) if _tcs_param_ia else {d["tc"] for d in _TC_DEFS_IA}
@@ -2640,24 +2654,26 @@ async def api_run(suite_id: str, request: Request):
                             _nm = _req.get("name", "")
                             if _is_inicio:
                                 _match = _nm in ("01-Inicio Intervención", "01-Inicio Intervencion")
+                            elif _is_cancel:
+                                _match = "Cancela" in _nm and "Masiva" not in _nm
                             else:
                                 _match = "Finaliz" in _nm and "Masiva" not in _nm
                             if _match:
                                 _b = _req.get("request", {}).get("body", {})
                                 if _b.get("mode") == "raw":
                                     _b["raw"] = _new_body
-            _pfx = "inicio" if _is_inicio else "fin"
+            _pfx = "inicio" if _is_inicio else ("cancel" if _is_cancel else "fin")
             _tmp_col = str(QA_DIR / f"_tmp_ia_{_pfx}_{_vno}.json")
             _j.dump(_col_tmp, open(_tmp_col, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-            _nf = "01-Inicio Intervención" if _is_inicio else "03-Finalización Intervención"
-            _op_lbl = "IA Inicio" if _is_inicio else "IA Fin"
+            _nf = "01-Inicio Intervención" if _is_inicio else ("05-Cancela Intervención" if _is_cancel else "03-Finalización Intervención")
+            _op_lbl = "IA Inicio" if _is_inicio else ("IA Cancel" if _is_cancel else "IA Fin")
             _tc_runs.append({
                 "tc":         _tcd["tc"],
                 "vno":        _vno,
                 "vno_lbl":    _tcd["vno_label"],
                 "sid":        _tcd["sid"],
                 "label":      f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
-                "tc_label":   "Inicio Intervención Asegurada" if _is_inicio else "Fin Intervención Asegurada",
+                "tc_label":   "Inicio Intervención Asegurada" if _is_inicio else ("Cancelación Intervención Asegurada" if _is_cancel else "Fin Intervención Asegurada"),
                 "address_id": "",
                 "access_id":  _access_ids_map_ia.get(_tcd["tc"], ""),
                 "cmd":        [NEWMAN, "run", _tmp_col,
@@ -7260,13 +7276,13 @@ function selectSuite(id){
     _syncAsigExecBtn();
     return;
   }
-  if(id==='qa-ia-inicio-suite'||id==='qa-ia-fin-suite'){
+  if(id==='qa-ia-inicio-suite'||id==='qa-ia-fin-suite'||id==='qa-ia-cancel-suite'){
     _isQAChild=false;
-    _iaMode=id==='qa-ia-inicio-suite'?'inicio':'fin';
+    _iaMode=id==='qa-ia-inicio-suite'?'inicio':(id==='qa-ia-cancel-suite'?'cancel':'fin');
     switchView('ia');
     renderIAFormBar();
     renderIAView();
-    var _iaLbl=_iaMode==='inicio'?'Inicio Intervención':'Finalización Intervención';
+    var _iaLbl=_iaMode==='inicio'?'Inicio Intervención':(_iaMode==='cancel'?'Cancelación Intervención':'Finalización Intervención');
     setTop('','Suite: '+_iaLbl,'Configura los parámetros y presiona Ejecutar');
     _syncIAExecBtn();
     return;
@@ -7430,7 +7446,7 @@ function executeSelected(){
     if(_sa) _doRunAsig(_sa);
     return;
   }
-  if(selectedId==='qa-ia-inicio-suite'||selectedId==='qa-ia-fin-suite'){
+  if(selectedId==='qa-ia-inicio-suite'||selectedId==='qa-ia-fin-suite'||selectedId==='qa-ia-cancel-suite'){
     var _si=suites.find(function(x){return x.id===selectedId;});
     if(_si) _doRunIA(_si);
     return;
@@ -8206,13 +8222,20 @@ var _IA_FIN_META = [
   {tc:'TC-15', label:'TC-15 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-ia-tc15', color:'#FFDAC1'},
   {tc:'TC-16', label:'TC-16 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-ia-tc16', color:'#B39DFF'},
 ];
+var _IA_CANCEL_META = [
+  {tc:'TC-33', label:'TC-33 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-ia-tc33', color:'#FF6B6B'},
+  {tc:'TC-34', label:'TC-34 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-ia-tc34', color:'#4EC9B0'},
+  {tc:'TC-35', label:'TC-35 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-ia-tc35', color:'#CE9178'},
+  {tc:'TC-36', label:'TC-36 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-ia-tc36', color:'#569CD6'},
+];
 var _iaSel={};
-(function(){ _IA_INICIO_META.concat(_IA_FIN_META).forEach(function(m){ _iaSel[m.tc]=true; }); })();
+(function(){ _IA_INICIO_META.concat(_IA_FIN_META).concat(_IA_CANCEL_META).forEach(function(m){ _iaSel[m.tc]=true; }); })();
 var _IA_VNO_CODES={'TC-09':'03','TC-10':'02','TC-11':'05','TC-12':'00',
-                   'TC-13':'03','TC-14':'02','TC-15':'05','TC-16':'00'};
+                   'TC-13':'03','TC-14':'02','TC-15':'05','TC-16':'00',
+                   'TC-33':'03','TC-34':'02','TC-35':'05','TC-36':'00'};
 
-function _iaMeta(){ return _iaMode==='inicio'?_IA_INICIO_META:_IA_FIN_META; }
-function _iaSuiteId(){ return _iaMode==='inicio'?'qa-ia-inicio-suite':'qa-ia-fin-suite'; }
+function _iaMeta(){ return _iaMode==='inicio'?_IA_INICIO_META:(_iaMode==='cancel'?_IA_CANCEL_META:_IA_FIN_META); }
+function _iaSuiteId(){ return _iaMode==='inicio'?'qa-ia-inicio-suite':(_iaMode==='cancel'?'qa-ia-cancel-suite':'qa-ia-fin-suite'); }
 
 function renderIAFormBar(){
   var bar=document.getElementById('ia-form-bar'); if(!bar) return;
@@ -8221,8 +8244,8 @@ function renderIAFormBar(){
     var on=_iaSel[m.tc]?'on':'';
     return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_iaToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
   }).join('');
-  var modeColor=_iaMode==='inicio'?'var(--atrf-accent)':'#B39DFF';
-  var modeLabel=_iaMode==='inicio'?'Inicio Intervención':'Finalización Intervención';
+  var modeColor=_iaMode==='inicio'?'var(--atrf-accent)':(_iaMode==='cancel'?'#FF6B6B':'#B39DFF');
+  var modeLabel=_iaMode==='inicio'?'Inicio Intervención':(_iaMode==='cancel'?'Cancelación Intervención':'Finalización Intervención');
   bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
     +'<div class="atrf-field atrf-col-12" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">'
       +'<span style="font-size:11px;font-family:var(--atrf-mono);font-weight:600;color:'+modeColor+';text-transform:uppercase;letter-spacing:.06em">'+esc(modeLabel)+'</span>'
@@ -10710,7 +10733,7 @@ var _HIST_COLS=[
   {k:'resultado',   lbl:'Resultado'},
   {k:'tiempo_ms',   lbl:'Tiempo'},
 ];
-var _SUITE_NAMES={'qa-fact-suite':'Factibilidad','qa-asig-suite':'Asignación','qa-ia-inicio-suite':'Inicio Intervención','qa-ia-fin-suite':'Fin Intervención','qa-activ-suite':'Activación','qa-dm-suite':'DM','qa-cancel-suite':'Cancelación','qa-unsub-suite':'Unsubscription','qa-teardown-suite':'Teardown'};
+var _SUITE_NAMES={'qa-fact-suite':'Factibilidad','qa-asig-suite':'Asignación','qa-ia-inicio-suite':'Inicio Intervención','qa-ia-fin-suite':'Fin Intervención','qa-ia-cancel-suite':'Cancelación IA','qa-activ-suite':'Activación','qa-dm-suite':'DM','qa-cancel-suite':'Cancelación','qa-unsub-suite':'Unsubscription','qa-teardown-suite':'Teardown'};
 function _suiteName(id,lbl){
   if(id&&_SUITE_NAMES[id]) return _SUITE_NAMES[id];
   var s=lbl||id||'';
