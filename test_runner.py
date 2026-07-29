@@ -5865,14 +5865,21 @@ function selectSuite(id){
     _activeDefs=QA_VNO_DEFS;_activeParallelId='qa-fulfillment';
     switchView('sn');
     renderSNForm();
+  } else if(s && s.env_type==='qa_vno'){
+    _isQAChild=true;
+    switchView('ep-form');
+    renderEPFVNOBar();
+    renderVnoEpForm(s);
+    setTop('',s.label,s.desc||'Selecciona VNO y ejecuta');
+    var _epveb=document.getElementById('exec-btn');
+    if(_epveb) _epveb.disabled=running;
   } else {
-    _isQAChild = !!(s.env_type==='qa_vno');
+    _isQAChild=false;
     switchView('std');
     var vbar=document.getElementById('vno-bar');
     var rpanel=document.getElementById('resp-panel');
-    if(_isQAChild){ renderVNOBar(); } else { vbar.style.display='none'; }
+    vbar.style.display='none';
     if(rpanel) rpanel.style.display='none';
-    // Restaurar log guardado para esta suite
     var term=document.getElementById('term');
     term.innerHTML='';
     (suiteLogs[id]||[]).forEach(function(l){
@@ -5882,10 +5889,8 @@ function selectSuite(id){
       term.appendChild(sp);
     });
     term.scrollTop=term.scrollHeight;
-    // Restaurar summary
     var sumEl=document.getElementById('summary');
     sumEl.innerHTML=suiteSummaries[id]||'<span class="sum-idle">Ejecuta una suite para ver resultados</span>';
-    // Restaurar botones de reporte
     var rb=document.getElementById('rpt-btn'), db=document.getElementById('dl-btn');
     if(suiteReports[id]){
       rb.classList.add('show');rb.dataset.rid=suiteReports[id];
@@ -5893,7 +5898,6 @@ function selectSuite(id){
     } else {
       rb.classList.remove('show'); db.classList.remove('show');
     }
-    // Restaurar estado del topbar
     if(suiteTopState[id]){
       setTop(suiteTopState[id].cls,suiteTopState[id].title,suiteTopState[id].status);
     } else {
@@ -8119,16 +8123,68 @@ function renderEPFVNOBar(){
       renderEPFVNOBar();
       renderVNOBar();
       renderEPVNOBar();
+      var _s=suites.find(function(x){return x.id===selectedId;});
       if(selectedId==='qa-ep-assignment') renderAssignmentForm();
       else if(selectedId==='qa-ep-ia') renderIAForm();
       else if(selectedId==='qa-ep-ia-fin') renderIAFinForm();
       else if(selectedId==='qa-ep-activacion') renderActivacionForm();
+      else if(_s&&_s.env_type==='qa_vno') renderVnoEpForm(_s);
       else renderFactibilidadForm();
     };})(code);
     bar.appendChild(btn);
   });
   bar.style.display="flex";
 }
+
+function renderVnoEpForm(s){
+  var c=document.getElementById('epf-container'); if(!c) return;
+  var vno=_globalVNO||'02';
+  var vnoBtns=['00','02','03','05'].map(function(code){
+    var on=code===vno?'on':'';
+    var color=_QA_VNO_COLORS[code]||'var(--atrf-accent)';
+    return '<span class="atrf-vno-lbl '+on+'" data-vno="'+code+'" onclick="_setEpVno(\''+code+'\')" style="'+(on?'border-color:'+color+';color:'+color:'')+'">'+esc(_QA_VNO_LABELS[code]||code)+'</span>';
+  }).join('');
+  var envFile={'00':'00-TCH QA','02':'02 QA_KAO','03':'03-B1_vnoid03 QA','05':'05 QA_DTV'}[vno]||'02 QA_KAO';
+  c.innerHTML='<div style="padding:16px 0">'
+    +'<div class="atrf-grid" style="max-width:640px">'
+      +'<div class="atrf-field atrf-col-12">'
+        +'<div style="background:var(--atrf-surface2,var(--bg3,var(--card)));border:1px solid var(--atrf-border);border-radius:6px;padding:10px 14px;margin-bottom:4px">'
+          +'<div style="font-size:.68rem;font-weight:700;color:var(--atrf-accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">'+esc(s.label||'')+'</div>'
+          +'<div style="font-size:.8rem;color:var(--atrf-text,var(--txt))">'+esc(s.desc||'')+'</div>'
+          +(s.folder?'<div style="font-size:.7rem;color:var(--txt3);margin-top:2px;font-family:var(--atrf-mono)">Folder: '+esc(s.folder)+'</div>':'')
+        +'</div>'
+      +'</div>'
+      +'<hr class="atrf-divider"/>'
+      +'<div class="atrf-group-lbl">Selección VNO</div>'
+      +'<div class="atrf-field atrf-col-8">'
+        +'<label>VNO <span class="req">★</span></label>'
+        +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
+      +'</div>'
+      +'<div class="atrf-field atrf-col-8" style="flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap">'
+        +'<span style="font-size:.68rem;color:var(--txt3)">Env:</span>'
+        +'<span style="font-size:.7rem;font-family:var(--atrf-mono);color:var(--txt2)">'+esc(envFile)+'</span>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+}
+
+function _setEpVno(code){
+  _globalVNO=code;
+  document.querySelectorAll('#epf-container .atrf-vno-lbl').forEach(function(el){
+    var c=el.dataset.vno;
+    var color=_QA_VNO_COLORS[c]||'var(--atrf-accent)';
+    if(c===code){ el.classList.add('on'); el.style.borderColor=color; el.style.color=color; }
+    else { el.classList.remove('on'); el.style.borderColor=''; el.style.color=''; }
+  });
+  var envLabels={'00':'00-TCH QA','02':'02 QA_KAO','03':'03-B1_vnoid03 QA','05':'05 QA_DTV'};
+  var envEl=document.querySelector('#epf-container .atrf-field .atrf-field span:last-child');
+  // update the env label in the form
+  var _s=suites.find(function(x){return x.id===selectedId;});
+  if(_s&&_s.env_type==='qa_vno') renderVnoEpForm(_s);
+  renderEPFVNOBar();
+  renderVNOBar();
+}
+
 function renderFactibilidadForm(){
   var container=document.getElementById("epf-container");
   if(!container) return;
