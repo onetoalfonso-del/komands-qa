@@ -5545,9 +5545,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista Asignación — 4 consolas paralelas -->
     <div id="asig-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div id="asig-form-bar"></div>
-      <div id="asig-access-preview"></div>
-      <div id="asig-sel-bar"></div>
+      <div id="asig-form-bar" style="flex-shrink:0;overflow-y:auto;max-height:300px;padding:14px 18px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)"></div>
       <div id="asig-grid"></div>
     </div>
     <!-- Vista Services Now — doble terminal -->
@@ -5808,9 +5806,8 @@ function selectSuite(id){
     _isQAChild=false;
     switchView('asig');
     renderAsigFormBar();
-    renderAsigSelBar();
     renderAsigView();
-    setTop('','Suite: Asignación','TC-05..TC-08 · presiona Ejecutar');
+    setTop('','Suite: Asignación','Configura los parámetros y presiona Ejecutar');
     _syncAsigExecBtn();
     return;
   }
@@ -6042,7 +6039,7 @@ function switchView(mode){
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
-  if(_gfp){var _gfModes=['asig','ia','activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'block':'none';}
+  if(_gfp){var _gfModes=['ia','activ','dm','cancel'];_gfp.style.display=_gfModes.indexOf(mode)>=0?'block':'none';}
 }
 
 function renderGlobalForm(){
@@ -6492,10 +6489,10 @@ function _doRunFact(s){
 
 // ── Asignación: vista multi-consola ─────────────────────────────────────────
 var _ASIG_TC_META = [
-  {tc:'TC-05', label:'TC-05 · Entel', vno:'VNO 03', sid:'qa-asig-tc05', color:'#98F5A4'},
-  {tc:'TC-06', label:'TC-06 · KAO',   vno:'VNO 02', sid:'qa-asig-tc06', color:'#7EC8E3'},
-  {tc:'TC-07', label:'TC-07 · DTV',   vno:'VNO 05', sid:'qa-asig-tc07', color:'#FFD580'},
-  {tc:'TC-08', label:'TC-08 · TCH',   vno:'VNO 00', sid:'qa-asig-tc08', color:'#B39DFF'},
+  {tc:'TC-05', label:'TC-05 · Entel', vno:'VNO 03', vno_code:'03', sid:'qa-asig-tc05', color:'#98F5A4'},
+  {tc:'TC-06', label:'TC-06 · KAO',   vno:'VNO 02', vno_code:'02', sid:'qa-asig-tc06', color:'#7EC8E3'},
+  {tc:'TC-07', label:'TC-07 · DTV',   vno:'VNO 05', vno_code:'05', sid:'qa-asig-tc07', color:'#FFD580'},
+  {tc:'TC-08', label:'TC-08 · TCH',   vno:'VNO 00', vno_code:'00', sid:'qa-asig-tc08', color:'#B39DFF'},
 ];
 var _asigSel={'TC-05':true,'TC-06':true,'TC-07':true,'TC-08':true};
 
@@ -6511,65 +6508,98 @@ function _resolveAccessId(raw, vnoCode){
   return raw;
 }
 
-function _updateAsigAccessPreview(){
-  var el=document.getElementById('asig-access-preview'); if(!el) return;
-  var raw=(document.getElementById('gf-access')||{}).value||'';
-  if(!raw.trim()){
-    el.innerHTML='<span class="aap-empty">Ingresa un Access ID para ver la preview por VNO</span>';
-    return;
-  }
-  var h='';
-  _ASIG_TC_META.forEach(function(m){
-    var resolved=_resolveAccessId(raw.trim(), _VNO_CODES[m.tc]);
-    h+='<span class="aap-item">'
-      +'<span class="aap-vno">'+esc(m.label)+':</span>'
-      +'<span class="aap-id">'+esc(resolved)+'</span>'
-      +'</span>';
-  });
-  el.innerHTML=h;
-}
+var _asigVnoMeta=[
+  {vno:'03',lbl:'03 · Entel',tc:'TC-05',color:'#98F5A4'},
+  {vno:'02',lbl:'02 · KAO',  tc:'TC-06',color:'#7EC8E3'},
+  {vno:'05',lbl:'05 · DTV',  tc:'TC-07',color:'#FFD580'},
+  {vno:'00',lbl:'00 · TCH',  tc:'TC-08',color:'#B39DFF'},
+];
+var _QA_SPEED_PLANS_ASIG=['100/100','300/300','400/400','600/600','800/800','1000/1000'];
 
 function renderAsigFormBar(){
   var bar=document.getElementById('asig-form-bar'); if(!bar) return;
-  bar.innerHTML=
-    '<label style="display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--txt2);cursor:pointer;white-space:nowrap;padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg2,var(--card))">'
-    +'<input type="checkbox" id="asig-teardown" style="accent-color:var(--acc);cursor:pointer"> Teardown auto</label>';
-  _updateAsigAccessPreview();
+  var vnoBtns=_asigVnoMeta.map(function(v){
+    var on=_asigSel[v.tc]?'on':'';
+    return '<span class="atrf-vno-lbl '+on+'" data-tc="'+v.tc+'" onclick="_asigToggleVno(this)" style="'+(on?'border-color:'+v.color+';color:'+v.color:'')+'">'+esc(v.lbl)+'</span>';
+  }).join('');
+  var speedOpts=_QA_SPEED_PLANS_ASIG.map(function(p){
+    return '<option value="'+p+'"'+(p==='600/600'?' selected':'')+'>'+p+'</option>';
+  }).join('');
+  bar.innerHTML='<div class="atrf-grid">'
+    +'<div class="atrf-field atrf-col-12">'
+      +'<label>Ambiente <span class="req">★</span></label>'
+      +'<div class="atrf-amb-wrap">'
+        +'<input type="radio" name="asig-amb" id="asig-amb-qa" value="QA" class="atrf-amb-radio" onchange="_asigOnAmbChange()" checked/>'
+        +'<label for="asig-amb-qa" class="atrf-amb-lbl">QA</label>'
+        +'<input type="radio" name="asig-amb" id="asig-amb-prd" value="PRD" class="atrf-amb-radio" onchange="_asigOnAmbChange()"/>'
+        +'<label for="asig-amb-prd" class="atrf-amb-lbl">PRD</label>'
+        +'<input type="radio" name="asig-amb" id="asig-amb-pprd" value="PPRD" class="atrf-amb-radio" onchange="_asigOnAmbChange()"/>'
+        +'<label for="asig-amb-pprd" class="atrf-amb-lbl">PPRD</label>'
+        +'<span id="asig-amb-url" style="font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-green);margin-left:8px;display:none"></span>'
+      +'</div>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Datos base</div>'
+    +'<div class="atrf-field atrf-col-6">'
+      +'<label>VNO <span class="req">★</span></label>'
+      +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-6">'
+      +'<label>Address ID <span class="req">★</span></label>'
+      +'<input type="text" id="asig-addr-inp" placeholder="ej: 03-XYGO123456" oninput="_asigUpdateAccessPreview()"/>'
+      +'<span class="atrf-hint" id="asig-addr-preview" style="color:var(--atrf-text2)"></span>'
+    +'</div>'
+    +'<hr class="atrf-divider"/>'
+    +'<div class="atrf-group-lbl">Servicio</div>'
+    +'<div class="atrf-field atrf-col-3">'
+      +'<label>Speed Plan <span class="req">★</span></label>'
+      +'<select id="asig-speed-sel">'+speedOpts+'</select>'
+    +'</div>'
+    +'<div class="atrf-field atrf-col-5">'
+      +'<label>Servicios</label>'
+      +'<div style="display:flex;gap:10px;align-items:center;padding-top:4px">'
+        +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--atrf-mono);color:var(--atrf-text);cursor:pointer"><input type="checkbox" id="asig-svc-ba" checked style="accent-color:var(--atrf-accent)"> BA</label>'
+        +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--atrf-mono);color:var(--atrf-text);cursor:pointer"><input type="checkbox" id="asig-svc-voip" checked style="accent-color:var(--atrf-accent)"> VoIP</label>'
+        +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--atrf-mono);color:var(--atrf-text);cursor:pointer"><input type="checkbox" id="asig-svc-iptv" checked style="accent-color:var(--atrf-accent)"> IPTV</label>'
+      +'</div>'
+    +'</div>'
+    +'</div>';
+  _asigOnAmbChange();
 }
 
-function renderAsigSelBar(){
-  var bar=document.getElementById('asig-sel-bar'); if(!bar) return;
-  var h='<span class="fsb-lbl">VNOs a ejecutar:</span>';
-  _ASIG_TC_META.forEach(function(m){
-    var on=_asigSel[m.tc]?'on':'';
-    h+='<button class="tc-sel-btn '+on+'" id="asb-'+m.tc+'">'+esc(m.label)+'</button>';
-  });
-  h+='<span class="fsb-sep"></span>'
-    +'<button class="fsb-all" id="asb-all">Todos</button>'
-    +'<button class="fsb-all" id="asb-none">Ninguno</button>';
-  bar.innerHTML=h;
-  _ASIG_TC_META.forEach(function(m){
-    document.getElementById('asb-'+m.tc).onclick=(function(tc){
-      return function(){ _toggleAsigTC(tc); };
-    })(m.tc);
-  });
-  document.getElementById('asb-all').onclick=function(){ _selectAllAsig(true); };
-  document.getElementById('asb-none').onclick=function(){ _selectAllAsig(false); };
-}
-
-function _toggleAsigTC(tc){
+function _asigToggleVno(el){
+  var tc=el.dataset.tc;
   _asigSel[tc]=!_asigSel[tc];
-  var btn=document.getElementById('asb-'+tc);
-  if(btn) btn.className='tc-sel-btn'+(_asigSel[tc]?' on':'');
+  var meta=_asigVnoMeta.find(function(v){return v.tc===tc;});
+  if(_asigSel[tc]){
+    el.classList.add('on');
+    el.style.borderColor=meta?meta.color:'';
+    el.style.color=meta?meta.color:'';
+  } else {
+    el.classList.remove('on');
+    el.style.borderColor='';
+    el.style.color='';
+  }
   renderAsigView();
   _syncAsigExecBtn();
 }
 
-function _selectAllAsig(val){
-  _ASIG_TC_META.forEach(function(m){ _asigSel[m.tc]=val; });
-  renderAsigSelBar();
-  renderAsigView();
-  _syncAsigExecBtn();
+function _asigOnAmbChange(){
+  var rad=document.querySelector('input[name="asig-amb"]:checked');
+  var amb=rad?rad.value:'QA';
+  var url=_atrfEnvUrls[amb]||'';
+  var el=document.getElementById('asig-amb-url');
+  if(el){el.style.display=url?'inline':'none';el.textContent=url?('→ '+url):'';}
+}
+
+function _asigUpdateAccessPreview(){
+  var raw=(document.getElementById('asig-addr-inp')||{}).value||'';
+  var el=document.getElementById('asig-addr-preview'); if(!el) return;
+  if(!raw.trim()){el.textContent='';return;}
+  var parts=_asigVnoMeta.filter(function(v){return _asigSel[v.tc];}).map(function(v){
+    return v.lbl+': '+_resolveAccessId(raw.trim(),v.vno);
+  });
+  el.textContent=parts.join(' · ');
 }
 
 function _syncAsigExecBtn(){
@@ -6641,17 +6671,13 @@ function _asigSetResponse(tc, responses){
 
 function _doRunAsig(s){
   if(running) return;
-  var accessId=document.getElementById('gf-access');
-  var addrId=document.getElementById('gf-addr');
-  var speed=document.getElementById('gf-speed');
-  var ba=document.getElementById('gf-ba');
-  var voip=document.getElementById('gf-voip');
-  var iptv=document.getElementById('gf-iptv');
-  if(!accessId||!accessId.value.trim()){
-    accessId&&(accessId.style.borderColor='var(--err)');
+  var addrInp=document.getElementById('asig-addr-inp');
+  var rawAddr=(addrInp||{}).value||'';
+  if(!rawAddr.trim()){
+    if(addrInp) addrInp.style.borderColor='var(--atrf-red)';
     return;
   }
-  if(accessId) accessId.style.borderColor='';
+  if(addrInp) addrInp.style.borderColor='';
   running=true; runningId=s.id; tStart=Date.now();
   suiteLogs[s.id]=[];
   delete suiteSummaries[s.id]; delete suiteReports[s.id]; delete suiteTopState[s.id];
@@ -6667,18 +6693,22 @@ function _doRunAsig(s){
     _asigSetState(m.tc,'idle');
   });
   if(currentEs){currentEs.close();currentEs=null;}
-  var _rawAccess=accessId?accessId.value.trim():'';
   var _selTcs=_ASIG_TC_META.filter(function(m){return _asigSel[m.tc];}).map(function(m){return m.tc;}).join(',');
   var _accessMap={};
-  _ASIG_TC_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(_rawAccess,_VNO_CODES[m.tc]); });
+  _ASIG_TC_META.forEach(function(m){ _accessMap[m.tc]=_resolveAccessId(rawAddr.trim(),_VNO_CODES[m.tc]); });
+  var _speed=(document.getElementById('asig-speed-sel')||{}).value||'600/600';
+  var _ba=(document.getElementById('asig-svc-ba')||{}).checked!==false?'true':'false';
+  var _voip=(document.getElementById('asig-svc-voip')||{}).checked!==false?'true':'false';
+  var _iptv=(document.getElementById('asig-svc-iptv')||{}).checked!==false?'true':'false';
+  var _envAsig=(document.querySelector('input[name="asig-amb"]:checked')||{}).value||_gfEnv||'QA';
   var _params='tcs='+encodeURIComponent(_selTcs)
     +'&access_ids='+encodeURIComponent(JSON.stringify(_accessMap))
-    +'&address_id='+encodeURIComponent(addrId?addrId.value.trim():'')
-    +'&speed_plan='+encodeURIComponent(speed?speed.value:'600/600')
-    +'&service_ba='+encodeURIComponent(ba?ba.value:'true')
-    +'&service_voip='+encodeURIComponent(voip?voip.value:'true')
-    +'&service_iptv='+encodeURIComponent(iptv?iptv.value:'true')
-    +'&gf_env='+encodeURIComponent(_gfEnv);
+    +'&address_id='+encodeURIComponent(rawAddr.trim())
+    +'&speed_plan='+encodeURIComponent(_speed)
+    +'&service_ba='+encodeURIComponent(_ba)
+    +'&service_voip='+encodeURIComponent(_voip)
+    +'&service_iptv='+encodeURIComponent(_iptv)
+    +'&gf_env='+encodeURIComponent(_envAsig);
   var es=new EventSource('/api/run/qa-asig-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
