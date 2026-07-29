@@ -3504,8 +3504,9 @@ async def atrf_run_step(request: Request):
     access_id   = body.get("accessId", "")
     serial_num  = body.get("serialNumber", "")
     new_serial  = body.get("newSerialNumber", "")
-    speed_plan  = body.get("speedPlan", "600/600")
-    amb_url     = body.get("ambUrl", "")
+    speed_plan      = body.get("speedPlan", "600/600")
+    new_speed_plan  = body.get("newSpeedPlan", "")
+    amb_url         = body.get("ambUrl", "")
     service_ba  = body.get("serviceBa", True)
     service_voip= body.get("serviceVoip", True)
     service_iptv= body.get("serviceIptv", True)
@@ -3887,7 +3888,7 @@ async def atrf_run_step(request: Request):
             "u_id_vno": vno,
             "u_access_id_vno": access_id,
             "u_operation_type": "M",
-            "u_speed_plan": speed_plan,
+            "u_speed_plan": new_speed_plan or speed_plan,
             "u_service_ba": service_ba,
             "u_service_voip": service_voip,
             "u_service_iptv": service_iptv,
@@ -8830,6 +8831,7 @@ async function _atrf_runSelected(){
             serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',
             speedPlan:q.cfg.plan||'',
+            newSpeedPlan:q.cfg.nplan||'',
             ambUrl:q.cfg.ambUrl||'',
             serviceBa:q.cfg.ba!==false,
             serviceVoip:q.cfg.voip!==false,
