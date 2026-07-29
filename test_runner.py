@@ -9687,7 +9687,46 @@ function _atrf_openView(qi){
   var c=q.cfg||{};
   var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'—'],['Tipo Dirección',c.tdir],['Dirección',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo Ejecución',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'—'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'—']];
   document.getElementById('atrf-vcfg-grid').innerHTML=fields.map(function(f){return'<div class="atrf-dcfg-item"><div class="atrf-dcfg-lbl">'+f[0]+'</div><div class="atrf-dcfg-val">'+(f[1]||'—')+'</div></div>';}).join('');
-  document.getElementById('atrf-vfunc-list').innerHTML=(q.funcs||[]).map(function(fi,i){return'<div class="atrf-view-func-item"><span class="atrf-view-func-pos">'+(i+1)+'</span><span>'+(_ATRF_FUNCS[fi]||fi)+'</span></div>';}).join('');
+  // Resultados por paso
+  var tcByFunc={};var tcIdxByFunc={};
+  (q.tcResults||[]).forEach(function(r,i){tcByFunc[r.func]=r;tcIdxByFunc[r.func]=i;});
+  var hasResults=(q.tcResults||[]).length>0;
+  var funcsTab=document.getElementById('atrf-vtab-funcs');
+  if(hasResults){
+    var _pass=(q.tcResults||[]).filter(function(r){return r.pass;}).length;
+    var _tot=(q.tcResults||[]).length;
+    funcsTab.textContent='Resultados ('+_pass+'/'+_tot+' ✓)';
+    funcsTab.style.color=_pass===_tot?'var(--atrf-green)':_pass===0?'var(--atrf-red)':'var(--atrf-amber)';
+  } else {
+    funcsTab.textContent='Funcionalidades';funcsTab.style.color='';
+  }
+  // Resumen encabezado
+  var summary='';
+  if(hasResults){
+    var _p=(q.tcResults||[]).filter(function(r){return r.pass;}).length;
+    var _t=(q.tcResults||[]).length;
+    var _c=_p===_t?'var(--atrf-green)':_p===0?'var(--atrf-red)':'var(--atrf-amber)';
+    summary='<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--atrf-hover);border-bottom:1px solid var(--atrf-border);font-size:11px">'
+      +'<span style="font-weight:600;color:'+_c+'">'+_p+' de '+_t+' pasaron</span>'
+      +'<span style="color:var(--atrf-text2)">· Haz clic en un paso para ver detalle</span>'
+      +'</div>';
+  }
+  document.getElementById('atrf-vfunc-list').innerHTML=summary+(q.funcs||[]).map(function(fi,i){
+    var fn=_ATRF_FUNCS[fi]||fi;
+    var res=tcByFunc[fn];
+    var badge='',tcSpan='',clickAttr='',hoverStyle='';
+    if(res){
+      var bc=res.pass?'atrf-badge-ok':'atrf-badge-err';
+      badge='<span class="atrf-badge '+bc+'" style="font-size:10px;padding:1px 7px;margin-left:auto;flex-shrink:0">'+(res.pass?'✓ Pasó':'✗ Falló')+'</span>';
+      if(res.httpCode)badge+='<span style="font-size:10px;color:var(--atrf-text2);margin-left:6px;flex-shrink:0">HTTP '+res.httpCode+'</span>';
+      tcSpan='<span style="font-family:var(--atrf-mono);font-size:10px;color:var(--atrf-text3);margin-right:4px">'+esc(res.tc||'')+'</span>';
+      clickAttr=' onclick="_atrf_openTcModal('+qi+','+tcIdxByFunc[fn]+')" style="cursor:pointer"';
+      hoverStyle=' class="atrf-view-func-item d-link-row"';
+    } else {
+      hoverStyle=' class="atrf-view-func-item"';
+    }
+    return '<div'+hoverStyle+clickAttr+'><span class="atrf-view-func-pos">'+(i+1)+'</span>'+tcSpan+'<span style="flex:1">'+esc(fn)+'</span>'+badge+'</div>';
+  }).join('');
   document.getElementById('atrf-modal-view').classList.add('show');
 }
 function _atrf_closeView(){document.getElementById('atrf-modal-view').classList.remove('show');_atrfViewIdx=-1;}
@@ -9815,6 +9854,8 @@ async function _atrf_runSelected(){
     _atrf_renderQueue();
     var rowEl=document.getElementById('atrf-qrow-'+qi);
     if(rowEl)rowEl.classList.add('open');
+    // Refresca modal de vista si está abierto para esta secuencia
+    if(_atrfViewIdx===qi&&document.getElementById('atrf-modal-view').classList.contains('show')) _atrf_openView(qi);
   }
   _atrfRunning=false;
   if(prog)prog.style.display='none';
