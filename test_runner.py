@@ -1028,10 +1028,12 @@ CREATE TABLE IF NOT EXISTS qa_config (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 INSERT INTO qa_config (key, value, label) VALUES
-  ('newman_timeout_ms',   '0', 'Timeout por request Newman en ms (0 = sin límite)'),
-  ('delay_post_asig_ms',  '0', 'Delay después de Asignación en ms'),
-  ('delay_post_ia_ms',    '0', 'Delay después de IA Inicio en ms'),
-  ('delay_post_activ_ms', '0', 'Delay después de Activación en ms')
+  ('newman_timeout_ms',    '0', 'Timeout por request Newman en ms (0 = sin límite)'),
+  ('delay_post_asig_ms',   '0', 'Delay después de Asignación en ms'),
+  ('delay_post_ia_ms',     '0', 'Delay después de IA Inicio en ms'),
+  ('delay_post_activ_ms',  '0', 'Delay después de Activación en ms'),
+  ('delay_post_dm_ms',     '0', 'Delay después de Device Modification en ms'),
+  ('delay_post_cancel_ms', '0', 'Delay después de Cancelación OOSS en ms')
 ON CONFLICT (key) DO NOTHING;
 CREATE TABLE IF NOT EXISTS qa_environments (
     id         BIGSERIAL PRIMARY KEY,
@@ -1063,10 +1065,12 @@ CREATE TABLE IF NOT EXISTS qa_users (
 """
 
 _CONFIG_LABELS = {
-    "newman_timeout_ms":   "Timeout por request Newman en ms (0 = sin límite)",
-    "delay_post_asig_ms":  "Delay después de Asignación en ms",
-    "delay_post_ia_ms":    "Delay después de IA Inicio en ms",
-    "delay_post_activ_ms": "Delay después de Activación en ms",
+    "newman_timeout_ms":    "Timeout por request Newman en ms (0 = sin límite)",
+    "delay_post_asig_ms":   "Delay después de Asignación en ms",
+    "delay_post_ia_ms":     "Delay después de IA Inicio en ms",
+    "delay_post_activ_ms":  "Delay después de Activación en ms",
+    "delay_post_dm_ms":     "Delay después de Device Modification en ms",
+    "delay_post_cancel_ms": "Delay después de Cancelación OOSS en ms",
 }
 
 async def _db() -> _apg.Pool:
