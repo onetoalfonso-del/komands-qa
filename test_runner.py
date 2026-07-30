@@ -989,7 +989,7 @@ def _apply_params(cmd: list, overrides: dict) -> list:
 
 # ─── FastAPI ──────────────────────────────────────────────────────────────────
 try:
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, Request, HTTPException
     from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
     import uvicorn
 except ImportError:
@@ -1047,6 +1047,19 @@ INSERT INTO qa_environments (name, label, base_url, env_type) VALUES
   ('PPRD', 'Pre-Producción', '', 'pprd'),
   ('PRD',  'Producción',     '', 'prd')
 ON CONFLICT (name) DO NOTHING;
+CREATE TABLE IF NOT EXISTS qa_users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email         TEXT UNIQUE NOT NULL,
+    name          TEXT NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'ejecutor',
+    password_hash TEXT,
+    invite_token  TEXT,
+    invite_exp    BIGINT,
+    permissions   JSONB DEFAULT '{}'::jsonb,
+    is_active     BOOLEAN DEFAULT true,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 _CONFIG_LABELS = {
@@ -1074,6 +1087,55 @@ async def _db() -> _apg.Pool:
                 print(f"[db] Error conectando: {_e}")
                 _db_pool = None
     return _db_pool
+
+# ─── Auth utilities ───────────────────────────────────────────────────────────
+import hashlib as _hl, hmac as _hmac_lib, base64 as _b64_lib, secrets as _sec_lib, time as _time_lib
+
+_JWT_SECRET   = os.getenv("JWT_SECRET", _sec_lib.token_hex(32))
+_BOOTSTRAP_TK = os.getenv("ADMIN_BOOTSTRAP_TOKEN", "")
+
+def _hash_pwd(pwd: str) -> str:
+    salt = _sec_lib.token_hex(16)
+    dk = _hl.pbkdf2_hmac("sha256", pwd.encode(), salt.encode(), 100_000)
+    return f"pbkdf2:{salt}:{dk.hex()}"
+
+def _verify_pwd(pwd: str, hashed: str) -> bool:
+    try:
+        _, salt, dk_hex = hashed.split(":", 2)
+        dk = _hl.pbkdf2_hmac("sha256", pwd.encode(), salt.encode(), 100_000)
+        return _hmac_lib.compare_digest(dk.hex(), dk_hex)
+    except Exception:
+        return False
+
+def _sign_token(payload: dict, hours: int = 168) -> str:
+    p = {**payload, "exp": int(_time_lib.time()) + hours * 3600}
+    hdr = _b64_lib.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
+    bdy = _b64_lib.urlsafe_b64encode(json.dumps(p, separators=(",",":")).encode()).rstrip(b"=").decode()
+    msg = f"{hdr}.{bdy}".encode()
+    sig = _b64_lib.urlsafe_b64encode(
+        _hmac_lib.new(_JWT_SECRET.encode(), msg, _hl.sha256).digest()
+    ).rstrip(b"=").decode()
+    return f"{hdr}.{bdy}.{sig}"
+
+def _decode_token(token: str) -> dict | None:
+    try:
+        hdr, bdy, sig = token.split(".")
+        msg = f"{hdr}.{bdy}".encode()
+        exp_sig = _b64_lib.urlsafe_b64encode(
+            _hmac_lib.new(_JWT_SECRET.encode(), msg, _hl.sha256).digest()
+        ).rstrip(b"=").decode()
+        if not _hmac_lib.compare_digest(sig, exp_sig):
+            return None
+        p = json.loads(_b64_lib.urlsafe_b64decode(bdy + "=="))
+        if p.get("exp", 0) < _time_lib.time():
+            return None
+        return p
+    except Exception:
+        return None
+
+async def _get_auth(req: Request) -> dict | None:
+    t = req.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    return _decode_token(t) if t else None
 
 async def _db_save(record: dict):
     pool = await _db()
@@ -6287,6 +6349,287 @@ async def api_environments_delete(env_id: int):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# ─── Auth endpoints ────────────────────────────────────────────────────────────
+@app.get("/api/auth/status")
+async def auth_status():
+    pool = await _db()
+    if not pool:
+        return {"mode": "login"}
+    async with pool.acquire() as c:
+        cnt = await c.fetchval("SELECT COUNT(*) FROM qa_users")
+    return {"mode": "bootstrap" if cnt == 0 else "login"}
+
+@app.get("/api/auth/me")
+async def auth_me(req: Request):
+    payload = await _get_auth(req)
+    if not payload:
+        pool = await _db()
+        mode = "login"
+        if pool:
+            async with pool.acquire() as c:
+                cnt = await c.fetchval("SELECT COUNT(*) FROM qa_users")
+            mode = "bootstrap" if cnt == 0 else "login"
+        return JSONResponse({"error": "unauthenticated", "mode": mode}, status_code=401)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "no_db", "mode": "login"}, status_code=401)
+    async with pool.acquire() as c:
+        row = await c.fetchrow(
+            "SELECT id,email,name,role,permissions,is_active FROM qa_users WHERE id=$1::uuid",
+            payload["sub"]
+        )
+    if not row or not row["is_active"]:
+        return JSONResponse({"error": "unauthenticated", "mode": "login"}, status_code=401)
+    perms = json.loads(row["permissions"] or "{}")
+    return {"id": str(row["id"]), "name": row["name"], "email": row["email"],
+            "role": row["role"], "permissions": perms}
+
+@app.post("/api/auth/login")
+async def auth_login(req: Request):
+    data = await req.json()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        row = await c.fetchrow(
+            "SELECT id,email,name,role,password_hash,permissions,is_active FROM qa_users WHERE email=$1",
+            email
+        )
+    if not row or not row["is_active"] or not row["password_hash"]:
+        raise HTTPException(401, "Credenciales inválidas")
+    if not _verify_pwd(password, row["password_hash"]):
+        raise HTTPException(401, "Credenciales inválidas")
+    perms = json.loads(row["permissions"] or "{}")
+    token = _sign_token({"sub": str(row["id"]), "email": row["email"],
+                         "name": row["name"], "role": row["role"], "permissions": perms})
+    return {"token": token, "user": {"id": str(row["id"]), "name": row["name"],
+            "email": row["email"], "role": row["role"], "permissions": perms}}
+
+@app.post("/api/auth/bootstrap")
+async def auth_bootstrap(req: Request):
+    data = await req.json()
+    if _BOOTSTRAP_TK and data.get("bootstrap_token", "") != _BOOTSTRAP_TK:
+        raise HTTPException(403, "Token de bootstrap inválido")
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        cnt = await c.fetchval("SELECT COUNT(*) FROM qa_users")
+        if cnt > 0:
+            raise HTTPException(409, "Ya existe al menos un usuario")
+        row = await c.fetchrow(
+            "INSERT INTO qa_users (email,name,role,password_hash,is_active) VALUES($1,$2,'admin',$3,true) RETURNING id,email,name,role",
+            (data.get("email") or "").strip().lower(),
+            (data.get("name") or "").strip(),
+            _hash_pwd(data.get("password") or "")
+        )
+    token = _sign_token({"sub": str(row["id"]), "email": row["email"],
+                         "name": row["name"], "role": "admin", "permissions": {}})
+    return {"token": token, "user": {"id": str(row["id"]), "name": row["name"],
+            "email": row["email"], "role": "admin", "permissions": {}}}
+
+@app.get("/api/auth/invite/{token}")
+async def check_invite(token: str):
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        row = await c.fetchrow(
+            "SELECT id,email,name,role,invite_exp FROM qa_users WHERE invite_token=$1", token
+        )
+    if not row:
+        raise HTTPException(404, "Invitación no encontrada o ya usada")
+    if row["invite_exp"] and row["invite_exp"] < int(_time_lib.time()):
+        raise HTTPException(410, "Invitación expirada")
+    return {"id": str(row["id"]), "email": row["email"], "name": row["name"], "role": row["role"]}
+
+@app.post("/api/auth/accept-invite")
+async def accept_invite(req: Request):
+    data = await req.json()
+    token = data.get("token") or ""
+    password = data.get("password") or ""
+    if not password or len(password) < 6:
+        raise HTTPException(400, "La contraseña debe tener al menos 6 caracteres")
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        row = await c.fetchrow(
+            "SELECT id,email,name,role,invite_exp,permissions FROM qa_users WHERE invite_token=$1", token
+        )
+        if not row:
+            raise HTTPException(404, "Invitación no válida")
+        if row["invite_exp"] and row["invite_exp"] < int(_time_lib.time()):
+            raise HTTPException(410, "Invitación expirada")
+        await c.execute(
+            "UPDATE qa_users SET password_hash=$1,invite_token=NULL,invite_exp=NULL,is_active=true,updated_at=NOW() WHERE id=$2::uuid",
+            _hash_pwd(password), str(row["id"])
+        )
+    perms = json.loads(row["permissions"] or "{}")
+    tk = _sign_token({"sub": str(row["id"]), "email": row["email"],
+                      "name": row["name"], "role": row["role"], "permissions": perms})
+    return {"token": tk, "user": {"id": str(row["id"]), "name": row["name"],
+            "email": row["email"], "role": row["role"], "permissions": perms}}
+
+@app.post("/api/auth/change-password")
+async def change_password(req: Request):
+    payload = await _get_auth(req)
+    if not payload:
+        raise HTTPException(401, "Not authenticated")
+    data = await req.json()
+    cur = data.get("current_password") or ""
+    new = data.get("new_password") or ""
+    if not new or len(new) < 6:
+        raise HTTPException(400, "La nueva contraseña debe tener al menos 6 caracteres")
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        row = await c.fetchrow("SELECT password_hash FROM qa_users WHERE id=$1::uuid", payload["sub"])
+        if not row or not _verify_pwd(cur, row["password_hash"]):
+            raise HTTPException(401, "Contraseña actual incorrecta")
+        await c.execute(
+            "UPDATE qa_users SET password_hash=$1,updated_at=NOW() WHERE id=$2::uuid",
+            _hash_pwd(new), payload["sub"]
+        )
+    return {"ok": True}
+
+# ─── User CRUD (admin only) ────────────────────────────────────────────────────
+@app.get("/api/users")
+async def list_users(req: Request):
+    payload = await _get_auth(req)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        rows = await c.fetch(
+            "SELECT id,email,name,role,password_hash,invite_token,invite_exp,permissions,is_active,created_at FROM qa_users ORDER BY created_at"
+        )
+    now = int(_time_lib.time())
+    result = []
+    for r in rows:
+        if r["password_hash"]:
+            status = "active"
+        elif r["invite_token"] and r["invite_exp"] and r["invite_exp"] > now:
+            status = "pending"
+        else:
+            status = "expired"
+        result.append({
+            "id": str(r["id"]), "email": r["email"], "name": r["name"], "role": r["role"],
+            "status": status, "is_active": r["is_active"],
+            "permissions": json.loads(r["permissions"] or "{}"),
+            "created_at": str(r["created_at"])
+        })
+    return result
+
+@app.post("/api/users")
+async def create_user(req: Request):
+    payload = await _get_auth(req)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    data = await req.json()
+    email = (data.get("email") or "").strip().lower()
+    name = (data.get("name") or "").strip()
+    role = data.get("role") or "ejecutor"
+    if not email or not name:
+        raise HTTPException(400, "Email y nombre requeridos")
+    inv_token = _sec_lib.token_urlsafe(32)
+    inv_exp = int(_time_lib.time()) + 72 * 3600
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        try:
+            row = await c.fetchrow(
+                "INSERT INTO qa_users (email,name,role,invite_token,invite_exp) VALUES($1,$2,$3,$4,$5) RETURNING id",
+                email, name, role, inv_token, inv_exp
+            )
+        except Exception as _e:
+            if "unique" in str(_e).lower():
+                raise HTTPException(409, "Email ya registrado")
+            raise HTTPException(500, str(_e))
+    return {"id": str(row["id"]), "email": email, "name": name, "role": role, "invite_token": inv_token}
+
+@app.put("/api/users/{uid}")
+async def update_user(uid: str, req: Request):
+    payload = await _get_auth(req)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    data = await req.json()
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    sets, vals = [], []
+    for field in ("name", "role"):
+        if field in data:
+            vals.append(data[field])
+            sets.append(f"{field}=${len(vals)}")
+    if "is_active" in data:
+        vals.append(bool(data["is_active"]))
+        sets.append(f"is_active=${len(vals)}")
+    if not sets:
+        return {"ok": True}
+    sets.append("updated_at=NOW()")
+    vals.append(uid)
+    async with pool.acquire() as c:
+        await c.execute(f"UPDATE qa_users SET {','.join(sets)} WHERE id=${len(vals)}::uuid", *vals)
+    return {"ok": True}
+
+@app.delete("/api/users/{uid}")
+async def delete_user(uid: str, req: Request):
+    payload = await _get_auth(req)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    if uid == payload.get("sub"):
+        raise HTTPException(400, "No puedes eliminarte a ti mismo")
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        await c.execute("DELETE FROM qa_users WHERE id=$1::uuid", uid)
+    return {"ok": True}
+
+@app.put("/api/users/{uid}/permissions")
+async def update_permissions(uid: str, req: Request):
+    payload = await _get_auth(req)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    data = await req.json()
+    perms = data.get("permissions", {})
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        await c.execute(
+            "UPDATE qa_users SET permissions=$1,updated_at=NOW() WHERE id=$2::uuid",
+            json.dumps(perms), uid
+        )
+    return {"ok": True}
+
+@app.post("/api/users/{uid}/invite")
+async def regen_invite(uid: str, req: Request):
+    payload = await _get_auth(req)
+    if not payload or payload.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    inv_token = _sec_lib.token_urlsafe(32)
+    inv_exp = int(_time_lib.time()) + 72 * 3600
+    pool = await _db()
+    if not pool:
+        raise HTTPException(503, "Database unavailable")
+    async with pool.acquire() as c:
+        row = await c.fetchrow(
+            "UPDATE qa_users SET invite_token=$1,invite_exp=$2,updated_at=NOW() WHERE id=$3::uuid RETURNING email,name",
+            inv_token, inv_exp, uid
+        )
+    if not row:
+        raise HTTPException(404, "Usuario no encontrado")
+    return {"invite_token": inv_token, "name": row["name"]}
+
+
 # ─── UI ───────────────────────────────────────────────────────────────────────
 HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -6821,7 +7164,79 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </style>
 </head>
 <body class="light">
-<div class="layout">
+<!-- ── Auth screen ─────────────────────────────────────────────── -->
+<div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:9999">
+  <div id="auth-card" style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:32px 36px;width:100%;max-width:380px;box-shadow:0 4px 32px rgba(0,0,0,.3)">
+    <!-- LOGIN pane -->
+    <div id="auth-login" style="display:none">
+      <div style="text-align:center;margin-bottom:22px">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--acc);letter-spacing:.04em">ONNET</div>
+        <div style="font-size:.72rem;color:var(--txt2);margin-top:2px">QA Runner · Inicio de sesi&#xF3;n</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Email</label>
+        <input id="login-email" type="email" autocomplete="username" placeholder="usuario@ejemplo.com"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Contrase&#xF1;a</label>
+        <input id="login-pwd" type="password" autocomplete="current-password"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div id="login-err" style="display:none;color:var(--err);font-size:.72rem;margin-bottom:10px;text-align:center"></div>
+      <button id="login-btn" onclick="_doLogin()" style="width:100%;padding:9px;border-radius:6px;border:none;background:var(--acc);color:#000;font-size:.82rem;font-weight:700;cursor:pointer">Iniciar sesi&#xF3;n</button>
+    </div>
+    <!-- BOOTSTRAP pane -->
+    <div id="auth-bootstrap" style="display:none">
+      <div style="text-align:center;margin-bottom:22px">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--acc)">ONNET</div>
+        <div style="font-size:.72rem;color:var(--txt2);margin-top:2px">Primera configuraci&#xF3;n · Crear administrador</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Nombre completo</label>
+        <input id="bs-name" type="text" placeholder="Ej: Alfonso"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Email</label>
+        <input id="bs-email" type="email" placeholder="admin@ejemplo.com"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Contrase&#xF1;a</label>
+        <input id="bs-pwd" type="password"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Bootstrap Token <span style="color:var(--txt3)">(variable ADMIN_BOOTSTRAP_TOKEN en Railway — dejar en blanco si no est&#xE1; configurado)</span></label>
+        <input id="bs-token" type="password" placeholder="opcional"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div id="bs-err" style="display:none;color:var(--err);font-size:.72rem;margin-bottom:10px;text-align:center"></div>
+      <button onclick="_doBootstrap()" style="width:100%;padding:9px;border-radius:6px;border:none;background:var(--acc);color:#000;font-size:.82rem;font-weight:700;cursor:pointer">Crear administrador</button>
+    </div>
+    <!-- INVITE pane -->
+    <div id="auth-invite" style="display:none">
+      <div style="text-align:center;margin-bottom:22px">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--acc)">ONNET</div>
+        <div id="invite-greeting" style="font-size:.72rem;color:var(--txt2);margin-top:2px">Establece tu contrase&#xF1;a</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Nueva contrase&#xF1;a</label>
+        <input id="inv-pwd" type="password" autocomplete="new-password"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Confirmar contrase&#xF1;a</label>
+        <input id="inv-pwd2" type="password" autocomplete="new-password"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.82rem"/>
+      </div>
+      <div id="inv-err" style="display:none;color:var(--err);font-size:.72rem;margin-bottom:10px;text-align:center"></div>
+      <button onclick="_doAcceptInvite()" style="width:100%;padding:9px;border-radius:6px;border:none;background:var(--acc);color:#000;font-size:.82rem;font-weight:700;cursor:pointer">Activar cuenta</button>
+    </div>
+  </div>
+</div>
+<div class="layout" style="display:none">
   <aside class="sb">
     <div class="sb-head">
       <div class="sb-logo">
@@ -6829,6 +7244,10 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       </div>
       <div class="sb-tagline">OnnetFibra <span>QA</span></div>
       <div class="sb-sub">Pruebas de Regresión</div>
+    </div>
+    <div id="user-bar" style="display:none;padding:4px 10px;background:var(--card);border-bottom:1px solid var(--brd);align-items:center;justify-content:space-between;flex-shrink:0">
+      <span id="user-bar-name" style="font-size:.68rem;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px"></span>
+      <button onclick="_doLogout()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.65rem;cursor:pointer;flex-shrink:0">Salir</button>
     </div>
     <div class="sb-list" id="sb-list"></div>
     <button class="hist-btn" id="dashboard-btn" onclick="showDashboard()">&#128200;&nbsp; Dashboard</button>
@@ -6965,6 +7384,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div style="display:flex;gap:2px;padding:8px 14px 0;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--brd)">
         <button id="stab-env" onclick="_stTab('env')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--bg);color:var(--acc);font-size:.76rem;cursor:pointer;font-weight:700">&#127760; Ambientes</button>
         <button id="stab-cfg" onclick="_stTab('cfg')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#9881; Configuraci&#xF3;n</button>
+        <button id="stab-perfil" onclick="_stTab('perfil')" style="padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128100; Perfil</button>
+        <button id="stab-usuarios" onclick="_stTab('usuarios')" style="display:none;padding:5px 14px;border-radius:5px 5px 0 0;border:1px solid var(--brd);border-bottom:none;background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">&#128101; Usuarios</button>
       </div>
       <!-- Ambientes pane -->
       <div id="spane-env" style="flex:1;overflow:auto;padding:16px 18px">
@@ -7018,6 +7439,72 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="spane-cfg" style="display:none;flex:1;overflow:auto;padding:16px 18px">
         <div id="spane-cfg-body"><div class="hist-empty">Cargando...</div></div>
       </div>
+      <!-- Perfil pane -->
+      <div id="spane-perfil" style="display:none;flex:1;overflow:auto;padding:16px 18px">
+        <div style="max-width:500px">
+          <h3 style="margin:0 0 18px;font-size:.85rem;color:var(--txt);font-weight:700">Mi Perfil</h3>
+          <div id="perfil-body"></div>
+        </div>
+      </div>
+      <!-- Usuarios pane (admin only) -->
+      <div id="spane-usuarios" style="display:none;flex:1;overflow:auto;padding:16px 18px">
+        <div style="max-width:860px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin:0;font-size:.85rem;color:var(--txt);font-weight:700">Usuarios del Sistema</h3>
+            <button onclick="_usrAdd()" style="padding:5px 16px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.76rem;font-weight:700;cursor:pointer">+ Invitar Usuario</button>
+          </div>
+          <div id="usr-table-body"><div class="hist-empty">Cargando...</div></div>
+          <!-- Formulario nuevo usuario -->
+          <div id="usr-form" style="display:none;margin-top:16px;background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:16px 18px">
+            <h4 style="margin:0 0 14px;font-size:.8rem;color:var(--txt);font-weight:700">Invitar nuevo usuario</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+              <div>
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Nombre *</label>
+                <input id="usr-f-name" type="text" placeholder="Nombre completo"
+                  style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+              </div>
+              <div>
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Email *</label>
+                <input id="usr-f-email" type="email" placeholder="usuario@ejemplo.com"
+                  style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+              </div>
+              <div>
+                <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:3px">Rol</label>
+                <select id="usr-f-role" style="width:100%;box-sizing:border-box;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem">
+                  <option value="ejecutor">Ejecutor</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <div id="usr-form-err" style="display:none;color:var(--err);font-size:.73rem;margin-bottom:8px"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button onclick="_usrSave()" style="padding:5px 18px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.76rem;font-weight:700;cursor:pointer">Crear e Invitar</button>
+              <button onclick="_usrFormClose()" style="padding:5px 14px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.76rem;cursor:pointer">Cancelar</button>
+            </div>
+            <!-- Invite link display -->
+            <div id="usr-invite-link-area" style="display:none;margin-top:14px;padding:12px;background:var(--bg);border:1px solid var(--brd);border-radius:6px">
+              <div style="font-size:.72rem;color:var(--txt2);margin-bottom:6px">&#x2139; Comparte este enlace de invitaci&#xF3;n (v&#xE1;lido 72 horas):</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input id="usr-invite-link" type="text" readonly
+                  style="flex:1;padding:6px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--acc);font-size:.72rem;font-family:monospace"/>
+                <button onclick="_copyInviteLink()" style="padding:5px 12px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.72rem;cursor:pointer">Copiar</button>
+              </div>
+            </div>
+          </div>
+          <!-- Permissions modal -->
+          <div id="usr-perms-modal" style="display:none;margin-top:16px;background:var(--card);border:1px solid var(--acc);border-radius:8px;padding:16px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <h4 style="margin:0;font-size:.8rem;color:var(--txt);font-weight:700" id="usr-perms-title">Permisos de usuario</h4>
+              <button onclick="_usrPermsClose()" style="padding:2px 10px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.72rem;cursor:pointer">&#x2715; Cerrar</button>
+            </div>
+            <div id="usr-perms-body"></div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <button onclick="_usrPermsSave()" style="padding:5px 18px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.76rem;font-weight:700;cursor:pointer">Guardar permisos</button>
+              <span id="usr-perms-ok" style="display:none;color:var(--ok);font-size:.73rem;align-self:center">&#10003; Guardado</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="summary" id="summary">
       <span class="sum-idle">Ejecuta una suite para ver resultados</span>
@@ -7026,6 +7513,171 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 </div>
 <script>window.onerror=function(msg,src,line,col){var el=document.getElementById('sb-list');if(el)el.innerHTML='<div style="padding:8px;color:#e06c75;font-size:.65rem">JS ERR L'+line+': '+msg+'</div>';return false;};</script>
 <script>
+// ── Auth state ────────────────────────────────────────────────────────────────
+var currentUser=null;
+var _authToken=localStorage.getItem('qa_token')||'';
+var _pendingInviteToken='';
+
+function _authHdr(){
+  var h={'Content-Type':'application/json'};
+  if(_authToken) h['Authorization']='Bearer '+_authToken;
+  return h;
+}
+function _setAuth(token,user){
+  _authToken=token; currentUser=user;
+  localStorage.setItem('qa_token',token);
+}
+function _clearAuth(){
+  _authToken=''; currentUser=null;
+  localStorage.removeItem('qa_token');
+}
+function _canSeeSuite(sid){
+  if(!currentUser||currentUser.role==='admin') return true;
+  return Object.prototype.hasOwnProperty.call(currentUser.permissions||{},sid);
+}
+function _allowedTcs(suiteId,allMeta){
+  if(!currentUser||currentUser.role==='admin') return allMeta;
+  var p=(currentUser.permissions||{})[suiteId];
+  if(!p||!p.length) return allMeta;
+  return allMeta.filter(function(m){ return p.indexOf(m.tc)>=0; });
+}
+
+// ── Auth screens ──────────────────────────────────────────────────────────────
+function _showAuthScreen(mode){
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('auth-login').style.display=mode==='login'?'block':'none';
+  document.getElementById('auth-bootstrap').style.display=mode==='bootstrap'?'block':'none';
+  document.getElementById('auth-invite').style.display='none';
+}
+function _showInviteScreen(token){
+  _pendingInviteToken=token;
+  fetch('/api/auth/invite/'+encodeURIComponent(token)).then(function(r){
+    if(!r.ok) throw new Error('not_found');
+    return r.json();
+  }).then(function(u){
+    document.getElementById('auth-screen').style.display='flex';
+    document.getElementById('auth-login').style.display='none';
+    document.getElementById('auth-bootstrap').style.display='none';
+    document.getElementById('auth-invite').style.display='block';
+    document.getElementById('invite-greeting').textContent='Hola '+u.name+', establece tu contrase\xf1a';
+  }).catch(function(){
+    _clearAuth();
+    history.replaceState({},'','/');
+    _showAuthScreen('login');
+  });
+}
+function _showMainApp(){
+  document.getElementById('auth-screen').style.display='none';
+  var layout=document.querySelector('.layout');
+  if(layout) layout.style.display='flex';
+  if(currentUser){
+    var ub=document.getElementById('user-bar');
+    var un=document.getElementById('user-bar-name');
+    if(ub) ub.style.display='flex';
+    if(un) un.textContent=currentUser.name+' \xb7 '+(currentUser.role==='admin'?'Admin':'Ejecutor');
+    // Show/hide admin tab in settings
+    var utab=document.getElementById('stab-usuarios');
+    if(utab) utab.style.display=currentUser.role==='admin'?'':'none';
+  }
+}
+
+// ── Auth actions ──────────────────────────────────────────────────────────────
+function _doLogin(){
+  var email=(document.getElementById('login-email')||{}).value||'';
+  var pwd=(document.getElementById('login-pwd')||{}).value||'';
+  var btn=document.getElementById('login-btn');
+  var err=document.getElementById('login-err');
+  if(btn) btn.disabled=true;
+  if(err) err.style.display='none';
+  fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pwd})})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(res){
+      if(btn) btn.disabled=false;
+      if(res.ok){
+        _setAuth(res.d.token,res.d.user);
+        _showMainApp();
+        loadSuites();
+      } else {
+        if(err){err.textContent=res.d.detail||'Credenciales inv\xe1lidas';err.style.display='block';}
+      }
+    }).catch(function(){
+      if(btn) btn.disabled=false;
+      if(err){err.textContent='Error de conexi\xf3n';err.style.display='block';}
+    });
+}
+function _doBootstrap(){
+  var name=(document.getElementById('bs-name')||{}).value||'';
+  var email=(document.getElementById('bs-email')||{}).value||'';
+  var pwd=(document.getElementById('bs-pwd')||{}).value||'';
+  var bstk=(document.getElementById('bs-token')||{}).value||'';
+  var err=document.getElementById('bs-err');
+  if(err) err.style.display='none';
+  fetch('/api/auth/bootstrap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,email:email,password:pwd,bootstrap_token:bstk})})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(res){
+      if(res.ok){
+        _setAuth(res.d.token,res.d.user);
+        _showMainApp();
+        loadSuites();
+      } else {
+        if(err){err.textContent=res.d.detail||'Error';err.style.display='block';}
+      }
+    });
+}
+function _doAcceptInvite(){
+  var pwd=(document.getElementById('inv-pwd')||{}).value||'';
+  var pwd2=(document.getElementById('inv-pwd2')||{}).value||'';
+  var err=document.getElementById('inv-err');
+  if(err) err.style.display='none';
+  if(pwd!==pwd2){if(err){err.textContent='Las contrase\xf1as no coinciden';err.style.display='block';}return;}
+  if(pwd.length<6){if(err){err.textContent='M\xednimo 6 caracteres';err.style.display='block';}return;}
+  fetch('/api/auth/accept-invite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:_pendingInviteToken,password:pwd})})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+    .then(function(res){
+      if(res.ok){
+        _setAuth(res.d.token,res.d.user);
+        history.replaceState({},'','/');
+        _showMainApp();
+        loadSuites();
+      } else {
+        if(err){err.textContent=res.d.detail||'Error';err.style.display='block';}
+      }
+    });
+}
+function _doLogout(){
+  _clearAuth();
+  var layout=document.querySelector('.layout');
+  if(layout) layout.style.display='none';
+  var as=document.getElementById('auth-screen');
+  if(as) as.style.display='flex';
+  _showAuthScreen('login');
+}
+
+// ── App init ──────────────────────────────────────────────────────────────────
+function initApp(){
+  var params=new URLSearchParams(window.location.search);
+  var inv=params.get('invite');
+  if(inv){ _showInviteScreen(inv); return; }
+  if(_authToken){
+    fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+_authToken}})
+      .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){
+        if(res.ok){
+          _setAuth(_authToken,res.d);
+          _showMainApp();
+          loadSuites();
+        } else {
+          _clearAuth();
+          _showAuthScreen(res.d.mode||'login');
+        }
+      }).catch(function(){ _clearAuth(); _showAuthScreen('login'); });
+  } else {
+    fetch('/api/auth/status').then(function(r){return r.json();}).then(function(d){
+      _showAuthScreen(d.mode||'login');
+    }).catch(function(){ _showAuthScreen('login'); });
+  }
+}
+
 var suites=[], currentEs=null, running=false, queue=[], tStart=0, selectedId=null, runningId=null;
 var SN_VNO_DEFS=[
   {code:'03',label:'Entel',   color:'#C586C0',suiteId:'apim-vno03'},
@@ -7071,7 +7723,7 @@ function loadSuites(attempt){
     if(attempt<4){setTimeout(function(){loadSuites(attempt+1);}, 1500);}
   });
 }
-loadSuites();
+initApp();
 renderGlobalForm();
 
 function renderSB(){
@@ -7109,7 +7761,7 @@ function renderSB(){
             {lbl:'Consultas',par:'qa-consultas'}
           ];
           _sections.forEach(function(sec){
-            var kids=suites.filter(function(c){return c.parent===sec.par&&(!sec.onlyEp||c.id.indexOf('qa-ep-')===0);});
+            var kids=suites.filter(function(c){return c.parent===sec.par&&(!sec.onlyEp||c.id.indexOf('qa-ep-')===0)&&_canSeeSuite(c.id);});
             if(!kids.length) return;
             var gh=document.createElement('div'); gh.className='si-child-grp'; gh.textContent=sec.lbl; el.appendChild(gh);
             kids.forEach(function(c){
@@ -8491,7 +9143,8 @@ var _QA_SPEED_PLANS_ACTIV=['100/100','300/300','400/400','600/600','800/800','10
 
 function renderActivFormBar(){
   var bar=document.getElementById('activ-form-bar'); if(!bar) return;
-  var vnoBtns=_activMeta().map(function(m){
+  var _aMode=_activMode==='idem'?'qa-activ-suite':'qa-activ-sin-idem-suite';
+  var vnoBtns=_allowedTcs(_aMode,_activMeta()).map(function(m){
     var on=_activSel[m.tc]?'on':'';
     return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_activToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
   }).join('');
@@ -11178,14 +11831,16 @@ function _dashDrawTime(byFunc){
 var _stCurTab='env';
 function _stTab(tab){
   _stCurTab=tab;
-  ['env','cfg'].forEach(function(t){
+  ['env','cfg','perfil','usuarios'].forEach(function(t){
     var btn=document.getElementById('stab-'+t);
     var pane=document.getElementById('spane-'+t);
-    if(btn){btn.style.background=t===tab?'var(--bg)':'var(--card)';btn.style.color=t===tab?'var(--acc)':'var(--txt2)';}
+    if(btn){btn.style.background=t===tab?'var(--bg)':'var(--card)';btn.style.color=t===tab?'var(--acc)':'var(--txt2)';btn.style.fontWeight=t===tab?'700':'400';}
     if(pane) pane.style.display=t===tab?'block':'none';
   });
   if(tab==='env') loadEnvironments();
   else if(tab==='cfg') loadSettingsCfg();
+  else if(tab==='perfil') _loadPerfil();
+  else if(tab==='usuarios') _loadUsuarios();
 }
 var _envData=[];
 function loadEnvironments(){
@@ -12248,6 +12903,240 @@ async function _atrf_runSelected(){
   _atrfRunning=false;
   if(prog)prog.style.display='none';
   if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
+}
+
+// ── Perfil ────────────────────────────────────────────────────────────────────
+function _loadPerfil(){
+  var body=document.getElementById('perfil-body'); if(!body) return;
+  if(!currentUser){body.innerHTML='<div class="hist-empty">No autenticado</div>';return;}
+  var roleLabel=currentUser.role==='admin'?'Administrador':'Ejecutor';
+  body.innerHTML=
+    '<div style="background:var(--bg);border:1px solid var(--brd);border-radius:8px;padding:14px 16px;margin-bottom:16px">'
+    +'<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:.8rem">'
+    +'<span style="color:var(--txt2)">Nombre:</span><span style="color:var(--txt);font-weight:600">'+esc(currentUser.name)+'</span>'
+    +'<span style="color:var(--txt2)">Email:</span><span style="color:var(--txt);font-family:monospace">'+esc(currentUser.email)+'</span>'
+    +'<span style="color:var(--txt2)">Rol:</span><span style="padding:1px 8px;border-radius:4px;background:'+(currentUser.role==='admin'?'var(--accd)':'var(--okd)')+';color:'+(currentUser.role==='admin'?'var(--acc)':'var(--ok)')+'">'+roleLabel+'</span>'
+    +'</div>'
+    +'</div>'
+    +'<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:14px 16px">'
+    +'<h4 style="margin:0 0 12px;font-size:.8rem;color:var(--txt);font-weight:700">Cambiar contrase\xf1a</h4>'
+    +'<div style="display:grid;gap:8px;max-width:320px">'
+    +'<input id="cp-cur" type="password" placeholder="Contrase\xf1a actual" style="padding:7px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem"/>'
+    +'<input id="cp-new" type="password" placeholder="Nueva contrase\xf1a (m\xedn. 6)" style="padding:7px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem"/>'
+    +'<input id="cp-new2" type="password" placeholder="Confirmar nueva contrase\xf1a" style="padding:7px 9px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.8rem"/>'
+    +'<div id="cp-err" style="display:none;color:var(--err);font-size:.72rem"></div>'
+    +'<button onclick="_doChangePwd()" style="padding:6px 18px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.76rem;font-weight:700;cursor:pointer;align-self:start">Cambiar contrase\xf1a</button>'
+    +'<span id="cp-ok" style="display:none;color:var(--ok);font-size:.73rem">&#10003; Contrase\xf1a actualizada</span>'
+    +'</div>'
+    +'</div>';
+}
+function _doChangePwd(){
+  var cur=(document.getElementById('cp-cur')||{}).value||'';
+  var nw=(document.getElementById('cp-new')||{}).value||'';
+  var nw2=(document.getElementById('cp-new2')||{}).value||'';
+  var err=document.getElementById('cp-err');
+  var ok=document.getElementById('cp-ok');
+  if(err) err.style.display='none';
+  if(ok) ok.style.display='none';
+  if(nw!==nw2){if(err){err.textContent='Las contrase\xf1as no coinciden';err.style.display='block';}return;}
+  fetch('/api/auth/change-password',{method:'POST',headers:_authHdr(),body:JSON.stringify({current_password:cur,new_password:nw})})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})
+    .then(function(res){
+      if(res.ok){
+        if(ok) ok.style.display='block';
+        if(document.getElementById('cp-cur')) document.getElementById('cp-cur').value='';
+        if(document.getElementById('cp-new')) document.getElementById('cp-new').value='';
+        if(document.getElementById('cp-new2')) document.getElementById('cp-new2').value='';
+      } else {
+        if(err){err.textContent=res.d.detail||'Error';err.style.display='block';}
+      }
+    });
+}
+
+// ── Usuarios (Admin panel) ─────────────────────────────────────────────────────
+var _usrData=[];
+var _usrPermsTargetId='';
+var _usrPermsCurrent={};
+
+// All suite definitions for permissions UI
+var _ALL_SUITE_PERMS=[
+  {id:'qa-fact-suite',lbl:'Suite Factibilidad',tcs:[]},
+  {id:'qa-asig-suite',lbl:'Suite Asignaci\xf3n',tcs:[]},
+  {id:'qa-ia-inicio-suite',lbl:'Suite IA Inicio',tcs:[{tc:'TC-01',lbl:'Entel'},{tc:'TC-02',lbl:'KAO'},{tc:'TC-03',lbl:'DTV'},{tc:'TC-04',lbl:'TCH'}]},
+  {id:'qa-ia-fin-suite',lbl:'Suite IA Finalizaci\xf3n',tcs:[{tc:'TC-05',lbl:'Entel'},{tc:'TC-06',lbl:'KAO'},{tc:'TC-07',lbl:'DTV'},{tc:'TC-08',lbl:'TCH'}]},
+  {id:'qa-ia-cancel-suite',lbl:'Suite IA Cancelaci\xf3n',tcs:[{tc:'TC-33',lbl:'Entel'},{tc:'TC-34',lbl:'KAO'},{tc:'TC-35',lbl:'DTV'},{tc:'TC-36',lbl:'TCH'}]},
+  {id:'qa-activ-suite',lbl:'Suite Activaci\xf3n + Idem',tcs:[{tc:'TC-17',lbl:'Entel'},{tc:'TC-18',lbl:'KAO'},{tc:'TC-19',lbl:'DTV'},{tc:'TC-20',lbl:'TCH'}]},
+  {id:'qa-activ-sin-idem-suite',lbl:'Suite Activaci\xf3n sin Idem',tcs:[{tc:'TC-37',lbl:'Entel'},{tc:'TC-38',lbl:'KAO'},{tc:'TC-39',lbl:'DTV'},{tc:'TC-40',lbl:'TCH'}]},
+  {id:'qa-dm-suite',lbl:'Suite Device Modification',tcs:[{tc:'TC-21',lbl:'Entel'},{tc:'TC-22',lbl:'KAO'},{tc:'TC-23',lbl:'DTV'},{tc:'TC-24',lbl:'TCH'}]},
+  {id:'qa-cancel-suite',lbl:'Suite Cancelaci\xf3n',tcs:[{tc:'TC-25',lbl:'Entel'},{tc:'TC-26',lbl:'KAO'},{tc:'TC-27',lbl:'DTV'},{tc:'TC-28',lbl:'TCH'}]},
+  {id:'qa-unsub-suite',lbl:'Suite Unsubscription',tcs:[{tc:'TC-29',lbl:'Entel'},{tc:'TC-30',lbl:'KAO'},{tc:'TC-31',lbl:'DTV'},{tc:'TC-32',lbl:'TCH'}]},
+  {id:'qa-teardown-suite',lbl:'Suite Teardown',tcs:[]},
+];
+
+function _loadUsuarios(){
+  if(!currentUser||currentUser.role!=='admin') return;
+  var body=document.getElementById('usr-table-body'); if(!body) return;
+  body.innerHTML='<div class="hist-empty">Cargando...</div>';
+  fetch('/api/users',{headers:_authHdr()}).then(function(r){return r.json();}).then(function(data){
+    _usrData=Array.isArray(data)?data:[];
+    _renderUsrTable(_usrData);
+  }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
+}
+function _renderUsrTable(data){
+  var body=document.getElementById('usr-table-body'); if(!body) return;
+  if(!data.length){body.innerHTML='<div class="hist-empty">Sin usuarios registrados.</div>';return;}
+  var statusLbl={active:'Activo',pending:'Pendiente',expired:'Expirado'};
+  var statusClr={active:'var(--ok)',pending:'#FFD580',expired:'var(--err)'};
+  var statusBg={active:'var(--okd)',pending:'rgba(255,213,128,.15)',expired:'var(--errd)'};
+  var h='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>'
+    +'<th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Acciones</th>'
+    +'</tr></thead><tbody>';
+  data.forEach(function(r){
+    var st=r.status||'active';
+    var roleLabel=r.role==='admin'?'Admin':'Ejecutor';
+    h+='<tr>';
+    h+='<td style="font-weight:600;font-size:.78rem">'+esc(r.name)+'</td>';
+    h+='<td style="font-size:.75rem;color:var(--txt2);font-family:monospace">'+esc(r.email)+'</td>';
+    h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:var(--accd);color:var(--acc)">'+roleLabel+'</span></td>';
+    h+='<td><span style="font-size:.68rem;padding:2px 7px;border-radius:4px;background:'+statusBg[st]+';color:'+statusClr[st]+'">'+statusLbl[st]+'</span></td>';
+    h+='<td style="white-space:nowrap;display:flex;gap:4px">';
+    if(r.role!=='admin') h+='<button data-uid="'+r.id+'" onclick="_usrPermsOpen(this.dataset.uid)" style="padding:2px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.68rem;cursor:pointer">&#128274; Permisos</button>';
+    if(st!=='active') h+='<button data-uid="'+r.id+'" onclick="_usrRegenInvite(this.dataset.uid,this)" style="padding:2px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.68rem;cursor:pointer">&#128279; Reenviar</button>';
+    h+='<button data-uid="'+r.id+'" onclick="_usrDelete(this.dataset.uid)" style="padding:2px 9px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.68rem;cursor:pointer">&#128465;</button>';
+    h+='</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  body.innerHTML=h;
+}
+function _usrAdd(){
+  document.getElementById('usr-form').style.display='block';
+  document.getElementById('usr-invite-link-area').style.display='none';
+  document.getElementById('usr-form-err').style.display='none';
+  ['usr-f-name','usr-f-email'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+}
+function _usrFormClose(){
+  document.getElementById('usr-form').style.display='none';
+}
+function _usrSave(){
+  var name=(document.getElementById('usr-f-name')||{}).value||'';
+  var email=(document.getElementById('usr-f-email')||{}).value||'';
+  var role=(document.getElementById('usr-f-role')||{}).value||'ejecutor';
+  var err=document.getElementById('usr-form-err');
+  if(err) err.style.display='none';
+  fetch('/api/users',{method:'POST',headers:_authHdr(),body:JSON.stringify({name:name,email:email,role:role})})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})
+    .then(function(res){
+      if(res.ok){
+        var link=window.location.origin+'/?invite='+res.d.invite_token;
+        var la=document.getElementById('usr-invite-link-area');
+        var li=document.getElementById('usr-invite-link');
+        if(la) la.style.display='block';
+        if(li) li.value=link;
+        _loadUsuarios();
+      } else {
+        if(err){err.textContent=res.d.detail||'Error';err.style.display='block';}
+      }
+    });
+}
+function _copyInviteLink(){
+  var li=document.getElementById('usr-invite-link');
+  if(li){li.select();document.execCommand('copy');li.blur();}
+}
+function _usrDelete(uid){
+  if(!confirm('\xbfEliminar este usuario?')) return;
+  fetch('/api/users/'+uid,{method:'DELETE',headers:_authHdr()})
+    .then(function(r){if(r.ok) _loadUsuarios();});
+}
+function _usrRegenInvite(uid,btn){
+  if(btn) btn.disabled=true;
+  fetch('/api/users/'+uid+'/invite',{method:'POST',headers:_authHdr()})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})
+    .then(function(res){
+      if(btn) btn.disabled=false;
+      if(res.ok){
+        var link=window.location.origin+'/?invite='+res.d.invite_token;
+        prompt('Nuevo link de invitaci\xf3n (72h):', link);
+        _loadUsuarios();
+      }
+    });
+}
+function _usrPermsOpen(uid){
+  _usrPermsTargetId=uid;
+  var user=_usrData.find(function(u){return u.id===uid;});
+  if(!user) return;
+  _usrPermsCurrent=JSON.parse(JSON.stringify(user.permissions||{}));
+  document.getElementById('usr-perms-title').textContent='Permisos — '+user.name;
+  document.getElementById('usr-perms-ok').style.display='none';
+  _renderUsrPerms();
+  document.getElementById('usr-perms-modal').style.display='block';
+  document.getElementById('usr-perms-modal').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function _usrPermsClose(){
+  document.getElementById('usr-perms-modal').style.display='none';
+}
+function _renderUsrPerms(){
+  var body=document.getElementById('usr-perms-body'); if(!body) return;
+  var h='<div style="display:grid;gap:8px">';
+  _ALL_SUITE_PERMS.forEach(function(suite){
+    var hasSuite=Object.prototype.hasOwnProperty.call(_usrPermsCurrent,suite.id);
+    h+='<div style="background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:10px 12px">';
+    h+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--txt)">';
+    h+='<input type="checkbox" data-suite="'+suite.id+'" onchange="_usrPermsToggleSuite(this)" '+(hasSuite?'checked':'')+'>';
+    h+=esc(suite.lbl)+'</label>';
+    if(suite.tcs.length){
+      h+='<div id="usr-tcs-'+suite.id+'" style="margin-top:8px;margin-left:20px;display:'+(hasSuite?'flex':'none')+';flex-wrap:wrap;gap:6px">';
+      var allowedTcs=_usrPermsCurrent[suite.id]||[];
+      suite.tcs.forEach(function(tc){
+        var chk=!allowedTcs.length||allowedTcs.indexOf(tc.tc)>=0;
+        h+='<label style="display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--txt2);cursor:pointer">';
+        h+='<input type="checkbox" data-suite="'+suite.id+'" data-tc="'+tc.tc+'" onchange="_usrPermsToggleTc(this)" '+(chk?'checked':'')+'>';
+        h+=esc(tc.tc+' '+tc.lbl)+'</label>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  body.innerHTML=h;
+}
+function _usrPermsToggleSuite(cb){
+  var sid=cb.dataset.suite;
+  if(cb.checked){
+    if(!Object.prototype.hasOwnProperty.call(_usrPermsCurrent,sid)) _usrPermsCurrent[sid]=[];
+    var tcsDiv=document.getElementById('usr-tcs-'+sid);
+    if(tcsDiv) tcsDiv.style.display='flex';
+  } else {
+    delete _usrPermsCurrent[sid];
+    var tcsDiv2=document.getElementById('usr-tcs-'+sid);
+    if(tcsDiv2) tcsDiv2.style.display='none';
+  }
+}
+function _usrPermsToggleTc(cb){
+  var sid=cb.dataset.suite;
+  var tc=cb.dataset.tc;
+  var suite=_ALL_SUITE_PERMS.find(function(s){return s.id===sid;});
+  if(!suite) return;
+  var allTcs=suite.tcs.map(function(t){return t.tc;});
+  var cur=_usrPermsCurrent[sid]||[];
+  if(!cur.length) cur=allTcs.slice();
+  if(cb.checked){
+    if(cur.indexOf(tc)<0) cur.push(tc);
+  } else {
+    cur=cur.filter(function(t){return t!==tc;});
+  }
+  var allChecked=allTcs.every(function(t){return cur.indexOf(t)>=0;});
+  _usrPermsCurrent[sid]=allChecked?[]:cur;
+}
+function _usrPermsSave(){
+  fetch('/api/users/'+_usrPermsTargetId+'/permissions',{method:'PUT',headers:_authHdr(),body:JSON.stringify({permissions:_usrPermsCurrent})})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})
+    .then(function(res){
+      if(res.ok){
+        document.getElementById('usr-perms-ok').style.display='inline';
+        var u=_usrData.find(function(x){return x.id===_usrPermsTargetId;});
+        if(u) u.permissions=JSON.parse(JSON.stringify(_usrPermsCurrent));
+      }
+    });
 }
 </script>
 <!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
