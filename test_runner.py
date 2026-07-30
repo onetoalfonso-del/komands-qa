@@ -7579,6 +7579,13 @@ function _showMainApp(){
     var utab=document.getElementById('stab-usuarios');
     if(utab) utab.style.display=currentUser.role==='admin'?'':'none';
   }
+  _applyViewPerms();
+}
+function _applyViewPerms(){
+  var dbtn=document.getElementById('dashboard-btn');
+  var hbtn=document.getElementById('hist-btn');
+  if(dbtn) dbtn.style.display=_canSeeSuite('view:dashboard')?'':'none';
+  if(hbtn) hbtn.style.display=_canSeeSuite('view:historial')?'':'none';
 }
 
 // ── Auth actions ──────────────────────────────────────────────────────────────
@@ -7729,7 +7736,12 @@ renderGlobalForm();
 function renderSB(){
   var el=document.getElementById('sb-list'); el.innerHTML='';
   [{key:'disponible',lbl:'Disponibles'},{key:'bloqueado',lbl:'Bloqueados'}].forEach(function(g){
-    var items=suites.filter(function(s){return s.group===g.key;});
+    var items=suites.filter(function(s){
+      if(s.group!==g.key) return false;
+      if(s.id==='qa-fulfillment') return _canSeeSuite('view:fulfillment');
+      if(s.id==='qa-endpoints')   return _canSeeSuite('view:qa');
+      return true;
+    });
     if(!items.length) return;
     var d=document.createElement('div'); d.className='grp'; d.textContent=g.lbl; el.appendChild(d);
     items.forEach(function(s){
@@ -12960,6 +12972,10 @@ var _usrPermsCurrent={};
 
 // All suite definitions for permissions UI
 var _ALL_SUITE_PERMS=[
+  {id:'view:fulfillment',lbl:'&#127381; Pruebas Automatizadas FulFillment',tcs:[],_isView:true},
+  {id:'view:qa',         lbl:'&#128269; Endpoints &amp; Suites QA',         tcs:[],_isView:true},
+  {id:'view:dashboard',  lbl:'&#128200; Dashboard',                          tcs:[],_isView:true},
+  {id:'view:historial',  lbl:'&#128203; Historial de Pruebas',               tcs:[],_isView:true},
   {id:'qa-fact-suite',lbl:'Suite Factibilidad',tcs:[]},
   {id:'qa-asig-suite',lbl:'Suite Asignaci\xf3n',tcs:[]},
   {id:'qa-ia-inicio-suite',lbl:'Suite IA Inicio',tcs:[{tc:'TC-01',lbl:'Entel'},{tc:'TC-02',lbl:'KAO'},{tc:'TC-03',lbl:'DTV'},{tc:'TC-04',lbl:'TCH'}]},
@@ -13077,12 +13093,21 @@ function _usrPermsClose(){
 function _renderUsrPerms(){
   var body=document.getElementById('usr-perms-body'); if(!body) return;
   var h='<div style="display:grid;gap:8px">';
+  var shownViewHdr=false, shownSuiteHdr=false;
   _ALL_SUITE_PERMS.forEach(function(suite){
+    if(suite._isView && !shownViewHdr){
+      h+='<div style="font-size:.7rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;padding:4px 2px 0">Secciones principales</div>';
+      shownViewHdr=true;
+    }
+    if(!suite._isView && !shownSuiteHdr){
+      h+='<div style="font-size:.7rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;padding:8px 2px 0">Suites de prueba</div>';
+      shownSuiteHdr=true;
+    }
     var hasSuite=Object.prototype.hasOwnProperty.call(_usrPermsCurrent,suite.id);
     h+='<div style="background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:10px 12px">';
     h+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--txt)">';
     h+='<input type="checkbox" data-suite="'+suite.id+'" onchange="_usrPermsToggleSuite(this)" '+(hasSuite?'checked':'')+'>';
-    h+=esc(suite.lbl)+'</label>';
+    h+=suite.lbl+'</label>';
     if(suite.tcs.length){
       h+='<div id="usr-tcs-'+suite.id+'" style="margin-top:8px;margin-left:20px;display:'+(hasSuite?'flex':'none')+';flex-wrap:wrap;gap:6px">';
       var allowedTcs=_usrPermsCurrent[suite.id]||[];
