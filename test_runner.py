@@ -1062,6 +1062,137 @@ CREATE TABLE IF NOT EXISTS qa_users (
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS qa_return_codes (
+    id          BIGSERIAL PRIMARY KEY,
+    flow        TEXT NOT NULL,
+    code        TEXT NOT NULL,
+    cls         TEXT NOT NULL,
+    description TEXT NOT NULL,
+    breaking_pt TEXT DEFAULT '',
+    sort_order  INTEGER DEFAULT 0,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE qa_return_codes ADD CONSTRAINT IF NOT EXISTS qa_rc_uniq UNIQUE (flow,code,cls,description);
+INSERT INTO qa_return_codes (flow,code,cls,description,breaking_pt,sort_order) VALUES
+-- FACTIBILIDAD
+('Factibilidad','9','Funcional','La direcci\xf3n solicitada no existe en el inventario.','',1),
+('Factibilidad','14','Funcional','Direcci\xf3n con cobertura, pero no hay facilidad disponible.','',2),
+('Factibilidad','13','Funcional','La direcci\xf3n no corresponde a un \xe1rea de cobertura contratada.','',3),
+('Factibilidad','16','Funcional','Sin cobertura de red.','',4),
+('Factibilidad','17','Funcional','El formato de la direcci\xf3n no es correcto.','',5),
+('Factibilidad','18','Funcional','Con disponibilidad de red (Caja verde) — veredicto positivo.','',6),
+('Factibilidad','15','Funcional','Direcci\xf3n sin cobertura de red pero con Caja verde disponible.','',7),
+('Factibilidad','2','Funcional','El Address ID no est\xe1 registrado.','',8),
+('Factibilidad','614','Sist\xe9mico','Passthrough de CPQD/Camadas (lo devuelve el backend de factibilidad).','',9),
+('Factibilidad','794','Sist\xe9mico','Passthrough de CPQD/Camadas: operaci\xf3n no habilitada para el circuito del Terminal de Fibra.','',10),
+('Factibilidad','586','Sist\xe9mico','Passthrough de CPQD/Camadas; el origen est\xe1 en esa plataforma.','',11),
+('Factibilidad','641','Sist\xe9mico','No se encontr\xf3 equipo OLT.','',12),
+('Factibilidad','30','Funcional','DOS or\xedgenes: (1) VNO no tiene contratado el servicio SSAA; (2) excepci\xf3n t\xe9cnica al consultar la ocupaci\xf3n SSAA.','',13),
+('Factibilidad','500','Sist\xe9mico','HTTP del saliente a CPQD.','',14),
+-- RETRIEVE ACCESS
+('Retrieve Access','7','Funcional','No se encontr\xf3 informaci\xf3n para el acceso consultado.','',1),
+('Retrieve Access','500','Sist\xe9mico','Fallo al responder al gateway del VNO / error del backend (5xx).','',2),
+-- INTERVENCI\xd3N ASEGURADA
+('Intervenci\xf3n Asegurada','7','Funcional','Existe una intervenci\xf3n en curso sobre el mismo AccessID; se rechaza.','',1),
+('Intervenci\xf3n Asegurada','2','Funcional','La Customer Order no est\xe1 en un estado para realizar una evaluaci\xf3n de Intervenci\xf3n asegurada.','',2),
+('Intervenci\xf3n Asegurada','4','Funcional','No es posible realizar la intervenci\xf3n por problema en la red (falla masiva con ticket).','',3),
+('Intervenci\xf3n Asegurada','-','Funcional','No existe Customer Order asociada al Access ID para un escenario de instalaci\xf3n.','',4),
+('Intervenci\xf3n Asegurada','3','Funcional','No existe acceso instalado para reparaci\xf3n.','',5),
+('Intervenci\xf3n Asegurada','24','Funcional','AccessID solicitado corresponde a otra VNO.','',6),
+('Intervenci\xf3n Asegurada','524','Sist\xe9mico','No se encontr\xf3 circuito (timeout/consulta al backend).','',7),
+('Intervenci\xf3n Asegurada','504','Sist\xe9mico','Timeout de la llamada saliente.','',8),
+('Intervenci\xf3n Asegurada','500','Sist\xe9mico','Error del backend.','',9),
+-- ACTIVACI\xd3N
+('Activaci\xf3n','21','Funcional','Redirigido al flujo de modificaci\xf3n (no es una activaci\xf3n de alta).','',1),
+('Activaci\xf3n','40','Sist\xe9mico','Error interno durante la activaci\xf3n. Caj\xf3n de sastre de Blue Planet; la etapa real est\xe1 en u_breaking_point.','',2),
+('Activaci\xf3n','B','Funcional','La Customer Order especificada no se encuentra en estado asignado.','',3),
+('Activaci\xf3n','504','Sist\xe9mico','Timeout contra Blue Planet.','api-activation-configuration',4),
+('Activaci\xf3n','500','Sist\xe9mico','Error del backend de activaci\xf3n (passthrough).','',5),
+('Activaci\xf3n','404','Sist\xe9mico','Recurso no encontrado en Blue Planet.','',6),
+-- ASIGNACI\xd3N
+('Asignaci\xf3n','9999','Funcional','C\xf3digo inicial de la Customer Order al crearse; no es un error de integraci\xf3n.','',1),
+('Asignaci\xf3n','537','Funcional','El n\xfamero de servicio ya existe (estado/idempotencia).','cpqd',2),
+('Asignaci\xf3n','31','Funcional','No hay VLAN disponible para la combinaci\xf3n de recursos (capacidad).','vlan',3),
+('Asignaci\xf3n','14','Funcional','Direcci\xf3n con cobertura, pero no hay interconectividad con la OLT.','cpqd',4),
+('Asignaci\xf3n','30','Funcional','El puerto l\xf3gico no est\xe1 disponible para su asignaci\xf3n (ocupado).','pon',5),
+('Asignaci\xf3n','26','Funcional','Existe una orden que debe resolver o cancelar antes.','',6),
+('Asignaci\xf3n','13','Funcional','La direcci\xf3n no corresponde a un \xe1rea de cobertura contratada.','',7),
+('Asignaci\xf3n','24','Funcional','El AccessID solicitado corresponde a otra VNO.','',8),
+('Asignaci\xf3n','595','Sist\xe9mico','Falla en el fulfillment de asignaci\xf3n.','',9),
+('Asignaci\xf3n','40','Sist\xe9mico','Unknown Error / Node not found for pon — caj\xf3n de sastre de Blue Planet.','ba',10),
+('Asignaci\xf3n','404','Sist\xe9mico','Recurso no encontrado en Blue Planet.','',11),
+('Asignaci\xf3n','504','Sist\xe9mico','Timeout contra Inetum/Blue Planet.','cpqd',12),
+('Asignaci\xf3n','502','Sist\xe9mico','Error del gateway hacia Inetum/Blue Planet.','cpqd',13),
+('Asignaci\xf3n','600','Sist\xe9mico','Error del backend.','',14),
+('Asignaci\xf3n','1','Funcional','No se encontr\xf3 ning\xfan registro en la b\xfasqueda.','',15),
+-- FINALIZACI\xd3N INTERVENCI\xd3N
+('Finalizaci\xf3n Intervenci\xf3n','3','Funcional','La orden de servicio no se encuentra con un ticket de intervenci\xf3n asociado.','',1),
+('Finalizaci\xf3n Intervenci\xf3n','2','Funcional','La orden de servicio no est\xe1 en un estado para realizar una finalizaci\xf3n de intervenci\xf3n.','',2),
+('Finalizaci\xf3n Intervenci\xf3n','637','Funcional','El n\xfamero de servicio ya existe.','',3),
+('Finalizaci\xf3n Intervenci\xf3n','1','Funcional','No se encontr\xf3 el registro.','',4),
+('Finalizaci\xf3n Intervenci\xf3n','504','Sist\xe9mico','Timeout de la llamada saliente.','',5),
+('Finalizaci\xf3n Intervenci\xf3n','500','Sist\xe9mico','Method failed (TrackManageService Provisioning).','',6),
+-- PREACTIVACI\xd3N
+('Preactivaci\xf3n','1','Funcional','El Access ID no est\xe1 disponible para preactivaci\xf3n.','',1),
+('Preactivaci\xf3n','40','Sist\xe9mico','Error interno durante la activaci\xf3n.','',2),
+('Preactivaci\xf3n','500','Sist\xe9mico','Error del backend de activaci\xf3n.','',3),
+-- MODIFICACI\xd3N DE REGISTRO
+('Modificaci\xf3n de Registro','1','Sist\xe9mico','Cannot convert null to an object — error t\xe9cnico (bug de dato nulo).','',1),
+('Modificaci\xf3n de Registro','10','Funcional','Plan de velocidad no bloqueado: desbloqueo de un servicio que no estaba bloqueado (idempotencia).','',2),
+('Modificaci\xf3n de Registro','11','Funcional','El plan de velocidad ya est\xe1 bloqueado (idempotencia).','',3),
+('Modificaci\xf3n de Registro','404','Sist\xe9mico','Recurso no encontrado en Blue Planet.','',4),
+('Modificaci\xf3n de Registro','524','Sist\xe9mico','No se encontr\xf3 circuito (timeout/consulta).','',5),
+('Modificaci\xf3n de Registro','24','Funcional','El AccessID solicitado corresponde a otra VNO.','',6),
+('Modificaci\xf3n de Registro','504','Sist\xe9mico','Timeout contra Inetum/Blue Planet.','api-resource-typed-controller',7),
+('Modificaci\xf3n de Registro','40','Sist\xe9mico','Error de Blue Planet (caj\xf3n de sastre).','',8),
+-- BAJA DE ACCESO
+('Baja de Acceso','1','Funcional','No se encontr\xf3 ning\xfan registro: acceso no ocupado (idempotencia).','',1),
+('Baja de Acceso','404','Sist\xe9mico','Puerto l\xf3gico no encontrado en Blue Planet.','',2),
+('Baja de Acceso','521','Funcional','Retirada ya existe (idempotencia).','cpqd_release',3),
+('Baja de Acceso','587','Sist\xe9mico','No se encontr\xf3 circuito al liberar el recurso en CPQD; acceso queda a medio dar de baja.','cpqd_release',4),
+('Baja de Acceso','541','Sist\xe9mico','Error interno en la liberaci\xf3n del recurso en CPQD.','cpqd_release',5),
+('Baja de Acceso','2','Funcional','El AccessID especificado no existe.','',6),
+('Baja de Acceso','400','Sist\xe9mico','Method failed contra Blue Planet.','ba',7),
+('Baja de Acceso','500','Sist\xe9mico','Method failed en AllocateInstallResource (CPQD).','cpqd_release',8),
+('Baja de Acceso','524','Sist\xe9mico','No se encontr\xf3 circuito (timeout/consulta).','',9),
+('Baja de Acceso','24','Funcional','El AccessID solicitado corresponde a otra VNO.','',10),
+-- CANCELACI\xd3N DE ORDEN
+('Cancelaci\xf3n de Orden','1','Funcional','No se encontr\xf3 ning\xfan registro: cancelar una orden que ya no est\xe1 (idempotencia).','',1),
+('Cancelaci\xf3n de Orden','34','Funcional','Cancelaci\xf3n no permitida: hay una asignaci\xf3n en curso.','',2),
+('Cancelaci\xf3n de Orden','26','Funcional','Ya existe un proceso de cancelaci\xf3n en ejecuci\xf3n.','',3),
+('Cancelaci\xf3n de Orden','2','Funcional','La orden de servicio se encuentra en estado finalizado; no es cancelable.','',4),
+('Cancelaci\xf3n de Orden','403','Sist\xe9mico','Fallo de teardown en el servicio de banda ancha; deja recursos colgados.','ba',5),
+('Cancelaci\xf3n de Orden','400','Sist\xe9mico','Method failed contra Blue Planet.','',6),
+('Cancelaci\xf3n de Orden','24','Funcional','El AccessID solicitado corresponde a otra VNO.','',7),
+('Cancelaci\xf3n de Orden','504','Sist\xe9mico','Timeout contra Blue Planet.','ba',8),
+-- MODIFICACI\xd3N DE EQUIPO
+('Modificaci\xf3n de Equipo','404','Sist\xe9mico','Puerto l\xf3gico no encontrado en Blue Planet.','',1),
+('Modificaci\xf3n de Equipo','2','Funcional','El AccessID solicitado no ha sido activado.','',2),
+('Modificaci\xf3n de Equipo','1','Funcional','El AccessID solicitado no existe.','',3),
+('Modificaci\xf3n de Equipo','524','Sist\xe9mico','No se encontr\xf3 circuito (timeout/consulta).','',4),
+('Modificaci\xf3n de Equipo','429','Sist\xe9mico','Saturaci\xf3n/rate limit del backend.','',5),
+-- CANCELACI\xd3N DE INTERVENCI\xd3N
+('Cancelaci\xf3n de Intervenci\xf3n','3','Funcional','El Access ID no se encuentra con un ticket de intervenci\xf3n asociado (idempotencia).','',1),
+('Cancelaci\xf3n de Intervenci\xf3n','9','Funcional','Afectaci\xf3n de servicio; el flujo genera el Case correspondiente.','listener',2),
+('Cancelaci\xf3n de Intervenci\xf3n','10','Funcional','Puerto asignado en servicio: se debe Finalizar la intervenci\xf3n, no cancelarla.','',3),
+('Cancelaci\xf3n de Intervenci\xf3n','11','Funcional','Puerto asignado en servicio y con degradaci\xf3n: se debe Finalizar la intervenci\xf3n.','',4),
+('Cancelaci\xf3n de Intervenci\xf3n','1','Funcional','El AccessID solicitado no existe.','',5),
+('Cancelaci\xf3n de Intervenci\xf3n','524','Sist\xe9mico','No se encontr\xf3 circuito (timeout/consulta).','',6),
+-- CAMBIO DE FIBRA
+('Cambio de Fibra','638','Funcional','El par de destino no est\xe1 libre: choque de ocupaci\xf3n f\xedsica.','',1),
+('Cambio de Fibra','3','Funcional','El Access ID no se encuentra con un ticket de intervenci\xf3n asociado.','',2),
+('Cambio de Fibra','102','Funcional','Se encontr\xf3 m\xe1s de un equipo (ambig\xfcedad de datos de planta).','',3),
+('Cambio de Fibra','629','Funcional','Cantidad de pares no v\xe1lida.','',4),
+('Cambio de Fibra','T','Sist\xe9mico','No se pudo insertar la CTO en el CMDB; la topolog\xeda queda desincronizada.','',5),
+('Cambio de Fibra','500','Sist\xe9mico','Error del backend.','',6),
+-- CONSULTA ESTADO VECINOS
+('Consulta Estado Vecinos','9','Funcional','No se encontraron vecinos.','',1),
+('Consulta Estado Vecinos','S','Funcional','CTO fuera de rango.','listener',2),
+('Consulta Estado Vecinos','T','Funcional','Falla masiva con ticket.','listener',3),
+('Consulta Estado Vecinos','4','Funcional','Falla en el per\xedmetro del VNO.','',4),
+('Consulta Estado Vecinos','2','Funcional','Falla masiva (con detalle).','listener',5),
+('Consulta Estado Vecinos','6','Sist\xe9mico','Error al procesar la consulta; reintentar o escalar a Onnet.','listener',6)
+ON CONFLICT ON CONSTRAINT qa_rc_uniq DO NOTHING;
 """
 
 _CONFIG_LABELS = {
@@ -6353,6 +6484,47 @@ async def api_environments_delete(env_id: int):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# ─── Return codes endpoints ────────────────────────────────────────────────────
+@app.get("/api/return-codes")
+async def get_return_codes(req: Request):
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    db = await _db()
+    rows = await db.fetch("SELECT id,flow,code,cls,description,breaking_pt,sort_order FROM qa_return_codes ORDER BY flow,sort_order,id")
+    return [dict(r) for r in rows]
+
+@app.post("/api/return-codes")
+async def add_return_code(req: Request):
+    user = await _get_auth(req)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403)
+    body = await req.json()
+    flow = (body.get("flow") or "").strip()
+    code = (body.get("code") or "").strip()
+    cls  = (body.get("cls") or "").strip()
+    desc = (body.get("description") or "").strip()
+    bp   = (body.get("breaking_pt") or "").strip()
+    if not flow or not code or cls not in ("Funcional", "Sist\xe9mico") or not desc:
+        raise HTTPException(status_code=400, detail="Campos requeridos: flow, code, cls, description")
+    db = await _db()
+    max_order = await db.fetchval("SELECT COALESCE(MAX(sort_order),0)+1 FROM qa_return_codes WHERE flow=$1", flow)
+    row = await db.fetchrow(
+        "INSERT INTO qa_return_codes (flow,code,cls,description,breaking_pt,sort_order) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+        flow, code, cls, desc, bp, max_order
+    )
+    return {"id": row["id"]}
+
+@app.delete("/api/return-codes/{rc_id}")
+async def delete_return_code(rc_id: int, req: Request):
+    user = await _get_auth(req)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403)
+    db = await _db()
+    await db.execute("DELETE FROM qa_return_codes WHERE id=$1", rc_id)
+    return {"ok": True}
+
+
 # ─── Auth endpoints ────────────────────────────────────────────────────────────
 @app.get("/api/auth/status")
 async def auth_status():
@@ -7258,6 +7430,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <div class="sb-list" id="sb-list"></div>
     <button class="hist-btn" id="dashboard-btn" onclick="showDashboard()">&#128200;&nbsp; Dashboard</button>
+    <button class="hist-btn" id="codigos-btn" onclick="showCodigos()">&#128214;&nbsp; C&#xF3;digos de Retorno</button>
     <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;&nbsp; Historial de Pruebas</button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;&nbsp; Settings</button>
   </aside>
@@ -7513,6 +7686,66 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
         </div>
       </div>
     </div>
+    <!-- Vista C&#xF3;digos de Retorno -->
+    <div id="codigos-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;background:var(--card)">
+        <input id="rc-search" type="text" placeholder="Buscar c&#xF3;digo o descripci&#xF3;n..." oninput="_rcFilter()"
+          style="padding:5px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:220px;flex-shrink:0">
+        <select id="rc-flow" onchange="_rcFilter()"
+          style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
+          <option value="">Todos los flujos</option>
+        </select>
+        <select id="rc-cls" onchange="_rcFilter()"
+          style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
+          <option value="">Funcional + Sist&#xE9;mico</option>
+          <option value="Funcional">Solo Funcional</option>
+          <option value="Sist&#xE9;mico">Solo Sist&#xE9;mico</option>
+        </select>
+        <span id="rc-count" style="font-size:.7rem;color:var(--txt2);margin-left:auto"></span>
+        <button id="rc-add-btn" onclick="_rcAddOpen()" style="display:none;padding:4px 12px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.73rem;font-weight:700;cursor:pointer">+ Agregar</button>
+      </div>
+      <!-- Modal agregar (admin) -->
+      <div id="rc-add-modal" style="display:none;padding:12px 16px;border-bottom:1px solid var(--brd);background:var(--card);flex-shrink:0">
+        <div style="max-width:640px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label style="display:block;font-size:.7rem;color:var(--txt2);margin-bottom:3px">Flujo</label>
+            <input id="rc-new-flow" list="rc-flow-list" placeholder="Ej: Factibilidad"
+              style="width:100%;box-sizing:border-box;padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem">
+            <datalist id="rc-flow-list"></datalist>
+          </div>
+          <div>
+            <label style="display:block;font-size:.7rem;color:var(--txt2);margin-bottom:3px">C&#xF3;digo</label>
+            <input id="rc-new-code" placeholder="Ej: 404"
+              style="width:100%;box-sizing:border-box;padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem">
+          </div>
+          <div>
+            <label style="display:block;font-size:.7rem;color:var(--txt2);margin-bottom:3px">Clasificaci&#xF3;n</label>
+            <select id="rc-new-cls" style="width:100%;box-sizing:border-box;padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem">
+              <option value="Funcional">Funcional</option>
+              <option value="Sist&#xE9;mico">Sist&#xE9;mico</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:.7rem;color:var(--txt2);margin-bottom:3px">Breaking point (opcional)</label>
+            <input id="rc-new-bp" placeholder="Ej: cpqd"
+              style="width:100%;box-sizing:border-box;padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem">
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:.7rem;color:var(--txt2);margin-bottom:3px">Descripci&#xF3;n</label>
+            <input id="rc-new-desc" placeholder="Descripci&#xF3;n del c&#xF3;digo de retorno"
+              style="width:100%;box-sizing:border-box;padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem">
+          </div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button onclick="_rcAddSave()" style="padding:4px 14px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.74rem;font-weight:700;cursor:pointer">Guardar</button>
+          <button onclick="_rcAddClose()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.74rem;cursor:pointer">Cancelar</button>
+          <span id="rc-add-err" style="display:none;color:var(--err);font-size:.72rem"></span>
+        </div>
+      </div>
+      <div id="rc-body" style="flex:1;overflow-y:auto;padding:0 16px 16px">
+        <div class="hist-empty">Cargando...</div>
+      </div>
+    </div>
     <div class="summary" id="summary">
       <span class="sum-idle">Ejecuta una suite para ver resultados</span>
     </div>
@@ -7591,8 +7824,10 @@ function _showMainApp(){
 function _applyViewPerms(){
   var dbtn=document.getElementById('dashboard-btn');
   var hbtn=document.getElementById('hist-btn');
+  var cbtn=document.getElementById('codigos-btn');
   if(dbtn) dbtn.style.display=_canSeeSuite('view:dashboard')?'':'none';
   if(hbtn) hbtn.style.display=_canSeeSuite('view:historial')?'':'none';
+  if(cbtn) cbtn.style.display=_canSeeSuite('view:codigos')?'':'none';
 }
 
 // ── Auth actions ──────────────────────────────────────────────────────────────
@@ -8205,9 +8440,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -11448,6 +11683,7 @@ function showHistorial(){
   switchView('historial');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var _sb2=document.getElementById('settings-btn'); if(_sb2) _sb2.classList.remove('active');
+  var _cb=document.getElementById('codigos-btn'); if(_cb) _cb.classList.remove('active');
   document.getElementById('hist-btn').classList.add('active');
   setTop('','Historial de Pruebas','');
   _hTab(_histTab);
@@ -11464,6 +11700,7 @@ function showSettings(){
   switchView('settings');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var hb=document.getElementById('hist-btn'); if(hb) hb.classList.remove('active');
+  var cb=document.getElementById('codigos-btn'); if(cb) cb.classList.remove('active');
   var sb=document.getElementById('settings-btn'); if(sb) sb.classList.add('active');
   setTop('','Settings','Ambientes y configuraci\xf3n del runner');
   _stTab(_stCurTab);
@@ -11473,7 +11710,7 @@ function _dashStopRefresh(){if(_dashRefreshTimer){clearInterval(_dashRefreshTime
 function showDashboard(){
   switchView('dashboard');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-  ['hist-btn','settings-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  ['hist-btn','settings-btn','codigos-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
   var db=document.getElementById('dashboard-btn');if(db)db.classList.add('active');
   setTop('','Dashboard','');
   loadDashboard();
@@ -12988,6 +13225,7 @@ var _ALL_SUITE_PERMS=[
   {id:'view:qa',         lbl:'&#128269; Endpoints &amp; Suites QA',         tcs:[],_isView:true},
   {id:'view:dashboard',  lbl:'&#128200; Dashboard',                          tcs:[],_isView:true},
   {id:'view:historial',  lbl:'&#128203; Historial de Pruebas',               tcs:[],_isView:true},
+  {id:'view:codigos',    lbl:'&#128214; C\xf3digos de Retorno',              tcs:[],_isView:true},
   {id:'qa-fact-suite',lbl:'Suite Factibilidad',tcs:[]},
   {id:'qa-asig-suite',lbl:'Suite Asignaci\xf3n',tcs:[]},
   {id:'qa-ia-inicio-suite',lbl:'Suite IA Inicio',tcs:[{tc:'TC-01',lbl:'Entel'},{tc:'TC-02',lbl:'KAO'},{tc:'TC-03',lbl:'DTV'},{tc:'TC-04',lbl:'TCH'}]},
@@ -13174,6 +13412,101 @@ function _usrPermsSave(){
         if(u) u.permissions=JSON.parse(JSON.stringify(_usrPermsCurrent));
       }
     });
+}
+
+// ── C\xf3digos de Retorno ──────────────────────────────────────────────────────
+var _rcData=[];
+function _loadCodigos(){
+  var body=document.getElementById('rc-body'); if(!body) return;
+  fetch('/api/return-codes',{headers:_authHdr()}).then(function(r){return r.json();}).then(function(data){
+    _rcData=data;
+    var sel=document.getElementById('rc-flow');
+    var flows=[...new Set(data.map(function(r){return r.flow;}))].sort();
+    var opts='<option value="">Todos los flujos</option>';
+    flows.forEach(function(f){opts+='<option value="'+esc(f)+'">'+esc(f)+'</option>';});
+    if(sel) sel.innerHTML=opts;
+    var dl=document.getElementById('rc-flow-list');
+    if(dl){var dlopts='';flows.forEach(function(f){dlopts+='<option value="'+esc(f)+'">';});dl.innerHTML=dlopts;}
+    var addBtn=document.getElementById('rc-add-btn');
+    if(addBtn) addBtn.style.display=(currentUser&&currentUser.role==='admin')?'inline-block':'none';
+    _rcFilter();
+  }).catch(function(){if(body)body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error cargando datos.</div>';});
+}
+function _rcFilter(){
+  var body=document.getElementById('rc-body'); if(!body) return;
+  var q=(document.getElementById('rc-search')||{}).value||'';
+  var flow=(document.getElementById('rc-flow')||{}).value||'';
+  var cls=(document.getElementById('rc-cls')||{}).value||'';
+  var ql=q.toLowerCase();
+  var filtered=_rcData.filter(function(r){
+    if(flow&&r.flow!==flow) return false;
+    if(cls&&r.cls!==cls) return false;
+    if(ql&&(r.code.toLowerCase().indexOf(ql)<0)&&(r.description.toLowerCase().indexOf(ql)<0)&&(r.flow.toLowerCase().indexOf(ql)<0)) return false;
+    return true;
+  });
+  var cnt=document.getElementById('rc-count');
+  if(cnt) cnt.textContent=filtered.length+' resultado'+(filtered.length!==1?'s':'');
+  if(!filtered.length){body.innerHTML='<div class="hist-empty">Sin resultados.</div>';return;}
+  var isAdmin=currentUser&&currentUser.role==='admin';
+  var grouped={};
+  filtered.forEach(function(r){if(!grouped[r.flow])grouped[r.flow]=[];grouped[r.flow].push(r);});
+  var h='';
+  Object.keys(grouped).sort().forEach(function(f){
+    h+='<div style="margin-top:14px">';
+    h+='<div style="font-size:.72rem;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.06em;padding:6px 0 4px;border-bottom:1px solid var(--brd);margin-bottom:4px">'+esc(f)+'</div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">';
+    h+='<thead><tr style="color:var(--txt2);font-size:.68rem">';
+    h+='<th style="text-align:left;padding:4px 8px;width:70px">C\xf3digo</th>';
+    h+='<th style="text-align:left;padding:4px 8px;width:100px">Tipo</th>';
+    h+='<th style="text-align:left;padding:4px 8px">Descripci\xf3n</th>';
+    h+='<th style="text-align:left;padding:4px 8px;width:90px">Breaking pt.</th>';
+    if(isAdmin) h+='<th style="width:36px"></th>';
+    h+='</tr></thead><tbody>';
+    grouped[f].forEach(function(r){
+      var isSis=r.cls==='Sist\xe9mico';
+      var clsColor=isSis?'#F5A623':'var(--ok)';
+      var clsBg=isSis?'rgba(245,166,35,.12)':'var(--okd)';
+      h+='<tr style="border-bottom:1px solid var(--brdl)">';
+      h+='<td style="padding:5px 8px;font-weight:700;color:var(--txt);font-family:var(--mono);font-size:.8rem">'+esc(r.code)+'</td>';
+      h+='<td style="padding:5px 8px"><span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:.65rem;font-weight:700;background:'+clsBg+';color:'+clsColor+'">'+esc(r.cls)+'</span></td>';
+      h+='<td style="padding:5px 8px;color:var(--txt)">'+esc(r.description)+'</td>';
+      h+='<td style="padding:5px 8px;color:var(--txt3);font-family:var(--mono);font-size:.7rem">'+(r.breaking_pt?'['+esc(r.breaking_pt)+']':'')+'</td>';
+      if(isAdmin) h+='<td style="padding:5px 4px;text-align:center"><button onclick="_rcDelete('+r.id+')" style="background:none;border:none;color:var(--err);cursor:pointer;font-size:.8rem;padding:0 2px" title="Eliminar">&#x2715;</button></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  });
+  body.innerHTML=h;
+}
+function _rcAddOpen(){document.getElementById('rc-add-modal').style.display='block';}
+function _rcAddClose(){document.getElementById('rc-add-modal').style.display='none';document.getElementById('rc-add-err').style.display='none';}
+function _rcAddSave(){
+  var flow=(document.getElementById('rc-new-flow')||{}).value||'';
+  var code=(document.getElementById('rc-new-code')||{}).value||'';
+  var cls=(document.getElementById('rc-new-cls')||{}).value||'';
+  var desc=(document.getElementById('rc-new-desc')||{}).value||'';
+  var bp=(document.getElementById('rc-new-bp')||{}).value||'';
+  var err=document.getElementById('rc-add-err');
+  if(!flow||!code||!desc){if(err){err.textContent='Flujo, c\xf3digo y descripci\xf3n son requeridos.';err.style.display='inline';}return;}
+  fetch('/api/return-codes',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},_authHdr()),body:JSON.stringify({flow:flow,code:code,cls:cls,description:desc,breaking_pt:bp})})
+  .then(function(r){if(!r.ok)throw new Error('error');return r.json();}).then(function(){
+    _rcAddClose();
+    ['rc-new-flow','rc-new-code','rc-new-desc','rc-new-bp'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+    _loadCodigos();
+  }).catch(function(){if(err){err.textContent='Error al guardar.';err.style.display='inline';}});
+}
+function _rcDelete(id){
+  if(!confirm('&#x00BF;Eliminar este c\xf3digo de retorno?')) return;
+  fetch('/api/return-codes/'+id,{method:'DELETE',headers:_authHdr()}).then(function(){_loadCodigos();});
+}
+function showCodigos(){
+  _dashStopRefresh();
+  switchView('codigos');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','dashboard-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var cb=document.getElementById('codigos-btn');if(cb)cb.classList.add('active');
+  setTop('','C\xf3digos de Retorno','');
+  _loadCodigos();
 }
 </script>
 <!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
