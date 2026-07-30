@@ -12814,11 +12814,11 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
-      // Encadenar access_id desde Asignacion hacia pasos siguientes
-      if(fn==='Asignación'&&pass&&res_s){
+      // Encadenar access_id desde Factibilidad y Asignacion hacia pasos siguientes
+      if((fn==='Factibilidad'||fn==='Asignación')&&pass&&res_s){
         try{
-          var _asigRj=JSON.parse(res_s);
-          var _newAid=((_asigRj.result||_asigRj).u_access_id_vno)||'';
+          var _chainRj=JSON.parse(res_s);
+          var _newAid=((_chainRj.result||_chainRj).u_access_id_vno)||'';
           if(_newAid){_currentAccessId=_newAid;}
         }catch(e){}
       }
