@@ -7166,12 +7166,18 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 <body class="light">
 <!-- ── Auth screen ─────────────────────────────────────────────── -->
 <div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:9999">
-  <div id="auth-card" style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:32px 36px;width:100%;max-width:380px;box-shadow:0 4px 32px rgba(0,0,0,.3)">
+  <div id="auth-card" style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:28px 36px 32px;width:100%;max-width:380px;box-shadow:0 4px 32px rgba(0,0,0,.3)">
+    <!-- Shared branding header -->
+    <div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--brd)">
+      <img id="auth-logo-img" src="" alt="OnnetFibra" style="height:36px;max-width:210px;object-fit:contain;display:block;margin:0 auto 12px">
+      <div style="font-size:.95rem;font-weight:900;letter-spacing:.22em;text-transform:uppercase;line-height:1.2;font-family:var(--sans)">
+        <span style="color:var(--acc)">QA</span><span style="color:var(--txt)">&nbsp;AUTOMATION</span>
+      </div>
+    </div>
     <!-- LOGIN pane -->
     <div id="auth-login" style="display:none">
-      <div style="text-align:center;margin-bottom:22px">
-        <div style="font-size:1.4rem;font-weight:800;color:var(--acc);letter-spacing:.04em">ONNET</div>
-        <div style="font-size:.72rem;color:var(--txt2);margin-top:2px">QA Runner · Inicio de sesi&#xF3;n</div>
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:.78rem;color:var(--txt2)">Inicio de sesi&#xF3;n</div>
       </div>
       <div style="margin-bottom:12px">
         <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Email</label>
@@ -7188,9 +7194,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- BOOTSTRAP pane -->
     <div id="auth-bootstrap" style="display:none">
-      <div style="text-align:center;margin-bottom:22px">
-        <div style="font-size:1.4rem;font-weight:800;color:var(--acc)">ONNET</div>
-        <div style="font-size:.72rem;color:var(--txt2);margin-top:2px">Primera configuraci&#xF3;n · Crear administrador</div>
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:.78rem;color:var(--txt2)">Primera configuraci&#xF3;n · Crear administrador</div>
       </div>
       <div style="margin-bottom:10px">
         <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Nombre completo</label>
@@ -7217,9 +7222,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- INVITE pane -->
     <div id="auth-invite" style="display:none">
-      <div style="text-align:center;margin-bottom:22px">
-        <div style="font-size:1.4rem;font-weight:800;color:var(--acc)">ONNET</div>
-        <div id="invite-greeting" style="font-size:.72rem;color:var(--txt2);margin-top:2px">Establece tu contrase&#xF1;a</div>
+      <div style="text-align:center;margin-bottom:18px">
+        <div id="invite-greeting" style="font-size:.78rem;color:var(--txt2)">Establece tu contrase&#xF1;a</div>
       </div>
       <div style="margin-bottom:10px">
         <label style="display:block;font-size:.72rem;color:var(--txt2);margin-bottom:4px">Nueva contrase&#xF1;a</label>
@@ -7662,6 +7666,7 @@ function _doLogout(){
 
 // ── App init ──────────────────────────────────────────────────────────────────
 function initApp(){
+  (function(){var s=document.querySelector('.sb-logo img'),a=document.getElementById('auth-logo-img');if(s&&a)a.src=s.src;})();
   var params=new URLSearchParams(window.location.search);
   var inv=params.get('invite');
   if(inv){ _showInviteScreen(inv); return; }
