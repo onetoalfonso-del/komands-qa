@@ -12242,6 +12242,13 @@ var _ATRF_TC_MAP={
   "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
+var _ATRF_DELAY_MAP={
+  "Asignación":                    "delay_post_asig_ms",
+  "Inicio Intervención Asegurada": "delay_post_ia_ms",
+  "Activación":                    "delay_post_activ_ms",
+  "Modificación de Dispositivo":   "delay_post_dm_ms",
+  "Cancelación Orden de Servicio": "delay_post_cancel_ms",
+};
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
@@ -12724,6 +12731,12 @@ async function _atrf_runSelected(){
   _atrf_qStartTs=Date.now();
   var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='â³ Ejecutando…';btn.disabled=true;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
+  // Cargar delays configurados en Settings
+  var _delays={};
+  try{
+    var _dcfg=await fetch('/api/config').then(function(r){return r.json();});
+    if(Array.isArray(_dcfg)) _dcfg.forEach(function(c){_delays[c.key]=parseInt(c.value)||0;});
+  }catch(e){}
   for(var qi=0;qi<_atrfQueue.length;qi++){
     var q=_atrfQueue[qi];
     if(!q.checked||q.status!=='espera')continue;
@@ -12798,6 +12811,12 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
+      // Aplicar delay post-paso si está configurado
+      var _dk=_ATRF_DELAY_MAP[fn];
+      if(_dk&&_delays[_dk]>0){
+        if(prog)prog.textContent='⏸ Esperando '+_delays[_dk]+'ms ('+fn+')…';
+        await new Promise(function(r){setTimeout(r,_delays[_dk]);});
+      }
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
