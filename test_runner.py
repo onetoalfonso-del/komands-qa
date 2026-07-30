@@ -9171,7 +9171,7 @@ function _unsubApp(tc,text,cls){
   var el=document.getElementById('unsubt-'+tc); if(!el) return;
   var sp=document.createElement('span');
   sp.className='tl'+(cls?' '+cls:'');
-  sp.textContent=text+'\n';
+  sp.textContent=text+'\\n';
   el.appendChild(sp); el.scrollTop=el.scrollHeight;
 }
 
