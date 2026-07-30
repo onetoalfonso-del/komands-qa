@@ -7168,11 +7168,11 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 <div id="auth-screen" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:9999">
   <div id="auth-card" style="background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:28px 36px 32px;width:100%;max-width:380px;box-shadow:0 4px 32px rgba(0,0,0,.3)">
     <!-- Shared branding header -->
-    <div style="text-align:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--brd)">
-      <div style="font-size:.88rem;font-weight:900;letter-spacing:.24em;text-transform:uppercase;margin-bottom:8px;font-family:var(--sans)">
+    <div style="text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--brd)">
+      <div style="font-size:.88rem;font-weight:900;letter-spacing:.24em;text-transform:uppercase;margin-bottom:2px;font-family:var(--sans)">
         <span style="color:var(--acc)">QA</span><span style="color:var(--acc);opacity:.7">&nbsp;AUTOMATION</span>
       </div>
-      <img id="auth-logo-img" src="" alt="OnnetFibra" style="height:32px;max-width:200px;object-fit:contain;display:block;margin:3px auto 0">
+      <img id="auth-logo-img" src="" alt="OnnetFibra" style="height:32px;max-width:200px;object-fit:contain;display:block;margin:0 auto">
     </div>
     <!-- LOGIN pane -->
     <div id="auth-login" style="display:none">
