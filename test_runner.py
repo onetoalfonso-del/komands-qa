@@ -7271,7 +7271,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <button class="exec-btn" id="exec-btn" onclick="executeSelected()" disabled>&#9654; Ejecutar</button>
       <button class="rpt-btn" id="rpt-btn" onclick="openReport()">&#128196; Ver reporte</button>
       <button class="rpt-btn" id="dl-btn" onclick="downloadReport()">&#11015; Descargar</button>
-      <button class="clr-btn" onclick="clearTerm()">Limpiar</button>
+      <button class="clr-btn" id="clr-btn" onclick="clearTerm()">Limpiar</button>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">☀</button>
     </div>
     <div id="gf-panel" style="display:none;flex-shrink:0"></div>
