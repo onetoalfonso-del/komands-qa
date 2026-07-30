@@ -12463,16 +12463,19 @@ function _atrf_renderCatalog(){
   el.innerHTML='';
   _ATRF_FUNCS.forEach(function(f,i){
     if(_atrfFilter&&!f.toLowerCase().includes(_atrfFilter.toLowerCase()))return;
-    var on=_atrfSel.includes(i);
+    var cnt=_atrfSel.filter(function(x){return x===i;}).length;
+    var on=cnt>0;
+    var cbHtml=cnt>1
+      ?'<span class="atrf-func-cb on" style="font-size:10px;min-width:18px;text-align:center">'+cnt+'×</span>'
+      :'<span class="atrf-func-cb'+(on?' on':'')+'"></span>';
     var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
-    d.innerHTML='<span class="atrf-func-idx">'+String(i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+f+'</span><span class="atrf-func-cb'+(on?' on':'')+'"></span>';
+    d.innerHTML='<span class="atrf-func-idx">'+String(i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+f+'</span>'+cbHtml;
     d.onclick=function(){_atrf_toggleFunc(i);};
     el.appendChild(d);
   });
 }
 function _atrf_toggleFunc(i){
-  var idx=_atrfSel.indexOf(i);
-  if(idx===-1)_atrfSel.push(i);else _atrfSel.splice(idx,1);
+  _atrfSel.push(i);
   _atrf_renderCatalog();_atrf_renderSeq();
   document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):'';
 }
