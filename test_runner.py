@@ -3794,20 +3794,10 @@ async def api_run(suite_id: str, request: Request):
                      "X-Accel-Buffering": "no",
                      "Connection": "keep-alive"})
 
-    # ── Suite Cancelación — cadena completa 5 pasos por VNO en paralelo ─────────
+    # ── Suite Cancelación — llamada directa oossCancellation por VNO en paralelo ──
     _cancel_runs = None
     if suite.get("env_type") == "qa_cancel_suite":
         import json as _j, ssl as _sl, urllib.request as _ur, urllib.parse as _up, base64 as _b64, copy as _cp
-
-        def _find_req_in_col(col, req_name):
-            for it in col.get("item", []):
-                if it.get("name") == req_name and "request" in it:
-                    return it
-                if "item" in it:
-                    found = _find_req_in_col(it, req_name)
-                    if found:
-                        return found
-            return None
 
         _logo_svg_cancel = (
             b'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="44">'
@@ -3818,13 +3808,8 @@ async def api_run(suite_id: str, request: Request):
             b' font-size="20" font-weight="400" fill="#ffffff">FIBRA</text>'
             b'</svg>'
         )
-        _logo_uri_cancel   = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_cancel).decode()
-        _svc_type_cancel   = overrides.get("service_type", "FTTH")
-        _cancel_speed_plan = overrides.get("speed_plan", "100/10")
-        _cancel_svc_ba     = overrides.get("svc_ba",   "true")  == "true"
-        _cancel_svc_voip   = overrides.get("svc_voip", "false") == "true"
-        _cancel_svc_iptv   = overrides.get("svc_iptv", "false") == "true"
-        _cancel_serial_sfx = overrides.get("serial_suffix", "0000")
+        _logo_uri_cancel = "data:image/svg+xml;base64," + _b64.b64encode(_logo_svg_cancel).decode()
+        _svc_type_cancel = overrides.get("service_type", "FTTH")
         _TC_DEFS_CANCEL = [
             {"tc":"TC-25","vno":"03","vno_label":"Entel","sid":"qa-cancel-tc25"},
             {"tc":"TC-26","vno":"02","vno_label":"KAO",  "sid":"qa-cancel-tc26"},
@@ -3836,22 +3821,17 @@ async def api_run(suite_id: str, request: Request):
         _TC_DEFS_CANCEL    = [d for d in _TC_DEFS_CANCEL if d["tc"] in _tcs_filter_cancel] or _TC_DEFS_CANCEL
         _cancel_dir = QA_DIR / "cancelacion"
         _cancel_dir.mkdir(parents=True, exist_ok=True)
-        _ADDR_ID_CANCEL = overrides.get("addr_id", "") or "DIR02803636"
-        _col_ff_cancel  = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
-        _col_cancel_col = _col_ff_cancel  # los requests de cancel están dentro de 01-FulFillment
+        _col_ff_cancel = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         _cancel_runs = []
         for _tcd in _TC_DEFS_CANCEL:
-            _vno           = _tcd["vno"]
-            _env_file      = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
-            _fact_folder   = QA_FACTIBILIDAD_FOLDER_MAP.get(_vno, "feasibility-KAO")
-            _asig_folder   = QA_ASSIGNMENT_FOLDER_MAP.get(_vno, "assigment- KAO")
-            _ia_subfolder  = QA_IA_VNO_SUBFOLDER.get(_vno, "KAO")
-            _activ_req_nm  = QA_ACTIVACION_REQUEST_MAP.get(_vno, "Activation KAO")
-            _cancel_req_nm = QA_CANCEL_REQUEST_MAP.get(_vno, "cancel service order KAO")
-            _env_data      = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
-            _ev            = {v["key"]: v["value"] for v in _env_data["values"]}
-            _apim_url      = _ev.get("apimURL", "")
-            _auth_b64      = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
+            _vno      = _tcd["vno"]
+            _aid      = overrides.get(f"aid_{_vno}", "").strip()
+            _req_nm   = QA_CANCEL_REQUEST_MAP.get(_vno, "cancel service order KAO")
+            _env_file = QA_VNO_ENV_MAP.get(_vno, QA_VNO_ENV_MAP["02"])
+            _env_data = _j.load(open(QA_DIR / _env_file, encoding="utf-8"))
+            _ev       = {v["key"]: v["value"] for v in _env_data["values"]}
+            _apim_url = _ev.get("apimURL", "")
+            _auth_b64 = _b64.b64encode(f"{_ev.get('consumerKey','')}:{_ev.get('consumerSecret','')}".encode()).decode()
             _token = ""
             try:
                 _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
@@ -3865,432 +3845,144 @@ async def api_run(suite_id: str, request: Request):
             except Exception as _te:
                 print(f"[GetToken {_tcd['tc']}] error: {_te}", flush=True)
 
-            _base_cmd_cancel = [NEWMAN, "run", "",
-                                "-e", _env_file,
-                                "--env-var", f"Token={_token}",
-                                "--env-var", f"idvno={_vno}",
-                                "--insecure",
-                                "--reporters", "cli,json,htmlextra",
-                                "--reporter-htmlextra-logo", _logo_uri_cancel]
-
-            # ── Paso 1: Factibilidad ─────────────────────────────────────────────
-            _col_fact_c = _cp.deepcopy(_col_ff_cancel)
-            _fact_body_c = _j.dumps({"u_id_vno": _vno, "u_operation_type": "Direccion Exacta",
-                                     "u_address_id": _ADDR_ID_CANCEL, "u_address_mcd": "OSP",
-                                     "u_service_type": "FTTH"}, indent=4, ensure_ascii=False)
-            for _sec in _col_fact_c.get("item", []):
-                if "Factibilidad" in _sec.get("name", ""):
-                    for _req in _sec.get("item", []):
-                        if _req.get("name", "") == _fact_folder:
-                            _b = _req.get("request", {}).get("body", {})
-                            if _b.get("mode") == "raw": _b["raw"] = _fact_body_c
-            _tmp_fact_c = str(QA_DIR / f"_tmp_cancel_fact_{_vno}.json")
-            _j.dump(_col_fact_c, open(_tmp_fact_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-            _rp_fact_c  = str(_cancel_dir / f"{_tcd['tc']}_fact.html")
-            _js_fact_c  = str(_cancel_dir / f"{_tcd['tc']}_fact.json")
-            _cmd_fact_c = list(_base_cmd_cancel); _cmd_fact_c[2] = _tmp_fact_c
-            _cmd_fact_c += ["--folder", _fact_folder,
-                            "--reporter-json-export", _js_fact_c,
-                            "--reporter-htmlextra-export", _rp_fact_c,
-                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Factibilidad · {_tcd['vno_label']}"]
-
-            # ── Paso 2: Asignación (sin u_access_id_vno — API lo asigna) ────────
-            _col_asig_c = _cp.deepcopy(_col_ff_cancel)
-            _asig_body_c = _j.dumps({
-                "u_id_vno": _vno, "u_operation_type": "Alta",
-                "u_scenario": "Alta de acceso", "u_speed_plan": _cancel_speed_plan,
-                "u_address_id": _ADDR_ID_CANCEL, "u_address_mcd": "OSP",
-                "u_service_ba": _cancel_svc_ba, "u_service_voip": _cancel_svc_voip,
-                "u_service_iptv": _cancel_svc_iptv, "u_service_type": _svc_type_cancel,
+            _col_tmp_c = _cp.deepcopy(_col_ff_cancel)
+            _cancel_body = _j.dumps({
+                "u_id_vno":        _vno,
+                "u_access_id_vno": _aid,
+                "u_service_type":  _svc_type_cancel,
             }, indent=4, ensure_ascii=False)
-            for _sec in _col_asig_c.get("item", []):
-                if "Assignment" in _sec.get("name", ""):
-                    for _req in _sec.get("item", []):
-                        if _req.get("name", "") == _asig_folder:
-                            _b = _req.get("request", {}).get("body", {})
-                            if _b.get("mode") == "raw": _b["raw"] = _asig_body_c
-            _tmp_asig_c = str(QA_DIR / f"_tmp_cancel_asig_{_vno}.json")
-            _j.dump(_col_asig_c, open(_tmp_asig_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-            _rp_asig_c  = str(_cancel_dir / f"{_tcd['tc']}_asig.html")
-            _js_asig_c  = str(_cancel_dir / f"{_tcd['tc']}_asig.json")
-            _cmd_asig_c = list(_base_cmd_cancel); _cmd_asig_c[2] = _tmp_asig_c
-            _cmd_asig_c += ["--folder", _asig_folder,
-                            "--reporter-json-export", _js_asig_c,
-                            "--reporter-htmlextra-export", _rp_asig_c,
-                            "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Asignación · {_tcd['vno_label']}"]
-
+            for _sec in _col_tmp_c.get("item", []):
+                for _req in _sec.get("item", []):
+                    if _req.get("name") == _req_nm:
+                        _b2 = _req.get("request", {}).get("body", {})
+                        if _b2.get("mode") == "raw":
+                            _b2["raw"] = _cancel_body
+            _tmp_col_path = str(QA_DIR / f"_tmp_cancelsuit_{_vno}.json")
+            _j.dump(_col_tmp_c, open(_tmp_col_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            _rp_c = str(_cancel_dir / f"{_tcd['tc']}.html")
+            _js_c = str(_cancel_dir / f"{_tcd['tc']}.json")
+            _cmd_c = [NEWMAN, "run", _tmp_col_path,
+                      "-e", _env_file,
+                      "--folder", _req_nm,
+                      "--env-var", f"Token={_token}",
+                      "--env-var", f"idvno={_vno}",
+                      "--insecure",
+                      "--reporters", "cli,json,htmlextra",
+                      "--reporter-json-export", _js_c,
+                      "--reporter-htmlextra-export", _rp_c,
+                      "--reporter-htmlextra-title", f"Reporte QA – {_tcd['tc']} Cancelacion · {_tcd['vno_label']}",
+                      "--reporter-htmlextra-logo", _logo_uri_cancel]
             _cancel_runs.append({
-                "tc":          _tcd["tc"], "vno": _vno, "vno_lbl": _tcd["vno_label"],
-                "sid":         _tcd["sid"],
-                "label":       f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
-                "tc_label":    "Cancelación Servicios",
-                "cmd_fact":    _cmd_fact_c,  "js_fact":  _js_fact_c,
-                "cmd_asig":    _cmd_asig_c,  "js_asig":  _js_asig_c,
-                "base_cmd":    _base_cmd_cancel,
-                "col_ff":      _col_ff_cancel,
-                "col_cancel":  _col_cancel_col,
-                "ia_subfolder": _ia_subfolder,
-                "activ_req_nm": _activ_req_nm,
-                "cancel_req_nm": _cancel_req_nm,
-                "speed_plan":  _cancel_speed_plan,
-                "svc_ba":      _cancel_svc_ba,
-                "svc_voip":    _cancel_svc_voip,
-                "svc_iptv":    _cancel_svc_iptv,
-                "svc_type":    _svc_type_cancel,
-                "serial_sfx":  _cancel_serial_sfx,
-                "cancel_dir":  str(_cancel_dir),
-                "cwd":         str(QA_DIR),
-                "rp_out":      str(_cancel_dir / f"{_tcd['tc']}.html"),
+                "tc":       _tcd["tc"],
+                "vno":      _vno,
+                "vno_lbl":  _tcd["vno_label"],
+                "sid":      _tcd["sid"],
+                "label":    f"{_tcd['tc']} · {_tcd['vno_label']} (VNO {_vno})",
+                "cmd":      _cmd_c,
+                "js":       _js_c,
+                "rp_out":   _rp_c,
+                "cwd":      str(QA_DIR),
+                "access_id": _aid,
             })
 
     if _cancel_runs is not None:
         async def sse_cancel():
             yield f"data: {json.dumps({'e':'start','id':suite_id,'label':suite['label']})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelación — {len(_cancel_runs)} TCs · cadena completa 5 pasos · sin delays entre pasos'})}\n\n"
-            yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            _env_cancel = {**os.environ,
-                           "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
-                           "PYTHONUNBUFFERED": "1",
-                           "NO_COLOR": "1", "TERM": "dumb", "FORCE_COLOR": "0"}
-            _out_q_cancel = asyncio.Queue()
-            _results_cancel = []
-            _cancel_aids = {}
-            _tc_rsp_map_cancel = {}
+            yield f"data: {json.dumps({'e':'line','t':'─'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Suite Cancelacion — {len(_cancel_runs)} TCs · oossCancellation directa'})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':'─'*55})}\n\n"
+            _env_c = {**os.environ,"PYTHONIOENCODING":"utf-8","PYTHONUTF8":"1","PYTHONUNBUFFERED":"1","NO_COLOR":"1","TERM":"dumb","FORCE_COLOR":"0"}
+            _out_q   = asyncio.Queue()
+            _results = []
+            _tc_rsp_map = {}
 
-            def _read_rsp(js_path):
+            def _read_rsp_cancel(js_path):
                 try:
-                    _jd = _j.loads(open(js_path, encoding="utf-8").read())
-                    for _ex in _jd.get("run", {}).get("executions", []):
+                    _jd = json.loads(open(js_path, encoding="utf-8").read())
+                    for _ex in _jd.get("run",{}).get("executions",[]):
                         _r2 = _ex.get("response") or {}
-                        _st2 = _r2.get("stream") or {}
-                        if isinstance(_st2, dict) and _st2.get("type") == "Buffer":
-                            try: _rb = bytes(_st2["data"]).decode("utf-8", errors="replace")
-                            except Exception: _rb = ""
-                        else:
-                            _rb = _r2.get("body", "") or ""
-                        return _r2.get("code", 0), _r2.get("status", ""), _rb[:1500]
-                except Exception:
-                    pass
-                return 0, "", ""
-
-            async def _run_cancel(tr):
-              try:
-                _tc = tr["tc"]; _vno = tr["vno"]
-                await _out_q_cancel.put(("L", _tc, f"▶ {tr['label']} iniciando…"))
-
-                # ── Paso 1/5: Factibilidad ────────────────────────────────────────
-                await _out_q_cancel.put(("L", _tc, "── Paso 1/5 Factibilidad ──"))
-                _sc = 1
-                async for _k, _v in _iter_proc(tr["cmd_fact"], tr["cwd"], _env_cancel):
-                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
-                    elif _k == "D": _sc = _v
-                _hc, _hs, _rb = _read_rsp(tr["js_fact"])
-                await _out_q_cancel.put(("L", _tc, f"── Response Factibilidad: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
-                if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 1/5 Factibilidad (Newman código {_sc})"))
-                    try:
-                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
-                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
-                    except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
-                    return
-                if _hc and _hc not in (200, 201, 202):
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 1/5 Factibilidad — HTTP {_hc} {_hs}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, tr["js_fact"]))
-                    return
-
-                # ── Paso 2/5: Asignación ──────────────────────────────────────────
-                await _out_q_cancel.put(("L", _tc, "── Paso 2/5 Asignación ──"))
-                _sc = 1
-                async for _k, _v in _iter_proc(tr["cmd_asig"], tr["cwd"], _env_cancel):
-                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
-                    elif _k == "D": _sc = _v
-                _hc, _hs, _rb = _read_rsp(tr["js_asig"])
-                await _out_q_cancel.put(("L", _tc, f"── Response Asignación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
-                if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 2/5 Asignación (Newman código {_sc})"))
-                    try:
-                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
-                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
-                    except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
-                    return
-                if _hc and _hc not in (200, 201, 202):
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 2/5 Asignación — HTTP {_hc} {_hs}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
-                    return
-
-                # ── Extraer u_access_id_vno de la respuesta de Asignación ─────────
-                _aid = ""
-                try:
-                    _jd2 = _j.loads(open(tr["js_asig"], encoding="utf-8").read())
-                    for _ex2 in _jd2.get("run", {}).get("executions", []):
-                        _r2 = _ex2.get("response") or {}
                         _s2 = _r2.get("stream") or {}
                         if isinstance(_s2, dict) and _s2.get("type") == "Buffer":
-                            try: _rb2 = bytes(_s2["data"]).decode("utf-8", errors="replace")
-                            except Exception: _rb2 = ""
-                        else:
-                            _rb2 = _r2.get("body", "") or ""
+                            try: _rb = bytes(_s2["data"]).decode("utf-8", errors="replace")
+                            except: _rb = ""
+                        else: _rb = _r2.get("body","") or ""
+                        _req2 = _ex.get("request") or {}
+                        _url2 = _req2.get("url") or {}
+                        _url_r = _url2.get("raw","") if isinstance(_url2,dict) else str(_url2)
+                        return (_r2.get("code",0), _r2.get("status",""), _rb[:6144],
+                                _ex.get("item",{}).get("name",""), _req2.get("method","POST"),
+                                _url_r[:200], _r2.get("responseTime",0))
+                except Exception: pass
+                return 0,"","","","POST","",0
+
+            async def _run_one_cancel(tr):
+                try:
+                    _tc = tr["tc"]
+                    await _out_q.put(("L", _tc, f"▶ {tr['label']} iniciando…"))
+                    if not tr["access_id"]:
+                        await _out_q.put(("L", _tc, f"✗ {_tc}: u_access_id_vno vacio — ingresa el Access ID en el formulario"))
+                        await _out_q.put(("D", tr, 1, None))
+                        return
+                    await _out_q.put(("L", _tc, f"── Cancelando {tr['access_id']} (VNO {tr['vno']}) ──"))
+                    _sc = 1
+                    async for _k, _v in _iter_proc(tr["cmd"], tr["cwd"], _env_c):
+                        if _k == "L": await _out_q.put(("L", _tc, _v))
+                        elif _k == "D": _sc = _v
+                    _hc, _hs, _rb, _nm, _mth, _url_r, _tms = _read_rsp_cancel(tr["js"])
+                    _rsps = [{"name":_nm,"method":_mth,"url":_url_r,"code":_hc,"status":_hs,"time_ms":_tms,"body":_rb}]
+                    if _rb:
                         try:
-                            _rj2 = _j.loads(_rb2)
-                            _aid = (_rj2.get("result") or {}).get("u_access_id_vno", "")
-                            if _aid: break
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-                _cancel_aids[_tc] = _aid
-                await _out_q_cancel.put(("L", _tc, f"── Access ID asignado por API: {_aid or '(no encontrado)'} ──"))
-                if not _aid:
-                    await _out_q_cancel.put(("L", _tc, "✗ No se pudo extraer u_access_id_vno — deteniendo"))
-                    await _out_q_cancel.put(("D", tr, 1, tr["js_asig"]))
-                    return
-
-                _cdir  = Path(tr["cancel_dir"])
-                _base  = list(tr["base_cmd"])
-
-                # ── Paso 3/5: IA Inicio ───────────────────────────────────────────
-                await _out_q_cancel.put(("L", _tc, "── Paso 3/5 IA Inicio ──"))
-                _col_ia_c = _cp.deepcopy(tr["col_ff"])
-                _ia_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
-                                        "u_scenario": "Instalación",
-                                        "u_service_type": tr["svc_type"]},
-                                       indent=4, ensure_ascii=False)
-                _ia_sub = tr["ia_subfolder"]
-                for _sec in _col_ia_c.get("item", []):
-                    if "Interven" in _sec.get("name", ""):
-                        _sec["item"] = [sf for sf in _sec.get("item", []) if sf.get("name", "") == _ia_sub]
-                        for _sf in _sec.get("item", []):
-                            for _req in _sf.get("item", []):
-                                if _req.get("name", "") in ("01-Inicio Intervención", "01-Inicio Intervencion"):
-                                    _b = _req.get("request", {}).get("body", {})
-                                    if _b.get("mode") == "raw": _b["raw"] = _ia_body_c
-                _tmp_ia_c  = str(QA_DIR / f"_tmp_cancel_ia_{_vno}.json")
-                _j.dump(_col_ia_c, open(_tmp_ia_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-                _rp_ia_c   = str(_cdir / f"{_tc}_ia.html")
-                _js_ia_c   = str(_cdir / f"{_tc}_ia.json")
-                _cmd_ia_c  = list(_base); _cmd_ia_c[2] = _tmp_ia_c
-                _cmd_ia_c += ["--folder", "01-Inicio Intervención",
-                              "--reporter-json-export", _js_ia_c,
-                              "--reporter-htmlextra-export", _rp_ia_c,
-                              "--reporter-htmlextra-title", f"Reporte QA – {_tc} IA Inicio · {tr['vno_lbl']}"]
-                _sc = 1
-                async for _k, _v in _iter_proc(_cmd_ia_c, tr["cwd"], _env_cancel):
-                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
-                    elif _k == "D": _sc = _v
-                _hc, _hs, _rb = _read_rsp(_js_ia_c)
-                await _out_q_cancel.put(("L", _tc, f"── Response IA Inicio: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
-                if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 3/5 IA Inicio (Newman código {_sc})"))
-                    try:
-                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
-                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
-                    except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
-                    return
-                if _hc and _hc not in (200, 201, 202):
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 3/5 IA Inicio — HTTP {_hc} {_hs}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, _js_ia_c))
-                    return
-
-                # ── Paso 4/5: Activación ──────────────────────────────────────────
-                _serial_log = (QA_ACTIV_SERIAL_BASE.get(_vno, "") + tr["serial_sfx"]) if _vno in QA_ACTIV_SERIAL_BASE else "(sin serial)"
-                await _out_q_cancel.put(("L", _tc, f"── Paso 4/5 Activación (serial: {_serial_log}) ──"))
-                _activ_body_c = _j.dumps({
-                    "u_id_vno": _vno, "u_access_id_vno": _aid,
-                    "u_operation_type": "A", "u_speed_plan": tr["speed_plan"],
-                    "u_service_ba": tr["svc_ba"], "u_service_voip": tr["svc_voip"],
-                    "u_service_iptv": tr["svc_iptv"],
-                    **( {"u_serial_number": QA_ACTIV_SERIAL_BASE[_vno] + tr["serial_sfx"]}
-                        if _vno in QA_ACTIV_SERIAL_BASE else {} )
-                }, indent=4, ensure_ascii=False)
-                _act_req_c = _find_req_in_col(_cp.deepcopy(tr["col_ff"]), tr["activ_req_nm"])
-                if _act_req_c:
-                    _b = _act_req_c.get("request", {}).get("body", {})
-                    if _b.get("mode") == "raw": _b["raw"] = _activ_body_c
-                _tmp_act_c = str(QA_DIR / f"_tmp_cancel_act_{_vno}.json")
-                _j.dump({"info": tr["col_ff"].get("info", {}), "item": [_act_req_c] if _act_req_c else []},
-                        open(_tmp_act_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-                _rp_act_c  = str(_cdir / f"{_tc}_act.html")
-                _js_act_c  = str(_cdir / f"{_tc}_act.json")
-                _cmd_act_c = list(_base); _cmd_act_c[2] = _tmp_act_c
-                _cmd_act_c += ["--reporter-json-export", _js_act_c,
-                               "--reporter-htmlextra-export", _rp_act_c,
-                               "--reporter-htmlextra-title", f"Reporte QA – {_tc} Activación · {tr['vno_lbl']}"]
-                _sc = 1
-                async for _k, _v in _iter_proc(_cmd_act_c, tr["cwd"], _env_cancel):
-                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
-                    elif _k == "D": _sc = _v
-                _hc, _hs, _rb = _read_rsp(_js_act_c)
-                await _out_q_cancel.put(("L", _tc, f"── Response Activación: HTTP {_hc} {_hs} — {_rb[:400]} ──"))
-                if _sc != 0:
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 4/5 Activación (Newman código {_sc})"))
-                    try:
-                        _rj_e = _j.loads(_rb); _rc_e = _rj_e.get("u_return_code","?"); _rd_e = _rj_e.get("u_return_code_desc","")
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · u_return_code={_rc_e!r}"))
-                        if _rd_e: await _out_q_cancel.put(("L", _tc, f"   {_rd_e}"))
-                    except Exception:
-                        await _out_q_cancel.put(("L", _tc, f"   HTTP {_hc} {_hs} · {_rb[:300]}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, _js_act_c))
-                    return
-                if _hc and _hc not in (200, 201, 202):
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("L", _tc, f"✗ {_tc} FALLÓ en Paso 4/5 Activación — HTTP {_hc} {_hs}"))
-                    await _out_q_cancel.put(("L", _tc, "â”"*50))
-                    await _out_q_cancel.put(("D", tr, 1, _js_act_c))
-                    return
-
-                # ── Paso 5/5: Cancelación ─────────────────────────────────────────
-                await _out_q_cancel.put(("L", _tc, "── Paso 5/5 Cancelación ──"))
-                _cancel_body_c = _j.dumps({"u_id_vno": _vno, "u_access_id_vno": _aid,
-                                            "u_service_type": tr["svc_type"]},
-                                           indent=4, ensure_ascii=False)
-                _cancel_req_c = _find_req_in_col(_cp.deepcopy(tr["col_cancel"]), tr["cancel_req_nm"])
-                if _cancel_req_c:
-                    _b = _cancel_req_c.get("request", {}).get("body", {})
-                    if _b.get("mode") == "raw": _b["raw"] = _cancel_body_c
-                _tmp_cancel_c = str(QA_DIR / f"_tmp_cancel_cancel_{_vno}.json")
-                _j.dump({"info": tr["col_cancel"].get("info", {}), "item": [_cancel_req_c] if _cancel_req_c else []},
-                        open(_tmp_cancel_c, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-                _rp_cancel_c = str(_cdir / f"{_tc}.html")
-                _js_cancel_c = str(_cdir / f"{_tc}.json")
-                _cmd_cancel_c = list(_base); _cmd_cancel_c[2] = _tmp_cancel_c
-                _cmd_cancel_c += ["--reporter-json-export", _js_cancel_c,
-                                  "--reporter-htmlextra-export", _rp_cancel_c,
-                                  "--reporter-htmlextra-title", f"Reporte QA – {_tc} Cancelación · {tr['vno_lbl']}"]
-                _sc = 1
-                async for _k, _v in _iter_proc(_cmd_cancel_c, tr["cwd"], _env_cancel):
-                    if _k == "L": await _out_q_cancel.put(("L", _tc, _v))
-                    elif _k == "D": _sc = _v
-                _hc, _hs, _rb = _read_rsp(_js_cancel_c)
-                await _out_q_cancel.put(("L", _tc, f"── Response Cancelación: HTTP {_hc} {_hs} — {_rb[:600]} ──"))
-                if _hc and _hc not in (200, 201, 202): _sc = 1
-                await _out_q_cancel.put(("D", tr, _sc, _js_cancel_c))
-              except Exception as _exc_run:
-                _tc_safe = tr.get("tc", "?")
-                await _out_q_cancel.put(("L", _tc_safe, f"✗ Error inesperado en TC: {_exc_run}"))
-                await _out_q_cancel.put(("D", tr, 1, None))
+                            _rj = json.loads(_rb)
+                            _rc = (_rj.get("result") or {}).get("u_return_code","")
+                            _rd = (_rj.get("result") or {}).get("u_return_code_desc","")
+                            if _rc: await _out_q.put(("L", _tc, f"── Codigo {_rc} · {_rd} ──"))
+                        except Exception: pass
+                    _sym = "✓" if _sc == 0 else "✗"
+                    await _out_q.put(("L", _tc, f"{_sym} {tr['label']} — codigo {_sc}"))
+                    await _out_q.put(("D", tr, _sc, _rsps))
+                except Exception as _ex:
+                    await _out_q.put(("L", tr["tc"], f"✗ Excepcion: {_ex}"))
+                    await _out_q.put(("D", tr, 1, None))
 
             async def _hb_cancel():
                 while True:
-                    await asyncio.sleep(15)
-                    await _out_q_cancel.put(("K", "", "…"))
-            _hbt_cancel = asyncio.create_task(_hb_cancel())
-            [asyncio.create_task(_run_cancel(tr)) for tr in _cancel_runs]
-            _remaining_cancel = len(_cancel_runs)
-            while _remaining_cancel > 0:
-                _item = await _out_q_cancel.get()
+                    await asyncio.sleep(8)
+                    await _out_q.put(("K", None, None))
+
+            _hbt = asyncio.create_task(_hb_cancel())
+            [asyncio.create_task(_run_one_cancel(tr)) for tr in _cancel_runs]
+            _remaining = len(_cancel_runs)
+            while _remaining > 0:
+                _item = await _out_q.get()
                 if _item[0] == "K":
                     yield f"data: {json.dumps({'e':'line','t':'…'})}\n\n"
                     continue
                 if _item[0] == "L":
                     yield f"data: {json.dumps({'e':'line','tc':_item[1],'t':_item[2]})}\n\n"
                 elif _item[0] == "D":
-                    _remaining_cancel -= 1
-                    _tr2, _code, _last_json = _item[1], _item[2], _item[3]
-                    _has_rp = bool(Path(_tr2["rp_out"]).exists())
-                    _sym = "✓" if _code == 0 else "✗"
-                    _results_cancel.append({"tc": _tr2["tc"], "vno": _tr2.get("vno",""),
-                                            "vno_lbl": _tr2["vno_lbl"],
-                                            "sid": _tr2["sid"], "code": _code, "has_rp": _has_rp,
-                                            "access_id": _cancel_aids.get(_tr2["tc"], ""),
-                                            "tc_label": _tr2.get("tc_label", "")})
-                    _tc_msg_c = f"{_sym} {_tr2['label']} — código {_code}"
-                    yield f"data: {json.dumps({'e':'line','tc':_tr2['tc'],'t':_tc_msg_c})}\n\n"
+                    _remaining -= 1
+                    _tr2, _code, _rsps2 = _item[1], _item[2], _item[3]
+                    _has_rp = Path(_tr2["rp_out"]).exists()
+                    _results.append({
+                        "tc":_tr2["tc"],"vno":_tr2["vno"],"vno_lbl":_tr2["vno_lbl"],
+                        "sid":_tr2["sid"],"code":_code,"access_id":_tr2["access_id"],
+                    })
+                    if _rsps2:
+                        _tc_rsp_map[_tr2["tc"]] = _rsps2
+                        yield f"data: {json.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps2})}\n\n"
                     yield f"data: {json.dumps({'e':'tc_done','tc':_tr2['tc'],'code':_code,'has_report':_has_rp,'sid':_tr2['sid']})}\n\n"
-                    if _last_json:
-                        try:
-                            _jp = Path(_last_json)
-                            if _jp.exists():
-                                _jdata = _j.loads(_jp.read_text(encoding="utf-8"))
-                                _rsps = []
-                                for _ex in _jdata.get("run", {}).get("executions", []):
-                                    _resp  = _ex.get("response") or {}
-                                    _stream = _resp.get("stream") or {}
-                                    if isinstance(_stream, dict) and _stream.get("type") == "Buffer":
-                                        try: _rbody = bytes(_stream["data"]).decode("utf-8", errors="replace")
-                                        except Exception: _rbody = ""
-                                    else:
-                                        _rbody = _resp.get("body", "") or ""
-                                    _req2  = _ex.get("request") or {}
-                                    _url2  = _req2.get("url") or {}
-                                    _url_r = _url2.get("raw", "") if isinstance(_url2, dict) else str(_url2)
-                                    _rsps.append({
-                                        "name":    _ex.get("item", {}).get("name", ""),
-                                        "method":  _req2.get("method", "POST"),
-                                        "url":     _url_r[:200],
-                                        "code":    _resp.get("code", 0),
-                                        "status":  _resp.get("status", ""),
-                                        "time_ms": _resp.get("responseTime", 0),
-                                        "body":    _rbody[:6144],
-                                    })
-                                if _rsps:
-                                    yield f"data: {_j.dumps({'e':'tc_response','tc':_tr2['tc'],'responses':_rsps})}\n\n"
-                                    _tc_rsp_map_cancel[_tr2["tc"]] = _rsps
-                        except Exception:
-                            pass
-            _hbt_cancel.cancel()
-            yield f"data: {json.dumps({'e':'line','t':'â”'*55})}\n\n"
-            _n_ok_c   = sum(1 for r in _results_cancel if r["code"] == 0)
-            _n_fail_c = len(_results_cancel) - _n_ok_c
-            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok_c}/{len(_results_cancel)} TCs OK'})}\n\n"
-            _dirs_cancel = list({r.get("access_id") for r in _results_cancel if r.get("access_id")})
-            _vnos_cancel = sorted({r.get("vno","") for r in _results_cancel if r.get("vno")})
-            _tc_results_cancel = [{"tc":r["tc"],"vno":r.get("vno",""),"vno_lbl":r.get("vno_lbl",""),
-                                    "code":r["code"],"direccion":r.get("access_id",""),
-                                    "escenario":r.get("tc_label",""),
-                                    "responses":_tc_rsp_map_cancel.get(r["tc"],[])}
-                                   for r in _results_cancel]
-            _has_idx_c = False
-            try:
-                _rows_c = ""
-                for _r in sorted(_results_cancel, key=lambda x: x["tc"]):
-                    _color = "#3DD68C" if _r["code"] == 0 else "#FF6B6B"
-                    _st    = "✓ OK" if _r["code"] == 0 else "✗ FAIL"
-                    _lnk   = (f'<a href="/api/report/{_r["sid"]}" target="_blank" style="color:#00C8D4">Ver reporte</a>'
-                              if _r["has_rp"] else "—")
-                    _rows_c += (f'<tr><td>{_r["tc"]}</td><td>{_r["vno_lbl"]}</td>'
-                                f'<td style="color:{_color};font-weight:700">{_st}</td><td>{_lnk}</td></tr>')
-                _idx_c = (
-                    '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-                    '<title>QA Cancelación</title>'
-                    '<style>body{font-family:Arial,sans-serif;background:#0D1B3E;color:#DCE2F6;padding:32px}'
-                    'h1{color:#00C8FF;margin-bottom:8px}p{color:#6272A4;margin-bottom:20px}'
-                    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #262558;padding:9px 14px;text-align:left}'
-                    'th{background:#1A1A3E;color:#6272A4;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}'
-                    '</style></head><body>'
-                    '<h1>QA Cancelación</h1>'
-                    f'<p>{_n_ok_c}/{len(_results_cancel)} TCs OK</p>'
-                    '<table><tr><th>TC</th><th>VNO</th><th>Estado</th><th>Reporte</th></tr>'
-                    f'{_rows_c}</table></body></html>'
-                )
-                (_cancel_dir / "index.html").write_text(_idx_c, encoding="utf-8")
-                _has_idx_c = (_cancel_dir / "index.html").exists()
-            except Exception:
-                pass
-            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail_c==0 else 1,'passed':_n_ok_c,'failed':_n_fail_c,'requests':len(_results_cancel),'has_report':_has_idx_c,'report_id':suite_id,'direcciones':_dirs_cancel,'vnos':_vnos_cancel,'tc_results':_tc_results_cancel})}\n\n"
+            _hbt.cancel()
+            _n_ok   = sum(1 for r in _results if r["code"] == 0)
+            _n_fail = len(_results) - _n_ok
+            yield f"data: {json.dumps({'e':'line','t':'─'*55})}\n\n"
+            yield f"data: {json.dumps({'e':'line','t':f'Resultado: {_n_ok}/{len(_results)} TCs OK'})}\n\n"
+            _dirs = list({r.get("access_id","") for r in _results if r.get("access_id")})
+            _vnos = sorted({r.get("vno","") for r in _results if r.get("vno")})
+            _tc_results = [{"tc":r["tc"],"vno":r["vno"],"vno_lbl":r["vno_lbl"],
+                            "code":r["code"],"direccion":r.get("access_id",""),
+                            "escenario":"Cancelacion OOSS",
+                            "responses":_tc_rsp_map.get(r["tc"],[])} for r in _results]
+            yield f"data: {json.dumps({'e':'done','code':0 if _n_fail==0 else 1,'passed':_n_ok,'failed':_n_fail,'requests':len(_results),'has_report':False,'report_id':suite_id,'direcciones':_dirs,'vnos':_vnos,'tc_results':_tc_results})}\n\n"
 
         return StreamingResponse(sse_cancel(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache, no-transform",
@@ -10176,8 +9868,11 @@ function renderCancelFormBar(){
     var on=_cancelSel[m.tc]?'on':'';
     return '<span class="atrf-vno-lbl '+on+'" data-tc="'+m.tc+'" onclick="_cancelToggleVno(this)" style="'+(on?'border-color:'+m.color+';color:'+m.color:'')+'">'+esc(m.vno_code+' · '+m.label.split(' · ')[1])+'</span>';
   }).join('');
-  var speedOpts=_QA_SPEED_PLANS_CANCEL.map(function(p){
-    return '<option value="'+p+'"'+(p==='100/10'?' selected':'')+'>'+p+'</option>';
+  var aidRows=_CANCEL_META.map(function(m){
+    return '<div class="atrf-field atrf-col-6">'
+      +'<label style="color:'+m.color+';font-weight:600">'+esc(m.label)+' — Access ID</label>'
+      +'<input type="text" id="cancel-aid-'+m.vno_code+'" placeholder="'+m.vno_code+'-QAREGXXXAO-10" style="font-family:var(--atrf-mono);letter-spacing:.04em"/>'
+      +'</div>';
   }).join('');
   bar.innerHTML='<div class="atrf-grid" style="max-width:920px">'
     +'<div class="atrf-field atrf-col-12">'
@@ -10198,31 +9893,13 @@ function renderCancelFormBar(){
       +'<label>VNO <span class="req">★</span></label>'
       +'<div class="atrf-vno-checks">'+vnoBtns+'</div>'
     +'</div>'
-    +'<div class="atrf-field atrf-col-7">'
-      +'<label>Dirección ID</label>'
-      +'<input type="text" id="cancel-addr-inp" placeholder="DIR02803636"/>'
-    +'</div>'
-    +'<hr class="atrf-divider"/>'
-    +'<div class="atrf-group-lbl">Servicio a cancelar</div>'
     +'<div class="atrf-field atrf-col-3">'
       +'<label>Tipo Servicio <span class="req">★</span></label>'
       +'<select id="cancel-stype-sel"><option value="FTTH">FTTH</option><option value="SSAA">SSAA</option></select>'
     +'</div>'
-    +'<div class="atrf-field atrf-col-3">'
-      +'<label>Speed Plan</label>'
-      +'<select id="cancel-speed-sel">'+speedOpts+'</select>'
-    +'</div>'
-    +'<div class="atrf-field atrf-col-3">'
-      +'<label>Serial (últ. 4)</label>'
-      +'<input type="text" id="cancel-serial-inp" maxlength="4" placeholder="0000" style="font-family:var(--atrf-mono);letter-spacing:.06em"/>'
-    +'</div>'
     +'<hr class="atrf-divider"/>'
-    +'<div class="atrf-field atrf-col-6" style="flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap">'
-      +'<label style="white-space:nowrap">Servicios</label>'
-      +'<label class="atrf-chk"><input type="checkbox" id="cancel-svc-ba" checked/> BA</label>'
-      +'<label class="atrf-chk"><input type="checkbox" id="cancel-svc-voip"/> VoIP</label>'
-      +'<label class="atrf-chk"><input type="checkbox" id="cancel-svc-iptv"/> IPTV</label>'
-    +'</div>'
+    +'<div class="atrf-group-lbl">Access ID por VNO <span style="font-weight:400;font-size:.74rem;color:var(--txt2)">(u_access_id_vno del servicio a cancelar)</span></div>'
+    +aidRows
     +'</div>';
   _cancelOnAmbChange();
 }
@@ -10333,23 +10010,15 @@ function _doRunCancel(s){
   });
   if(currentEs){currentEs.close();currentEs=null;}
   var _selTcs=_CANCEL_META.filter(function(m){return _cancelSel[m.tc];}).map(function(m){return m.tc;}).join(',');
-  var _speed=(document.getElementById('cancel-speed-sel')||{}).value||'100/10';
   var _stype=(document.getElementById('cancel-stype-sel')||{}).value||'FTTH';
-  var _sba=!!(document.getElementById('cancel-svc-ba')||{}).checked;
-  var _svoip=!!(document.getElementById('cancel-svc-voip')||{}).checked;
-  var _siptv=!!(document.getElementById('cancel-svc-iptv')||{}).checked;
-  var _serial=(document.getElementById('cancel-serial-inp')||{}).value||'0000';
-  var _addrCancel=(document.getElementById('cancel-addr-inp')||{}).value||'DIR02803636';
   var _envCancel=(document.querySelector('input[name="cancel-amb"]:checked')||{}).value||_gfEnv||'QA';
   var _params='tcs='+encodeURIComponent(_selTcs)
-    +'&speed_plan='+encodeURIComponent(_speed)
     +'&service_type='+encodeURIComponent(_stype)
-    +'&svc_ba='+(_sba?'true':'false')
-    +'&svc_voip='+(_svoip?'true':'false')
-    +'&svc_iptv='+(_siptv?'true':'false')
-    +'&serial_suffix='+encodeURIComponent(_serial)
-    +'&addr_id='+encodeURIComponent(_addrCancel)
     +'&gf_env='+encodeURIComponent(_envCancel);
+  _CANCEL_META.forEach(function(m){
+    var aid=(document.getElementById('cancel-aid-'+m.vno_code)||{}).value||'';
+    _params+='&aid_'+m.vno_code+'='+encodeURIComponent(aid);
+  });
   var es=new EventSource('/api/run/qa-cancel-suite?'+_params);
   currentEs=es;
   es.onmessage=function(ev){
