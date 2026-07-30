@@ -4820,6 +4820,7 @@ async def atrf_run_step(request: Request):
     speed_plan      = body.get("speedPlan", "600/600")
     new_speed_plan  = body.get("newSpeedPlan", "")
     amb_url         = body.get("ambUrl", "")
+    scenario    = body.get("scenario", "Instalación")
     service_ba  = body.get("serviceBa", True)
     service_voip= body.get("serviceVoip", True)
     service_iptv= body.get("serviceIptv", True)
@@ -5072,10 +5073,10 @@ async def atrf_run_step(request: Request):
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         if func_name == "Inicio Intervención Asegurada":
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
-                             "u_scenario": "Instalación", "u_service_type": svc_type}
+                             "u_scenario": scenario, "u_service_type": svc_type}
         elif func_name == "Finalización Intervención Asegurada":
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
-                             "u_scenario": "Instalación", "u_service_type": svc_type}
+                             "u_scenario": scenario, "u_service_type": svc_type}
         else:  # Cancelación
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
                              "u_service_type": svc_type}
@@ -12762,6 +12763,7 @@ async function _atrf_runSelected(){
             addressMcd:q.cfg.tdir||'',
             serviceType:q.cfg.tsvc||'FTTH',
             accessId:q.cfg.accessId||'',
+            scenario:q.cfg.esc||'Instalación',
             serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',
             speedPlan:q.cfg.plan||'',
