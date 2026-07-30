@@ -12238,7 +12238,8 @@ var _ATRF_TC_MAP={
   "RetrieveAccess ONT":                  {"03":"CP42","02":"CP42","05":"CP42","00":"CP42"},
   "Cancelación Intervención Asegurada":  {"03":"CP67","02":"CP68","05":"CP69","00":"CP69"},
   "Baja Total de Servicio":              {"03":"CP64","02":"CP65","05":"CP66","00":"CP66"},
-  "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"}
+  "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"},
+  "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
