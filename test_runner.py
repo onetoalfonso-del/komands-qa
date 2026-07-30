@@ -12747,6 +12747,7 @@ async function _atrf_runSelected(){
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
     q.tcResults=[];
     var vno=q.cfg&&q.cfg.vno||'';
+    var _currentAccessId=q.cfg.accessId||'';
     for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
       var fi=q.funcs[fi_idx];
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
@@ -12762,7 +12763,7 @@ async function _atrf_runSelected(){
             direccion:q.cfg.direccion||'',
             addressMcd:q.cfg.tdir||'',
             serviceType:q.cfg.tsvc||'FTTH',
-            accessId:q.cfg.accessId||'',
+            accessId:_currentAccessId||'',
             scenario:q.cfg.esc||'Instalación',
             serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',
@@ -12813,6 +12814,14 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
+      // Encadenar access_id desde Asignacion hacia pasos siguientes
+      if(fn==='Asignación'&&pass&&res_s){
+        try{
+          var _asigRj=JSON.parse(res_s);
+          var _newAid=((_asigRj.result||_asigRj).u_access_id_vno)||'';
+          if(_newAid){_currentAccessId=_newAid;}
+        }catch(e){}
+      }
       // Aplicar delay post-paso si está configurado
       var _dk=_ATRF_DELAY_MAP[fn];
       if(_dk&&_delays[_dk]>0){
