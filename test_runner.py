@@ -8208,6 +8208,7 @@ function switchView(mode){
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
   if(_gfp) _gfp.style.display='none';
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='';});
 }
 
 function renderGlobalForm(){
@@ -11441,6 +11442,7 @@ function _suiteName(id,lbl){
 function showHistorial(){
   _dashStopRefresh();
   switchView('historial');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var _sb2=document.getElementById('settings-btn'); if(_sb2) _sb2.classList.remove('active');
   document.getElementById('hist-btn').classList.add('active');
   setTop('','Historial de Pruebas','');
@@ -11456,6 +11458,7 @@ function showHistorialFiltered(q){
 function showSettings(){
   _dashStopRefresh();
   switchView('settings');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   var hb=document.getElementById('hist-btn'); if(hb) hb.classList.remove('active');
   var sb=document.getElementById('settings-btn'); if(sb) sb.classList.add('active');
   setTop('','Settings','Ambientes y configuraci\xf3n del runner');
@@ -11465,9 +11468,10 @@ var _dashRefreshTimer=null;
 function _dashStopRefresh(){if(_dashRefreshTimer){clearInterval(_dashRefreshTimer);_dashRefreshTimer=null;}}
 function showDashboard(){
   switchView('dashboard');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   ['hist-btn','settings-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
   var db=document.getElementById('dashboard-btn');if(db)db.classList.add('active');
-  setTop('','Dashboard','Resumen de ejecuciones y calidad');
+  setTop('','Dashboard','');
   loadDashboard();
   _dashStopRefresh();
   _dashRefreshTimer=setInterval(loadDashboard,60000);
