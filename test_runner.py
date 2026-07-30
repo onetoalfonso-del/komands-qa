@@ -7172,7 +7172,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div style="font-size:.88rem;font-weight:900;letter-spacing:.24em;text-transform:uppercase;margin-bottom:8px;font-family:var(--sans)">
         <span style="color:var(--acc)">QA</span><span style="color:var(--acc);opacity:.7">&nbsp;AUTOMATION</span>
       </div>
-      <img id="auth-logo-img" src="" alt="OnnetFibra" style="height:32px;max-width:200px;object-fit:contain;display:block;margin:0 auto">
+      <img id="auth-logo-img" src="" alt="OnnetFibra" style="height:32px;max-width:200px;object-fit:contain;display:block;margin:3px auto 0">
     </div>
     <!-- LOGIN pane -->
     <div id="auth-login" style="display:none">
