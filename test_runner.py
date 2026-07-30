@@ -1070,9 +1070,9 @@ CREATE TABLE IF NOT EXISTS qa_return_codes (
     description TEXT NOT NULL,
     breaking_pt TEXT DEFAULT '',
     sort_order  INTEGER DEFAULT 0,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT qa_rc_uniq UNIQUE (flow,code,cls,description)
 );
-ALTER TABLE qa_return_codes ADD CONSTRAINT IF NOT EXISTS qa_rc_uniq UNIQUE (flow,code,cls,description);
 INSERT INTO qa_return_codes (flow,code,cls,description,breaking_pt,sort_order) VALUES
 -- FACTIBILIDAD
 ('Factibilidad','9','Funcional','La direcci\xf3n solicitada no existe en el inventario.','',1),
