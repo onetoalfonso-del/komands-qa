@@ -32,6 +32,12 @@ QA_VNO_ENV_MAP = {
     "03": "03-B1_vnoid03 QA.postman_environment.json",
     "05": "05 QA_DTV.postman_environment.json",
 }
+PPRD_VNO_ENV_MAP = {
+    "00": "VnoB1_vnoid00 PRE.postman_environment.json",
+    "02": "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json",
+    "03": "VnoB1_vnoid03 PRE.postman_environment.json",
+    "05": "VnoB1_vnoid05 PRE.postman_environment.json",
+}
 QA_FACTIBILIDAD_FOLDER_MAP = {
     "00": "feasibility-TCH DIR",
     "02": "feasibility-KAO",
@@ -881,6 +887,13 @@ async def atrf_run_step(request: Request):
     speed_plan      = body.get("speedPlan", "600/600")
     new_speed_plan  = body.get("newSpeedPlan", "")
     amb_url         = body.get("ambUrl", "")
+    _use_pprd = bool(amb_url)
+    if _use_pprd:
+        _generate_env_files()
+    def _resolve_env(v):
+        if _use_pprd:
+            return str(BP_DIR / PPRD_VNO_ENV_MAP.get(v, PPRD_VNO_ENV_MAP["02"]))
+        return str(QA_DIR / QA_VNO_ENV_MAP.get(v, QA_VNO_ENV_MAP["02"]))
     scenario    = body.get("scenario", "Instalación")
     service_ba  = body.get("serviceBa", True)
     service_voip= body.get("serviceVoip", True)
@@ -888,12 +901,12 @@ async def atrf_run_step(request: Request):
 
     # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
-        env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file    = _resolve_env(vno)
         folder_name = QA_FACTIBILIDAD_FOLDER_MAP.get(vno, "feasibility-KAO")
         if vno == "03" and svc_type == "SSAA":
             folder_name = "feasibility-Entel SSAA"
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
@@ -980,10 +993,10 @@ async def atrf_run_step(request: Request):
 
     # ── Asignación ────────────────────────────────────────────────────────────
     if func_name == "Asignación":
-        env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file    = _resolve_env(vno)
         folder_name = QA_ASSIGNMENT_FOLDER_MAP.get(vno, "assigment- KAO")
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1044,10 +1057,10 @@ async def atrf_run_step(request: Request):
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
-        env_file   = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file   = _resolve_env(vno)
         cancel_req = QA_CANCEL_REQUEST_MAP.get(vno, "cancel service order KAO")
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1109,9 +1122,9 @@ async def atrf_run_step(request: Request):
         "Cancelación Intervención Asegurada":  "/fullFillment-cancelIntervention/v1/interventionCancellation",
     }
     if func_name in _IA_ENDPOINTS:
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1172,9 +1185,9 @@ async def atrf_run_step(request: Request):
 
     # ── Activación ────────────────────────────────────────────────────────────
     if func_name == "Activación":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1236,9 +1249,9 @@ async def atrf_run_step(request: Request):
 
     # ── Modificación de Acceso ────────────────────────────────────────────────
     if func_name == "Modificación de Acceso":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1299,9 +1312,9 @@ async def atrf_run_step(request: Request):
 
     # ── Reinicio ONT ──────────────────────────────────────────────────────────
     if func_name == "Reinicio ONT":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1359,9 +1372,9 @@ async def atrf_run_step(request: Request):
 
     # ── Diagnóstico de Acceso ─────────────────────────────────────────────────
     if func_name == "Diagnóstico de Acceso":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1414,9 +1427,9 @@ async def atrf_run_step(request: Request):
 
     # ── Consulta Estado Vecino (POST) ─────────────────────────────────────────
     if func_name == "Consulta Estado Vecino (POST)":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1471,9 +1484,9 @@ async def atrf_run_step(request: Request):
 
     # ── Consulta Estado Vecino (GET) ──────────────────────────────────────────
     if func_name == "Consulta Estado Vecino (GET)":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1523,9 +1536,9 @@ async def atrf_run_step(request: Request):
 
     # ── GET Consulta de Acceso ────────────────────────────────────────────────
     if func_name == "GET Consulta de Acceso":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1575,9 +1588,9 @@ async def atrf_run_step(request: Request):
 
     # ── Baja Total de Servicio ────────────────────────────────────────────────
     if func_name == "Baja Total de Servicio":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1634,9 +1647,9 @@ async def atrf_run_step(request: Request):
 
     # ── Modificación de Dispositivo ───────────────────────────────────────────
     if func_name == "Modificación de Dispositivo":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -1693,9 +1706,9 @@ async def atrf_run_step(request: Request):
 
     # ── Retrieve Access ───────────────────────────────────────────────────────
     if func_name == "RetrieveAccess":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        env_file = _resolve_env(vno)
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
