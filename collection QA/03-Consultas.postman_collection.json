@@ -1,0 +1,715 @@
+{
+  "info": {
+    "_postman_id": "c6aee673-0a5c-4c41-873a-9b6860b8b6fc",
+    "name": "03-Consultas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "56013580",
+    "_collection_link": "https://go.postman.co/collection/56013580-c6aee673-0a5c-4c41-873a-9b6860b8b6fc?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "ConsultaDataONT",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "u_vno_Id",
+            "value": "03",
+            "type": "default"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"u_access_id\": \"03-UAT3021446\",\r\n    \"u_operation_id\": \"string\",\r\n    \"u_user_id\": \"string\",\r\n    \"u_area\": \"string\",\r\n    \"u_msg_id\": \"string\",\r\n    \"u_msg_date\": \"string\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/retrieveDataONT/v1/ONTRetrieve",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "retrieveDataONT",
+            "v1",
+            "ONTRetrieve"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "RetrieveAccess ( TCH)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"resultado esperado\", function () {\r",
+              "     pm.expect(pm.response.responseTime).to.be.below(200);\r",
+              "});\r",
+              " \r",
+              "pm.test(\"resultado esperado\", function () {\r",
+              "     pm.response.to.be.below(200);\r",
+              "});\r",
+              " \r",
+              "pm.test(\"resultado esperado\", ()=> {\r",
+              "     pm.response.to.be.status(200);\r",
+              "});\r",
+              " \r",
+              "pm.test(\"analizar json\", function () {\r",
+              "     pm.expect(pm.response.json()).to.be.an('object');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_return_code');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_id_vno');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_access_id_vno');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_flag_scope');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_return_code');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_access_status');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_olt_ip');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_model');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_gestion_service_status');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_osp_RFS_LAST_MILE');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_osp_completeInformations');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_osp_supplementaryInformation');\r",
+              "});\r",
+              " \r",
+              "console.log(pm.response.headers.get('date'));\r",
+              " \r",
+              "pm.response.json();"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_id_vno\": \"02\",\r\n  \"u_access_id_vno\": \"02-1-P0FGUDQ\",\r\n  \"u_flag_scope\": \"0\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/provisioning/v1/retrieve-access",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "provisioning",
+            "v1",
+            "retrieve-access"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "RetrieveAccess ( TCH) MASIVO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"resultado esperado\", function () {\r",
+              "     pm.expect(pm.response.responseTime).to.be.below(200);\r",
+              "});\r",
+              " \r",
+              "pm.test(\"resultado esperado\", function () {\r",
+              "     pm.response.to.be.below(200);\r",
+              "});\r",
+              " \r",
+              "pm.test(\"resultado esperado\", ()=> {\r",
+              "     pm.response.to.be.status(200);\r",
+              "});\r",
+              " \r",
+              "pm.test(\"analizar json\", function () {\r",
+              "     pm.expect(pm.response.json()).to.be.an('object');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_return_code');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_id_vno');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_access_id_vno');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_flag_scope');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_return_code');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_access_status');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_olt_ip');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_model');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_isp_gestion_service_status');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_osp_RFS_LAST_MILE');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_osp_completeInformations');\r",
+              "     pm.expect(pm.response.json()).to.have.property('u_osp_supplementaryInformation');\r",
+              "});\r",
+              " \r",
+              "console.log(pm.response.headers.get('date'));\r",
+              " \r",
+              "pm.response.json();"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_id_vno\": \"00\",\r\n  \"u_access_id_vno\": \"{{DIR}}\",\r\n  \"u_flag_scope\": \"2\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/provisioning/v1/retrieve-access",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "provisioning",
+            "v1",
+            "retrieve-access"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ConsultaAcceso",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "u_vno_id",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-consultaAcceso/v1/001130062264",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-consultaAcceso",
+            "v1",
+            "001130062264"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "DiagnosticoAcceso",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "u_vno_id",
+            "value": "{{Token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_access_id_vno\": \"03-REGRE-1607-SM2\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/diagnosticoAcceso/v1/AccesStatus",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "diagnosticoAcceso",
+            "v1",
+            "AccesStatus"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "AccessStateResponse",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "vnoId",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_node\": \"PITA_OLT_4\",\r\n  \"u_element\": \"0/1/0/1\",\r\n  \"u_access_status\": \"access status\",\r\n  \"u_access_status_msg\": \"Status access msg\",\r\n  \"u_current_rx\": \"-20 dBm\",\r\n  \"u_historical_rx\": \"-20 dBm\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/diagnosticoAcceso/v1/AccessStateResponse",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "diagnosticoAcceso",
+            "v1",
+            "AccessStateResponse"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "CEVEstadoVecino",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "u_vno_Id",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": []
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-CEVEstadoVecino/v1/estado_vecino_api/03-QAAPOQ_OLT_10-01",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-CEVEstadoVecino",
+            "v1",
+            "estado_vecino_api",
+            "03-QAAPOQ_OLT_10-01"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "EstadoVecino V",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "vnoId",
+            "value": "05",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_access_id_vno\": \"05-PRUEBAMIA1\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/estadoVecino/v1/QueryNeighborsState",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "estadoVecino",
+            "v1",
+            "QueryNeighborsState"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "QueryNeighborsStateResponse",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "vnoId",
+            "value": "{{idvno}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_node\": \"PITA_OLT_5\",\r\n  \"u_element\": \"0/5/2/63\",\r\n  \"u_access_status\": \"OK\",\r\n  \"u_access_status_msg\": \"Access OK\",\r\n  \"u_current_rx\": \"-19.83 dBm\",\r\n  \"u_historical_rx\": \"-25 dBm\",\r\n  \"u_current_tx\": \"2.18 dBm\",\r\n  \"u_historical_tx\": \"-25 dBm\",\r\n  \"u_laser_temp\": \"42 Cdeg\",\r\n  \"u_laser_voltage\": \"3280 mV\",\r\n  \"u_current_bip8\": \" packets\",\r\n  \"u_historical_bip8\": \"0 packets\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/estadoVecino/v1/QueryNeighborsStateResponse",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "estadoVecino",
+            "v1",
+            "QueryNeighborsStateResponse"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "RetrieveAccess KAO",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"u_id_vno\": \"00\",\r\n  \"u_access_id_vno\": \"00DIR028036251613\",\r\n  \"u_flag_scope\": \"1\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/provisioning/v1/retrieve-access",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "provisioning",
+            "v1",
+            "retrieve-access"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Modification",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "vnoId",
+            "value": "05",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-21119441-1522-RV\",\r\n    \"u_operation_type\": \"M\",\r\n    \"u_speed_plan\": \"940/940\",\r\n    \"u_service_ba\": true,\r\n  // \"u_service_voip\": true,\r\n  //  \"u_service_iptv\": true,\r\n   // \"u_serial_number\": \"HWTC22850888\",\r\n    \"u_sl_id\": \"sl id value\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-modification",
+            "v1",
+            "registrationModification"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ReinicioONT",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "u_vno_id",
+            "value": "05",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n   \"u_access_id_vno\":\"02-1-OPGKCQI\",\r\n   \"u_id_vno\":\"02\",\r\n   \"u_reset_type\":\"1\",\r\n   \"u_port\":\"\"\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/reinicioONT/v1/ONTRestart",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "reinicioONT",
+            "v1",
+            "ONTRestart"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Fiber Change",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{Token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "default"
+          },
+          {
+            "key": "vnoId",
+            "value": "00",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-200104782QA333\",\r\n    \"u_scenario\": \"Instalacion\",\r\n    \"u_service_type\": \"FTTH\",\r\n    \"u_cto_type\": \"\",\r\n    \"u_cto_code\": \"7075\",\r\n    \"u_region_code\": 9,\r\n    \"u_site_code\": \"APOQ\",\r\n    \"u_cable_code\": \" CA20-F#123\",\r\n    \"u_lateral\": \"\",\r\n    \"u_function\": \"\",\r\n    \"u_logical_unit\": 38,\r\n    \"u_user_id\": \"\",\r\n    \"u_note\": \" Prueba - maniobra\",\r\n    \"u_fault_code\": 996,\r\n    \"u_logic_unit_status\": 2\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{apimURL}}/fullFillment-fiberChange/v1/fiberChange",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "fullFillment-fiberChange",
+            "v1",
+            "fiberChange"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
