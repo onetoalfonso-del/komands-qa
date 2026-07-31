@@ -2944,7 +2944,7 @@ function loadSuites(attempt){
     }
     try{ renderSB(); }
     catch(e){ document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">renderSB error: '+e.message+'</div>'; }
-    if(_embeddedMode){ selectSuite('qa-fulfillment'); }
+    if(_embeddedMode){ switchView('fulfillment'); _atrf_load(); _atrf_renderQueue(); }
   }).catch(function(err){
     var msg='Error API /suites (intento '+attempt+'): '+err.message;
     document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem;white-space:pre-wrap">'+msg+'</div>';
