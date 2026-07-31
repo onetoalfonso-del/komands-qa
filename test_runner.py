@@ -887,7 +887,8 @@ async def atrf_run_step(request: Request):
     speed_plan      = body.get("speedPlan", "600/600")
     new_speed_plan  = body.get("newSpeedPlan", "")
     amb_url         = body.get("ambUrl", "")
-    _use_pprd = bool(amb_url)
+    ambiente        = body.get("ambiente", "QA")
+    _use_pprd = bool(amb_url) or ambiente.upper() == "PPRD"
     if _use_pprd:
         _generate_env_files()
     def _resolve_env(v):
@@ -8073,6 +8074,7 @@ async function _atrf_runSelected(){
             speedPlan:q.cfg.plan||'',
             newSpeedPlan:q.cfg.nplan||'',
             ambUrl:q.cfg.ambUrl||'',
+            ambiente:q.cfg.ambiente||'QA',
             serviceBa:q.cfg.ba!==false,
             serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false})});
