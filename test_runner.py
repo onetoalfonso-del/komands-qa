@@ -32,6 +32,12 @@ QA_VNO_ENV_MAP = {
     "03": "03-B1_vnoid03 QA.postman_environment.json",
     "05": "05 QA_DTV.postman_environment.json",
 }
+PRE_VNO_ENV_MAP = {
+    "00": "VnoB1_vnoid00 PRE.postman_environment.json",
+    "02": "VnoB1_vnoid02 PRE ClaroVTR.postman_environment.json",
+    "03": "VnoB1_vnoid03 PRE.postman_environment.json",
+    "05": "VnoB1_vnoid05 PRE.postman_environment.json",
+}
 QA_FACTIBILIDAD_FOLDER_MAP = {
     "00": "feasibility-TCH DIR",
     "02": "feasibility-KAO",
@@ -4827,19 +4833,20 @@ async def atrf_run_step(request: Request):
 
     # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
-        env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
-        folder_name = QA_FACTIBILIDAD_FOLDER_MAP.get(vno, "feasibility-KAO")
-        if vno == "03" and svc_type == "SSAA":
-            folder_name = "feasibility-Entel SSAA"
+        use_pre  = "epreapi" in (amb_url or "")
+        env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
+                    else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
+        env_dir  = BP_DIR if use_pre else QA_DIR
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_dir / env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
-        auth_b64 = _b64.b64encode(
-            f"{ev.get('consumerKey','')}:{ev.get('consumerSecret','')}".encode()
-        ).decode()
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
             _body_b  = _up.urlencode({"grant_type": "client_credentials"}).encode()
@@ -4859,6 +4866,39 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        if use_pre:
+            _fact_url = f"{apim_url.rstrip('/')}/fullFillment-Factibilidad/v1/feasibilityUpselling"
+            _pass = False; _res_body = ""; _http_code = 0
+            try:
+                _api_req = _ur.Request(_fact_url,
+                    data=_j.dumps(req_body_dict).encode("utf-8"),
+                    headers={"Authorization": f"Bearer {token}",
+                             "Content-Type": "application/json",
+                             "vnoId": vno})
+                _ctx2 = _sl.create_default_context()
+                _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+                with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                    _res_body = _r.read().decode("utf-8", errors="replace")
+                    _http_code = _r.getcode()
+            except _ur.HTTPError as _he:
+                _http_code = _he.code
+                try: _res_body = _he.read().decode("utf-8", errors="replace")
+                except: _res_body = str(_he)
+            except Exception as _ae:
+                _res_body = f"Error HTTP directo: {_ae}"
+            try:
+                _rj = _j.loads(_res_body)
+                _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+                _pass = _http_code in (200, 201) and _rc == "0"
+            except Exception:
+                _pass = _http_code in (200, 201)
+            return JSONResponse({"pass": _pass, "req": req_body_str,
+                                 "res": _res_body, "vno": vno, "func": func_name,
+                                 "httpCode": _http_code})
+        # QA: usar Newman con colección QA
+        folder_name = QA_FACTIBILIDAD_FOLDER_MAP.get(vno, "feasibility-KAO")
+        if vno == "03" and svc_type == "SSAA":
+            folder_name = "feasibility-Entel SSAA"
         col_src = _j.load(open(QA_DIR / "01-FulFillment.postman_collection.json", encoding="utf-8"))
         col_tmp = _cp.deepcopy(col_src)
         for sec in col_tmp.get("item", []):
@@ -4919,10 +4959,13 @@ async def atrf_run_step(request: Request):
 
     # ── Asignación ────────────────────────────────────────────────────────────
     if func_name == "Asignación":
-        env_file    = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        use_pre  = "epreapi" in (amb_url or "")
+        env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
+                    else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
+        env_dir  = BP_DIR if use_pre else QA_DIR
         folder_name = QA_ASSIGNMENT_FOLDER_MAP.get(vno, "assigment- KAO")
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_dir / env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
@@ -4953,7 +4996,8 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _asgn_url = f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment"
+        _asgn_url = (f"{apim_url.rstrip('/')}/fullFillment-AsignationSSAA/v1/assignment" if use_pre
+                     else f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_asgn_url,
@@ -5111,9 +5155,12 @@ async def atrf_run_step(request: Request):
 
     # ── Activación ────────────────────────────────────────────────────────────
     if func_name == "Activación":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        use_pre  = "epreapi" in (amb_url or "")
+        env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
+                    else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
+        env_dir  = BP_DIR if use_pre else QA_DIR
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_dir / env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -5145,7 +5192,8 @@ async def atrf_run_step(request: Request):
             "u_serial_number": serial_num,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _activ_url = f"{apim_url.rstrip('/')}/fullFillment-activation/v1/registrationActivation"
+        _activ_url = (f"{apim_url.rstrip('/')}/fullFillment-ActivationSSAA/v1/registrationActivationSSAA" if use_pre
+                      else f"{apim_url.rstrip('/')}/fullFillment-activation/v1/registrationActivation")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_activ_url,
@@ -5175,9 +5223,12 @@ async def atrf_run_step(request: Request):
 
     # ── Modificación de Acceso ────────────────────────────────────────────────
     if func_name == "Modificación de Acceso":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        use_pre  = "epreapi" in (amb_url or "")
+        env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
+                    else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
+        env_dir  = BP_DIR if use_pre else QA_DIR
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_dir / env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -5208,7 +5259,8 @@ async def atrf_run_step(request: Request):
             "u_service_iptv": service_iptv,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _mod_url = f"{apim_url.rstrip('/')}/fullFillment-modification/v1/registrationModification"
+        _mod_url = (f"{apim_url.rstrip('/')}/fullFillment-ModificationSSAA/v1/registrationModificationSSAA" if use_pre
+                    else f"{apim_url.rstrip('/')}/fullFillment-modification/v1/registrationModification")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_mod_url,
@@ -5514,9 +5566,12 @@ async def atrf_run_step(request: Request):
 
     # ── Baja Total de Servicio ────────────────────────────────────────────────
     if func_name == "Baja Total de Servicio":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        use_pre  = "epreapi" in (amb_url or "")
+        env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
+                    else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
+        env_dir  = BP_DIR if use_pre else QA_DIR
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_dir / env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -5543,7 +5598,8 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _baja_url = f"{apim_url.rstrip('/')}/fullFillment-unsubcription/v1/accessDeregistration"
+        _baja_url = (f"{apim_url.rstrip('/')}/fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync" if use_pre
+                     else f"{apim_url.rstrip('/')}/fullFillment-unsubcription/v1/accessDeregistration")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_baja_url,
@@ -5632,9 +5688,12 @@ async def atrf_run_step(request: Request):
 
     # ── Retrieve Access ───────────────────────────────────────────────────────
     if func_name == "RetrieveAccess":
-        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        use_pre  = "epreapi" in (amb_url or "")
+        env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
+                    else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
+        env_dir  = BP_DIR if use_pre else QA_DIR
         try:
-            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+            env_data = _j.load(open(env_dir / env_file, encoding="utf-8"))
         except Exception as e:
             return JSONResponse({"pass": False, "error": f"env file: {e}"})
         ev = {v["key"]: v["value"] for v in env_data["values"]}
@@ -5661,7 +5720,8 @@ async def atrf_run_step(request: Request):
             "u_flag_scope": "2",
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _ra_url = f"{apim_url.rstrip('/')}/provisioning/v1/retrieve-access"
+        _ra_url = (f"{apim_url.rstrip('/')}/fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync" if use_pre
+                   else f"{apim_url.rstrip('/')}/provisioning/v1/retrieve-access")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_ra_url,
