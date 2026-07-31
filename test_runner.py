@@ -2901,6 +2901,8 @@ function initApp(){
   if(_embeddedMode){
     var _sbEl=document.querySelector('aside.sb');
     if(_sbEl) _sbEl.style.display='none';
+    var _tbEl=document.querySelector('.main .topbar');
+    if(_tbEl) _tbEl.style.display='none';
   }
   loadSuites();
 }
