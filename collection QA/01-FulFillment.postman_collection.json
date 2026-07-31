@@ -1,0 +1,5301 @@
+{
+  "info": {
+    "_postman_id": "146f3844-81a0-44b9-81d4-5ff0960f5f7a",
+    "name": "01-FulFillment",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "56013580",
+    "_collection_link": "https://go.postman.co/collection/56013580-146f3844-81a0-44b9-81d4-5ff0960f5f7a?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01-Factibilidad",
+      "item": [
+        {
+          "name": "MASIVAS",
+          "item": [
+            {
+              "name": "feasibility-MASIVA  DIR 05",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\r\n{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"{{DIR}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "presales-feasibility",
+                    "v1",
+                    "feasibility"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "feasibility-MASIVA  DIR 02",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\r\n{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"{{DIR}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "presales-feasibility",
+                    "v1",
+                    "feasibility"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "feasibility-MASIVA  DIR 03",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\r\n{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"{{DIR}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "presales-feasibility",
+                    "v1",
+                    "feasibility"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "feasibility-MASIVA  DIR 00",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\r\n{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"{{DIR}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "presales-feasibility",
+                    "v1",
+                    "feasibility"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "feasibility-MASIVA XYGO",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\r\n{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"{{DIR}}\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "presales-feasibility",
+                    "v1",
+                    "feasibility"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "feasibility-TCH Dpto",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"u_id_vno\":\"00\",\r\n   \"u_service_type\":\"FTTH\",\r\n   \"u_operation_type\":\"Direccion Exacta\",\r\n   \"u_address_city_code\":\"9\",  // codigo region\r\n   \"u_address_street_code\":\"014629\",\r\n   \"u_address_street_type\":\"Av.\",\r\n   \"u_address_street_name\":\"SEMINARIO\",\r\n   \"u_address_street_number\":\"17\",\r\n   \"u_characteristic_C1\":2,\r\n   \"u_type_C1\":\"PI\",\r\n   \"u_value_C1\":\"2\",     // solo se ocupa los value\r\n   \"u_characteristic_C2\":2,\r\n   \"u_type_C2\":\"DP\",\r\n   \"u_value_C2\":\"204\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-TCH Dpto XYGO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"3999625\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-TCH Dpto con Bloque",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"u_id_vno\":\"00\",\r\n   \"u_service_type\":\"FTTH\",\r\n   \"u_operation_type\":\"DIR00048517\",\r\n   \"u_address_city_code\":\"9\",\r\n   \"u_address_street_code\":\"016832\",\r\n   \"u_address_street_type\":\"Av.\",\r\n   \"u_address_street_name\":\"AVENIDA ELIAS FERNANDEZ ALBANO\",\r\n   \"u_address_street_number\":\"775\",\r\n   \"u_characteristic_C1\":2,\r\n   \"u_type_C1\":\"PI\",\r\n   \"u_value_C1\":\"16\",\r\n   \"u_characteristic_C2\":2,\r\n   \"u_type_C2\":\"DP\",\r\n   \"u_value_C2\":\"1607\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-TCH CASA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"u_id_vno\":\"00\",\r\n   \"u_service_type\":\"FTTH\",\r\n   \"u_operation_type\":\"Dirección Exacta\",\r\n   \"u_address_city_code\":\"3\",\r\n   \"u_address_street_code\":\"000765\",\r\n   \"u_address_street_type\":\"CL\",\r\n   \"u_address_street_name\":\"VENEZUELA\",\r\n   \"u_address_street_number\":\"2559\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-KAO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "\r\n{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"DIR02801957\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-TCH DIR",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "\r\n{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"DIR00048553\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-Entel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"104859\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-Entel SSAA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"3328653\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_service_type\": \"SSAA\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-Factibilidad/v1/feasibilityUpselling",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-Factibilidad",
+                "v1",
+                "feasibilityUpselling"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-Entel con DIR",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\", // VNO\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"DIR02796497\",  // DIRECCION ENTREGADA POR SERGIO\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "feasibility-DTV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "\r\n{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_operation_type\": \"Direccion Exacta\",\r\n    \"u_address_id\": \"DIR00047828\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/presales-feasibility/v1/feasibility",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "presales-feasibility",
+                "v1",
+                "feasibility"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": ""
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02-Assignment",
+      "item": [
+        {
+          "name": "ASIG. - MASIVA",
+          "item": [
+            {
+              "name": "assigment-MASIVA KAO",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_access_id_vno\":\"{{id}}\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de acceso\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true, \r\n    \"u_service_type\": \"FTTH\" \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignment",
+                    "v1",
+                    "assignment"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "assigment-MASIVA DTV",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_access_id_vno\":\"{{id}}\",\r\n    \"u_id_vno\": \"05\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de acceso\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n  //  \"u_service_voip\": true,\r\n  //  \"u_service_iptv\": true, \r\n    \"u_service_type\": \"FTTH\" \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignment",
+                    "v1",
+                    "assignment"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "assigment-MASIVA LASER",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_access_id_vno\":\"{{id}}\",\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de acceso\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true, \r\n    \"u_service_type\": \"FTTH\" \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignment",
+                    "v1",
+                    "assignment"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "assigment-MASIVA LASER DIR",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_access_id_vno\":\"{{id}}\",\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de acceso\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true, \r\n    \"u_service_type\": \"FTTH\" \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignment",
+                    "v1",
+                    "assignment"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Assigment  SSAA MASIVA DIR",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "02",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_service_type\": \"SSAA\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_access_id_vno\": \"{{id}}\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_perfil_ssaa\": \"GenericC.320K\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignmentAsyncSSAA",
+                    "v1",
+                    "assignmentAsyncSSAA"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Assigment  SSAA MASIVA XYGO",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "02",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_service_type\": \"SSAA\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_access_id_vno\": \"{{id}}\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_perfil_ssaa\": \"GenericC.320K\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignmentAsyncSSAA",
+                    "v1",
+                    "assignmentAsyncSSAA"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "assigment-TCH 1 Copy",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_access_id_vno\":\"{{id}}\",\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de acceso\",\r\n    \"u_speed_plan\": \"400/400\",\r\n    \"u_address_id\": \"{{direcciones}}\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n  //  \"u_service_voip\": true,\r\n  //  \"u_service_iptv\": true, \r\n    \"u_service_type\": \"FTTH\" \r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-assignment",
+                    "v1",
+                    "assignment"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "assigment-TCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\": \"00QASMTESDIR-55\",\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_speed_plan\": \"400/400\",\r\n    \"u_address_city_code\": \"9\",\r\n    \"u_address_street_code\": \"014629\",\r\n    \"u_address_street_name\": \"SEMINARIO\",\r\n    \"u_address_street_number\": \"21\",\r\n    \"u_characteristic_C1\": 2,\r\n    \"u_type_C1\": \"PI\",\r\n    \"u_value_C1\": \"4\",\r\n    \"u_characteristic_C2\": 2,\r\n    \"u_type_C2\": \"DP\",\r\n    \"u_value_C2\": \"401\",\r\n    \"u_service_type\": \"FTTH\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_service_voip\": true\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment-TCH CASA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\": \"00-SMQA3009-01\",\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_speed_plan\": \"400/400\",\r\n    \"u_address_city_code\": \"9\",\r\n    \"u_address_street_code\": \"014516\",\r\n    \"u_address_street_name\": \"MONSENOR MILLER\",\r\n    \"u_address_street_number\": \"48\",\r\n    \"u_characteristic_C1\": 2,\r\n    \"u_type_C1\": \"PI\",\r\n    \"u_value_C1\": \"9\",\r\n    \"u_characteristic_C2\": 2,\r\n    \"u_type_C2\": \"DP\",\r\n    \"u_value_C2\": \"91\",\r\n    \"u_service_type\": \"FTTH\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_service_voip\": true\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment-TCH 1",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\": \"00QAAOCAP-01\",  // TCH va sin guion despues del numero de la vno\r\n    \"u_id_vno\": \"00\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_speed_plan\": \"400/400\",\r\n    \"u_address_id\": \"DIR02803749\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n   // \"u_service_voip\": true,\r\n   // \"u_service_iptv\": true,\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment- KAO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\":\"03-AOQACAP-02\",\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"Alta\",\r\n    \"u_scenario\": \"Alta de acceso\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_address_id\": \"DIR02796497\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true, \r\n    \"u_service_type\": \"FTTH\" \r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment-Entel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\": \"03-SMQA2309-01\",\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_speed_plan\": \"800/800\",\r\n    \"u_address_id\": \"416954\",\r\n    \"u_address_mcd\": \"XYGO\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_service_type\": \"FTTH\"\r\n\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment-Entel Experimiento",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\": \"03-SMQASLID2210-01\",\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_speed_plan\": \"600/600\",\r\n   // \"u_serial_number\": \"HWTC4D1B93AB\",    \r\n    \"u_address_id\": \"DIR00048846\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_service_type\": \"FTTH\"\r\n\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment-Entel SSAA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\": \"02-QASer1\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_scenario\": \"Alta de Acceso\",\r\n    \"u_speed_plan\": \"500/500\",\r\n  //  \"u_serial_number\": \"HWTC1F7302AC\",    \r\n    \"u_address_id\": \"DIR02801371\",\r\n    \"u_address_mcd\": \"OSP\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_service_type\": \"SSAA\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignmentAsyncSSAA",
+                "v1",
+                "assignmentAsyncSSAA"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assigment-DTV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\":\"05\",\r\n    \"u_access_id_vno\":\"05-QAONETO-01\", // Yo sigo mi propia nomenclatura de access id\r\n    \"u_service_type\":\"FTTH\",\r\n    \"u_operation_type\":\"A\",\r\n    \"u_scenario\":\"Alta de Acceso\",\r\n    \"u_speed_plan\":\"600/600\",\r\n    \"u_service_ba\": true,\r\n     \"u_address_id\":\"DIR02803791\",\r\n    \"u_address_mcd\":\"OSP\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-assignment/v1/assignment",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-assignment",
+                "v1",
+                "assignment"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03-IntervencionAsegurada",
+      "item": [
+        {
+          "name": "TCH",
+          "item": [
+            {
+              "name": "01-Inicio Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"00\",\r\n  \"u_access_id_vno\": \"00-SMQACARGAEVIDENCIAS-01\",\r\n  \"u_scenario\": \"instalacion\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "02-InicioListenerInter",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention-listener/v1/u_assured_intervention_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention-listener",
+                    "v1",
+                    "u_assured_intervention_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "03-Finalización Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00QA-JOSEF-SM-01\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization/v1/interventionFinalization",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization",
+                    "v1",
+                    "interventionFinalization"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "04-Finalizacion Listener",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization-listener/v1/u_intervention_finalization_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization-listener",
+                    "v1",
+                    "u_intervention_finalization_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "05-Cancela Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"00\",\r\n  \"u_access_id_vno\": \"00-DIR00048326-1920-RV\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelIntervention/v1/interventionCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelIntervention",
+                    "v1",
+                    "interventionCancellation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "031 Masiva IA",
+          "item": [
+            {
+              "name": "01-Inicio Intervención Masiva",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"{{DIR}}\",\r\n  \"u_scenario\": \"Instalación\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "03-Finalización Intervención  Masiva",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization/v1/interventionFinalization",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization",
+                    "v1",
+                    "interventionFinalization"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "05-Cancela Intervención Masiva",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"{{DIR}}\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelIntervention/v1/interventionCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelIntervention",
+                    "v1",
+                    "interventionCancellation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "KAO",
+          "item": [
+            {
+              "name": "01-Inicio Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"02\",\r\n  \"u_access_id_vno\": \"02-QASM-2307-1\",\r\n  \"u_scenario\": \"Instalación\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "02-InicioListenerInter",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention-listener/v1/u_assured_intervention_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention-listener",
+                    "v1",
+                    "u_assured_intervention_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "05-Cancela Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"02\",\r\n  \"u_access_id_vno\": \"02-DIR02803625-120409-AUT-QA\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelIntervention/v1/interventionCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelIntervention",
+                    "v1",
+                    "interventionCancellation"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "03-Finalización Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-20230921004QA\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization/v1/interventionFinalization",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization",
+                    "v1",
+                    "interventionFinalization"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "04-Finalizacion Listener",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization-listener/v1/u_intervention_finalization_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization-listener",
+                    "v1",
+                    "u_intervention_finalization_listener"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "ENTEL",
+          "item": [
+            {
+              "name": "01-Inicio Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-SMQA1410-SM-01\",\r\n  \"u_scenario\": \"Instalación\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "02-InicioListenerInter",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention-listener/v1/u_assured_intervention_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention-listener",
+                    "v1",
+                    "u_assured_intervention_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "03-Finalización Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-QASM2603-02\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization/v1/interventionFinalization",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization",
+                    "v1",
+                    "interventionFinalization"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "04-Finalizacion Listener",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization-listener/v1/u_intervention_finalization_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization-listener",
+                    "v1",
+                    "u_intervention_finalization_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "05-Cancela Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-20230921004QA\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelIntervention/v1/interventionCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelIntervention",
+                    "v1",
+                    "interventionCancellation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "SSAA",
+          "item": [
+            {
+              "name": "01-Inicio Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-506446972QA\",\r\n  \"u_scenario\": \"Instalación\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "02-InicioListenerInter",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention-listener/v1/u_assured_intervention_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention-listener",
+                    "v1",
+                    "u_assured_intervention_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "03-Finalización Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-20230921004QA\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization/v1/interventionFinalization",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization",
+                    "v1",
+                    "interventionFinalization"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "04-Finalizacion Listener",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization-listener/v1/u_intervention_finalization_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization-listener",
+                    "v1",
+                    "u_intervention_finalization_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "05-Cancela Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-20230921004QA\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelIntervention/v1/interventionCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelIntervention",
+                    "v1",
+                    "interventionCancellation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "DTV",
+          "item": [
+            {
+              "name": "01-Inicio Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"05\",\r\n  \"u_access_id_vno\": \"05-QAONETO-01\",\r\n  \"u_scenario\": \"Instalación\",   // Instalacion  o Reparacion solo 2 opciones \r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "01-Inicio Intervención MASIVA",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"05\",\r\n  \"u_access_id_vno\": \"{{IIA}}\",\r\n  \"u_scenario\": \"Instalación\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention/v1/assuredIntervention",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention",
+                    "v1",
+                    "assuredIntervention"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "02-InicioListenerInter",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-gIntervention-listener/v1/u_assured_intervention_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-gIntervention-listener",
+                    "v1",
+                    "u_assured_intervention_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "03-Finalización Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"05-TESTQASMREGREStimestamp-01\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization/v1/interventionFinalization",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization",
+                    "v1",
+                    "interventionFinalization"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "04-Finalizacion Listener",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "text"
+                  },
+                  {
+                    "key": "vnoid",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"sys_id\": \"971d5d7f97a5fd50c9c6f8e3a253af13\",\r\n    \"u_return_code\": \"7\",\r\n    \"u_return_code_desc\": \"Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada\",\r\n    \"u_access_id_vno\": \"02-DIR00057553\",\r\n    \"u_id_vno\": \"02\",\r\n    \"u_intervention_tk\": \"\",\r\n    \"u_intervention_tk_status\": null,\r\n    \"u_intervention_date_fin\": \"\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_massive_fault_affectation\": \"falso\",\r\n    \"u_massive_fault_incidence_tk\": \"\",\r\n    \"u_massive_fault_date_tk\": \"\",\r\n    \"u_massive_fault_recommendation\": null,\r\n    \"u_scheduled_job_tk\": \"0\",\r\n    \"u_scheduled_job_date_tk\": \"\",\r\n    \"u_scheduled_job_recommendation\": null,\r\n    \"u_interventions_ongoing_number\": \"0\",\r\n    \"u_interventions_ongoing_date\": \"\",\r\n    \"u_interventions_ongoing_recommendation\": null,\r\n    \"u_fiber_change_options\": \"falso\"\r\n}"
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-finalization-listener/v1/u_intervention_finalization_listener",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-finalization-listener",
+                    "v1",
+                    "u_intervention_finalization_listener"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "05-Cancela Intervención",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"u_id_vno\": \"05\",\r\n  \"u_access_id_vno\": \"05-QASM1603-02\",\r\n  \"u_service_type\": \"FTTH\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelIntervention/v1/interventionCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelIntervention",
+                    "v1",
+                    "interventionCancellation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04-Activacion",
+      "item": [
+        {
+          "name": "ACTIVACIÓN MASIVA",
+          "item": [
+            {
+              "name": "Activation MASIVA DTV",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_service_ba\": true,\r\n   // \"u_service_voip\": true,\r\n   // \"u_service_iptv\": true,\r\n    \"u_serial_number\": \"{{serialnumber}}\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-activation",
+                    "v1",
+                    "registrationActivation"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Activation MASIVA ENTEL",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_serial_number\": \"{{serialnumber}}\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-activation",
+                    "v1",
+                    "registrationActivation"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Activation MASIVA  KAO",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_serial_number\": \"{{serialnumber}}\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-activation",
+                    "v1",
+                    "registrationActivation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Activation SSAA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_access_id_vno\": \"03-501024166-0937-QA\",\r\n    \"u_perfil_ssaa\": \"GenericC.320K\",\r\n    \"u_serial_number\": \"HWTC0312095\",\r\n    \"u_tkip_datop_cvlan\": \"3003\",\r\n    \"u_inet_cvlan\": \"3002\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-ActivationSSAA/v1/registrationActivationSSAA",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-ActivationSSAA",
+                "v1",
+                "registrationActivationSSAA"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Activation Entel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-SMQAPREACT2111-01\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_serial_number\": \"ZTEG11041927\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-activation",
+                "v1",
+                "registrationActivation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Activation TCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00TESTQASMERROR030-0506-12\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_speed_plan\": \"400/400\",\r\n    \"u_service_ba\": true\r\n   // \"u_service_voip\": false,\r\n  //  \"u_service_iptv\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-activation",
+                "v1",
+                "registrationActivation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Activation KAO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"02-OrderCharacteristics-30\",\r\n    \"u_operation_type\": \"A\",\r\n    \"u_speed_plan\": \"600/600\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true,\r\n    \"u_serial_number\": \"ZTEGD719D911\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-activation",
+                "v1",
+                "registrationActivation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Activation DTV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_access_id_vno\":\"05-QAONETO-01\",\r\n    \"u_id_vno\":\"05\",\r\n    \"u_operation_type\":\"A\",\r\n    \"u_speed_plan\":\"600/600\", // siempre colocar la misma de la asignacion\r\n    \"u_service_ba\":true,\r\n    \"u_serial_number\":\"HTWC000A1315\" // modificar solo los ultimos numeros se mantiene htwc\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-activation/v1/registrationActivation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-activation",
+                "v1",
+                "registrationActivation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "activation listener",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "vnoId",
+                "value": "00",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "vnoid",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"u_return_code\":\"0\",\r\n   \"u_return_code_desc\":\"Flujo completado con éxito\",\r\n   \"sys_id\":\"25494d3997d42990c9c6f8e3a253afbe\",\r\n   \"u_access_id_vno\":\"05-DIR00047609\",\r\n   \"u_id_vno\":\"05\",\r\n   \"u_speed_plan\":\"940/940\",\r\n   \"u_service_ba\":true,\r\n   \"u_service_iptv\":false,\r\n   \"u_service_voip\":false,\r\n   \"u_serial_number\":null,\r\n   \"u_sl_id\":null\r\n}"
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-activation-listener/v1/u_registration_activation_listener",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-activation-listener",
+                "v1",
+                "u_registration_activation_listener"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06-DeviceModification",
+      "item": [
+        {
+          "name": "DeviceModification DTV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoLd",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"u_id_vno\": \"05\",\r\n  \"u_access_id_vno\": \"05-DIR00047876-120527-AUT-QA\",\r\n  \"u_serial_number\": \"HTWC022A0430\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DeviceModification TCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoLd",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"u_id_vno\": \"05\",\r\n  \"u_access_id_vno\": \"05-DIR02801120-QA90\",\r\n  \"u_serial_number\": \"HTWC000A0953\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DeviceModification KAO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoLd",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"u_id_vno\": \"02\",\r\n  \"u_access_id_vno\": \"05-DIR02801120-QA90\",\r\n  \"u_serial_number\": \"HTWC000A0953\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DeviceModification LASER",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoLd",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"03-DIR00048326-105011-AUT-QA\",\r\n  \"u_serial_number\": \"HWTC10281743\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DeviceModification MASIVO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoLd",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"u_id_vno\": \"03\",\r\n  \"u_access_id_vno\": \"{{DIR}}\",\r\n  \"u_serial_number\": \"{{serialnumber}}\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-deviceModification/v1/deviceModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-deviceModification",
+                "v1",
+                "deviceModification"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07-Modificacion De Acceso",
+      "item": [
+        {
+          "name": "Modification TCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "vnoId",
+                "value": "00"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00152026070\",\r\n    \"u_operation_type\": \"M\",\r\n\"u_speed_plan\": \"940/940\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true\r\n    //\"u_service_iptv\": true\r\n    //\"u_serial_number\": \"ZTEGD16683E9\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Modification KAO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "vnoId",
+                "value": "05"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"02-DIR00765088-RANOKIA-1\",\r\n    \"u_operation_type\": \"M\",\r\n\"u_speed_plan\": \"800/800\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true\r\n    //\"u_serial_number\": \"ZTEGD16683E9\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Modification LASER",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "vnoId",
+                "value": "05"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"05-DIR-QA90\",\r\n    \"u_operation_type\": \"M\",\r\n\"u_speed_plan\": \"800/800\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true\r\n    //\"u_serial_number\": \"ZTEGD16683E9\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Modification MASIVA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "vnoId",
+                "value": "03"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_operation_type\": \"M\",\r\n\"u_speed_plan\": \"{{PLAN}}\",\r\n    \"u_service_ba\": true,\r\n    \"u_service_voip\": true,\r\n    \"u_service_iptv\": true\r\n    //\"u_serial_number\": \"ZTEGD16683E9\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Modification DTV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "vnoId",
+                "value": "05"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"05-OrderCharacteristics-02\",\r\n    \"u_operation_type\": \"M\",\r\n\"u_speed_plan\": \"940/940\",\r\n    \"u_service_ba\": true\r\n  //  \"u_service_voip\": true,\r\n  //  \"u_service_iptv\": true\r\n    //\"u_serial_number\": \"ZTEGD16683E9\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-modification/v1/registrationModification",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-modification",
+                "v1",
+                "registrationModification"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05-FiberChange",
+      "item": [
+        {
+          "name": "Fiber Change Syncr",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00-VALFIA-0305-10\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\",\r\n    \"u_cto_type\": \"15\",\r\n    \"u_cto_code\": \"5/5260(10)\",\r\n    \"u_region_code\": 9,\r\n    \"u_site_code\": \"NCOR\",\r\n    \"u_cable_code\": \"CA99-F#10\",\r\n    \"u_function\": \"7\",\r\n    \"u_logical_unit\":13,\r\n    \"u_note\": \"Prueba de cambio Pelo PRODQA\",\r\n    \"u_fault_code\": 996,\r\n    \"u_logic_unit_status\": 3,\r\n    \"u_lateral\": \"\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-fiberChange/v1/fiberChange",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-fiberChange",
+                "v1",
+                "fiberChange"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08-CancelOrdenServicio",
+      "item": [
+        {
+          "name": "CANCEL MASIVO",
+          "item": [
+            {
+              "name": "cancel OOSS Masiva KAO",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelServiceOrder",
+                    "v1",
+                    "oossCancellation"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "cancel OOSS MASIVA - LASER",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelServiceOrder",
+                    "v1",
+                    "oossCancellation"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "cancel OOSS MASIVA - TCH",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelServiceOrder",
+                    "v1",
+                    "oossCancellation"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "cancel OOSS MASIVA - DTV",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{Token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "default"
+                  },
+                  {
+                    "key": "vnoId",
+                    "value": "{{idvno}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+                  "host": [
+                    "{{apimURL}}"
+                  ],
+                  "path": [
+                    "fullFillment-cancelServiceOrder",
+                    "v1",
+                    "oossCancellation"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "cancel service order TCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00QASM2703-SM-01\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-cancelServiceOrder",
+                "v1",
+                "oossCancellation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "cancel service order KAO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"02-QASM2703-SM01\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-cancelServiceOrder",
+                "v1",
+                "oossCancellation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "cancel service order DTV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"05-QAONETO-01\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-cancelServiceOrder",
+                "v1",
+                "oossCancellation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "cancel service order LASER",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-20240628-030QA\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-cancelServiceOrder",
+                "v1",
+                "oossCancellation"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "cancel service order SSAA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"02\",\r\n    \"u_access_id_vno\": \"02-DIR02800925-PREACT-0907\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-cancelServiceOrder/v1/oossCancellation",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-cancelServiceOrder",
+                "v1",
+                "oossCancellation"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10-Unsubscription",
+      "item": [
+        {
+          "name": "ususcription",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"03-QAAPOQ_OLT_10-04\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-unsubcription/v1/accessDeregistration",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-unsubcription",
+                "v1",
+                "accessDeregistration"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ususcription MASIVA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"03\",\r\n    \"u_access_id_vno\": \"{{DIR}}\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-unsubcription/v1/accessDeregistration",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-unsubcription",
+                "v1",
+                "accessDeregistration"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ususcription SSAA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"05\",\r\n    \"u_access_id_vno\": \"03-QASM1\",\r\n    \"u_service_type\": \"SSAA\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-unsubcription/v1/accessDeregistration",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-unsubcription",
+                "v1",
+                "accessDeregistration"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12-APIS TCH PRE-CUTOVER",
+      "item": [
+        {
+          "name": "GuaranteedInterventionTCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "00",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00-CHK00047073\",\r\n    \"u_scenario\": \"Instalacion\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-gInterventionTCH/v1/assuredInterventionTCH",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-gInterventionTCH",
+                "v1",
+                "assuredInterventionTCH"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CancelInterventionTCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "00",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"582215855\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-cancelInterventionTCH/v1/interventionCancellationAsyncTCH",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-cancelInterventionTCH",
+                "v1",
+                "interventionCancellationAsyncTCH"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "FinalizationTCH",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "default"
+              },
+              {
+                "key": "vnoId",
+                "value": "00",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"u_id_vno\": \"00\",\r\n    \"u_access_id_vno\": \"00-12458013\",\r\n    \"u_scenario\": \"Instalación\",\r\n    \"u_service_type\": \"FTTH\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/fullFillment-finalizationTCH/v1/interventionFinalizationTCH",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "fullFillment-finalizationTCH",
+                "v1",
+                "interventionFinalizationTCH"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11-Reinicio ONT",
+      "item": [
+        {
+          "name": "ReinicioONT",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "u_vno_id",
+                "value": "{{idvno}}",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"u_access_id_vno\":\"02-QADIR028036252013\",\r\n   \"u_id_vno\":\"02\",\r\n   \"u_reset_type\":\"1\",\r\n   \"u_port\":\"\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/reinicioONT/v1/ONTRestart",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "reinicioONT",
+                "v1",
+                "ONTRestart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ReinicioONT MASIVO",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "u_vno_id",
+                "value": "{{idvno}}",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "vnoId",
+                "value": "{{idvno}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"u_access_id_vno\":\"{{DIR}}\",\r\n   \"u_id_vno\":\"02\",\r\n   \"u_reset_type\":\"1\",\r\n   \"u_port\":\"\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apimURL}}/reinicioONT/v1/ONTRestart",
+              "host": [
+                "{{apimURL}}"
+              ],
+              "path": [
+                "reinicioONT",
+                "v1",
+                "ONTRestart"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "info": {
+    "_postman_id": "977051f6-659b-4cb2-a327-a252979c96e2",
+    "name": "00-GetToken",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "56013580",
+    "_collection_link": "https://go.postman.co/collection/56013580-977051f6-659b-4cb2-a327-a252979c96e2?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "get Token",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "let cKey = pm.environment.get('consumerKey');\r",
+              "let cPass = pm.environment.get('consumerSecret');\r",
+              "let authorization = btoa(cKey + \":\" + cPass);\r",
+              "pm.environment.set(\"authorization\", authorization);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = JSON.parse(responseBody); //sets response body to jsonData variable\r",
+              "\r",
+              "pm.environment.set(\"Token\",jsonData.access_token) //extracts token from jsonData response and sets to token environment variable"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disabledSystemHeaders": {}
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic {{authorization}}"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{apimURL}}/token",
+          "host": [
+            "{{apimURL}}"
+          ],
+          "path": [
+            "token"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}
