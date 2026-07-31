@@ -2896,8 +2896,12 @@ function _doLogin(){}
 function _doBootstrap(){}
 function _doAcceptInvite(){}
 function _doLogout(){ console.log("logout no-op"); }
+var _embeddedMode=(new URLSearchParams(window.location.search).get('embedded')==='1');
 function initApp(){
-  // Modo sin autenticacion: cargar directamente
+  if(_embeddedMode){
+    var _sbEl=document.querySelector('aside.sb');
+    if(_sbEl) _sbEl.style.display='none';
+  }
   loadSuites();
 }
 
@@ -2940,6 +2944,7 @@ function loadSuites(attempt){
     }
     try{ renderSB(); }
     catch(e){ document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem">renderSB error: '+e.message+'</div>'; }
+    if(_embeddedMode){ selectSuite('qa-fulfillment'); }
   }).catch(function(err){
     var msg='Error API /suites (intento '+attempt+'): '+err.message;
     document.getElementById('sb-list').innerHTML='<div style="padding:8px;color:#e06c75;font-size:.7rem;white-space:pre-wrap">'+msg+'</div>';
@@ -9176,7 +9181,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     </div>
     <!-- Vista FullFillment ATRF (/ff) -->
     <div id="ff-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <iframe src="/ff" id="ff-iframe" style="width:100%;height:100%;border:none;flex:1" title="FullFillment ATRF"></iframe>
+      <iframe src="/ff?embedded=1" id="ff-iframe" style="width:100%;height:100%;border:none;flex:1" title="FullFillment ATRF"></iframe>
     </div>
     <div class="summary" id="summary">
       <span class="sum-idle">Ejecuta una suite para ver resultados</span>
