@@ -12446,19 +12446,32 @@ function _atrf_buildSerial(vno){
   var px=_ATRF_VNO_PREFIX[vno]||'';if(!px)return'';
   var n=_atrf_now();return px+n.MM+n.DD+n.HH+n.mm;
 }
+function _atrf_getSnPrefix(vno){
+  var px=_ATRF_VNO_PREFIX[vno]||'';if(!px)return'';
+  var n=_atrf_now();return px+n.MM+n.DD;
+}
 function _atrf_updateSerials(){
   var vnos=_atrf_getVnos();
-  var sn=!vnos.length?'':vnos.length>1?'Se genera automáticamente al encolar':_atrf_buildSerial(vnos[0]);
-  if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=sn;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
-  if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=sn;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
+  var n=_atrf_now();
+  var sfx=n.HH+n.mm;
+  var multi=vnos.length>1;
+  var px=!vnos.length?'':multi?'…':_atrf_getSnPrefix(vnos[0]);
+  var pxEl=document.getElementById('atrf-sn-px');if(pxEl)pxEl.textContent=px||'—';
+  var pxEl2=document.getElementById('atrf-nsn-px');if(pxEl2)pxEl2.textContent=px||'—';
+  if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=multi?'':sfx;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
+  if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=multi?'':sfx;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
 }
 function _atrf_updateSnLen(id,lid){
   var len=(document.getElementById(id)||{value:''}).value.length;
   var el=document.getElementById(lid);if(!el)return;
-  el.textContent=len+' car.';el.className='atrf-slen';
-  if(len===12||len===16)el.classList.add('ok');else if(len>0)el.classList.add('warn');
+  el.textContent=len+' díg.';el.className='atrf-slen';
+  if(len===4)el.classList.add('ok');else if(len>0)el.classList.add('warn');
 }
-function _atrf_onSnEdit(id,lid){_atrf_updateSnLen(id,lid);}
+function _atrf_onSnEdit(id,lid){
+  var key=id==='atrf-sn'?'sn':'nsn';
+  if(_atrfAutoState[key]){_atrfAutoState[key]=false;var ab=document.getElementById('atrf-auto-'+key);if(ab)ab.classList.add('off');}
+  _atrf_updateSnLen(id,lid);
+}
 function _atrf_toggleAuto(key){
   _atrfAutoState[key]=!_atrfAutoState[key];
   document.getElementById('atrf-auto-'+key).classList.toggle('off',!_atrfAutoState[key]);
@@ -12528,8 +12541,11 @@ function _atrf_enqueue(){
   vnos.forEach(function(vno){
     var sn_auto=_atrf_buildSerial(vno);
     var aid_auto=_atrf_buildAid(vno);
-    var sn_val=_atrfAutoState.sn?sn_auto:_atrf_v('atrf-sn').trim();
-    var nsn_val=_atrfAutoState.nsn?sn_auto:_atrf_v('atrf-nsn').trim();
+    var _snPx=_atrf_getSnPrefix(vno);
+    var _snSfx=_atrfAutoState.sn?(_atrf_now().HH+_atrf_now().mm):_atrf_v('atrf-sn').trim();
+    var sn_val=_snPx?_snPx+_snSfx:_snSfx;
+    var _nsnSfx=_atrfAutoState.nsn?(_atrf_now().HH+_atrf_now().mm):_atrf_v('atrf-nsn').trim();
+    var nsn_val=_snPx?_snPx+_nsnSfx:_nsnSfx;
     var aid_val=_atrfAutoState.aid?aid_auto:_atrf_v('atrf-aid').trim();
     var qname=name+(vnos.length>1?' [VNO '+vno+']':'');
     var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val,ba:document.getElementById('atrf-svc-ba').checked,voip:document.getElementById('atrf-svc-voip').checked,iptv:document.getElementById('atrf-svc-iptv').checked};
@@ -13376,17 +13392,23 @@ function showCodigos(){
         <div class="atrf-field atrf-col-5">
           <label>Serial Number <span class="req">★</span>
             <span class="atrf-tag" id="atrf-auto-sn" onclick="_atrf_toggleAuto('sn')">Auto</span>
-            <span class="atrf-slen" id="atrf-sn-len">0 car.</span>
+            <span class="atrf-slen" id="atrf-sn-len">0 díg.</span>
           </label>
-          <input type="text" id="atrf-sn" placeholder="—" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
-          <span class="atrf-hint">Prefijo VNO + MM DD HH mm · 12 o 16 car.</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span id="atrf-sn-px" style="font-family:var(--atrf-mono);font-size:.82rem;color:var(--txt3);letter-spacing:.04em">—</span>
+            <input type="text" id="atrf-sn" maxlength="4" placeholder="0000" style="width:56px;font-family:var(--atrf-mono);letter-spacing:.06em" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
+          </div>
+          <span class="atrf-hint">Prefijo+Fecha automático · ingresa últimos 4 dígitos</span>
         </div>
         <div class="atrf-field atrf-col-5">
           <label>Nuevo Serial Number
             <span class="atrf-tag" id="atrf-auto-nsn" onclick="_atrf_toggleAuto('nsn')">Auto</span>
-            <span class="atrf-slen" id="atrf-nsn-len">0 car.</span>
+            <span class="atrf-slen" id="atrf-nsn-len">0 díg.</span>
           </label>
-          <input type="text" id="atrf-nsn" placeholder="—" oninput="_atrf_onSnEdit('atrf-nsn','atrf-nsn-len')"/>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span id="atrf-nsn-px" style="font-family:var(--atrf-mono);font-size:.82rem;color:var(--txt3);letter-spacing:.04em">—</span>
+            <input type="text" id="atrf-nsn" maxlength="4" placeholder="0000" style="width:56px;font-family:var(--atrf-mono);letter-spacing:.06em" oninput="_atrf_onSnEdit('atrf-nsn','atrf-nsn-len')"/>
+          </div>
         </div>
       </div>
     </div>
