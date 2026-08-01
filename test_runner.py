@@ -1089,7 +1089,8 @@ async def atrf_run_step(request: Request):
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+                             "vno": vno, "func": func_name, "httpCode": _http_code,
+                             "_dbg": {"url": _asgn_url, "pprd": _use_pprd, "token_ok": bool(token)}})
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
