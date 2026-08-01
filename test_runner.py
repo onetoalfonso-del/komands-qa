@@ -23,6 +23,7 @@ import webbrowser
 from pathlib import Path
 
 ROOT      = Path(__file__).parent
+IS_PRE_DEPLOYMENT = "epreapi" in os.environ.get("APIM_URL", "")
 COLL_DIR  = ROOT / "collection Kommand"
 BP_DIR    = ROOT / "collection Blueplanet"
 QA_DIR    = ROOT / "collection QA"
@@ -888,11 +889,9 @@ async def atrf_run_step(request: Request):
     new_speed_plan  = body.get("newSpeedPlan", "")
     amb_url         = body.get("ambUrl", "")
     ambiente        = body.get("ambiente", "QA")
-    import os as _os_atrf
-    _railway_apim   = _os_atrf.environ.get("APIM_URL", "")
-    _use_pprd = (bool(amb_url) or ambiente.upper() == "PPRD"
-                 or "epreapi" in _railway_apim)
-    if not amb_url and _use_pprd and _railway_apim:
+    _railway_apim = os.environ.get("APIM_URL", "")
+    _use_pprd = (bool(amb_url) or ambiente.upper() == "PPRD" or IS_PRE_DEPLOYMENT)
+    if not amb_url and IS_PRE_DEPLOYMENT and _railway_apim:
         amb_url = _railway_apim
     if _use_pprd:
         _generate_env_files()
