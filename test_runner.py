@@ -888,7 +888,12 @@ async def atrf_run_step(request: Request):
     new_speed_plan  = body.get("newSpeedPlan", "")
     amb_url         = body.get("ambUrl", "")
     ambiente        = body.get("ambiente", "QA")
-    _use_pprd = bool(amb_url) or ambiente.upper() == "PPRD"
+    import os as _os_atrf
+    _railway_apim   = _os_atrf.environ.get("APIM_URL", "")
+    _use_pprd = (bool(amb_url) or ambiente.upper() == "PPRD"
+                 or "epreapi" in _railway_apim)
+    if not amb_url and _use_pprd and _railway_apim:
+        amb_url = _railway_apim
     if _use_pprd:
         _generate_env_files()
     def _resolve_env(v):
