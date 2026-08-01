@@ -1037,8 +1037,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1088,9 +1088,7 @@ async def atrf_run_step(request: Request):
             _pass = _http_code in (200, 201) and _rc == "0"
         except Exception:
             _pass = _http_code in (200, 201)
-        _dbg_prefix = f"[DBG] url={_asgn_url} pprd={_use_pprd} token_ok={bool(token)}\n"
-        return JSONResponse({"pass": _pass, "req": req_body_str,
-                             "res": _dbg_prefix + _res_body,
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
@@ -1104,8 +1102,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1168,8 +1166,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1231,8 +1229,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1296,8 +1294,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1360,8 +1358,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1420,8 +1418,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1475,8 +1473,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1532,8 +1530,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1584,8 +1582,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1636,8 +1634,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1696,8 +1694,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -1755,8 +1753,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = ev.get("consumerKey", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", ""))
+        _cs = ev.get("consumerSecret", "") if _use_pprd else (_os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", ""))
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
