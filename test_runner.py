@@ -5117,10 +5117,14 @@ async def atrf_run_step(request: Request):
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         if func_name == "Inicio Intervención Asegurada":
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
-                             "u_scenario": scenario, "u_service_type": svc_type}
+                             "u_scenario": scenario, "u_service_type": svc_type,
+                             "u_service_ba": service_ba, "u_service_voip": service_voip,
+                             "u_service_iptv": service_iptv}
         elif func_name == "Finalización Intervención Asegurada":
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
-                             "u_scenario": scenario, "u_service_type": svc_type}
+                             "u_scenario": scenario, "u_service_type": svc_type,
+                             "u_service_ba": service_ba, "u_service_voip": service_voip,
+                             "u_service_iptv": service_iptv}
         else:  # Cancelación
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
                              "u_service_type": svc_type}
