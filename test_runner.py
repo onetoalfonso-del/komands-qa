@@ -1056,7 +1056,7 @@ async def atrf_run_step(request: Request):
         req_body_dict = {
             "u_access_id_vno": access_id,
             "u_id_vno": vno, "u_operation_type": op_type,
-            "u_scenario": "Alta de acceso", "u_speed_plan": speed_plan,
+            "u_scenario": "Alta de Acceso", "u_speed_plan": speed_plan,
             "u_address_id": direccion, "u_address_mcd": address_mcd,
             "u_service_ba": service_ba, "u_service_voip": service_voip, "u_service_iptv": service_iptv,
             "u_service_type": svc_type,
@@ -8162,7 +8162,8 @@ async function _atrf_runSelected(){
       if((fn==='Factibilidad'||fn==='Asignación')&&pass&&res_s){
         try{
           var _chainRj=JSON.parse(res_s);
-          var _newAid=((_chainRj.result||_chainRj).u_access_id_vno)||'';
+          var _chainRes=_chainRj.result||_chainRj;
+          var _newAid=_chainRes.u_access_id_vno||_chainRes.u_access_id||'';
           if(_newAid){_currentAccessId=_newAid;}
         }catch(e){}
       }
