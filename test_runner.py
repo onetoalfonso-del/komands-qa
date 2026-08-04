@@ -3900,6 +3900,7 @@ function _doRunFact(s){
   es.onerror=function(){
     if(running&&currentEs===es){
       currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
     }
   };
@@ -4153,6 +4154,7 @@ function _doRunAsig(s){
   es.onerror=function(){
     if(running&&currentEs===es){
       currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
     }
   };
@@ -4392,6 +4394,7 @@ function _doRunIA(s){
   };
   es.onerror=function(){
     if(running&&currentEs===es){ currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
 }
@@ -4641,6 +4644,7 @@ function _doRunActiv(s){
   };
   es.onerror=function(){
     if(running&&currentEs===es){ currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
 }
@@ -4889,6 +4893,7 @@ function _doRunDm(s){
   };
   es.onerror=function(){
     if(running&&currentEs===es){ currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
 }
@@ -4953,6 +4958,7 @@ function _doRunTeardown(s){
   };
   es.onerror=function(){
     if(running&&currentEs===es){ currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
   // habilitar botón cuando cambia el textarea
@@ -5186,6 +5192,7 @@ function _doRunUnsubSuite(s){
   };
   es.onerror=function(){
     currentEs=null; es.close();
+    app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
     onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s);
   };
 }
@@ -5371,6 +5378,7 @@ function _doRunCancel(s){
   };
   es.onerror=function(){
     if(running&&currentEs===es){ currentEs=null; es.close();
+      app('⚠ Conexión perdida con el servidor. Verifica la conexión y presiona Ejecutar nuevamente.','err');
       onDone({code:1,passed:0,failed:0,requests:0,has_report:false},s); }
   };
 }
