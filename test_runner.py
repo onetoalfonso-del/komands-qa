@@ -7928,8 +7928,12 @@ function _atrf_buildSimRes(funcName,cfg,pass){
   }
   return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
 }
+var _ATRF_METHOD_MAP={
+  "GET Consulta de Acceso":       "GET",
+  "Consulta Estado Vecino (GET)": "GET"
+};
 var _ATRF_ENDPOINT_MAP={
-  "Factibilidad":                        "presales-feasibility/v1/feasibility",
+  "Factibilidad":                        "fullFillment-Factibilidad/v1/feasibilityUpselling",
   "Asignación":                          "fullFillment-assignment/v1/assignment",
   "Inicio Intervención Asegurada":       "fullFillment-gIntervention/v1/assuredIntervention",
   "Activación":                          "fullFillment-activation/v1/registrationActivation",
@@ -7971,6 +7975,10 @@ function _atrf_openTcModal(qi,idx){
   badge.textContent=r.pass?'✓ Pasó':'✗ Falló';
   badge.className='atrf-badge '+(r.pass?'atrf-badge-ok':'atrf-badge-err');
   document.getElementById('atrf-tc-modal-endpoint').textContent=_ATRF_ENDPOINT_MAP[r.func]||'/api/'+r.func;
+  var _meth=_ATRF_METHOD_MAP[r.func]||'POST';
+  var _mEl=document.getElementById('atrf-tc-modal-method');
+  _mEl.textContent=_meth;
+  _mEl.style.background=_meth==='GET'?'#2e7d32':'#3c6ff5';
   var stBadge=document.getElementById('atrf-tc-status-badge');
   var code=r.httpCode||(r.pass?200:500);
   stBadge.textContent=code?String(code):'';
@@ -8574,7 +8582,7 @@ function showCodigos(){
       <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeTcModal()">✕ Cerrar</button>
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);font-size:11px">
-      <span style="background:#3c6ff5;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--atrf-mono);font-weight:700;font-size:10px">POST</span>
+      <span id="atrf-tc-modal-method" style="background:#3c6ff5;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--atrf-mono);font-weight:700;font-size:10px">POST</span>
       <span id="atrf-tc-modal-endpoint" style="font-family:var(--atrf-mono);color:var(--atrf-text2)">—</span>
       <span style="margin-left:auto;color:var(--atrf-text2)">Funcionalidad: <b id="atrf-tc-modal-func">—</b> &nbsp;·&nbsp; VNO: <b id="atrf-tc-modal-vno">—</b> &nbsp;<span id="atrf-tc-modal-retcode" style="display:none">&nbsp;·&nbsp; Cód <b id="atrf-tc-modal-retcode-val"></b></span></span>
     </div>
