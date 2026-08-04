@@ -1062,8 +1062,7 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _asgn_url = (f"{apim_url.rstrip('/')}/fullFillment-AsignationSSAA/v1/assignment" if _use_pprd
-                     else f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment")
+        _asgn_url = f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment"
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_asgn_url,
