@@ -7863,6 +7863,7 @@ function _atrf_enqueue(){
   if(!name){errors.push('Nombre de la secuencia es obligatorio');document.getElementById('atrf-seq-name').classList.add('err');}
   if(!vnos.length){errors.push('Selecciona al menos una VNO');}
   if(!_atrf_v('atrf-dir').trim()){errors.push('Dirección es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
+  else if(/^\d{2}[-]/.test(_atrf_v('atrf-dir').trim())){errors.push('El campo Dirección parece un Access ID (ej. 02-…). La dirección física tiene formato DIR01774258 — el Access ID va en el campo Access ID.');document.getElementById('atrf-dir').classList.add('err');}
   if(!_atrf_v('atrf-esc')){errors.push('Escenario es obligatorio');document.getElementById('atrf-esc').classList.add('err');}
   if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecución es obligatorio');document.getElementById('atrf-tex').classList.add('err');}
   if(!_atrfSel.length){errors.push('Debes seleccionar al menos una funcionalidad');document.getElementById('atrf-funcs-err').classList.add('show');}
@@ -8195,7 +8196,7 @@ async function _atrf_runSelected(){
     var _now=Date.now();
     var _vno=q.cfg&&q.cfg.vno||'';
     var _vnoLbl=_ATRF_TC_VNO_LABEL[_vno]||_vno;
-    var _dir=(q.cfg&&q.cfg.accessId)||'';
+    var _dir=(q.cfg&&q.cfg.direccion)||'';
     if(q.tcResults.length){
       q.tcResults.forEach(function(r){
         fetch('/api/historial',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
@@ -8660,14 +8661,15 @@ function showCodigos(){
         </div>
         <div class="atrf-field atrf-col-5">
           <label>Dirección <span class="req">★</span></label>
-          <input type="text" id="atrf-dir" placeholder="Ingresa la dirección"/>
+          <input type="text" id="atrf-dir" placeholder="Ej: DIR01774258"/>
+          <span class="atrf-hint">ID de dirección física (ej. DIR01774258)</span>
         </div>
         <div class="atrf-field atrf-col-4">
           <label>Access ID <span class="req">★</span>
             <span class="atrf-tag" id="atrf-auto-aid" onclick="_atrf_toggleAuto('aid')">Auto</span>
           </label>
           <input type="text" id="atrf-aid" placeholder="—" oninput="_atrf_onAidInput()"/>
-          <span class="atrf-hint">VNO · Ambiente · Dirección · HH:MM</span>
+          <span class="atrf-hint">VNO · Amb · nros(dir) · HH·MM·SS</span>
         </div>
         <hr class="atrf-divider"/>
         <div class="atrf-group-lbl">Servicio</div>
