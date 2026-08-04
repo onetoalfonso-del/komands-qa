@@ -7757,13 +7757,13 @@ function _atrf_buildAid(vno){
   var n=_atrf_now();
   var digs=(dir.replace(/\\D/g,'')+'0000000').slice(0,7);
   function mk(pfx,sfxLen){
-    // pfx + amb(2) + dir_digits(sfxLen-8) + HH(2) + mm(2) + ss(2) = pfx + sfxLen
-    return pfx+amb+digs.slice(0,sfxLen-8)+n.HH+n.mm+n.ss;
+    // pfx + amb(2) + dir_digits(sfxLen-8) + HH(2) + mm(2) + ss(2) + "-01"
+    return pfx+amb+digs.slice(0,sfxLen-8)+n.HH+n.mm+n.ss+'-01';
   }
-  if(v==='00')return mk('00',9);    // 11 total
-  if(v==='02')return mk('02-',8);   // 11 total
-  if(v==='03')return mk('03-',11);  // 14 total
-  if(v==='05')return mk('05-',9);   // 12 total
+  if(v==='00')return mk('00',9);
+  if(v==='02')return mk('02-',8);
+  if(v==='03')return mk('03-',11);
+  if(v==='05')return mk('05-',9);
   return mk(v+'-',8);
 }
 function _atrf_updateAid(){
