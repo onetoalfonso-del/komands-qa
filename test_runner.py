@@ -7745,12 +7745,12 @@ function _atrf_updateDirFields(){
   var isStreet=(v==='Casa'||v==='Depto'||v==='Depto con Bloque');
   var hasChars=(v==='Depto'||v==='Depto con Bloque');
   var hasDirCode=(v==='Depto con Bloque');
+  var spacer=document.getElementById('atrf-street-spacer');
   if(dirWrap)dirWrap.style.display=isStreet?'none':'';
+  if(spacer)spacer.style.display=isStreet?'block':'none';
   if(streetGrp)streetGrp.style.display=isStreet?'contents':'none';
   if(deptoGrp)deptoGrp.style.display=hasChars?'contents':'none';
-  if(dirCodeWrap){dirCodeWrap.style.display=hasDirCode?'':'none';dirCodeWrap.style.gridColumn=hasDirCode?'1/span 3':'';}
-  var pisoField=document.getElementById('atrf-piso-field');
-  if(pisoField)pisoField.style.gridColumn=(!hasDirCode&&hasChars)?'1/span 2':'';
+  if(dirCodeWrap)dirCodeWrap.style.display=hasDirCode?'':'none';
   if(isXygo){
     if(dirLbl)dirLbl.innerHTML='ID dirección XYGO <span class="req">★</span>';
     if(dirHint)dirHint.textContent='Solo dígitos (ej. 3999625)';
@@ -8888,8 +8888,9 @@ function showCodigos(){
           <input type="text" id="atrf-dir" placeholder="Ej: DIR01774258"/>
           <span class="atrf-hint" id="atrf-dir-hint">ID de dirección física (ej. DIR01774258)</span>
         </div>
+        <div id="atrf-street-spacer" style="display:none;grid-column:9/13"></div>
         <div id="atrf-street-group" style="display:none">
-          <div class="atrf-field atrf-col-2" style="grid-column:1/span 2"><label>Cód. región <span class="req">★</span></label><input type="text" id="atrf-city-code" placeholder="Ej: 9" maxlength="2"/></div>
+          <div class="atrf-field atrf-col-2"><label>Cód. región <span class="req">★</span></label><input type="text" id="atrf-city-code" placeholder="Ej: 9" maxlength="2"/></div>
           <div class="atrf-field atrf-col-2"><label>Tipo calle</label><input type="text" id="atrf-street-type" placeholder="Av., CL…" maxlength="10"/></div>
           <div class="atrf-field atrf-col-2"><label>Cód. calle <span class="req">★</span></label><input type="text" id="atrf-street-code" placeholder="Ej: 014629" maxlength="8"/></div>
           <div class="atrf-field atrf-col-4"><label>Nombre calle <span class="req">★</span></label><input type="text" id="atrf-street-name" placeholder="Ej: SEMINARIO"/></div>
