@@ -7757,6 +7757,17 @@ function _atrf_renderQueue(){
 function _atrf_buildDetailHtml(qi){
   var q=_atrfQueue[qi];
   var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
+  var snowHtml='';
+  if(q.snowPreflight){
+    var _sp=q.snowPreflight;
+    var _spClr=_sp.route==='Komands'?'#00C8D4':'#FFB347';
+    var _spBg=_sp.route==='Komands'?'rgba(0,200,212,.1)':'rgba(255,179,71,.1)';
+    snowHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">ServiceNow</div>'
+      +'<div class="atrf-tc-results">'
+      +'<span class="atrf-tc-badge pass" style="background:'+_spBg+';border-color:'+_spClr+'55;color:'+_spClr+';cursor:default">'
+      +'⚙ '+_sp.flags_count+' flags '+_sp.action+' ['+_sp.mode+'] → Flujo hacia '+_sp.route
+      +'</span></div>';
+  }
   var tcHtml='';
   if(q.tcResults&&q.tcResults.length){
     tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
@@ -7778,7 +7789,7 @@ function _atrf_buildDetailHtml(qi){
     });
     tcHtml+='</div>';
   }
-  return '<div style="padding:10px 0"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div>'+tcHtml+'</div>';
+  return '<div style="padding:10px 0"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div>'+snowHtml+tcHtml+'</div>';
 }
 function _atrf_toggleDetail(qi){
   document.getElementById('atrf-qrow-'+qi).classList.toggle('open');
@@ -8198,6 +8209,7 @@ async function _atrf_runSelected(){
       var _pfData=await _pfResp.json();
       if(_pfData.ok){
         _snowOriginal=_pfData.original;
+        q.snowPreflight=_pfData;
         if(prog)prog.textContent='✓ '+_pfData.flags_count+' flags '+_pfData.action+' ['+_pfData.mode+'] → '+_pfData.route;
         await new Promise(function(r){setTimeout(r,700);});
       }
