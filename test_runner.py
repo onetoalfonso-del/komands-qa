@@ -7737,6 +7737,7 @@ function _atrf_renderQueue(){
       +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'—')+'</span>'+urlBadge
       +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
       +'</div>'
+      +(function(){var _bp=q.cfg&&q.cfg.bp||'Sin BP';var _isK=_bp!=='Con BP';return '<span style="font-size:10px;font-family:var(--atrf-mono);font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid '+(_isK?'rgba(0,200,212,.4)':'rgba(255,179,71,.4)')+';background:'+(_isK?'rgba(0,200,212,.08)':'rgba(255,179,71,.08)')+';color:'+(_isK?'#00C8D4':'#FFB347')+';white-space:nowrap">→ '+(_isK?'Komands':'Blueplanet')+'</span>';}())
       +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
       +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
       +'</div>'
