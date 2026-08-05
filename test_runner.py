@@ -7746,8 +7746,8 @@ function _atrf_updateDirFields(){
   var hasChars=(v==='Depto'||v==='Depto con Bloque');
   var hasDirCode=(v==='Depto con Bloque');
   if(dirWrap)dirWrap.style.display=isStreet?'none':'';
-  if(streetGrp)streetGrp.style.display=isStreet?'contents':'none';
-  if(deptoGrp)deptoGrp.style.display=hasChars?'contents':'none';
+  if(streetGrp)streetGrp.style.display=isStreet?'block':'none';
+  if(deptoGrp)deptoGrp.style.display=hasChars?'block':'none';
   if(dirCodeWrap)dirCodeWrap.style.display=hasDirCode?'':'none';
   if(isXygo){
     if(dirLbl)dirLbl.innerHTML='ID dirección XYGO <span class="req">★</span>';
@@ -8886,17 +8886,21 @@ function showCodigos(){
           <input type="text" id="atrf-dir" placeholder="Ej: DIR01774258"/>
           <span class="atrf-hint" id="atrf-dir-hint">ID de dirección física (ej. DIR01774258)</span>
         </div>
-        <div id="atrf-street-group" style="display:none">
-          <div class="atrf-field atrf-col-2"><label>Cód. región <span class="req">★</span></label><input type="text" id="atrf-city-code" placeholder="Ej: 9" maxlength="2"/></div>
-          <div class="atrf-field atrf-col-2"><label>Tipo calle</label><input type="text" id="atrf-street-type" placeholder="Av., CL…" maxlength="10"/></div>
-          <div class="atrf-field atrf-col-2"><label>Cód. calle <span class="req">★</span></label><input type="text" id="atrf-street-code" placeholder="Ej: 014629" maxlength="8"/></div>
-          <div class="atrf-field atrf-col-4"><label>Nombre calle <span class="req">★</span></label><input type="text" id="atrf-street-name" placeholder="Ej: SEMINARIO"/></div>
-          <div class="atrf-field atrf-col-2"><label>Número <span class="req">★</span></label><input type="text" id="atrf-street-number" placeholder="Ej: 17" maxlength="8"/></div>
+        <div id="atrf-street-group" class="atrf-col-12" style="display:none">
+          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px">
+            <div class="atrf-field atrf-col-2"><label>Cód. región <span class="req">★</span></label><input type="text" id="atrf-city-code" placeholder="Ej: 9" maxlength="2"/></div>
+            <div class="atrf-field atrf-col-2"><label>Tipo calle</label><input type="text" id="atrf-street-type" placeholder="Av., CL…" maxlength="10"/></div>
+            <div class="atrf-field atrf-col-2"><label>Cód. calle <span class="req">★</span></label><input type="text" id="atrf-street-code" placeholder="Ej: 014629" maxlength="8"/></div>
+            <div class="atrf-field atrf-col-4"><label>Nombre calle <span class="req">★</span></label><input type="text" id="atrf-street-name" placeholder="Ej: SEMINARIO"/></div>
+            <div class="atrf-field atrf-col-2"><label>Número <span class="req">★</span></label><input type="text" id="atrf-street-number" placeholder="Ej: 17" maxlength="8"/></div>
+          </div>
         </div>
-        <div id="atrf-depto-group" style="display:none">
-          <div class="atrf-field atrf-col-3" id="atrf-dir-code-wrap" style="display:none"><label>Código DIR <span class="req">★</span></label><input type="text" id="atrf-dir-code" placeholder="Ej: DIR00048517"/><span class="atrf-hint">Código del edificio/bloque</span></div>
-          <div class="atrf-field atrf-col-2"><label>Piso <span class="req">★</span></label><input type="text" id="atrf-piso" placeholder="Ej: 2" maxlength="4"/></div>
-          <div class="atrf-field atrf-col-2"><label>N° Depto <span class="req">★</span></label><input type="text" id="atrf-depto-num" placeholder="Ej: 204" maxlength="10"/></div>
+        <div id="atrf-depto-group" class="atrf-col-12" style="display:none">
+          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px">
+            <div class="atrf-field atrf-col-3" id="atrf-dir-code-wrap" style="display:none"><label>Código DIR <span class="req">★</span></label><input type="text" id="atrf-dir-code" placeholder="Ej: DIR00048517"/><span class="atrf-hint">Código del edificio/bloque</span></div>
+            <div class="atrf-field atrf-col-2"><label>Piso <span class="req">★</span></label><input type="text" id="atrf-piso" placeholder="Ej: 2" maxlength="4"/></div>
+            <div class="atrf-field atrf-col-2"><label>N° Depto <span class="req">★</span></label><input type="text" id="atrf-depto-num" placeholder="Ej: 204" maxlength="10"/></div>
+          </div>
         </div>
         <div class="atrf-field atrf-col-4">
           <label>Access ID <span class="req">★</span>
