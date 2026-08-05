@@ -968,10 +968,18 @@ async def atrf_run_step(request: Request):
         if _use_pprd:
             return str(BP_DIR / PPRD_VNO_ENV_MAP.get(v, PPRD_VNO_ENV_MAP["02"]))
         return str(QA_DIR / QA_VNO_ENV_MAP.get(v, QA_VNO_ENV_MAP["02"]))
-    scenario    = body.get("scenario", "Instalación")
-    service_ba  = body.get("serviceBa", True)
-    service_voip= body.get("serviceVoip", True)
-    service_iptv= body.get("serviceIptv", True)
+    scenario      = body.get("scenario", "Instalación")
+    service_ba    = body.get("serviceBa", True)
+    service_voip  = body.get("serviceVoip", True)
+    service_iptv  = body.get("serviceIptv", True)
+    city_code     = body.get("cityCode", "")
+    street_type   = body.get("streetType", "")
+    street_code   = body.get("streetCode", "")
+    street_name   = body.get("streetName", "")
+    street_number = body.get("streetNumber", "")
+    piso          = body.get("piso", "")
+    depto_num     = body.get("deptoNum", "")
+    dir_code      = body.get("dirCode", "")
 
     # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
@@ -998,11 +1006,35 @@ async def atrf_run_step(request: Request):
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}",
                                  "req": "", "res": ""})
-        req_body_dict = {
-            "u_id_vno": vno, "u_operation_type": "Direccion Exacta",
-            "u_address_id": direccion, "u_address_mcd": address_mcd,
-            "u_service_type": svc_type,
-        }
+        if vno == "00" and address_mcd in ("Casa", "Depto", "Depto con Bloque"):
+            _op = dir_code if (address_mcd == "Depto con Bloque" and dir_code) else "Direccion Exacta"
+            req_body_dict = {
+                "u_id_vno": vno,
+                "u_service_type": svc_type,
+                "u_operation_type": _op,
+                "u_address_city_code": city_code,
+                "u_address_street_code": street_code,
+                "u_address_street_type": street_type,
+                "u_address_street_name": street_name,
+                "u_address_street_number": street_number,
+            }
+            if address_mcd in ("Depto", "Depto con Bloque"):
+                req_body_dict.update({
+                    "u_characteristic_C1": 2, "u_type_C1": "PI", "u_value_C1": piso,
+                    "u_characteristic_C2": 2, "u_type_C2": "DP", "u_value_C2": depto_num,
+                })
+        elif vno == "00" and address_mcd == "Depto XYGO":
+            req_body_dict = {
+                "u_id_vno": vno, "u_operation_type": "Direccion Exacta",
+                "u_address_id": direccion, "u_address_mcd": "XYGO",
+                "u_service_type": svc_type,
+            }
+        else:
+            req_body_dict = {
+                "u_id_vno": vno, "u_operation_type": "Direccion Exacta",
+                "u_address_id": direccion, "u_address_mcd": address_mcd,
+                "u_service_type": svc_type,
+            }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         if _use_pprd:
             _fact_url = f"{apim_url.rstrip('/')}/fullFillment-Factibilidad/v1/feasibilityUpselling"
@@ -7692,11 +7724,40 @@ function _atrf_updateTdir(){
   var has00=_atrf_getVnos().indexOf('00')>=0;
   var cur=sel.value;
   var opts=has00
-    ?[['OSP','OSP'],['XYGO','XYGO'],['Depto XYGO','Depto XYGO'],['Depto con Bloque','Depto con Bloque'],['Casa','Casa']]
+    ?[['OSP','OSP'],['XYGO','XYGO'],['Casa','Casa'],['Depto','Depto'],['Depto con Bloque','Depto con Bloque'],['Depto XYGO','Depto XYGO']]
     :[['OSP','OSP'],['XYGO','XYGO']];
   sel.innerHTML='';
   opts.forEach(function(o){var opt=document.createElement('option');opt.value=o[0];opt.textContent=o[1];sel.appendChild(opt);});
   if([].slice.call(sel.options).some(function(o){return o.value===cur;}))sel.value=cur;
+  _atrf_updateDirFields();
+}
+function _atrf_updateDirFields(){
+  var tdir=document.getElementById('atrf-tdir');
+  var v=tdir?tdir.value:'OSP';
+  var dirWrap=document.getElementById('atrf-dir-wrap');
+  var streetGrp=document.getElementById('atrf-street-group');
+  var deptoGrp=document.getElementById('atrf-depto-group');
+  var dirCodeWrap=document.getElementById('atrf-dir-code-wrap');
+  var dirLbl=document.getElementById('atrf-dir-lbl');
+  var dirHint=document.getElementById('atrf-dir-hint');
+  var dirInp=document.getElementById('atrf-dir');
+  var isXygo=(v==='XYGO'||v==='Depto XYGO');
+  var isStreet=(v==='Casa'||v==='Depto'||v==='Depto con Bloque');
+  var hasChars=(v==='Depto'||v==='Depto con Bloque');
+  var hasDirCode=(v==='Depto con Bloque');
+  if(dirWrap)dirWrap.style.display=isStreet?'none':'';
+  if(streetGrp)streetGrp.style.display=isStreet?'contents':'none';
+  if(deptoGrp)deptoGrp.style.display=hasChars?'contents':'none';
+  if(dirCodeWrap)dirCodeWrap.style.display=hasDirCode?'':'none';
+  if(isXygo){
+    if(dirLbl)dirLbl.innerHTML='ID dirección XYGO <span class="req">★</span>';
+    if(dirHint)dirHint.textContent='Solo dígitos (ej. 3999625)';
+    if(dirInp){dirInp.placeholder='Ej: 3999625';dirInp.inputMode='numeric';}
+  } else if(!isStreet){
+    if(dirLbl)dirLbl.innerHTML='Dirección <span class="req">★</span>';
+    if(dirHint)dirHint.textContent='ID de dirección física (ej. DIR01774258)';
+    if(dirInp){dirInp.placeholder='Ej: DIR01774258';dirInp.inputMode='';}
+  }
 }
 
 function _atrf_load(){
@@ -7974,8 +8035,21 @@ function _atrf_enqueue(){
   var vnos=_atrf_getVnos();
   if(!name){errors.push('Nombre de la secuencia es obligatorio');document.getElementById('atrf-seq-name').classList.add('err');}
   if(!vnos.length){errors.push('Selecciona al menos una VNO');}
-  if(!_atrf_v('atrf-dir').trim()){errors.push('Dirección es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
-  else if(/^\d{2}[-]/.test(_atrf_v('atrf-dir').trim())){errors.push('El campo Dirección parece un Access ID (ej. 02-…). La dirección física tiene formato DIR01774258 — el Access ID va en el campo Access ID.');document.getElementById('atrf-dir').classList.add('err');}
+  var _tdir=_atrf_v('atrf-tdir');
+  var _isStreetTdir=(_tdir==='Casa'||_tdir==='Depto'||_tdir==='Depto con Bloque');
+  var _isXygoTdir=(_tdir==='XYGO'||_tdir==='Depto XYGO');
+  if(_isStreetTdir){
+    if(!_atrf_v('atrf-city-code').trim()||!_atrf_v('atrf-street-code').trim()||!_atrf_v('atrf-street-name').trim()||!_atrf_v('atrf-street-number').trim()){errors.push('Completa los campos de dirección: Cód. región, Cód. calle, Nombre calle y Número.');}
+    if(_tdir==='Depto'||_tdir==='Depto con Bloque'){
+      if(!_atrf_v('atrf-piso').trim()){errors.push('El campo Piso es obligatorio.');}
+      if(!_atrf_v('atrf-depto-num').trim()){errors.push('El campo N° Depto es obligatorio.');}
+      if(_tdir==='Depto con Bloque'&&!_atrf_v('atrf-dir-code').trim()){errors.push('El Código DIR es obligatorio para Depto con Bloque.');}
+    }
+  } else {
+    if(!_atrf_v('atrf-dir').trim()){errors.push('Dirección es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
+    else if(_isXygoTdir&&!/^\d+$/.test(_atrf_v('atrf-dir').trim())){errors.push('Para tipo XYGO el ID de dirección debe contener solo dígitos (ej. 3999625).');document.getElementById('atrf-dir').classList.add('err');}
+    else if(!_isXygoTdir&&/^\d{2}[-]/.test(_atrf_v('atrf-dir').trim())){errors.push('El campo Dirección parece un Access ID (ej. 02-…). La dirección física tiene formato DIR01774258 — el Access ID va en el campo Access ID.');document.getElementById('atrf-dir').classList.add('err');}
+  }
   if(!_atrf_v('atrf-esc')){errors.push('Escenario es obligatorio');document.getElementById('atrf-esc').classList.add('err');}
   if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecución es obligatorio');document.getElementById('atrf-tex').classList.add('err');}
   if(!_atrfSel.length){errors.push('Debes seleccionar al menos una funcionalidad');document.getElementById('atrf-funcs-err').classList.add('show');}
@@ -7995,7 +8069,7 @@ function _atrf_enqueue(){
     var nsn_val=_snPx?_snPx+_nsnSfx:_nsnSfx;
     var aid_val=_atrfAutoState.aid?aid_auto:_atrf_v('atrf-aid').trim();
     var qname=name+(vnos.length>1?' [VNO '+vno+']':'');
-    var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val,ba:document.getElementById('atrf-svc-ba').checked,voip:document.getElementById('atrf-svc-voip').checked,iptv:document.getElementById('atrf-svc-iptv').checked};
+    var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,cityCode:_atrf_v('atrf-city-code'),streetType:_atrf_v('atrf-street-type'),streetCode:_atrf_v('atrf-street-code'),streetName:_atrf_v('atrf-street-name'),streetNumber:_atrf_v('atrf-street-number'),piso:_atrf_v('atrf-piso'),deptoNum:_atrf_v('atrf-depto-num'),dirCode:_atrf_v('atrf-dir-code'),accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val,ba:document.getElementById('atrf-svc-ba').checked,voip:document.getElementById('atrf-svc-voip').checked,iptv:document.getElementById('atrf-svc-iptv').checked};
     _atrfQueue.push({name:qname,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:ts,cfg:cfg,history:[]});
   });
   _atrf_closeNew();_atrf_renderQueue();_atrf_save();
@@ -8249,6 +8323,14 @@ async function _atrf_runSelected(){
           body:JSON.stringify({func:fn,vno:vno,
             direccion:q.cfg.direccion||'',
             addressMcd:q.cfg.tdir||'',
+            cityCode:q.cfg.cityCode||'',
+            streetType:q.cfg.streetType||'',
+            streetCode:q.cfg.streetCode||'',
+            streetName:q.cfg.streetName||'',
+            streetNumber:q.cfg.streetNumber||'',
+            piso:q.cfg.piso||'',
+            deptoNum:q.cfg.deptoNum||'',
+            dirCode:q.cfg.dirCode||'',
             serviceType:q.cfg.tsvc||'FTTH',
             accessId:_currentAccessId||'',
             scenario:q.cfg.esc||'Instalación',
@@ -8795,14 +8877,26 @@ function showCodigos(){
         </div>
         <div class="atrf-field atrf-col-3">
           <label>Tipo dirección <span class="req">★</span></label>
-          <select id="atrf-tdir">
+          <select id="atrf-tdir" onchange="_atrf_updateDirFields()">
             <option value="OSP">OSP</option><option value="XYGO">XYGO</option>
           </select>
         </div>
-        <div class="atrf-field atrf-col-5">
-          <label>Dirección <span class="req">★</span></label>
+        <div class="atrf-field atrf-col-5" id="atrf-dir-wrap">
+          <label id="atrf-dir-lbl">Dirección <span class="req">★</span></label>
           <input type="text" id="atrf-dir" placeholder="Ej: DIR01774258"/>
-          <span class="atrf-hint">ID de dirección física (ej. DIR01774258)</span>
+          <span class="atrf-hint" id="atrf-dir-hint">ID de dirección física (ej. DIR01774258)</span>
+        </div>
+        <div id="atrf-street-group" style="display:none">
+          <div class="atrf-field atrf-col-2"><label>Cód. región <span class="req">★</span></label><input type="text" id="atrf-city-code" placeholder="Ej: 9" maxlength="2"/></div>
+          <div class="atrf-field atrf-col-2"><label>Tipo calle</label><input type="text" id="atrf-street-type" placeholder="Av., CL…" maxlength="10"/></div>
+          <div class="atrf-field atrf-col-2"><label>Cód. calle <span class="req">★</span></label><input type="text" id="atrf-street-code" placeholder="Ej: 014629" maxlength="8"/></div>
+          <div class="atrf-field atrf-col-4"><label>Nombre calle <span class="req">★</span></label><input type="text" id="atrf-street-name" placeholder="Ej: SEMINARIO"/></div>
+          <div class="atrf-field atrf-col-2"><label>Número <span class="req">★</span></label><input type="text" id="atrf-street-number" placeholder="Ej: 17" maxlength="8"/></div>
+        </div>
+        <div id="atrf-depto-group" style="display:none">
+          <div class="atrf-field atrf-col-3" id="atrf-dir-code-wrap" style="display:none"><label>Código DIR <span class="req">★</span></label><input type="text" id="atrf-dir-code" placeholder="Ej: DIR00048517"/><span class="atrf-hint">Código del edificio/bloque</span></div>
+          <div class="atrf-field atrf-col-2"><label>Piso <span class="req">★</span></label><input type="text" id="atrf-piso" placeholder="Ej: 2" maxlength="4"/></div>
+          <div class="atrf-field atrf-col-2"><label>N° Depto <span class="req">★</span></label><input type="text" id="atrf-depto-num" placeholder="Ej: 204" maxlength="10"/></div>
         </div>
         <div class="atrf-field atrf-col-4">
           <label>Access ID <span class="req">★</span>
