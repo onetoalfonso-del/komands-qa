@@ -868,6 +868,75 @@ async def api_report(suite_id: str):
     })
 
 
+# ─── ServiceNow: mock / adaptador ────────────────────────────────────────────
+import copy as _copy
+
+_SNOW_MODE = "real" if os.environ.get("SNOW_URL") else "mock"
+
+# Tabla Komands Feature Flags — estado en memoria (mock)
+_snow_state: list = _copy.deepcopy([
+    {"flag_name": "ALL_ALL_ALL_CONSULTA_ESTADO", "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Retrieve access",       "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_MODIFICACION",    "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Modification",          "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_BAJA_ACCESO",     "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Access deregistration", "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_ACTIVACION",      "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Activation",            "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_CAMBIO_SERIE",    "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Device modification",   "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_CAMBIO_FIBRA",    "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Fiber change",          "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_ASIGNACION",      "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Assignment",            "notes": ""},
+    {"flag_name": "ALL_ALL_ALL_CANCEL_ORDER",    "enabled": True,  "vno_code": "All", "technology": "All", "service_type": "All", "operation": "Cancel order",          "notes": ""},
+])
+
+
+def _snow_apply(bp: str) -> dict:
+    """Aplica flags según Con/Sin BP. Devuelve estado original para restaurar."""
+    original = {f["flag_name"]: f["enabled"] for f in _snow_state}
+    target = (bp != "Con BP")          # Con BP → False (Blueplanet) / Sin BP → True (Komands)
+    for f in _snow_state:
+        f["enabled"] = target
+    return original
+
+
+def _snow_restore(original: dict) -> None:
+    """Restaura flags al estado previo."""
+    for f in _snow_state:
+        if f["flag_name"] in original:
+            f["enabled"] = original[f["flag_name"]]
+
+
+@app.get("/api/atrf/snow-flags")
+async def atrf_snow_flags_get():
+    """Estado actual de los flags ServiceNow."""
+    return JSONResponse({"mode": _SNOW_MODE, "flags": _snow_state})
+
+
+@app.post("/api/atrf/snow-preflight")
+async def atrf_snow_preflight(request: Request):
+    """Pre-flight: configura flags ServiceNow según Con/Sin BP."""
+    body = await request.json()
+    bp = body.get("bp", "Sin BP")
+    if _SNOW_MODE == "mock":
+        original = _snow_apply(bp)
+        route = "Blueplanet" if bp == "Con BP" else "Komands"
+        action = "desactivados" if bp == "Con BP" else "activados"
+        return JSONResponse({
+            "ok": True, "mode": "mock", "bp": bp,
+            "route": route, "action": action,
+            "flags_count": len(_snow_state), "original": original,
+        })
+    # ── Real ServiceNow (pendiente credenciales OAuth) ──
+    return JSONResponse({"ok": False, "error": "ServiceNow real pendiente configuración SNOW_URL/SNOW_CLIENT_ID/SNOW_CLIENT_SECRET"}, status_code=501)
+
+
+@app.post("/api/atrf/snow-restore")
+async def atrf_snow_restore(request: Request):
+    """Teardown: restaura flags ServiceNow al estado previo."""
+    body = await request.json()
+    original = body.get("original", {})
+    if _SNOW_MODE == "mock":
+        _snow_restore(original)
+        return JSONResponse({"ok": True, "mode": "mock", "restored": len(original)})
+    return JSONResponse({"ok": False, "error": "ServiceNow real pendiente configuración"}, status_code=501)
+
+
 # ─── UI ───────────────────────────────────────────────────────────────────────
 # ─── ATRF FullFillment: ruta run-step ─────────────────────────────────────────
 @app.post("/api/atrf/run-step")
@@ -8107,6 +8176,21 @@ async function _atrf_runSelected(){
     q.tcResults=[];
     var vno=q.cfg&&q.cfg.vno||'';
     var _currentAccessId=q.cfg.accessId||'';
+    // ── Pre-flight ServiceNow ──────────────────────────────────────────────
+    var _snowOriginal=null;
+    var _bp=q.cfg&&q.cfg.bp||'Sin BP';
+    try{
+      var _pfRoute=_bp==='Con BP'?'Blueplanet':'Komands';
+      if(prog)prog.textContent='⚙ Configurando ServiceNow para flujo hacia '+_pfRoute+'…';
+      var _pfResp=await fetch('/api/atrf/snow-preflight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bp:_bp})});
+      var _pfData=await _pfResp.json();
+      if(_pfData.ok){
+        _snowOriginal=_pfData.original;
+        if(prog)prog.textContent='✓ '+_pfData.flags_count+' flags '+_pfData.action+' ['+_pfData.mode+'] → '+_pfData.route;
+        await new Promise(function(r){setTimeout(r,700);});
+      }
+    }catch(_pfe){}
+    // ── Fin pre-flight ────────────────────────────────────────────────────
     for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
       var fi=q.funcs[fi_idx];
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
@@ -8190,6 +8274,19 @@ async function _atrf_runSelected(){
         await new Promise(function(r){setTimeout(r,_delays[_dk]);});
       }
     }
+    // ── Teardown ServiceNow — restaura flags siempre (pass o fail) ───────────
+    if(_snowOriginal){
+      try{
+        if(prog)prog.textContent='⚙ Restaurando flags ServiceNow…';
+        var _rstResp=await fetch('/api/atrf/snow-restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({original:_snowOriginal})});
+        var _rstData=await _rstResp.json();
+        if(_rstData.ok){
+          if(prog)prog.textContent='✓ Flags restaurados ['+_rstData.mode+']';
+          await new Promise(function(r){setTimeout(r,500);});
+        }
+      }catch(_rste){}
+    }
+    // ── Fin teardown ──────────────────────────────────────────────────────
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
     // Guardar en historial — un registro por paso
