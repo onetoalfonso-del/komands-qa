@@ -7675,7 +7675,18 @@ function _atrf_toggleVno(el){
   var vnos=_atrf_getVnos();
   var note=document.getElementById('atrf-vno-multi-note');
   if(note)note.classList.toggle('show',vnos.length>1);
-  _atrf_updateAid();_atrf_updateSerials();
+  _atrf_updateAid();_atrf_updateSerials();_atrf_updateTdir();
+}
+function _atrf_updateTdir(){
+  var sel=document.getElementById('atrf-tdir');if(!sel)return;
+  var has00=_atrf_getVnos().indexOf('00')>=0;
+  var cur=sel.value;
+  var opts=has00
+    ?[['OSP','OSP'],['XYGO','XYGO'],['Depto XYGO','Depto XYGO'],['Depto con Bloque','Depto con Bloque'],['Casa','Casa']]
+    :[['OSP','OSP'],['XYGO','XYGO']];
+  sel.innerHTML='';
+  opts.forEach(function(o){var opt=document.createElement('option');opt.value=o[0];opt.textContent=o[1];sel.appendChild(opt);});
+  if([].slice.call(sel.options).some(function(o){return o.value===cur;}))sel.value=cur;
 }
 
 function _atrf_load(){
@@ -7801,6 +7812,7 @@ function _atrf_openNew(){
   ['atrf-dir','atrf-aid','atrf-sn','atrf-nsn'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.classList.remove('err');}});
   document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl').forEach(function(el){el.classList.remove('on');});
   var multiNote=document.getElementById('atrf-vno-multi-note');if(multiNote)multiNote.classList.remove('show');
+  _atrf_updateTdir();
   _atrf_updateAmbUrl();
   _atrf_updateAid();
   _atrf_updateSerials();
@@ -8752,8 +8764,7 @@ function showCodigos(){
         <div class="atrf-field atrf-col-3">
           <label>Tipo dirección <span class="req">★</span></label>
           <select id="atrf-tdir">
-            <option value="XYGO">XYGO</option><option value="OSP">OSP</option>
-            <option value="SGO">SGO</option><option value="MANUAL">MANUAL</option>
+            <option value="OSP">OSP</option><option value="XYGO">XYGO</option>
           </select>
         </div>
         <div class="atrf-field atrf-col-5">
