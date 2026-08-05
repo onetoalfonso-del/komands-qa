@@ -2571,6 +2571,16 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-tc-badge.pending{background:var(--atrf-surface2);border-color:var(--atrf-border);color:var(--atrf-text3);cursor:default}
 .atrf-tc-badge:not(.pending):hover{filter:brightness(1.15);transform:translateY(-1px)}
 .atrf-tc-section-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-top:10px;margin-bottom:4px}
+.atrf-tc-list{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.atrf-tc-row{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;border:1px solid var(--atrf-border);background:var(--atrf-surface2);cursor:pointer;transition:all .15s;font-family:var(--atrf-mono)}
+.atrf-tc-row:hover{border-color:var(--atrf-border2);filter:brightness(1.08)}
+.atrf-tc-row-func{flex:1;font-size:11px;color:var(--atrf-text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atrf-tc-row-arr{font-size:10px;color:var(--atrf-text3)}
+.atrf-tc-row-cp{font-size:10px;font-weight:700;color:var(--atrf-text2);min-width:36px}
+.atrf-tc-row-st{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.atrf-tc-row-st.pass{background:var(--atrf-green-bg);border:1px solid var(--atrf-green-border);color:var(--atrf-green)}
+.atrf-tc-row-st.fail{background:var(--atrf-red-bg);border:1px solid var(--atrf-red-border);color:var(--atrf-red)}
+.atrf-tc-row-st.pending{background:var(--atrf-surface2);border:1px solid var(--atrf-border);color:var(--atrf-text3)}
 .atrf-tc-modal-pre{background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:6px;padding:12px;font-family:var(--atrf-mono);font-size:11px;color:var(--atrf-text);overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;max-height:260px;overflow-y:auto}
 .atrf-tc-tab{flex:1;padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:12px;font-family:var(--atrf-mono);color:var(--atrf-text2);transition:all .15s;text-align:left}
 .atrf-tc-tab.active{color:var(--atrf-accent);border-bottom-color:var(--atrf-accent);font-weight:600}
@@ -7771,22 +7781,31 @@ function _atrf_buildDetailHtml(qi){
   }
   var tcHtml='';
   if(q.tcResults&&q.tcResults.length){
-    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
+    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-list">';
     q.tcResults.forEach(function(r,idx){
       var cls=r.pass?'pass':'fail';
-      var icon=r.pass?'✓':'✗';
-      tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
+      var icon=r.pass?'✓ Pasó':'✗ Falló';
+      tcHtml+='<div class="atrf-tc-row" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'
+        +'<span class="atrf-tc-row-func">'+esc(r.func)+'</span>'
+        +'<span class="atrf-tc-row-arr">→</span>'
+        +'<span class="atrf-tc-row-cp">'+esc(r.tc)+'</span>'
+        +'<span class="atrf-tc-row-st '+cls+'">'+icon+'</span>'
+        +'</div>';
     });
     tcHtml+='</div>';
   } else if(q.status==='espera'){
-    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
+    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-list">';
     (q.funcs||[]).forEach(function(fi){
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];
       if(!tcMap)return;
       var vno=q.cfg&&q.cfg.vno||'';
       var tc=tcMap[vno];if(!tc)return;
-      var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
-      tcHtml+='<span class="atrf-tc-badge pending">'+tc+' · '+vl+'</span>';
+      tcHtml+='<div class="atrf-tc-row" style="cursor:default">'
+        +'<span class="atrf-tc-row-func">'+esc(fn)+'</span>'
+        +'<span class="atrf-tc-row-arr">→</span>'
+        +'<span class="atrf-tc-row-cp">'+esc(tc)+'</span>'
+        +'<span class="atrf-tc-row-st pending">En espera</span>'
+        +'</div>';
     });
     tcHtml+='</div>';
   }
