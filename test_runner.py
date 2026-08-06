@@ -1915,11 +1915,11 @@ _FF_ENVS_FILE      = Path("/tmp/ff-environments.json")
 
 # Claves alineadas con _ATRF_DELAY_MAP en el frontend
 _FF_CONFIG_DEFAULTS = [
-    {"key": "delay_post_asig_ms",   "label": "Delay post-Asignación (ms)",                "default": "0"},
-    {"key": "delay_post_ia_ms",     "label": "Delay post-Inicio IIA (ms)",                "default": "0"},
-    {"key": "delay_post_activ_ms",  "label": "Delay post-Activación (ms)",                "default": "0"},
-    {"key": "delay_post_dm_ms",     "label": "Delay post-Modificación Dispositivo (ms)",  "default": "0"},
-    {"key": "delay_post_cancel_ms", "label": "Delay post-Cancelación Orden (ms)",         "default": "0"},
+    {"key": "delay_post_asig_ms",   "label": "Delay post-Asignación (ms)",                "default": "120000"},
+    {"key": "delay_post_ia_ms",     "label": "Delay post-Inicio IIA (ms)",                "default": "120000"},
+    {"key": "delay_post_activ_ms",  "label": "Delay post-Activación (ms)",                "default": "120000"},
+    {"key": "delay_post_dm_ms",     "label": "Delay post-Modificación Dispositivo (ms)",  "default": "120000"},
+    {"key": "delay_post_cancel_ms", "label": "Delay post-Cancelación Orden (ms)",         "default": "120000"},
 ]
 
 def _load_delay_cfg() -> list:
