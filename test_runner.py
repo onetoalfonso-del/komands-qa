@@ -7696,6 +7696,11 @@ var _ATRF_DELAY_MAP={
   "Cancelación Orden de Servicio": "delay_post_cancel_ms",
 };
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_GROUPS=[
+  {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
+  {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,7]},
+  {label:'Consultas',color:'#00C8D4',funcs:[11,12,17,13,14,15,18]}
+];
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
@@ -7989,21 +7994,35 @@ function _atrf_toggleAuto(key){
 
 function _atrf_renderCatalog(){
   var el=document.getElementById('atrf-func-catalog');if(!el)return;
-  var vis=_ATRF_FUNCS.filter(function(f){return!_atrfFilter||f.toLowerCase().includes(_atrfFilter.toLowerCase());});
-  document.getElementById('atrf-func-cnt').textContent=vis.length;
+  var filter=_atrfFilter?_atrfFilter.toLowerCase():'';
   el.innerHTML='';
-  _ATRF_FUNCS.forEach(function(f,i){
-    if(_atrfFilter&&!f.toLowerCase().includes(_atrfFilter.toLowerCase()))return;
-    var cnt=_atrfSel.filter(function(x){return x===i;}).length;
-    var on=cnt>0;
-    var cbHtml=cnt>1
-      ?'<span class="atrf-func-cb on" style="font-size:10px;min-width:18px;text-align:center">'+cnt+'×</span>'
-      :'<span class="atrf-func-cb'+(on?' on':'')+'"></span>';
-    var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
-    d.innerHTML='<span class="atrf-func-idx">'+String(i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+f+'</span>'+cbHtml;
-    d.onclick=function(){_atrf_toggleFunc(i);};
-    el.appendChild(d);
+  var visCount=0;
+  _ATRF_GROUPS.forEach(function(grp){
+    var grpItems=[];
+    grp.funcs.forEach(function(i){
+      var f=_ATRF_FUNCS[i];
+      if(filter&&!f.toLowerCase().includes(filter))return;
+      grpItems.push({i:i,f:f});
+    });
+    if(!grpItems.length)return;
+    visCount+=grpItems.length;
+    var hdr=document.createElement('div');
+    hdr.style.cssText='padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:'+grp.color+';font-family:var(--atrf-mono);background:var(--atrf-surface);border-bottom:1px solid var(--atrf-border);border-top:1px solid var(--atrf-border);position:sticky;top:0;z-index:1';
+    hdr.textContent='— '+grp.label;
+    el.appendChild(hdr);
+    grpItems.forEach(function(item){
+      var cnt=_atrfSel.filter(function(x){return x===item.i;}).length;
+      var on=cnt>0;
+      var cbHtml=cnt>1
+        ?'<span class="atrf-func-cb on" style="font-size:10px;min-width:18px;text-align:center">'+cnt+'×</span>'
+        :'<span class="atrf-func-cb'+(on?' on':'')+'"></span>';
+      var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
+      d.innerHTML='<span class="atrf-func-idx">'+String(item.i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+item.f+'</span>'+cbHtml;
+      d.onclick=function(){_atrf_toggleFunc(item.i);};
+      el.appendChild(d);
+    });
   });
+  document.getElementById('atrf-func-cnt').textContent=visCount;
 }
 function _atrf_toggleFunc(i){
   _atrfSel.push(i);
