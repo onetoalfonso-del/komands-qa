@@ -382,7 +382,7 @@ SUITES = [
     {
         "id": "apim-parallel", "group": "disponible",
         "label": "Flujo Completo Fulfillment",
-        "desc":  "Ejecuta el ciclo de activación de fibra para ClaroVTR, Entel, DTV y Movistar",
+        "desc":  "Ejecuta el flujo completo de activación de fibra para todas las VNOs",
         "note":  [
             "================================================================",
             "  Endpoints Services Now - Coleccion APIM vs PREPROD Axway",
