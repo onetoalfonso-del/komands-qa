@@ -382,7 +382,7 @@ SUITES = [
     {
         "id": "apim-parallel", "group": "disponible",
         "label": "Flujo Completo Fulfillment",
-        "desc":  "Ejecuta el flujo completo de activación de fibra para todas las VNOs",
+        "desc":  "Ejecuta el flujo completo para todas las VNOs",
         "note":  [
             "================================================================",
             "  Endpoints Services Now - Coleccion APIM vs PREPROD Axway",
