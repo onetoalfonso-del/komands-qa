@@ -7706,7 +7706,7 @@ var _ATRF_PREREQS={
   2:{c:'#3D7FFF',t:'El Access ID debe tener una IIA iniciada. Sin IIA previa la activación fallará.'},
   5:{c:'#3D7FFF',t:'El servicio debe estar activado. El Access ID debe tener una Activación completada para poder finalizar la intervención.'},
   4:{c:'#FFB347',t:'Debe haber una IIA activa o el servicio debe estar activado para poder cancelar la intervención asegurada.'},
-  6:{c:'#FFB347',t:'La orden debe estar abierta y sin Asignación iniciada. Una vez que la OLT asignó recursos (Asignación ejecutada), BluePlanet no permite cancelar por este endpoint — retorna código 34.'},
+  6:{c:'#FFB347',t:'El Access ID debe tener una Asignación completada pero sin IIA iniciada. La cancelación aplica cuando la OLT ya asignó recursos pero el técnico aún no fue a terreno.'},
   8:{c:'#FFB347',t:'El Access ID debe estar activo (servicio en producción). Si está suspendido o en proceso de baja no es posible modificar.'},
   9:{c:'#FFB347',t:'El Access ID debe estar activo. Se necesitan los seriales del ONT actual y el nuevo para el intercambio de equipo.'},
   10:{c:'#FFB347',t:'El Access ID debe estar activo. Se requiere el nuevo puerto PON de destino para el cambio de fibra.'},
