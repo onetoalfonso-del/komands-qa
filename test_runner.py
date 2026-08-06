@@ -1912,23 +1912,38 @@ async def atrf_run_step(request: Request):
 _FF_CONFIG_FILE    = Path("/tmp/ff-config.json")
 _FF_HISTORIAL_FILE = Path("/tmp/ff-historial.json")
 _FF_ENVS_FILE      = Path("/tmp/ff-environments.json")
-_FF_CONFIG_LABELS  = {
-    "delay_factibilidad": "Delay entre pasos Factibilidad (ms)",
-    "delay_assignment":   "Delay entre pasos Asignacion (ms)",
-    "delay_activacion":   "Delay entre pasos Activacion (ms)",
-    "delay_global":       "Delay global entre pasos (ms)",
-}
+
+# Claves alineadas con _ATRF_DELAY_MAP en el frontend
+_FF_CONFIG_DEFAULTS = [
+    {"key": "delay_post_asig_ms",   "label": "Delay post-Asignación (ms)",                "default": "0"},
+    {"key": "delay_post_ia_ms",     "label": "Delay post-Inicio IIA (ms)",                "default": "0"},
+    {"key": "delay_post_activ_ms",  "label": "Delay post-Activación (ms)",                "default": "0"},
+    {"key": "delay_post_dm_ms",     "label": "Delay post-Modificación Dispositivo (ms)",  "default": "0"},
+    {"key": "delay_post_cancel_ms", "label": "Delay post-Cancelación Orden (ms)",         "default": "0"},
+]
+
+def _load_delay_cfg() -> list:
+    """Lee config de /tmp; si falta una clave, rellena desde env var o default=0."""
+    saved: dict = {}
+    if _FF_CONFIG_FILE.exists():
+        try:
+            saved = {e["key"]: e for e in json.loads(_FF_CONFIG_FILE.read_text(encoding="utf-8"))}
+        except Exception:
+            pass
+    result = []
+    for d in _FF_CONFIG_DEFAULTS:
+        k = d["key"]
+        # prioridad: /tmp guardado → env var (ej DELAY_POST_ASIG_MS) → default 0
+        env_val = os.environ.get(k.upper(), "")
+        val = saved[k]["value"] if k in saved else (env_val or d["default"])
+        result.append({"key": k, "label": d["label"], "value": val})
+    return result
 
 
 @app.get("/api/config")
 async def atrf_config_get():
-    """Devuelve configuracion de delays para ATRF (file-based)."""
-    if _FF_CONFIG_FILE.exists():
-        try:
-            return json.loads(_FF_CONFIG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return []
+    """Devuelve configuracion de delays para ATRF."""
+    return _load_delay_cfg()
 
 
 @app.put("/api/config/{key}")
@@ -1936,11 +1951,9 @@ async def atrf_config_put(key: str, request: Request):
     """Guarda configuracion de delays para ATRF (file-based)."""
     body = await request.json()
     value = str(body.get("value", ""))
-    label = _FF_CONFIG_LABELS.get(key, body.get("label", key))
+    label = next((d["label"] for d in _FF_CONFIG_DEFAULTS if d["key"] == key), key)
     try:
-        cfg = []
-        if _FF_CONFIG_FILE.exists():
-            cfg = json.loads(_FF_CONFIG_FILE.read_text(encoding="utf-8"))
+        cfg = _load_delay_cfg()
         entry = next((e for e in cfg if e.get("key") == key), None)
         if entry:
             entry["value"] = value
