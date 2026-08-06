@@ -115,8 +115,8 @@ NEWMAN = shutil.which("newman") or "newman"
 SUITES = [
     {
         "id": "t1", "group": "disponible",
-        "label": "Regresión completa",
-        "desc":  "675 casos — valida todos los endpoints según la especificación",
+        "label": "Verificación general",
+        "desc":  "Simulado · Valida que la estructura de datos de cada respuesta sea correcta (675 pruebas)",
         "note":  [
             "================================================================",
             "  T1 - Especificacion API + Regresion completa",
@@ -142,8 +142,8 @@ SUITES = [
     },
     {
         "id": "t1-contract", "group": "disponible",
-        "label": "Contrato OpenAPI — Mock",
-        "desc":  "Casos automáticos generados sobre servidor simulado",
+        "label": "Pruebas automáticas — Simulado",
+        "desc":  "Simulado · Genera pruebas automáticas y valida que la estructura de datos sea correcta sin afectar datos reales",
         "note":  [
             "================================================================",
             "  T1-C - Contrato OpenAPI con Schemathesis (property-based)",
@@ -160,8 +160,8 @@ SUITES = [
     },
     {
         "id": "t1c-real", "group": "disponible",
-        "label": "Contrato OpenAPI — Servidor Real",
-        "desc":  "Casos automáticos generados contra el servidor real de Komands",
+        "label": "Pruebas automáticas — Real",
+        "desc":  "Genera y ejecuta pruebas automáticas directamente en el servidor de Komands",
         "note":  [
             "================================================================",
             "  T1-C Real - Schemathesis contra servidor REAL :9016",
@@ -187,8 +187,8 @@ SUITES = [
     },
     {
         "id": "t2", "group": "disponible",
-        "label": "Comandos CLI OLTs",
-        "desc":  "Verifica los comandos SSH enviados a equipos Nokia y Huawei",
+        "label": "Verificación de comandos de red",
+        "desc":  "Simulado · Valida que la estructura de datos y los comandos enviados a los equipos de red sean correctos",
         "note":  [
             "================================================================",
             "  T2 - Validacion de comandos CLI Nokia / Huawei",
@@ -211,8 +211,8 @@ SUITES = [
     },
     {
         "id": "t3", "group": "disponible",
-        "label": "Parseo de respuestas OLT",
-        "desc":  "Valida que el sistema interpreta correctamente las respuestas Nokia y Huawei",
+        "label": "Lectura de respuestas de red",
+        "desc":  "Simulado · Valida que la estructura de datos de las respuestas de los equipos sea interpretada correctamente",
         "note":  [
             "================================================================",
             "  T3 - Parseo de respuestas OLT + contrato de callbacks",
@@ -234,8 +234,8 @@ SUITES = [
     },
     {
         "id": "newman-dev", "group": "disponible",
-        "label": "Endpoints Komands Dev",
-        "desc":  "Prueba directa de endpoints REST contra el servidor real de Komands",
+        "label": "Prueba de APIs Komands",
+        "desc":  "Ejecuta llamadas reales al servidor de Komands y verifica las respuestas",
         "note":  [
             "================================================================",
             "  Endpoints Kommand Dev - Coleccion Postman vs servidor REAL",
@@ -381,8 +381,8 @@ SUITES = [
     },
     {
         "id": "apim-parallel", "group": "disponible",
-        "label": "Flujo ATRF — Todos los operadores",
-        "desc":  "Ciclo completo de activación FTTH para ClaroVTR, Entel, DTV y Movistar",
+        "label": "Flujo completo de activación",
+        "desc":  "Ejecuta el ciclo de activación de fibra para ClaroVTR, Entel, DTV y Movistar",
         "note":  [
             "================================================================",
             "  Endpoints Services Now - Coleccion APIM vs PREPROD Axway",
@@ -399,8 +399,8 @@ SUITES = [
     },
     {
         "id": "t7", "group": "disponible",
-        "label": "Pruebas de Seguridad",
-        "desc":  "Verifica autenticación JWT, headers HTTP y bloqueo de métodos no permitidos",
+        "label": "Seguridad del sistema",
+        "desc":  "Verifica que solo usuarios autorizados pueden acceder y operar el sistema",
         "note":  [
             "================================================================",
             "  T7 - Pruebas de seguridad OWASP vs servidor REAL :9016",
@@ -423,8 +423,8 @@ SUITES = [
     },
     {
         "id": "t5", "group": "bloqueado",
-        "label": "Base de Datos",
-        "desc":  "Verifica transacciones, auditoría y unicidad de registros en PostgreSQL",
+        "label": "Base de datos",
+        "desc":  "Revisa que las activaciones y registros de auditoría se guardan correctamente",
         "blocker": "Requiere PostgreSQL DEV con schema Komands desplegado",
         "note":  [
             "================================================================",
@@ -441,8 +441,8 @@ SUITES = [
     },
     {
         "id": "t4", "group": "bloqueado",
-        "label": "Flujo E2E — OLTs reales",
-        "desc":  "Prueba el ciclo completo contra equipos de red físicos Nokia y Huawei",
+        "label": "Prueba en equipos reales",
+        "desc":  "Ejecuta el flujo completo de activación en equipos físicos de laboratorio",
         "blocker": "Requiere endpoint de callback accesible desde servidor DEV",
         "note":  [
             "================================================================",
@@ -459,8 +459,8 @@ SUITES = [
     },
     {
         "id": "t6", "group": "bloqueado",
-        "label": "Paridad Komands vs BluePlanet",
-        "desc":  "Verifica que Komands produce los mismos resultados que BluePlanet en la OLT",
+        "label": "Comparación con BluePlanet",
+        "desc":  "Confirma que Komands produce los mismos resultados que el sistema anterior",
         "blocker": "Requiere datos reales de VNO-02 y VNO-03",
         "note":  [
             "================================================================",
@@ -475,8 +475,8 @@ SUITES = [
     },
     {
         "id": "t8", "group": "bloqueado",
-        "label": "Performance y tiempos de respuesta",
-        "desc":  "Verifica latencia, throughput y tasa de error según los acuerdos de servicio",
+        "label": "Velocidad y rendimiento",
+        "desc":  "Mide qué tan rápido y estable responde el sistema bajo carga de trabajo",
         "blocker": "Requiere ambiente dedicado y SLOs definidos",
         "note":  [
             "================================================================",
@@ -491,8 +491,8 @@ SUITES = [
     },
     {
         "id": "t-flg", "group": "bloqueado",
-        "label": "Feature Flags — Komands / BluePlanet",
-        "desc":  "Prueba el switch de tráfico entre Komands y BluePlanet — debe completarse en menos de 5 min",
+        "label": "Cambio de ruta de tráfico",
+        "desc":  "Verifica que se puede migrar de BluePlanet a Komands en menos de 5 minutos sin interrupciones",
         "blocker": "Requiere tabla feature_flag en PostgreSQL DEV",
         "note":  [
             "================================================================",
