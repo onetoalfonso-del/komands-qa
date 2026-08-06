@@ -381,7 +381,7 @@ SUITES = [
     },
     {
         "id": "apim-parallel", "group": "disponible",
-        "label": "Flujo completo de activación",
+        "label": "Flujo Completo Fulfillment",
         "desc":  "Ejecuta el ciclo de activación de fibra para ClaroVTR, Entel, DTV y Movistar",
         "note":  [
             "================================================================",
