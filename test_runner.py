@@ -1915,7 +1915,7 @@ _FF_ENVS_FILE      = Path("/tmp/ff-environments.json")
 
 # Claves alineadas con _ATRF_DELAY_MAP en el frontend
 _FF_CONFIG_DEFAULTS = [
-    {"key": "delay_post_asig_ms",   "label": "Delay post-Asignación (ms)",                "default": "60000"},
+    {"key": "delay_post_asig_ms",   "label": "Delay post-Asignación (ms)",                "default": "180000"},
     {"key": "delay_post_ia_ms",     "label": "Delay post-Inicio IIA (ms)",                "default": "60000"},
     {"key": "delay_post_activ_ms",  "label": "Delay post-Activación (ms)",                "default": "120000"},
     {"key": "delay_post_dm_ms",     "label": "Delay post-Modificación Dispositivo (ms)",  "default": "60000"},
