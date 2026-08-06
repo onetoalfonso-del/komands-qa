@@ -7701,6 +7701,28 @@ var _ATRF_GROUPS=[
   {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,7]},
   {label:'Consultas',color:'#00C8D4',funcs:[11,12,17,13,14,15,18]}
 ];
+var _ATRF_PREREQS={
+  0:null,
+  1:{c:'#3D7FFF',t:'Requiere Factibilidad previa. Si usas un dato de prueba existente, el Access ID debe estar en estado disponible (sin asignación activa).'},
+  3:{c:'#3D7FFF',t:'El Access ID debe haber pasado por Factibilidad y Asignación. El acceso debe estar en estado asignado antes de iniciar la IIA.'},
+  2:{c:'#3D7FFF',t:'El Access ID debe tener una IIA iniciada. Sin IIA previa la activación fallará.'},
+  5:{c:'#3D7FFF',t:'El servicio debe estar activado. El Access ID debe tener una Activación completada para poder finalizar la intervención.'},
+  4:{c:'#FFB347',t:'Debe haber una IIA activa o el servicio debe estar activado para poder cancelar la intervención asegurada.'},
+  6:{c:'#FFB347',t:'Debe existir una orden activa asociada al Access ID para poder cancelarla.'},
+  8:{c:'#FFB347',t:'El Access ID debe estar activo (servicio en producción). Si está suspendido o en proceso de baja no es posible modificar.'},
+  9:{c:'#FFB347',t:'El Access ID debe estar activo. Se necesitan los seriales del ONT actual y el nuevo para el intercambio de equipo.'},
+  10:{c:'#FFB347',t:'El Access ID debe estar activo. Se requiere el nuevo puerto PON de destino para el cambio de fibra.'},
+  16:{c:'#FFB347',t:'El Access ID debe estar activo y el ONT debe estar en línea para poder reiniciarlo.'},
+  7:{c:'#FF6B6B',t:'Antes de dar de baja el servicio se debe completar una FIA. Sin Finalización de Intervención Asegurada previa, la baja fallará.'},
+  11:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Operación de solo lectura — no modifica el estado del acceso.'},
+  12:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Operación de solo lectura.'},
+  17:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna información del ONT físico asociado al acceso.'},
+  13:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
+  14:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
+  15:{c:'#00C8D4',t:'Solo necesita un Access ID válido. El diagnóstico puede ejecutarse en cualquier estado del acceso.'},
+  18:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna alarmas activas del ONT.'}
+};
+var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
@@ -8028,6 +8050,22 @@ function _atrf_toggleFunc(i){
   _atrfSel.push(i);
   _atrf_renderCatalog();_atrf_renderSeq();
   document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):'';
+  _atrf_showPrereq(i);
+}
+function _atrf_showPrereq(i){
+  var p=_ATRF_PREREQS[i];
+  var tip=document.getElementById('atrf-prereq-tip');
+  if(!tip)return;
+  if(!p){tip.style.display='none';return;}
+  document.getElementById('atrf-prereq-text').textContent=p.t;
+  tip.style.borderTopColor=p.c;
+  tip.style.display='flex';
+  clearTimeout(_atrf_prereqTimer);
+  _atrf_prereqTimer=setTimeout(function(){tip.style.display='none';},7000);
+}
+function _atrf_hidePrereq(){
+  clearTimeout(_atrf_prereqTimer);
+  var tip=document.getElementById('atrf-prereq-tip');if(tip)tip.style.display='none';
 }
 function _atrf_filterFuncs(val){_atrfFilter=val;_atrf_renderCatalog();}
 function _atrf_renderSeq(){
@@ -9023,6 +9061,11 @@ function showCodigos(){
             <input class="atrf-func-search" type="text" placeholder="Buscar..." oninput="_atrf_filterFuncs(this.value)"/>
           </div>
           <div class="atrf-func-scroll" id="atrf-func-catalog"></div>
+          <div id="atrf-prereq-tip" style="display:none;border-top:2px solid #3D7FFF;padding:10px 12px;background:var(--atrf-surface2);flex-direction:row;align-items:flex-start;gap:8px;font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-font);line-height:1.5">
+            <span style="font-size:15px;flex-shrink:0;margin-top:1px">💡</span>
+            <span id="atrf-prereq-text" style="flex:1"></span>
+            <button onclick="_atrf_hidePrereq()" style="margin-left:6px;background:none;border:none;color:var(--atrf-text3);cursor:pointer;font-size:15px;padding:0;line-height:1;flex-shrink:0">×</button>
+          </div>
         </div>
         <div class="atrf-func-panel">
           <div class="atrf-func-ph">
