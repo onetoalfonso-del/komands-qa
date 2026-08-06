@@ -2956,9 +2956,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
         <div class="hist-empty">Cargando...</div>
       </div>
     </div>
-    <div class="summary" id="summary">
-      <span class="sum-idle">Ejecuta una suite para ver resultados</span>
-    </div>
+    <div class="summary" id="summary" style="display:none"></div>
   </main>
 </div>
 <script>window.onerror=function(msg,src,line,col){var el=document.getElementById('sb-list');if(el)el.innerHTML='<div style="padding:8px;color:#e06c75;font-size:.65rem">JS ERR L'+line+': '+msg+'</div>';return false;};</script>
@@ -9613,7 +9611,7 @@ function selectSuite(id){
   setActive(id);
   if(id==='apim-parallel'){
     switchView('ff');
-    setTop('','Endpoints Services Now','Pruebas automatizadas ATRF FullFillment');
+    setTop('','Endpoints Services Now','');
   } else {
     switchView('std');
     // Restaurar log guardado para esta suite
@@ -9716,6 +9714,11 @@ function switchView(mode){
   var std=document.getElementById('std-view');
   var sn=document.getElementById('sn-view');
   var ff=document.getElementById('ff-view');
+  var eb=document.getElementById('exec-btn');
+  var sum=document.getElementById('summary');
+  var isFF=(mode==='ff');
+  if(eb) eb.style.display=isFF?'none':'';
+  if(sum) sum.style.display=isFF?'none':'';
   if(mode==='ff'){
     std.style.display='none'; sn.style.display='none';
     if(ff){ff.style.display='flex'; ff.style.flexDirection='column';}
