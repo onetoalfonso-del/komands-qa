@@ -1146,6 +1146,8 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
         success_phrases = [
             "con éxito", "exitosamente", "completada con", "completado con",
             "assigned", "activated", "procesado correctamente",
+            "ticket de intervención",   # IIA: "Ticket de intervención asociado: WO..."
+            "ticket de intervencion",   # sin tilde por si acaso
         ]
 
         is_fail = any(p in _result_text for p in failure_phrases)
