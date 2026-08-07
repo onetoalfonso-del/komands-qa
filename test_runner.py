@@ -12624,6 +12624,33 @@ var _ATRF_DELAY_MAP={
   "Cancelación Orden de Servicio": "delay_post_cancel_ms",
 };
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_GROUPS=[
+  {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
+  {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,7]},
+  {label:'Consultas',color:'#00C8D4',funcs:[11,12,17,13,14,15,18]}
+];
+var _ATRF_PREREQS={
+  0:null,
+  1:{c:'#3D7FFF',t:'Requiere Factibilidad previa. Si usas un dato de prueba existente, el Access ID debe estar en estado disponible (sin asignación activa).'},
+  3:{c:'#3D7FFF',t:'El Access ID debe haber pasado por Factibilidad y Asignación. El acceso debe estar en estado asignado antes de iniciar la IIA.'},
+  2:{c:'#3D7FFF',t:'El Access ID debe tener una IIA iniciada. Sin IIA previa la activación fallará.'},
+  5:{c:'#3D7FFF',t:'El servicio debe estar activado. El Access ID debe tener una Activación completada para poder finalizar la intervención.'},
+  4:{c:'#FFB347',t:'Debe haber una IIA activa o el servicio debe estar activado para poder cancelar la intervención asegurada.'},
+  6:{c:'#FFB347',t:'El Access ID debe tener una Asignación completada pero sin IIA iniciada. La cancelación aplica cuando la OLT ya asignó recursos pero el técnico aún no fue a terreno.'},
+  8:{c:'#FFB347',t:'El Access ID debe estar activo (servicio en producción). Si está suspendido o en proceso de baja no es posible modificar.'},
+  9:{c:'#FFB347',t:'El Access ID debe estar activo. Se necesitan los seriales del ONT actual y el nuevo para el intercambio de equipo.'},
+  10:{c:'#FFB347',t:'El Access ID debe estar activo. Se requiere el nuevo puerto PON de destino para el cambio de fibra.'},
+  16:{c:'#FFB347',t:'El Access ID debe estar activo y el ONT debe estar en línea para poder reiniciarlo.'},
+  7:{c:'#FF6B6B',t:'Antes de dar de baja el servicio se debe completar una FIA. Sin Finalización de Intervención Asegurada previa, la baja fallará.'},
+  11:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Operación de solo lectura — no modifica el estado del acceso.'},
+  12:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Operación de solo lectura.'},
+  17:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna información del ONT físico asociado al acceso.'},
+  13:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
+  14:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
+  15:{c:'#00C8D4',t:'Solo necesita un Access ID válido. El diagnóstico puede ejecutarse en cualquier estado del acceso.'},
+  18:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna alarmas activas del ONT.'}
+};
+var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
@@ -12853,26 +12880,56 @@ function _atrf_toggleAuto(key){
 
 function _atrf_renderCatalog(){
   var el=document.getElementById('atrf-func-catalog');if(!el)return;
-  var vis=_ATRF_FUNCS.filter(function(f){return!_atrfFilter||f.toLowerCase().includes(_atrfFilter.toLowerCase());});
-  document.getElementById('atrf-func-cnt').textContent=vis.length;
+  var filter=_atrfFilter?_atrfFilter.toLowerCase():'';
   el.innerHTML='';
-  _ATRF_FUNCS.forEach(function(f,i){
-    if(_atrfFilter&&!f.toLowerCase().includes(_atrfFilter.toLowerCase()))return;
-    var cnt=_atrfSel.filter(function(x){return x===i;}).length;
-    var on=cnt>0;
-    var cbHtml=cnt>1
-      ?'<span class="atrf-func-cb on" style="font-size:10px;min-width:18px;text-align:center">'+cnt+'×</span>'
-      :'<span class="atrf-func-cb'+(on?' on':'')+'"></span>';
-    var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
-    d.innerHTML='<span class="atrf-func-idx">'+String(i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+f+'</span>'+cbHtml;
-    d.onclick=function(){_atrf_toggleFunc(i);};
-    el.appendChild(d);
+  var visCount=0;
+  _ATRF_GROUPS.forEach(function(grp){
+    var grpItems=[];
+    grp.funcs.forEach(function(i){
+      var f=_ATRF_FUNCS[i];
+      if(filter&&!f.toLowerCase().includes(filter))return;
+      grpItems.push({i:i,f:f});
+    });
+    if(!grpItems.length)return;
+    visCount+=grpItems.length;
+    var hdr=document.createElement('div');
+    hdr.style.cssText='padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:'+grp.color+';font-family:var(--atrf-mono);background:var(--atrf-surface);border-bottom:1px solid var(--atrf-border);border-top:1px solid var(--atrf-border);position:sticky;top:0;z-index:1';
+    hdr.textContent='— '+grp.label;
+    el.appendChild(hdr);
+    grpItems.forEach(function(item){
+      var cnt=_atrfSel.filter(function(x){return x===item.i;}).length;
+      var on=cnt>0;
+      var cbHtml=cnt>1
+        ?'<span class="atrf-func-cb on" style="font-size:10px;min-width:18px;text-align:center">'+cnt+'×</span>'
+        :'<span class="atrf-func-cb'+(on?' on':'')+'"></span>';
+      var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
+      d.innerHTML='<span class="atrf-func-idx">'+String(item.i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+item.f+'</span>'+cbHtml;
+      d.onclick=function(){_atrf_toggleFunc(item.i);};
+      el.appendChild(d);
+    });
   });
+  document.getElementById('atrf-func-cnt').textContent=visCount;
 }
 function _atrf_toggleFunc(i){
   _atrfSel.push(i);
   _atrf_renderCatalog();_atrf_renderSeq();
   document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):'';
+  _atrf_showPrereq(i);
+}
+function _atrf_showPrereq(i){
+  var p=_ATRF_PREREQS[i];
+  var tip=document.getElementById('atrf-prereq-tip');
+  if(!tip)return;
+  if(!p){tip.style.display='none';return;}
+  document.getElementById('atrf-prereq-text').textContent=p.t;
+  tip.style.borderTopColor=p.c;
+  tip.style.display='flex';
+  clearTimeout(_atrf_prereqTimer);
+  _atrf_prereqTimer=setTimeout(function(){tip.style.display='none';},7000);
+}
+function _atrf_hidePrereq(){
+  clearTimeout(_atrf_prereqTimer);
+  var tip=document.getElementById('atrf-prereq-tip');if(tip)tip.style.display='none';
 }
 function _atrf_filterFuncs(val){_atrfFilter=val;_atrf_renderCatalog();}
 function _atrf_renderSeq(){
@@ -13826,6 +13883,11 @@ function showCodigos(){
             <input class="atrf-func-search" type="text" placeholder="Buscar..." oninput="_atrf_filterFuncs(this.value)"/>
           </div>
           <div class="atrf-func-scroll" id="atrf-func-catalog"></div>
+          <div id="atrf-prereq-tip" style="display:none;border-top:2px solid #3D7FFF;padding:10px 12px;background:var(--atrf-surface2);flex-direction:row;align-items:flex-start;gap:8px;font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-font);line-height:1.5">
+            <span style="font-size:15px;flex-shrink:0;margin-top:1px">💡</span>
+            <span id="atrf-prereq-text" style="flex:1"></span>
+            <button onclick="_atrf_hidePrereq()" style="margin-left:6px;background:none;border:none;color:var(--atrf-text3);cursor:pointer;font-size:15px;padding:0;line-height:1;flex-shrink:0">×</button>
+          </div>
         </div>
         <div class="atrf-func-panel">
           <div class="atrf-func-ph">
