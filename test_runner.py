@@ -6377,11 +6377,12 @@ async def api_coreuse_poll(request: Request):
         if attempt < 4:
             await _aio.sleep(45)
 
-    # Después de 4 intentos sin error → sin errores detectados = éxito
-    # (el ACK ya fue code=0; si CoreUse no muestra error tampoco, es exitoso)
+    # Después de 4 intentos sin resultado → fallo
+    # Regla: éxito requiere que CoreUse confirme code 0 explícitamente.
+    # Si no aparece nada → ambiente caído u otro problema → marcar como error.
     if result.get("status") in ("pending", "not_found", "error"):
-        result["status"]  = "success"
-        result["message"] = "Sin errores detectados tras 4 consultas a CoreUse"
+        result["status"]  = "failure"
+        result["message"] = "CoreUse no registró resultado tras 4 intentos (ambiente caído u otro problema)"
 
     return JSONResponse(result)
 
