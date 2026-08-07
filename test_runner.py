@@ -1112,17 +1112,29 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
             return {"status": "not_found",
                     "message": "Access ID aún no registrado en CoreUse", "url": url}
 
-        # Extraer solo el RSC payload (entre __NEXT_DATA__ o los chunks JSON del SSR).
+        # ── Factibilidad: éxito = sección presente con datos (fecha + address id) ──
+        # No hay texto "completada con éxito" — la sección en CoreUse con datos es
+        # la confirmación de que ServiceNow procesó la factibilidad.
+        if func_name == "Factibilidad":
+            # La sección aparece con datos cuando tiene fecha (ej. "07-08-26") y address id
+            has_fact_section = "factibilidad" in hl
+            has_fact_data = bool(re.search(
+                r'\d{2}-\d{2}-\d{2}',  # fecha en formato DD-MM-YY
+                html
+            )) or bool(re.search(r'DIR\d{6,}|address\s*id', html, re.I))
+            if has_fact_section and has_fact_data:
+                return {"status": "success",
+                        "message": "Factibilidad registrada en CoreUse", "url": url}
+            else:
+                return {"status": "pending",
+                        "message": "Sección Factibilidad aún sin datos en CoreUse", "url": url}
+
+        # ── Resto de funcionalidades: buscar en chunks del RSC payload ────────────
         # Los keywords de UI/CSS/JS generan falsos positivos si buscamos en todo el HTML.
-        # Buscamos en los fragmentos que contienen títulos de resultado de ServiceNow.
         _result_chunks = re.findall(
             r'"(?:title|children|text|label)\\":\\"([^\\"]{5,200})\\"', html
         )
         _result_text = " ".join(_result_chunks).lower()
-
-        # Si no hay chunks de resultado aún → pendiente
-        if not _result_text.strip():
-            return {"status": "pending", "message": "ServiceNow procesando...", "url": url}
 
         # Frases de fallo específicas del dominio (no palabras sueltas como "error")
         failure_phrases = [
