@@ -5186,6 +5186,9 @@ async def atrf_run_step(request: Request):
             "u_id_vno": vno,
             "u_access_id_vno": access_id,
             "u_service_type": svc_type,
+            "u_service_ba": service_ba,
+            "u_service_voip": service_voip,
+            "u_service_iptv": service_iptv,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         _cncl_url = f"{apim_url.rstrip('/')}/fullFillment-cancelServiceOrder/v1/oossCancellation"
@@ -5258,7 +5261,9 @@ async def atrf_run_step(request: Request):
                              "u_service_iptv": service_iptv}
         else:  # Cancelación
             req_body_dict = {"u_id_vno": vno, "u_access_id_vno": access_id,
-                             "u_service_type": svc_type}
+                             "u_service_type": svc_type,
+                             "u_service_ba": service_ba, "u_service_voip": service_voip,
+                             "u_service_iptv": service_iptv}
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         _ia_url = f"{apim_url.rstrip('/')}{_IA_ENDPOINTS[func_name]}"
         _pass = False; _res_body = ""; _http_code = 0
