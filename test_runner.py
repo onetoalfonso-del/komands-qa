@@ -6375,7 +6375,7 @@ async def api_coreuse_poll(request: Request):
 
         # Aún pendiente o no encontrado → esperar antes del siguiente intento
         if attempt < 4:
-            await _aio.sleep(30)
+            await _aio.sleep(45)
 
     # Después de 4 intentos sin error → sin errores detectados = éxito
     # (el ACK ya fue code=0; si CoreUse no muestra error tampoco, es exitoso)
