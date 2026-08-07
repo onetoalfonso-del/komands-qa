@@ -22,6 +22,15 @@ import time
 import webbrowser
 from pathlib import Path
 
+# CoreUse portal (polling resultado real ServiceNow)
+try:
+    import requests as _req_cu
+    import urllib3 as _u3_cu
+    _u3_cu.disable_warnings()
+    _COREUSE_AVAILABLE = True
+except ImportError:
+    _COREUSE_AVAILABLE = False
+
 ROOT      = Path(__file__).parent
 COLL_DIR  = ROOT / "collection Kommand"
 BP_DIR    = ROOT / "collection Blueplanet"
@@ -1009,6 +1018,128 @@ import asyncpg as _apg
 import ssl as _ssl_mod
 
 _db_pool: _apg.Pool | None = None
+
+# ─── CoreUse portal — polling resultado real ServiceNow ──────────────────────
+_COREUSE_BASE = os.environ.get("COREUSE_URL", "https://2.24.121.109")
+_COREUSE_USER = os.environ.get("COREUSE_USER", "")
+_COREUSE_PASS = os.environ.get("COREUSE_PASS", "")
+_coreuse_session = None
+
+# Funcionalidades que NO deben consultarse en CoreUse (grupo Consultas)
+_COREUSE_NO_POLL = {
+    "GET Consulta de Acceso", "RetrieveAccess",
+    "Consulta Estado Vecino (GET)", "Consulta Estado Vecino (POST)",
+    "Diagnóstico de Acceso", "Reinicio ONT",
+    "RetrieveAccess ONT", "Consulta de Alarmas",
+}
+
+def _coreuse_login():
+    """Inicia sesión en el portal CoreUse y guarda la sesión en _coreuse_session."""
+    global _coreuse_session
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return None
+    try:
+        s = _req_cu.Session()
+        s.verify = False
+        r = s.get(f"{_COREUSE_BASE}/login", timeout=15)
+        html = r.text
+        ak  = re.search(r'name="\$ACTION_KEY"\s+value="([^"]+)"', html).group(1)
+        a10 = re.search(r'name="\$ACTION_1:0"\s+value="([^"]+)"', html).group(1).replace("&quot;", '"')
+        a11 = re.search(r'name="\$ACTION_1:1"\s+value="([^"]+)"', html).group(1)
+        files = {
+            "$ACTION_REF_1": (None, ""),
+            "$ACTION_1:0":   (None, a10),
+            "$ACTION_1:1":   (None, a11),
+            "$ACTION_KEY":   (None, ak),
+            "next":          (None, "/"),
+            "identifier":    (None, _COREUSE_USER),
+            "password":      (None, _COREUSE_PASS),
+        }
+        s.post(f"{_COREUSE_BASE}/login", files=files, allow_redirects=True, timeout=15)
+        _coreuse_session = s
+        return s
+    except Exception:
+        _coreuse_session = None
+        return None
+
+def _coreuse_get_session():
+    global _coreuse_session
+    if _coreuse_session is None:
+        return _coreuse_login()
+    return _coreuse_session
+
+def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
+    """
+    Consulta una vez el portal CoreUse para el access_id dado.
+    Retorna dict con keys: status ('success'|'failure'|'pending'|'not_found'|'error'|'not_applicable'),
+    message y url.
+    """
+    global _coreuse_session
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return {"status": "not_applicable", "message": "CoreUse no configurado (sin env vars)"}
+    if func_name in _COREUSE_NO_POLL:
+        return {"status": "not_applicable", "message": "Consultas no requieren polling CoreUse"}
+
+    s = _coreuse_get_session()
+    if not s:
+        return {"status": "error", "message": "No se pudo autenticar en CoreUse"}
+
+    try:
+        r = s.get(
+            f"{_COREUSE_BASE}/flujos-qa",
+            params={"access": access_id},
+            verify=False, timeout=15, allow_redirects=True,
+        )
+        # Sesión expirada → re-login
+        if "/login" in r.url:
+            _coreuse_session = None
+            s = _coreuse_login()
+            if not s:
+                return {"status": "error", "message": "Re-login CoreUse fallido"}
+            r = s.get(
+                f"{_COREUSE_BASE}/flujos-qa",
+                params={"access": access_id},
+                verify=False, timeout=15, allow_redirects=True,
+            )
+
+        html = r.text
+        hl   = html.lower()
+        url  = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
+
+        # Sin datos para este access_id → ServiceNow aún no procesó
+        if not ("flujos ejecutados" in hl or "factibilidad" in hl
+                or "recursos" in hl or access_id in html):
+            return {"status": "not_found",
+                    "message": "Access ID aún no registrado en CoreUse", "url": url}
+
+        failure_kw = ["error", "fallido", "failed", "rechazad", "timeout",
+                      "no se pudo", "no encontrad"]
+        success_kw = ["con éxito", "exitosamente", "completada", "completado", "success"]
+
+        is_fail = any(k in hl for k in failure_kw)
+        is_ok   = any(k in hl for k in success_kw)
+
+        # Extraer texto descriptivo del RSC payload
+        _raw = re.findall(r'title\\":\\"([^\\"\\\\]{10,120})\\"', html)
+        _kw  = re.compile(
+            r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|assignment|activation)',
+            re.I
+        )
+        flujos = [f for f in _raw if _kw.search(f)][:1]
+
+        if is_fail and not is_ok:
+            msg = flujos[0] if flujos else "Error detectado en CoreUse"
+            return {"status": "failure", "message": msg, "url": url}
+        elif is_ok:
+            msg = flujos[0] if flujos else "Operación completada con éxito"
+            return {"status": "success", "message": msg, "url": url}
+        else:
+            return {"status": "pending", "message": "ServiceNow procesando...", "url": url}
+
+    except Exception as exc:
+        return {"status": "error", "message": str(exc)}
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 _DB_SCHEMA = """
 CREATE TABLE IF NOT EXISTS qa_executions (
@@ -6039,6 +6170,62 @@ async def api_historial_post(request: Request):
     body = await request.json()
     await _db_save(body)
     return {"ok": True}
+
+
+# ─── CoreUse polling endpoint ─────────────────────────────────────────────────
+@app.post("/api/coreuse/poll")
+async def api_coreuse_poll(request: Request):
+    """
+    Consulta el portal CoreUse hasta 4 veces (30s entre intentos) para verificar
+    si la operación fue procesada correctamente por ServiceNow.
+    Body: { access_id: str, func_name: str }
+    Retorna: { status: 'success'|'failure'|'pending'|'not_applicable', message, attempts, url }
+    """
+    import asyncio as _aio
+    import concurrent.futures as _cf
+
+    body      = await request.json()
+    access_id = (body.get("access_id") or "").strip()
+    func_name = (body.get("func_name") or "").strip()
+
+    if not access_id:
+        return JSONResponse({"status": "not_applicable", "message": "Sin access ID", "attempts": 0})
+    if func_name in _COREUSE_NO_POLL:
+        return JSONResponse({"status": "not_applicable",
+                             "message": "Consultas no requieren polling CoreUse", "attempts": 0})
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return JSONResponse({"status": "not_applicable",
+                             "message": "CoreUse no configurado (env vars faltantes)", "attempts": 0})
+
+    loop   = _aio.get_event_loop()
+    result = {"status": "timeout", "message": "Sin respuesta tras 4 intentos", "attempts": 0}
+
+    for attempt in range(1, 5):
+        try:
+            r = await loop.run_in_executor(
+                None, lambda: _poll_coreuse_once(access_id, func_name)
+            )
+        except Exception as exc:
+            r = {"status": "error", "message": str(exc)}
+
+        result = {**r, "attempts": attempt}
+
+        # Resultado definitivo → retornar sin esperar más
+        if result.get("status") in ("success", "failure", "not_applicable"):
+            return JSONResponse(result)
+
+        # Aún pendiente o no encontrado → esperar antes del siguiente intento
+        if attempt < 4:
+            await _aio.sleep(30)
+
+    # Después de 4 intentos sin error → sin errores detectados = éxito
+    # (el ACK ya fue code=0; si CoreUse no muestra error tampoco, es exitoso)
+    if result.get("status") in ("pending", "not_found", "error"):
+        result["status"]  = "success"
+        result["message"] = "Sin errores detectados tras 4 consultas a CoreUse"
+
+    return JSONResponse(result)
+
 
 @app.delete("/api/historial/{rec_id}")
 async def api_historial_delete(rec_id: int):
@@ -12818,6 +13005,11 @@ async function _atrf_runSelected(){
     var _dcfg=await fetch('/api/config').then(function(r){return r.json();});
     if(Array.isArray(_dcfg)) _dcfg.forEach(function(c){_delays[c.key]=parseInt(c.value)||0;});
   }catch(e){}
+  // Funcionalidades del grupo Consultas: no aparecen en CoreUse, no hacer polling
+  var _COREUSE_NO_POLL={'GET Consulta de Acceso':1,'RetrieveAccess':1,
+    'Consulta Estado Vecino (GET)':1,'Consulta Estado Vecino (POST)':1,
+    'Diagnóstico de Acceso':1,'Reinicio ONT':1,
+    'RetrieveAccess ONT':1,'Consulta de Alarmas':1};
   for(var qi=0;qi<_atrfQueue.length;qi++){
     var q=_atrfQueue[qi];
     if(!q.checked||q.status!=='espera')continue;
@@ -12907,6 +13099,32 @@ async function _atrf_runSelected(){
       if(_dk&&_delays[_dk]>0){
         if(prog)prog.textContent='⏸ Esperando '+_delays[_dk]+'ms ('+fn+')…';
         await new Promise(function(r){setTimeout(r,_delays[_dk]);});
+      }
+      // ── Polling CoreUse: verificar resultado real en ServiceNow ─────────────
+      if(!_COREUSE_NO_POLL[fn] && _currentAccessId && pass){
+        if(prog)prog.textContent='🔍 Verificando resultado en CoreUse ('+fn+')…';
+        try{
+          var _cuResp=await fetch('/api/coreuse/poll',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({access_id:_currentAccessId,func_name:fn})
+          });
+          if(_cuResp.ok){
+            var _cuData=await _cuResp.json();
+            if(_cuData.status==='success'||_cuData.status==='failure'){
+              var _cuPass=(_cuData.status==='success');
+              // Actualizar el resultado en tcResults con el veredicto real de ServiceNow
+              var _cuLast=q.tcResults[q.tcResults.length-1];
+              if(_cuLast){
+                _cuLast.pass=_cuPass;
+                _cuLast.coreuse_msg=_cuData.message||'';
+                _cuLast.coreuse_url=_cuData.url||'';
+                _cuLast.coreuse_attempts=_cuData.attempts||0;
+              }
+              pass=_cuPass;
+            }
+          }
+        }catch(_cuErr){}
       }
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
