@@ -1112,20 +1112,39 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
             return {"status": "not_found",
                     "message": "Access ID aún no registrado en CoreUse", "url": url}
 
-        failure_kw = ["error", "fallido", "failed", "rechazad", "timeout",
-                      "no se pudo", "no encontrad"]
-        success_kw = ["con éxito", "exitosamente", "completada", "completado", "success"]
+        # Extraer solo el RSC payload (entre __NEXT_DATA__ o los chunks JSON del SSR).
+        # Los keywords de UI/CSS/JS generan falsos positivos si buscamos en todo el HTML.
+        # Buscamos en los fragmentos que contienen títulos de resultado de ServiceNow.
+        _result_chunks = re.findall(
+            r'"(?:title|children|text|label)\\":\\"([^\\"]{5,200})\\"', html
+        )
+        _result_text = " ".join(_result_chunks).lower()
 
-        is_fail = any(k in hl for k in failure_kw)
-        is_ok   = any(k in hl for k in success_kw)
+        # Si no hay chunks de resultado aún → pendiente
+        if not _result_text.strip():
+            return {"status": "pending", "message": "ServiceNow procesando...", "url": url}
 
-        # Extraer texto descriptivo del RSC payload
-        _raw = re.findall(r'title\\":\\"([^\\"\\\\]{10,120})\\"', html)
-        _kw  = re.compile(
+        # Frases de fallo específicas del dominio (no palabras sueltas como "error")
+        failure_phrases = [
+            "fallido", "rechazado", "rechazada", "no se pudo", "no encontrado",
+            "no encontrada", "error en el flujo", "error al procesar",
+            "timed out", "timeout", "failed to", "flujo fallido",
+        ]
+        # Frases de éxito
+        success_phrases = [
+            "con éxito", "exitosamente", "completada con", "completado con",
+            "assigned", "activated", "procesado correctamente",
+        ]
+
+        is_fail = any(p in _result_text for p in failure_phrases)
+        is_ok   = any(p in _result_text for p in success_phrases)
+
+        # Extraer mensaje descriptivo del payload RSC
+        _kw = re.compile(
             r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|assignment|activation)',
             re.I
         )
-        flujos = [f for f in _raw if _kw.search(f)][:1]
+        flujos = [c for c in _result_chunks if _kw.search(c)][:1]
 
         if is_fail and not is_ok:
             msg = flujos[0] if flujos else "Error detectado en CoreUse"
