@@ -1025,8 +1025,11 @@ _COREUSE_USER = os.environ.get("COREUSE_USER", "")
 _COREUSE_PASS = os.environ.get("COREUSE_PASS", "")
 _coreuse_session = None
 
-# Funcionalidades que NO deben consultarse en CoreUse (grupo Consultas)
+# Funcionalidades que NO deben consultarse en CoreUse:
+#   - Grupo Consultas: no aparecen en portal CoreUse
+#   - Factibilidad: no se guarda en "Flujos ejecutados"; se valida por u_return_code + u_return_code_desc del response
 _COREUSE_NO_POLL = {
+    "Factibilidad",
     "GET Consulta de Acceso", "RetrieveAccess",
     "Consulta Estado Vecino (GET)", "Consulta Estado Vecino (POST)",
     "Diagnóstico de Acceso", "Reinicio ONT",
@@ -5052,8 +5055,12 @@ async def atrf_run_step(request: Request):
                 _res_body = f"Error HTTP directo: {_ae}"
             try:
                 _rj = _j.loads(_res_body)
-                _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-                _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
+                _res_obj = _rj.get("result") or _rj
+                _rc      = str(_res_obj.get("u_return_code", ""))
+                _rc_desc = str(_res_obj.get("u_return_code_desc", "")).lower()
+                # Factibilidad: éxito = code 0 + descripción confirma éxito
+                _desc_ok = (not _rc_desc) or ("completado con" in _rc_desc) or ("flujo completado" in _rc_desc)
+                _pass = ((_rc == "0") and _desc_ok) if _rc else (_http_code in (200, 201))
             except Exception:
                 _pass = _http_code in (200, 201)
             return JSONResponse({"pass": _pass, "req": req_body_str,
@@ -5106,8 +5113,12 @@ async def atrf_run_step(request: Request):
                 failures  = jdata.get("run", {}).get("failures", [])
                 try:
                     rj = _j.loads(res_body)
-                    rc = rj.get("u_return_code") or rj.get("result", {}).get("u_return_code")
-                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0"
+                    _res_obj  = rj.get("result") or rj
+                    rc        = _res_obj.get("u_return_code", "")
+                    rc_desc   = str(_res_obj.get("u_return_code_desc", "")).lower()
+                    # Factibilidad: éxito = code 0 + descripción confirma éxito
+                    desc_ok   = (not rc_desc) or ("completado con" in rc_desc) or ("flujo completado" in rc_desc)
+                    pass_flag = http_code in (200, 201) and not failures and str(rc) == "0" and desc_ok
                 except Exception:
                     pass_flag = http_code in (200, 201) and not failures
         except Exception as pe:
@@ -13224,8 +13235,8 @@ async function _atrf_runSelected(){
     var _dcfg=await fetch('/api/config').then(function(r){return r.json();});
     if(Array.isArray(_dcfg)) _dcfg.forEach(function(c){_delays[c.key]=parseInt(c.value)||0;});
   }catch(e){}
-  // Funcionalidades del grupo Consultas: no aparecen en CoreUse, no hacer polling
-  var _COREUSE_NO_POLL={'GET Consulta de Acceso':1,'RetrieveAccess':1,
+  // Funcionalidades sin polling CoreUse: Consultas (no aparecen) + Factibilidad (valida por response directo)
+  var _COREUSE_NO_POLL={'Factibilidad':1,'GET Consulta de Acceso':1,'RetrieveAccess':1,
     'Consulta Estado Vecino (GET)':1,'Consulta Estado Vecino (POST)':1,
     'Diagnóstico de Acceso':1,'Reinicio ONT':1,
     'RetrieveAccess ONT':1,'Consulta de Alarmas':1};
