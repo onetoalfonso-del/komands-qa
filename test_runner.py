@@ -5053,7 +5053,7 @@ async def atrf_run_step(request: Request):
             try:
                 _rj = _j.loads(_res_body)
                 _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-                _pass = _http_code in (200, 201) and _rc == "0"
+                _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
             except Exception:
                 _pass = _http_code in (200, 201)
             return JSONResponse({"pass": _pass, "req": req_body_str,
@@ -5183,7 +5183,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5246,7 +5246,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5320,7 +5320,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5388,7 +5388,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5455,7 +5455,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5515,7 +5515,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5570,7 +5570,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5627,7 +5627,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5679,7 +5679,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5731,7 +5731,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5794,7 +5794,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5853,7 +5853,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5916,7 +5916,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -5975,7 +5975,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
@@ -6037,7 +6037,7 @@ async def atrf_run_step(request: Request):
         try:
             _rj = _j.loads(_res_body)
             _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
-            _pass = _http_code in (200, 201) and _rc == "0"
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
