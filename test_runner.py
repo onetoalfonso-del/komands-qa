@@ -5884,6 +5884,127 @@ async def atrf_run_step(request: Request):
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
+    # ── RetrieveAccess ONT ────────────────────────────────────────────────────
+    if func_name == "RetrieveAccess ONT":
+        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
+        token = ""
+        try:
+            _body_b = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        req_body_dict = {
+            "u_id_vno": vno,
+            "u_access_id_vno": access_id,
+            "u_flag_scope": "2",
+        }
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        _ra_ont_url = f"{apim_url.rstrip('/')}/fullFillment-retrieveAccess/v1/retrieveAccess"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_ra_ont_url,
+                data=_j.dumps(req_body_dict).encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = _http_code in (200, 201) and _rc == "0"
+        except Exception:
+            _pass = _http_code in (200, 201)
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
+                             "vno": vno, "func": func_name, "httpCode": _http_code})
+
+    # ── Consulta de Alarmas (ConsultaDataONT) ─────────────────────────────────
+    if func_name == "Consulta de Alarmas":
+        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
+        token = ""
+        try:
+            _body_b = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        req_body_dict = {
+            "u_access_id":    access_id,
+            "u_operation_id": "",
+            "u_user_id":      "",
+            "u_area":         "",
+            "u_msg_id":       "",
+            "u_msg_date":     "",
+        }
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        _alarm_url = f"{apim_url.rstrip('/')}/retrieveDataONT/v1/ONTRetrieve"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_alarm_url,
+                data=_j.dumps(req_body_dict).encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = _http_code in (200, 201) and _rc == "0"
+        except Exception:
+            _pass = _http_code in (200, 201)
+        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
+                             "vno": vno, "func": func_name, "httpCode": _http_code})
+
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
 
@@ -12491,7 +12612,8 @@ var _ATRF_TC_MAP={
   "Cancelación Intervención Asegurada":  {"03":"CP67","02":"CP68","05":"CP69","00":"CP69"},
   "Baja Total de Servicio":              {"03":"CP64","02":"CP65","05":"CP66","00":"CP66"},
   "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"},
-  "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"}
+  "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"},
+  "Consulta de Alarmas":                 {"03":"CP43","02":"CP43","05":"CP43","00":"CP43"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
 var _ATRF_DELAY_MAP={
@@ -12841,6 +12963,7 @@ function _atrf_buildSimRes(funcName,cfg,pass){
     if(funcName==='Baja Total de Servicio')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Baja de acceso procesada",u_access_id:aid,u_flow_status:"Finalizado con éxito"}},null,2);
     if(funcName==='Reinicio ONT')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Reinicio ONT solicitado",u_access_id:aid}},null,2);
     if(funcName==='RetrieveAccess ONT')return JSON.stringify({result:{u_return_code:"0",sys_id:aid,u_ont_model:"HG8145V5",u_temperature:"45°C",u_ont_status:"OK"}},null,2);
+    if(funcName==='Consulta de Alarmas')return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Consulta datos ONT exitosa",u_access_id:aid,u_alarms:[],u_ont_status:"OK",u_signal_level:"-18.5 dBm"}},null,2);
     return JSON.stringify({result:{u_return_code:"0",u_return_code_desc:"Operación exitosa",u_access_id:aid}},null,2);
   }
   return JSON.stringify({result:{u_return_code:"1",u_return_code_desc:"Error en validación del servicio",u_error_detail:"Parámetros inválidos o acceso no encontrado",u_access_id:aid}},null,2);
@@ -12863,7 +12986,8 @@ var _ATRF_ENDPOINT_MAP={
   "RetrieveAccess":                      "provisioning/v1/retrieve-access",
   "RetrieveAccess ONT":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
   "Baja Total de Servicio":              "fullFillment-unsubcription/v1/accessDeregistration",
-  "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation"
+  "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation",
+  "Consulta de Alarmas":                 "retrieveDataONT/v1/ONTRetrieve"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
