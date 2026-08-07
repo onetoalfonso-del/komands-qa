@@ -6367,10 +6367,14 @@ async def api_coreuse_poll(request: Request):
         return JSONResponse({"status": "not_applicable",
                              "message": "CoreUse no configurado (env vars faltantes)", "attempts": 0})
 
-    loop   = _aio.get_event_loop()
-    result = {"status": "timeout", "message": "Sin respuesta tras 4 intentos", "attempts": 0}
+    # Intentos de polling: 8 × 45s = ~6 min de espera máxima
+    # Cubre operaciones lentas como Cancelación OOSS (~5 min en ServiceNow)
+    _MAX_ATTEMPTS = 8
 
-    for attempt in range(1, 5):
+    loop   = _aio.get_event_loop()
+    result = {"status": "timeout", "message": f"Sin respuesta tras {_MAX_ATTEMPTS} intentos", "attempts": 0}
+
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
             r = await loop.run_in_executor(
                 None, lambda: _poll_coreuse_once(access_id, func_name)
@@ -6385,15 +6389,15 @@ async def api_coreuse_poll(request: Request):
             return JSONResponse(result)
 
         # Aún pendiente o no encontrado → esperar antes del siguiente intento
-        if attempt < 4:
+        if attempt < _MAX_ATTEMPTS:
             await _aio.sleep(45)
 
-    # Después de 4 intentos sin resultado → fallo
+    # Después de _MAX_ATTEMPTS intentos sin resultado → fallo
     # Regla: éxito requiere que CoreUse confirme code 0 explícitamente.
     # Si no aparece nada → ambiente caído u otro problema → marcar como error.
     if result.get("status") in ("pending", "not_found", "error"):
         result["status"]  = "failure"
-        result["message"] = "CoreUse no registró resultado tras 4 intentos (ambiente caído u otro problema)"
+        result["message"] = f"CoreUse no registró resultado tras {_MAX_ATTEMPTS} intentos (ambiente caído u otro problema)"
 
     return JSONResponse(result)
 
