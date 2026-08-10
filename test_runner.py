@@ -1689,13 +1689,13 @@ async def _agenda_fire_async(schedule_id: int):
 # ─── API Agenda (CRUD + run-now) ─────────────────────────────────────────────
 
 @app.get("/api/schedules")
-async def api_schedules_list(token: str = Depends(_require_auth)):
+async def api_schedules_list():
     conn = await _db()
     rows = await conn.fetch("SELECT * FROM qa_schedules ORDER BY created_at DESC")
     return JSONResponse([dict(r) for r in rows])
 
 @app.post("/api/schedules")
-async def api_schedules_create(request: Request, token: str = Depends(_require_auth)):
+async def api_schedules_create(request: Request):
     import json as _j
     data = await request.json()
     conn = await _db()
@@ -1720,7 +1720,7 @@ async def api_schedules_create(request: Request, token: str = Depends(_require_a
     return JSONResponse(sched)
 
 @app.put("/api/schedules/{sched_id}")
-async def api_schedules_update(sched_id: int, request: Request, token: str = Depends(_require_auth)):
+async def api_schedules_update(sched_id: int, request: Request):
     import json as _j
     data = await request.json()
     conn = await _db()
@@ -1749,7 +1749,7 @@ async def api_schedules_update(sched_id: int, request: Request, token: str = Dep
     return JSONResponse(sched)
 
 @app.delete("/api/schedules/{sched_id}")
-async def api_schedules_delete(sched_id: int, token: str = Depends(_require_auth)):
+async def api_schedules_delete(sched_id: int):
     global _AGENDA_SCHEDULER
     conn = await _db()
     await conn.execute("DELETE FROM qa_schedules WHERE id=$1", sched_id)
@@ -1762,14 +1762,14 @@ async def api_schedules_delete(sched_id: int, token: str = Depends(_require_auth
     return JSONResponse({"ok": True})
 
 @app.post("/api/schedules/{sched_id}/run-now")
-async def api_schedules_run_now(sched_id: int, token: str = Depends(_require_auth)):
+async def api_schedules_run_now(sched_id: int):
     import threading as _thr
     t = _thr.Thread(target=_agenda_fire_sync, args=(sched_id,), daemon=True)
     t.start()
     return JSONResponse({"ok": True, "message": "Ejecución iniciada en background"})
 
 @app.post("/api/schedules/{sched_id}/toggle")
-async def api_schedules_toggle(sched_id: int, token: str = Depends(_require_auth)):
+async def api_schedules_toggle(sched_id: int):
     conn = await _db()
     row = await conn.fetchrow(
         "UPDATE qa_schedules SET active=NOT active WHERE id=$1 RETURNING *", sched_id
@@ -1782,7 +1782,7 @@ async def api_schedules_toggle(sched_id: int, token: str = Depends(_require_auth
     return JSONResponse(sched)
 
 @app.get("/api/schedules/{sched_id}/runs")
-async def api_schedules_runs(sched_id: int, limit: int = 20, token: str = Depends(_require_auth)):
+async def api_schedules_runs(sched_id: int, limit: int = 20):
     conn = await _db()
     rows = await conn.fetch(
         "SELECT * FROM qa_sched_runs WHERE schedule_id=$1 ORDER BY started_at DESC LIMIT $2",
