@@ -13387,9 +13387,22 @@ function _atrf_hidePrereq(){
   var tip=document.getElementById('atrf-prereq-tip');if(tip)tip.style.display='none';
 }
 function _atrf_filterFuncs(val){_atrfFilter=val;_atrf_renderCatalog();}
+function _atrf_clearSeq(){
+  if(!_atrfSel||!_atrfSel.length)return;
+  _atrfSel=[];
+  _atrf_renderCatalog();
+  _atrf_renderSeq();
+  var cnt=document.getElementById('atrf-funcs-cnt');
+  if(cnt)cnt.textContent='';
+  var btn=document.getElementById('atrf-clear-seq-btn');
+  if(btn)btn.style.display='none';
+  if(typeof showToast==='function')showToast('Secuencia limpiada','ok');
+}
 function _atrf_renderSeq(){
   var el=document.getElementById('atrf-seq-list');if(!el)return;
   document.getElementById('atrf-seq-counter').textContent='Secuencia ('+_atrfSel.length+')';
+  var clearBtn=document.getElementById('atrf-clear-seq-btn');
+  if(clearBtn)clearBtn.style.display=_atrfSel.length?'inline-flex':'none';
   if(!_atrfSel.length){el.innerHTML='<div class="atrf-seq-empty">â† Selecciona funcionalidades</div>';return;}
   el.innerHTML='';
   _atrfSel.forEach(function(fi,pos){
@@ -14205,6 +14218,8 @@ function showCodigos(){
     <div class="atrf-tabs">
       <div class="atrf-tab active" id="atrf-ntab-cfg" onclick="_atrf_switchTab('cfg')">Configuración</div>
       <div class="atrf-tab" id="atrf-ntab-funcs" onclick="_atrf_switchTab('funcs')">Funcionalidades <span id="atrf-funcs-cnt" style="font-size:10px;opacity:.6"></span></div>
+      <div style="flex:1"></div>
+      <button id="atrf-clear-seq-btn" onclick="_atrf_clearSeq()" title="Eliminar todas las funcionalidades de la secuencia" style="display:none;align-items:center;gap:5px;margin:auto 0;padding:3px 10px;border-radius:5px;border:1px solid var(--atrf-border2);background:transparent;color:var(--atrf-text3);font-size:11px;font-family:var(--atrf-mono);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--atrf-red)';this.style.color='var(--atrf-red)'" onmouseout="this.style.borderColor='var(--atrf-border2)';this.style.color='var(--atrf-text3)'">🗑 Limpiar secuencia</button>
     </div>
     <div class="atrf-modal-body" id="atrf-nbody-cfg">
       <div class="atrf-grid">
