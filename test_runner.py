@@ -12426,7 +12426,7 @@ function _agendaRender(){
       +'<td style="padding:8px 10px;white-space:nowrap">'
         +'<button onclick="_agendaRunNow('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer" title="Ejecutar ahora">▶ Ahora</button>'
         +'<button onclick="_agendaEdit('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">✎ Editar</button>'
-        +'<button onclick="_agendaHistory('+s.id+',\''+_esc(s.name)+'\')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">📜 Historial</button>'
+        +'<button onclick="_agendaHistory('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">📜 Historial</button>'
         +'<button onclick="_agendaDelete('+s.id+')" style="padding:3px 9px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.67rem;cursor:pointer">✕</button>'
       +'</td>'
       +'</tr>'
@@ -12518,10 +12518,10 @@ function _agendaOpenModal(s){
     +'<div>'
     +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Preset de Regresión</label>'
     +'<div style="display:flex;gap:8px">'
-    +'<button type="button" id="ag-pre-acotada" onclick="_agSetPreset(\'acotada\')" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='acotada'?'var(--acc)':'var(--brd)')+';background:'+(preset==='acotada'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='acotada'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
+    +'<button type="button" id="ag-pre-acotada" data-preset="acotada" onclick="_agSetPreset(this.dataset.preset)" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='acotada'?'var(--acc)':'var(--brd)')+';background:'+(preset==='acotada'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='acotada'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
     +'🟢 Acotada <div style="font-size:.65rem;font-weight:400;opacity:.7">6 funciones</div>'
     +'</button>'
-    +'<button type="button" id="ag-pre-completa" onclick="_agSetPreset(\'completa\')" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='completa'?'var(--acc)':'var(--brd)')+';background:'+(preset==='completa'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='completa'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
+    +'<button type="button" id="ag-pre-completa" data-preset="completa" onclick="_agSetPreset(this.dataset.preset)" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='completa'?'var(--acc)':'var(--brd)')+';background:'+(preset==='completa'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='completa'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
     +'🔵 Completa <div style="font-size:.65rem;font-weight:400;opacity:.7">14 funciones</div>'
     +'</button>'
     +'</div>'
@@ -12534,7 +12534,7 @@ function _agendaOpenModal(s){
     +['00','02','03','05'].map(function(v){
       var lbls={'00':'TCH','02':'KAO','03':'Entel','05':'DTV'};
       var on=vno===v;
-      return '<button type="button" class="ag-vno-btn'+(on?' on':'')+'" data-vno="'+v+'" onclick="_agSetVno(\''+v+'\')" style="padding:5px 10px;border-radius:4px;border:1px solid '+(on?'var(--acc)':'var(--brd)')+';background:'+(on?'rgba(61,127,255,.1)':'var(--card)')+';color:'+(on?'var(--acc)':'var(--txt2)')+';font-size:.72rem;cursor:pointer;font-weight:600">'+v+' '+lbls[v]+'</button>';
+      return '<button type="button" class="ag-vno-btn'+(on?' on':'')+'" data-vno="'+v+'" onclick="_agSetVno(this.dataset.vno)" style="padding:5px 10px;border-radius:4px;border:1px solid '+(on?'var(--acc)':'var(--brd)')+';background:'+(on?'rgba(61,127,255,.1)':'var(--card)')+';color:'+(on?'var(--acc)':'var(--txt2)')+';font-size:.72rem;cursor:pointer;font-weight:600">'+v+' '+lbls[v]+'</button>';
     }).join('')
     +'</div>'
     +'<input type="hidden" id="ag-vno" value="'+vno+'">'
@@ -12691,7 +12691,9 @@ function _agendaRunNow(id){
     .catch(function(e){alert('Error: '+e);});
 }
 
-function _agendaHistory(id, name){
+function _agendaHistory(id){
+  var _hs=_agendaData.find(function(x){return x.id===id;});
+  var name=_hs?_hs.name:('schedule '+id);
   fetch('/api/schedules/'+id+'/runs?limit=20',{headers:{Authorization:'Bearer '+(_jwt||'')}})
     .then(function(r){return r.json();})
     .then(function(runs){
@@ -12714,7 +12716,7 @@ function _agendaHistory(id, name){
         +'<div style="padding:12px 16px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;background:var(--card)">'
         +'<span style="font-weight:600;font-size:.82rem">Historial — '+_esc(name)+'</span>'
         +'<div style="flex:1"></div>'
-        +'<button onclick="document.getElementById(\'ag-hist-overlay\').remove()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:1.1rem">✕</button>'
+        +'<button data-closemodal="1" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:1.1rem">✕</button>'
         +'</div>'
         +(runs.length===0
           ? '<div style="padding:32px;text-align:center;color:var(--txt3);font-size:.8rem">Sin ejecuciones aún</div>'
@@ -12725,6 +12727,8 @@ function _agendaHistory(id, name){
         )
         +'</div>';
       document.body.appendChild(modal);
+      var _hcbtn=modal.querySelector('[data-closemodal]');
+      if(_hcbtn)_hcbtn.onclick=function(){modal.remove();};
       modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
     })
     .catch(function(e){alert('Error cargando historial: '+e);});
