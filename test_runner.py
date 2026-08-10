@@ -1142,15 +1142,22 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
         # Frases de fallo específicas del dominio (no palabras sueltas como "error")
         failure_phrases = [
             "fallido", "rechazado", "rechazada", "no se pudo", "no encontrado",
-            "no encontrada", "error en el flujo", "error al procesar",
+            "no encontrada", "no se encuentra",           # FIA code 3: "La orden no se encuentra con un ticket..."
+            "error en el flujo", "error al procesar",
             "timed out", "timeout", "failed to", "flujo fallido",
         ]
-        # Frases de éxito
+        # Frases de éxito (mapeadas desde CoreUse por operación)
         success_phrases = [
-            "con éxito", "exitosamente", "completada con", "completado con",
+            "con éxito",                    # Assignment, Activación, Baja, Mod. Acceso, OOSS cancellation
+            "exitosamente",
+            "completada con", "completado con",
+            "operación aceptada",           # Finalización IA: "Operación aceptada, el flujo continúa"
+            "operacion aceptada",           # sin tilde por si acaso
+            "petición realizada",           # Device Modification: "Petición realizada con éxito"
+            "peticion realizada",           # sin tilde por si acaso
             "assigned", "activated", "procesado correctamente",
-            "ticket de intervención",   # IIA: "Ticket de intervención asociado: WO..."
-            "ticket de intervencion",   # sin tilde por si acaso
+            "ticket de intervención",       # Cancelación IIA: "Ticket de intervención asociado: WO..."
+            "ticket de intervencion",       # sin tilde por si acaso
         ]
 
         is_fail = any(p in _result_text for p in failure_phrases)
@@ -1158,7 +1165,8 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
 
         # Extraer mensaje descriptivo del payload RSC
         _kw = re.compile(
-            r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|assignment|activation)',
+            r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|'
+            r'operaci|petici|flujo completado|assignment|activation|deregistration|device)',
             re.I
         )
         flujos = [c for c in _result_chunks if _kw.search(c)][:1]
