@@ -12381,7 +12381,7 @@ function _agendaLoad(){
   var cont=document.getElementById('agenda-content');
   if(!cont)return;
   cont.innerHTML='<div style="color:var(--txt2);padding:24px;text-align:center">Cargando schedules…</div>';
-  fetch('/api/schedules',{headers:{Authorization:'Bearer '+(_jwt||'')}})
+  fetch('/api/schedules',{headers:_authHdr()})
     .then(function(r){return r.json();})
     .then(function(data){
       _agendaData=data;
@@ -12655,7 +12655,7 @@ function _agendaSave(){
   };
   var url=_agendaEditId?'/api/schedules/'+_agendaEditId:'/api/schedules';
   var method=_agendaEditId?'PUT':'POST';
-  fetch(url,{method:method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_jwt||'')},body:JSON.stringify(payload)})
+  fetch(url,{method:method,headers:_authHdr(),body:JSON.stringify(payload)})
     .then(function(r){return r.json();})
     .then(function(){
       _agendaCloseModal();
@@ -12666,7 +12666,7 @@ function _agendaSave(){
 }
 
 function _agendaToggle(id){
-  fetch('/api/schedules/'+id+'/toggle',{method:'POST',headers:{Authorization:'Bearer '+(_jwt||'')}})
+  fetch('/api/schedules/'+id+'/toggle',{method:'POST',headers:_authHdr()})
     .then(function(r){return r.json();})
     .then(function(){_agendaLoad();})
     .catch(function(e){alert('Error: '+e);});
@@ -12676,7 +12676,7 @@ function _agendaDelete(id){
   var s=_agendaData.find(function(x){return x.id===id;});
   var nm=s?s.name:('schedule '+id);
   if(!confirm('Eliminar "'+nm+'"? Esta acción no se puede deshacer.'))return;
-  fetch('/api/schedules/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+(_jwt||'')}})
+  fetch('/api/schedules/'+id,{method:'DELETE',headers:_authHdr()})
     .then(function(){_agendaLoad();if(typeof showToast==='function')showToast('Schedule eliminado','ok');})
     .catch(function(e){alert('Error: '+e);});
 }
@@ -12685,7 +12685,7 @@ function _agendaRunNow(id){
   var s=_agendaData.find(function(x){return x.id===id;});
   var nm=s?s.name:('schedule '+id);
   if(!confirm('Ejecutar "'+nm+'" ahora mismo?'))return;
-  fetch('/api/schedules/'+id+'/run-now',{method:'POST',headers:{Authorization:'Bearer '+(_jwt||'')}})
+  fetch('/api/schedules/'+id+'/run-now',{method:'POST',headers:_authHdr()})
     .then(function(r){return r.json();})
     .then(function(d){if(typeof showToast==='function')showToast('Ejecución iniciada en background','ok');})
     .catch(function(e){alert('Error: '+e);});
@@ -12694,7 +12694,7 @@ function _agendaRunNow(id){
 function _agendaHistory(id){
   var _hs=_agendaData.find(function(x){return x.id===id;});
   var name=_hs?_hs.name:('schedule '+id);
-  fetch('/api/schedules/'+id+'/runs?limit=20',{headers:{Authorization:'Bearer '+(_jwt||'')}})
+  fetch('/api/schedules/'+id+'/runs?limit=20',{headers:_authHdr()})
     .then(function(r){return r.json();})
     .then(function(runs){
       var rows=runs.map(function(r){
