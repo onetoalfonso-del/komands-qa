@@ -7758,18 +7758,6 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
           </div>
           <div id="atrf-exec-area"></div>
         </div>
-        <!-- Panel estado Access IDs -->
-        <div class="atrf-section" style="margin-top:0;border-top:2px solid var(--atrf-border)">
-          <div class="atrf-section-header" style="cursor:pointer" onclick="_atrf_toggleAccessPanel()">
-            <div class="atrf-section-title">🔑 Estado Access IDs</div>
-            <span style="font-size:11px;color:var(--atrf-text2)" id="atrf-access-summary"></span>
-            <button class="atrf-btn atrf-btn-sm" onclick="event.stopPropagation();_atrf_loadAccessTracking()" title="Actualizar">&#8635; Actualizar</button>
-            <span id="atrf-access-chevron" style="font-size:14px;color:var(--atrf-text2);margin-left:4px">▶</span>
-          </div>
-          <div id="atrf-access-panel" style="display:none;padding:0 0 8px">
-            <div id="atrf-access-body" style="font-size:12px;color:var(--atrf-text2);padding:12px">Haz clic en Actualizar para cargar.</div>
-          </div>
-        </div>
       </div>
     </div>
     <!-- Vista Dashboard -->
@@ -12071,12 +12059,22 @@ function _renderDashboard(d,cont){
   if(!(d.recent||[]).length)h+='<div style="padding:20px;text-align:center;color:var(--txt3);font-size:.75rem">Sin ejecuciones a\xfan</div>';
   h+='</div></div>';
   h+='</div>';
+  // ── Fila 6: Estado Access IDs ──
+  h+='<div style="background:var(--card);border:1px solid var(--brd);border-radius:8px;overflow:hidden;margin-top:4px">';
+  h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--brd)">';
+  h+='<span style="font-size:.75rem;font-weight:700;color:var(--txt)">🔑 Estado Access IDs</span>';
+  h+='<span id="dash-access-summary" style="font-size:.7rem;color:var(--txt2);flex:1"></span>';
+  h+='<button onclick="_dashLoadAccessTracking()" style="padding:3px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.7rem;cursor:pointer">&#8635; Actualizar</button>';
+  h+='</div>';
+  h+='<div id="dash-access-body" style="padding:10px 14px;font-size:.75rem;color:var(--txt2)">Cargando…</div>';
+  h+='</div>';
   cont.innerHTML=h;
   requestAnimationFrame(function(){
     _dashDrawTrend(d.trend||[]);
     _dashDrawVno(d.by_vno||[]);
     _dashDrawFunc(d.by_func||[]);
     _dashDrawTime(d.by_func||[]);
+    _dashLoadAccessTracking();
   });
 }
 function _dashKpi(label,val,color,icon,goto,gval){
@@ -12973,61 +12971,53 @@ function _atrf_deleteSelected(){
 }
 function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
 
-// ── Estado Access IDs ─────────────────────────────────────────────────────────
-var _atrf_accessPanelOpen=false;
-function _atrf_toggleAccessPanel(){
-  _atrf_accessPanelOpen=!_atrf_accessPanelOpen;
-  var panel=document.getElementById('atrf-access-panel');
-  var chev=document.getElementById('atrf-access-chevron');
-  if(panel){panel.style.display=_atrf_accessPanelOpen?'block':'none';}
-  if(chev){chev.textContent=_atrf_accessPanelOpen?'▼':'▶';}
-  if(_atrf_accessPanelOpen) _atrf_loadAccessTracking();
-}
-function _atrf_loadAccessTracking(){
-  var body=document.getElementById('atrf-access-body');
-  var sumEl=document.getElementById('atrf-access-summary');
-  if(body) body.innerHTML='<div style="padding:12px;color:var(--atrf-text2)">Cargando…</div>';
+// ── Estado Access IDs (Dashboard) ────────────────────────────────────────────
+function _dashLoadAccessTracking(){
+  var body=document.getElementById('dash-access-body');
+  var sumEl=document.getElementById('dash-access-summary');
+  if(!body)return;
+  body.innerHTML='<div style="color:var(--txt2)">Cargando…</div>';
   fetch('/api/access-tracking').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)||data.length===0){
-      if(body) body.innerHTML='<div style="padding:12px;color:var(--atrf-text2)">Sin registros aún.</div>';
-      if(sumEl) sumEl.textContent='';
+      body.innerHTML='<div style="color:var(--txt3)">Sin Access IDs registrados aún.</div>';
+      if(sumEl)sumEl.textContent='';
       return;
     }
     var activos=data.filter(function(d){return d.state==='activo';}).length;
     var cancelados=data.filter(function(d){return d.state==='cancelado';}).length;
     var bajas=data.filter(function(d){return d.state==='dado_de_baja';}).length;
-    if(sumEl) sumEl.textContent=
-      (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
-      +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
+    if(sumEl)sumEl.textContent=
+      (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
+      +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
       +(bajas?'🟢 '+bajas+' dado'+(bajas>1?'s':'')+' de baja':'');
     var stateColor={'activo':'#FF4D4D','cancelado':'#FFB347','dado_de_baja':'#4CAF50'};
     var stateIcon={'activo':'🔴','cancelado':'🟡','dado_de_baja':'🟢'};
     var rows=data.map(function(d){
       var ts=d.last_ts?new Date(d.last_ts).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-      var cuLink=d.coreuse_url?('<a href="'+d.coreuse_url+'" target="_blank" style="color:var(--atrf-text2);text-decoration:none;font-size:10px" title="Ver en CoreUse">🔗</a>'):'';
-      return '<tr style="border-bottom:1px solid var(--atrf-border)">'
-        +'<td style="padding:6px 10px;font-family:var(--atrf-mono);font-size:11px;white-space:nowrap">'+esc(d.access_id)+' '+cuLink+'</td>'
-        +'<td style="padding:6px 8px;font-size:11px">'+esc(d.vno_lbl||d.vno)+'</td>'
-        +'<td style="padding:6px 8px;font-size:11px"><span style="padding:2px 8px;border-radius:10px;background:'+stateColor[d.state]+'22;color:'+stateColor[d.state]+';font-weight:600">'+stateIcon[d.state]+' '+esc(d.state_label)+'</span></td>'
-        +'<td style="padding:6px 8px;font-size:11px;color:var(--atrf-text2)">'+esc(d.last_op)+'</td>'
-        +'<td style="padding:6px 8px;font-size:11px;color:var(--atrf-text2);white-space:nowrap">'+ts+'</td>'
+      var cuLink=d.coreuse_url?(' <a href="'+d.coreuse_url+'" target="_blank" style="color:var(--txt3);text-decoration:none" title="Ver en CoreUse">🔗</a>'):'';
+      return '<tr style="border-bottom:1px solid var(--brd)">'
+        +'<td style="padding:5px 10px;font-family:monospace;font-size:.7rem;white-space:nowrap">'+esc(d.access_id)+cuLink+'</td>'
+        +'<td style="padding:5px 8px;font-size:.7rem">'+esc(d.vno_lbl||d.vno)+'</td>'
+        +'<td style="padding:5px 8px;font-size:.7rem"><span style="padding:2px 8px;border-radius:10px;background:'+stateColor[d.state]+'22;color:'+stateColor[d.state]+';font-weight:600">'+stateIcon[d.state]+' '+esc(d.state_label)+'</span></td>'
+        +'<td style="padding:5px 8px;font-size:.7rem;color:var(--txt2)">'+esc(d.last_op)+'</td>'
+        +'<td style="padding:5px 8px;font-size:.7rem;color:var(--txt3);white-space:nowrap">'+ts+'</td>'
         +'</tr>';
     }).join('');
-    if(body) body.innerHTML=
+    body.innerHTML=
       '<div style="overflow-x:auto">'
-      +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
-      +'<thead><tr style="background:var(--atrf-surface2);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--atrf-text2)">'
-      +'<th style="padding:5px 10px;text-align:left;font-weight:600">Access ID</th>'
-      +'<th style="padding:5px 8px;text-align:left;font-weight:600">VNO</th>'
-      +'<th style="padding:5px 8px;text-align:left;font-weight:600">Estado</th>'
-      +'<th style="padding:5px 8px;text-align:left;font-weight:600">Última operación</th>'
-      +'<th style="padding:5px 8px;text-align:left;font-weight:600">Fecha</th>'
+      +'<table style="width:100%;border-collapse:collapse">'
+      +'<thead><tr style="background:var(--bg);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3)">'
+      +'<th style="padding:4px 10px;text-align:left;font-weight:600">Access ID</th>'
+      +'<th style="padding:4px 8px;text-align:left;font-weight:600">VNO</th>'
+      +'<th style="padding:4px 8px;text-align:left;font-weight:600">Estado</th>'
+      +'<th style="padding:4px 8px;text-align:left;font-weight:600">Última operación</th>'
+      +'<th style="padding:4px 8px;text-align:left;font-weight:600">Fecha</th>'
       +'</tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div>'
-      +'<div style="padding:6px 10px 2px;font-size:10px;color:var(--atrf-text2)">🔴 Activo = necesita Cancelación OOSS + Baja &nbsp;·&nbsp; 🟡 OOSS Cancelado = necesita Baja Total &nbsp;·&nbsp; 🟢 Dado de Baja = limpio</div>';
+      +'<div style="padding:6px 10px 2px;font-size:.65rem;color:var(--txt3)">🔴 Activo = necesita Cancelación OOSS + Baja &nbsp;·&nbsp; 🟡 OOSS Cancelado = necesita Baja Total &nbsp;·&nbsp; 🟢 Dado de Baja = limpio</div>';
   }).catch(function(e){
-    if(body) body.innerHTML='<div style="padding:12px;color:#FF4D4D">Error al cargar: '+String(e)+'</div>';
+    if(body)body.innerHTML='<div style="color:var(--err)">Error: '+String(e)+'</div>';
   });
 }
 
