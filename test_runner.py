@@ -13131,6 +13131,25 @@ function _atrf_toggleFunc(i){
   document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):'';
   _atrf_showPrereq(i);
 }
+// Presets de regresión — basados en diagrama de procesos
+var _ATRF_PRESETS={
+  // Acotada: 01-Fact · 02-Asig · 13-ConsultaAcceso · 03-InicioIA · 10-CancelIA · 11-CancelOOSS
+  acotada: [0, 1, 11, 3, 4, 6],
+  // Completa: flujo venta completo + postventa + consultas (según diagrama fila 2)
+  // 01-Fact · 02-Asig · 03-InicioIA · 04-Activ · 13-ConsAcceso · 14-CEV · 15-ModAcceso ·
+  // 16-ConsONT · 17-Diag · 18-ReinicioONT · 19-CambDisp · 06-FIA · 12-CambPelo · 08-FIA · 09-Baja
+  completa: [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7]
+};
+function _atrf_setPreset(name){
+  var preset=_ATRF_PRESETS[name];
+  if(!preset)return;
+  _atrfSel=preset.slice();
+  _atrf_renderCatalog();_atrf_renderSeq();
+  var cnt=document.getElementById('atrf-funcs-cnt');
+  if(cnt)cnt.textContent='('+_atrfSel.length+')';
+  var err=document.getElementById('atrf-funcs-err');if(err)err.style.display='none';
+  if(typeof showToast==='function')showToast('Preset "'+name+'" cargado: '+_atrfSel.length+' funcionalidades','ok');
+}
 function _atrf_showPrereq(i){
   var p=_ATRF_PREREQS[i];
   var tip=document.getElementById('atrf-prereq-tip');
@@ -14096,6 +14115,10 @@ function showCodigos(){
           <div class="atrf-func-ph">
             <span class="atrf-func-pt">Disponibles (<span id="atrf-func-cnt">0</span>)</span>
             <input class="atrf-func-search" type="text" placeholder="Buscar..." oninput="_atrf_filterFuncs(this.value)"/>
+          </div>
+          <div style="display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)">
+            <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('acotada')" title="01 Factibilidad · 02 Asignación · 13 Consulta Acceso · 03 Inicio IA · 10 Cancelación IA · 11 Cancelación OOSS">📋 Regresión Acotada</button>
+            <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('completa')" title="Flujo completo: Factibilidad → Baja + IA + Modificaciones + Consultas">📋 Regresión Completa</button>
           </div>
           <div class="atrf-func-scroll" id="atrf-func-catalog"></div>
           <div id="atrf-prereq-tip" style="display:none;border-top:2px solid #3D7FFF;padding:10px 12px;background:var(--atrf-surface2);flex-direction:row;align-items:flex-start;gap:8px;font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-font);line-height:1.5">
