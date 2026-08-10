@@ -13102,28 +13102,24 @@ function _dashLoadAccessTracking(){
       (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
       +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
       +(bajas?'🟢 '+bajas+' dado'+(bajas>1?'s':'')+' de baja':'');
-    var stateColor={'activo':'#EF4444','cancelado':'#F59E0B','dado_de_baja':'#22C55E'};
-    var stateIcon={'activo':'🔴','cancelado':'🟡','dado_de_baja':'🟢'};
-    var stateLbl={'activo':'Activo','cancelado':'Cancelado','dado_de_baja':'Dado de baja'};
+    var sc={'activo':'#EF4444','cancelado':'#F59E0B','dado_de_baja':'#22C55E'};
+    var si={'activo':'🔴','cancelado':'🟡','dado_de_baja':'🟢'};
+    var sl={'activo':'Activo','cancelado':'Cancelado','dado_de_baja':'Dado de baja'};
     var rows=data.map(function(d){
       var ts=d.last_ts?new Date(d.last_ts).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'---';
-      var state=d.state||'activo';
-      var aid=esc(d.access_id);
-      return '<tr style="border-bottom:1px solid var(--brd);cursor:pointer;transition:background .12s" '
-        +'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'" '
-        +'onclick="_dashOpenCoreUseModal(\''+aid+'\')">'  
+      var st=d.state||'activo'; var aid=esc(d.access_id); var c=sc[st]||'#888';
+      return '<tr class="dash-aid-row" data-aid="'+aid+'" style="border-bottom:1px solid var(--brd);cursor:pointer">'
         +'<td style="padding:5px 10px;font-family:monospace;font-size:.7rem;white-space:nowrap">'+aid+'</td>'
         +'<td style="padding:5px 8px;font-size:.7rem">'+esc(d.vno_lbl||d.vno)+'</td>'
-        +'<td style="padding:5px 8px"><span style="display:inline-block;padding:2px 9px;border-radius:10px;background:'+esc(stateColor[state])+'22;color:'+esc(stateColor[state])+';font-weight:600;font-size:.68rem">'+(stateIcon[state]||'')+' '+(stateLbl[state]||state)+'</span></td>'
+        +'<td style="padding:5px 8px"><span style="display:inline-block;padding:2px 9px;border-radius:10px;background:'+c+'22;color:'+c+';font-weight:600;font-size:.68rem">'+(si[st]||'')+' '+(sl[st]||st)+'</span></td>'
         +'<td style="padding:5px 8px;font-size:.7rem;color:var(--txt2)">'+esc(d.last_op)+'</td>'
         +'<td style="padding:5px 8px;font-size:.7rem;color:var(--txt3);white-space:nowrap">'+ts+'</td>'
-        +'<td style="padding:5px 10px"><button onclick="event.stopPropagation();_dashOpenCoreUseModal(\''+aid+'\')" '
-        +'style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🔍 Ver detalle</button></td>'
+        +'<td style="padding:5px 10px"><button class="dash-aid-btn" data-aid="'+aid+'" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🔍 Ver detalle</button></td>'
         +'</tr>';
     }).join('');
     body.innerHTML=
       '<div style="overflow-x:auto">'
-      +'<table style="width:100%;border-collapse:collapse">'
+      +'<table style="width:100%;border-collapse:collapse" id="dash-aid-tbl">'
       +'<thead><tr style="background:var(--bg);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3)">'
       +'<th style="padding:4px 10px;text-align:left;font-weight:600">Access ID</th>'
       +'<th style="padding:4px 8px;text-align:left;font-weight:600">VNO</th>'
@@ -13134,7 +13130,12 @@ function _dashLoadAccessTracking(){
       +'</tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div>'
-      +'<div style="padding:6px 10px 2px;font-size:.65rem;color:var(--txt3)">🔴 Activo = necesita Cancelación OOSS + Baja &nbsp;·&nbsp; 🟡 Cancelado = necesita Baja Total &nbsp;·&nbsp; 🟢 Dado de baja = limpio</div>';
+      +'<div style="padding:6px 10px 2px;font-size:.65rem;color:var(--txt3)">🔴 Activo=necesita Cancelación OOSS+Baja &nbsp;·&nbsp; 🟡 Cancelado=necesita Baja &nbsp;·&nbsp; 🟢 Dado de baja=limpio</div>';
+    var tbl=document.getElementById('dash-aid-tbl');
+    if(tbl)tbl.addEventListener('click',function(e){
+      var el=e.target.closest('[data-aid]');
+      if(el){e.stopPropagation();_dashOpenCoreUseModal(el.closest('[data-aid]').dataset.aid);}
+    });
   }).catch(function(e){
     if(body)body.innerHTML='<div style="color:var(--err)">Error: '+String(e)+'</div>';
   });
