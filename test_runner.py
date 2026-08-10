@@ -6410,6 +6410,89 @@ async def api_coreuse_poll(request: Request):
     return JSONResponse(result)
 
 
+# ─── Access ID tracking endpoint ─────────────────────────────────────────────
+@app.get("/api/access-tracking")
+async def api_access_tracking():
+    """
+    Devuelve el estado de cada Access ID usado en ejecuciones ATRF.
+    Estado derivado de las operaciones registradas en qa_executions:
+      - dado_de_baja : "Baja Total de Servicio" ejecutada OK
+      - cancelado    : "Cancelación Orden de Servicio" OK pero sin Baja
+      - activo       : ninguna cancelación exitosa (necesita atención)
+    """
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        rows = await pool.fetch("""
+            SELECT direccion, vno, vno_lbl, escenario, resultado, ts
+            FROM qa_executions
+            WHERE suite_id = 'atrf'
+              AND direccion IS NOT NULL AND direccion != ''
+            ORDER BY ts ASC
+        """)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    # Construir estado por Access ID procesando operaciones en orden cronológico
+    from collections import defaultdict
+    access_map: dict = {}
+    for row in rows:
+        aid   = row["direccion"]
+        op    = row["escenario"] or ""
+        ok    = row["resultado"] == "ok"
+        ts    = row["ts"] or 0
+        vno   = row["vno"] or ""
+        vnolbl= row["vno_lbl"] or vno
+
+        if aid not in access_map:
+            access_map[aid] = {
+                "access_id": aid, "vno": vno, "vno_lbl": vnolbl,
+                "has_baja": False, "has_cancel": False, "has_active": False,
+                "last_op": op, "last_ts": ts,
+            }
+        entry = access_map[aid]
+        # Actualizar última operación
+        if ts >= entry["last_ts"]:
+            entry["last_op"] = op
+            entry["last_ts"] = ts
+        if ok:
+            if op == "Baja Total de Servicio":
+                entry["has_baja"] = True
+            elif op == "Cancelación Orden de Servicio":
+                entry["has_cancel"] = True
+            elif op in ("Asignación", "Activación"):
+                entry["has_active"] = True
+
+    # Determinar estado final
+    result = []
+    for aid, e in access_map.items():
+        if e["has_baja"]:
+            state = "dado_de_baja"
+            label = "Dado de Baja"
+        elif e["has_cancel"]:
+            state = "cancelado"
+            label = "OOSS Cancelado"
+        else:
+            state = "activo"
+            label = "Activo"
+        result.append({
+            "access_id": aid,
+            "vno": e["vno"],
+            "vno_lbl": e["vno_lbl"],
+            "state": state,
+            "state_label": label,
+            "last_op": e["last_op"],
+            "last_ts": e["last_ts"],
+            "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={aid}",
+        })
+
+    # Ordenar: activos primero, luego cancelados, luego dados de baja
+    _order = {"activo": 0, "cancelado": 1, "dado_de_baja": 2}
+    result.sort(key=lambda x: (_order.get(x["state"], 9), -(x["last_ts"] or 0)))
+    return JSONResponse(result)
+
+
 @app.delete("/api/historial/{rec_id}")
 async def api_historial_delete(rec_id: int):
     pool = await _db()
@@ -7643,6 +7726,18 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
             <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
           </div>
           <div id="atrf-exec-area"></div>
+        </div>
+        <!-- Panel estado Access IDs -->
+        <div class="atrf-section" style="margin-top:0;border-top:2px solid var(--atrf-border)">
+          <div class="atrf-section-header" style="cursor:pointer" onclick="_atrf_toggleAccessPanel()">
+            <div class="atrf-section-title">🔑 Estado Access IDs</div>
+            <span style="font-size:11px;color:var(--atrf-text2)" id="atrf-access-summary"></span>
+            <button class="atrf-btn atrf-btn-sm" onclick="event.stopPropagation();_atrf_loadAccessTracking()" title="Actualizar">&#8635; Actualizar</button>
+            <span id="atrf-access-chevron" style="font-size:14px;color:var(--atrf-text2);margin-left:4px">▶</span>
+          </div>
+          <div id="atrf-access-panel" style="display:none;padding:0 0 8px">
+            <div id="atrf-access-body" style="font-size:12px;color:var(--atrf-text2);padding:12px">Haz clic en Actualizar para cargar.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -12846,6 +12941,64 @@ function _atrf_deleteSelected(){
   _atrf_renderQueue();_atrf_save();
 }
 function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
+
+// ── Estado Access IDs ─────────────────────────────────────────────────────────
+var _atrf_accessPanelOpen=false;
+function _atrf_toggleAccessPanel(){
+  _atrf_accessPanelOpen=!_atrf_accessPanelOpen;
+  var panel=document.getElementById('atrf-access-panel');
+  var chev=document.getElementById('atrf-access-chevron');
+  if(panel){panel.style.display=_atrf_accessPanelOpen?'block':'none';}
+  if(chev){chev.textContent=_atrf_accessPanelOpen?'▼':'▶';}
+  if(_atrf_accessPanelOpen) _atrf_loadAccessTracking();
+}
+function _atrf_loadAccessTracking(){
+  var body=document.getElementById('atrf-access-body');
+  var sumEl=document.getElementById('atrf-access-summary');
+  if(body) body.innerHTML='<div style="padding:12px;color:var(--atrf-text2)">Cargando…</div>';
+  fetch('/api/access-tracking').then(function(r){return r.json();}).then(function(data){
+    if(!Array.isArray(data)||data.length===0){
+      if(body) body.innerHTML='<div style="padding:12px;color:var(--atrf-text2)">Sin registros aún.</div>';
+      if(sumEl) sumEl.textContent='';
+      return;
+    }
+    var activos=data.filter(function(d){return d.state==='activo';}).length;
+    var cancelados=data.filter(function(d){return d.state==='cancelado';}).length;
+    var bajas=data.filter(function(d){return d.state==='dado_de_baja';}).length;
+    if(sumEl) sumEl.textContent=
+      (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
+      +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
+      +(bajas?'🟢 '+bajas+' dado'+(bajas>1?'s':'')+' de baja':'');
+    var stateColor={'activo':'#FF4D4D','cancelado':'#FFB347','dado_de_baja':'#4CAF50'};
+    var stateIcon={'activo':'🔴','cancelado':'🟡','dado_de_baja':'🟢'};
+    var rows=data.map(function(d){
+      var ts=d.last_ts?new Date(d.last_ts).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+      var cuLink=d.coreuse_url?('<a href="'+d.coreuse_url+'" target="_blank" style="color:var(--atrf-text2);text-decoration:none;font-size:10px" title="Ver en CoreUse">🔗</a>'):'';
+      return '<tr style="border-bottom:1px solid var(--atrf-border)">'
+        +'<td style="padding:6px 10px;font-family:var(--atrf-mono);font-size:11px;white-space:nowrap">'+esc(d.access_id)+' '+cuLink+'</td>'
+        +'<td style="padding:6px 8px;font-size:11px">'+esc(d.vno_lbl||d.vno)+'</td>'
+        +'<td style="padding:6px 8px;font-size:11px"><span style="padding:2px 8px;border-radius:10px;background:'+stateColor[d.state]+'22;color:'+stateColor[d.state]+';font-weight:600">'+stateIcon[d.state]+' '+esc(d.state_label)+'</span></td>'
+        +'<td style="padding:6px 8px;font-size:11px;color:var(--atrf-text2)">'+esc(d.last_op)+'</td>'
+        +'<td style="padding:6px 8px;font-size:11px;color:var(--atrf-text2);white-space:nowrap">'+ts+'</td>'
+        +'</tr>';
+    }).join('');
+    if(body) body.innerHTML=
+      '<div style="overflow-x:auto">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="background:var(--atrf-surface2);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--atrf-text2)">'
+      +'<th style="padding:5px 10px;text-align:left;font-weight:600">Access ID</th>'
+      +'<th style="padding:5px 8px;text-align:left;font-weight:600">VNO</th>'
+      +'<th style="padding:5px 8px;text-align:left;font-weight:600">Estado</th>'
+      +'<th style="padding:5px 8px;text-align:left;font-weight:600">Última operación</th>'
+      +'<th style="padding:5px 8px;text-align:left;font-weight:600">Fecha</th>'
+      +'</tr></thead>'
+      +'<tbody>'+rows+'</tbody>'
+      +'</table></div>'
+      +'<div style="padding:6px 10px 2px;font-size:10px;color:var(--atrf-text2)">🔴 Activo = necesita Cancelación OOSS + Baja &nbsp;·&nbsp; 🟡 OOSS Cancelado = necesita Baja Total &nbsp;·&nbsp; 🟢 Dado de Baja = limpio</div>';
+  }).catch(function(e){
+    if(body) body.innerHTML='<div style="padding:12px;color:#FF4D4D">Error al cargar: '+String(e)+'</div>';
+  });
+}
 
 function _atrf_openNew(){
   _atrfSel=[];_atrfFilter='';
