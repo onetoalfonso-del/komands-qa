@@ -6484,6 +6484,117 @@ async def api_access_ids_update(request: Request):
     return {"ok": True}
 
 
+def _coreuse_parse_flujos(html: str, access_id: str) -> dict:
+    """
+    Parsea el HTML del portal CoreUse y extrae los flujos ejecutados.
+    Usa los chunks del RSC payload (más confiables que el HTML renderizado).
+    Retorna: {count, flujos: [{date, operation, code, result, order}], url}
+    """
+    hl  = html.lower()
+    url = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
+
+    # ── Contar flujos en encabezado ──────────────────────────────────────────
+    _cnt_m = re.search(r'flujos ejecutados\s*[·•·]\s*(\d+)', hl)
+    count  = int(_cnt_m.group(1)) if _cnt_m else 0
+
+    # ── Extraer TODOS los chunks del RSC (incluyendo cortos: códigos "0","3") ─
+    # Dos pasadas: chunks normales (5-500) + chunks cortos (1-4) cerca de fechas
+    _chunks_long  = re.findall(r'"(?:children|text|title|label)\\":\\"([^\\"]{5,500})\\"', html)
+    _chunks_short = re.findall(r'"(?:children|text)\\":\\"([^\\"]{1,4})\\"', html)
+
+    # Combinar en orden de aparición (mantenemos índice original)
+    _all_raw = re.findall(r'"(?:children|text|title|label)\\":\\"([^\\"]{1,500})\\"', html)
+
+    # ── Patrones de identificación ───────────────────────────────────────────
+    _pat_date  = re.compile(r'^\d{2}-\d{2}-\d{2},?\s+\d{2}:\d{2}$')
+    _pat_order = re.compile(r'^ORD\d{5,}$')
+    _pat_code  = re.compile(r'^\d{1,2}$')
+    _known_ops = {
+        "Assignment","Activation","OOSS cancellation","Access deregistration",
+        "Intervention cancellation","Assured intervention","Intervention finalization",
+        "Registration activation","Registration modification","Device Modification",
+        "Feasibility","Modification","Cancellation",
+    }
+    _result_kw = [
+        "con éxito","exitosamente","completad","ticket de intervención","ticket de intervencion",
+        "operación aceptada","operacion aceptada","petición realizada","peticion realizada",
+        "no se encuentra","no encontrad","fallido","rechazad","error en el flujo",
+        "flujo completado","asignación completada","activación completada","solicitud registrada",
+        "el flujo contin",
+    ]
+
+    # ── Reconstruir filas ────────────────────────────────────────────────────
+    flujos = []
+    i = 0
+    while i < len(_all_raw):
+        chunk = _all_raw[i]
+        if _pat_date.match(chunk):
+            # Ancla de nueva fila encontrada — recolectar hasta ~15 chunks
+            row = {"date": chunk, "operation": "", "code": "", "result": "", "order": ""}
+            window = _all_raw[i+1 : i+20]
+            for w in window:
+                if not row["order"] and _pat_order.match(w):
+                    row["order"] = w
+                    break  # fin de fila
+                if not row["operation"] and w in _known_ops:
+                    row["operation"] = w
+                elif not row["code"] and _pat_code.match(w) and w != row["date"]:
+                    row["code"] = w
+                elif not row["result"] and len(w) > 8:
+                    wl = w.lower()
+                    if any(kw in wl for kw in _result_kw):
+                        row["result"] = w
+            flujos.append(row)
+        i += 1
+
+    # Deduplicar por (date+operation) manteniendo orden
+    seen, deduped = set(), []
+    for f in flujos:
+        key = f["date"] + "|" + f["operation"]
+        if key not in seen:
+            seen.add(key)
+            deduped.append(f)
+
+    return {"count": count or len(deduped), "flujos": deduped, "url": url}
+
+
+@app.get("/api/coreuse/detail")
+async def api_coreuse_detail(access_id: str = ""):
+    """Obtiene y parsea los flujos ejecutados de CoreUse para un Access ID."""
+    global _coreuse_session
+    if not access_id:
+        return JSONResponse({"error": "access_id requerido"}, status_code=400)
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return JSONResponse({"error": "CoreUse no configurado (sin env vars)"}, status_code=503)
+
+    def _fetch():
+        global _coreuse_session
+        s = _coreuse_get_session()
+        if not s:
+            return None, "No se pudo autenticar en CoreUse"
+        try:
+            r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                      verify=False, timeout=15, allow_redirects=True)
+            if "/login" in r.url:
+                _coreuse_session = None
+                s = _coreuse_login()
+                if not s:
+                    return None, "Re-login CoreUse fallido"
+                r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                          verify=False, timeout=15, allow_redirects=True)
+            return r.text, None
+        except Exception as e:
+            return None, str(e)
+
+    loop = _aio.get_event_loop()
+    html, err = await loop.run_in_executor(None, _fetch)
+    if err:
+        return JSONResponse({"error": err}, status_code=500)
+
+    result = _coreuse_parse_flujos(html, access_id)
+    return JSONResponse(result)
+
+
 @app.get("/api/access-tracking")
 async def api_access_tracking():
     """Lee el estado de todos los Access IDs desde qa_access_ids."""
@@ -12971,12 +13082,12 @@ function _atrf_deleteSelected(){
 }
 function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
 
-// ── Estado Access IDs (Dashboard) ────────────────────────────────────────────
+// ── Estado Access IDs (Dashboard) ────────────────────────────────────────────────
 function _dashLoadAccessTracking(){
   var body=document.getElementById('dash-access-body');
   var sumEl=document.getElementById('dash-access-summary');
   if(!body)return;
-  body.innerHTML='<div style="color:var(--txt2)">Cargando…</div>';
+  body.innerHTML='<div style="color:var(--txt2)">… Cargando</div>';
   fetch('/api/access-tracking').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)||data.length===0){
       body.innerHTML='<div style="color:var(--txt3)">Sin Access IDs registrados aún.</div>';
@@ -12987,20 +13098,27 @@ function _dashLoadAccessTracking(){
     var cancelados=data.filter(function(d){return d.state==='cancelado';}).length;
     var bajas=data.filter(function(d){return d.state==='dado_de_baja';}).length;
     if(sumEl)sumEl.textContent=
-      (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
-      +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
+      (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
+      +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
       +(bajas?'🟢 '+bajas+' dado'+(bajas>1?'s':'')+' de baja':'');
-    var stateColor={'activo':'#FF4D4D','cancelado':'#FFB347','dado_de_baja':'#4CAF50'};
+    function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    var stateColor={'activo':'#EF4444','cancelado':'#F59E0B','dado_de_baja':'#22C55E'};
     var stateIcon={'activo':'🔴','cancelado':'🟡','dado_de_baja':'🟢'};
+    var stateLbl={'activo':'Activo','cancelado':'Cancelado','dado_de_baja':'Dado de baja'};
     var rows=data.map(function(d){
-      var ts=d.last_ts?new Date(d.last_ts).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-      var cuLink=d.coreuse_url?(' <a href="'+d.coreuse_url+'" target="_blank" style="color:var(--txt3);text-decoration:none" title="Ver en CoreUse">🔗</a>'):'';
-      return '<tr style="border-bottom:1px solid var(--brd)">'
-        +'<td style="padding:5px 10px;font-family:monospace;font-size:.7rem;white-space:nowrap">'+esc(d.access_id)+cuLink+'</td>'
+      var ts=d.last_ts?new Date(d.last_ts).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'---';
+      var state=d.state||'activo';
+      var aid=esc(d.access_id);
+      return '<tr style="border-bottom:1px solid var(--brd);cursor:pointer;transition:background .12s" '
+        +'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'" '
+        +'onclick="_dashOpenCoreUseModal(\''+aid+'\')">'  
+        +'<td style="padding:5px 10px;font-family:monospace;font-size:.7rem;white-space:nowrap">'+aid+'</td>'
         +'<td style="padding:5px 8px;font-size:.7rem">'+esc(d.vno_lbl||d.vno)+'</td>'
-        +'<td style="padding:5px 8px;font-size:.7rem"><span style="padding:2px 8px;border-radius:10px;background:'+stateColor[d.state]+'22;color:'+stateColor[d.state]+';font-weight:600">'+stateIcon[d.state]+' '+esc(d.state_label)+'</span></td>'
+        +'<td style="padding:5px 8px"><span style="display:inline-block;padding:2px 9px;border-radius:10px;background:'+esc(stateColor[state])+'22;color:'+esc(stateColor[state])+';font-weight:600;font-size:.68rem">'+(stateIcon[state]||'')+' '+(stateLbl[state]||state)+'</span></td>'
         +'<td style="padding:5px 8px;font-size:.7rem;color:var(--txt2)">'+esc(d.last_op)+'</td>'
         +'<td style="padding:5px 8px;font-size:.7rem;color:var(--txt3);white-space:nowrap">'+ts+'</td>'
+        +'<td style="padding:5px 10px"><button onclick="event.stopPropagation();_dashOpenCoreUseModal(\''+aid+'\')" '
+        +'style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🔍 Ver detalle</button></td>'
         +'</tr>';
     }).join('');
     body.innerHTML=
@@ -13012,13 +13130,95 @@ function _dashLoadAccessTracking(){
       +'<th style="padding:4px 8px;text-align:left;font-weight:600">Estado</th>'
       +'<th style="padding:4px 8px;text-align:left;font-weight:600">Última operación</th>'
       +'<th style="padding:4px 8px;text-align:left;font-weight:600">Fecha</th>'
+      +'<th style="padding:4px 8px"></th>'
       +'</tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table></div>'
-      +'<div style="padding:6px 10px 2px;font-size:.65rem;color:var(--txt3)">🔴 Activo = necesita Cancelación OOSS + Baja &nbsp;·&nbsp; 🟡 OOSS Cancelado = necesita Baja Total &nbsp;·&nbsp; 🟢 Dado de Baja = limpio</div>';
+      +'<div style="padding:6px 10px 2px;font-size:.65rem;color:var(--txt3)">🔴 Activo = necesita Cancelación OOSS + Baja &nbsp;·&nbsp; 🟡 Cancelado = necesita Baja Total &nbsp;·&nbsp; 🟢 Dado de baja = limpio</div>';
   }).catch(function(e){
     if(body)body.innerHTML='<div style="color:var(--err)">Error: '+String(e)+'</div>';
   });
+}
+
+// ── Modal detalle CoreUse ────────────────────────────────────────────────────
+function _dashOpenCoreUseModal(accessId){
+  var existing=document.getElementById('cu-detail-modal');
+  if(existing)existing.remove();
+  var mo=document.createElement('div');
+  mo.id='cu-detail-modal';
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;animation:_cu_fadein .15s ease';
+  var styleEl=document.getElementById('cu-modal-style');
+  if(!styleEl){
+    styleEl=document.createElement('style');
+    styleEl.id='cu-modal-style';
+    styleEl.textContent='@keyframes _cu_fadein{from{opacity:0}to{opacity:1}}';
+    document.head.appendChild(styleEl);
+  }
+  mo.innerHTML=
+    '<div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;'
+    +'width:min(760px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;'
+    +'box-shadow:0 8px 40px rgba(0,0,0,.45)">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brd)">'
+    +'<span style="font-size:.85rem;font-weight:700;color:var(--txt)">Flujos ejecutados</span>'
+    +'<span id="cu-modal-cnt" style="font-size:.75rem;color:var(--txt3)"></span>'
+    +'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:4px;padding:1px 8px;color:var(--txt2)">'+escHtml(accessId)+'</code>'
+    +'<div style="flex:1"></div>'
+    +'<a id="cu-modal-lnk" href="https://2.24.121.109" target="_blank" '
+    +'style="font-size:.72rem;color:var(--txt3);text-decoration:none;padding:3px 8px;border:1px solid var(--brd);border-radius:4px">↗ Ver en CoreUse</a>'
+    +'<button id="cu-modal-close" style="background:none;border:none;cursor:pointer;color:var(--txt3);font-size:22px;line-height:1;padding:0 0 0 6px">×</button>'
+    +'</div>'
+    +'<div id="cu-modal-hdr" style="display:grid;grid-template-columns:130px 180px 1fr 110px;gap:8px;'
+    +'padding:7px 18px;border-bottom:1px solid var(--brd);font-size:.63rem;text-transform:uppercase;'
+    +'letter-spacing:.06em;color:var(--txt3);font-weight:600">'
+    +'<span>Fecha</span><span>Operación</span><span>Resultado</span><span style="text-align:right">Orden</span></div>'
+    +'<div id="cu-modal-body" style="overflow-y:auto;flex:1">'
+    +'<div style="padding:48px;text-align:center;color:var(--txt3)">Consultando CoreUse…</div>'
+    +'</div>'
+    +'</div>';
+  mo.addEventListener('click',function(e){if(e.target===mo)mo.remove();});
+  document.body.appendChild(mo);
+  document.getElementById('cu-modal-close').onclick=function(){mo.remove();};
+  function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  fetch('/api/coreuse/detail?access_id='+encodeURIComponent(accessId))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var mbody=document.getElementById('cu-modal-body');
+      if(!mbody)return;
+      if(d.error){
+        mbody.innerHTML='<div style="padding:32px;color:var(--err);font-size:.8rem">'+escHtml(d.error)+'</div>';
+        return;
+      }
+      var flujos=d.flujos||[];
+      var cntEl=document.getElementById('cu-modal-cnt');
+      if(cntEl)cntEl.textContent='('+flujos.length+' flujos)';
+      if(!flujos.length){
+        mbody.innerHTML='<div style="padding:40px;text-align:center;color:var(--txt3);font-size:.8rem">Sin flujos registrados para este Access ID en CoreUse.</div>';
+        return;
+      }
+      var html='';
+      flujos.forEach(function(f,i){
+        var code=f.code===''||f.code===null?0:parseInt(f.code);
+        var isOk=(code===0);
+        var isWarn=(code===3);
+        var dotCol=isOk?'#22c55e':(isWarn?'#f59e0b':'#ef4444');
+        var txtCol=isOk?'#22c55e':(isWarn?'#f59e0b':'#ef4444');
+        var bg=i%2===1?'background:rgba(0,0,0,.04)':'';
+        html+='<div style="display:grid;grid-template-columns:130px 180px 1fr 110px;align-items:start;'
+          +'gap:8px;padding:10px 18px;border-bottom:1px solid var(--brd);'+bg+'">'
+          +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;padding-top:1px">'+escHtml(f.date||'---')+'</span>'
+          +'<span style="font-size:.75rem;font-weight:600;color:var(--txt)">'+escHtml(f.operation||'---')+'</span>'
+          +'<span style="display:flex;align-items:flex-start;gap:7px;font-size:.73rem;color:'+txtCol+'">'
+          +'<span style="width:8px;height:8px;min-width:8px;border-radius:50%;background:'+dotCol+';margin-top:3px"></span>'
+          +escHtml(f.result||'---')+'</span>'
+          +'<span style="font-size:.65rem;color:var(--txt3);font-family:monospace;text-align:right;white-space:nowrap">'+escHtml(f.order||'')+'</span>'
+          +'</div>';
+      });
+      mbody.innerHTML=html;
+    })
+    .catch(function(e){
+      var mb=document.getElementById('cu-modal-body');
+      if(mb)mb.innerHTML='<div style="padding:24px;color:var(--err);font-size:.8rem">Error al consultar CoreUse: '+escHtml(String(e))+'</div>';
+    });
 }
 
 function _atrf_openNew(){
