@@ -13088,6 +13088,7 @@ function _dashLoadAccessTracking(){
   var sumEl=document.getElementById('dash-access-summary');
   if(!body)return;
   body.innerHTML='<div style="color:var(--txt2)">… Cargando</div>';
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   fetch('/api/access-tracking').then(function(r){return r.json();}).then(function(data){
     if(!Array.isArray(data)||data.length===0){
       body.innerHTML='<div style="color:var(--txt3)">Sin Access IDs registrados aún.</div>';
@@ -13101,7 +13102,6 @@ function _dashLoadAccessTracking(){
       (activos?'🔴 '+activos+' activo'+(activos>1?'s':'')+' · ':'')
       +(cancelados?'🟡 '+cancelados+' cancelado'+(cancelados>1?'s':'')+' · ':'')
       +(bajas?'🟢 '+bajas+' dado'+(bajas>1?'s':'')+' de baja':'');
-    function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     var stateColor={'activo':'#EF4444','cancelado':'#F59E0B','dado_de_baja':'#22C55E'};
     var stateIcon={'activo':'🔴','cancelado':'🟡','dado_de_baja':'🟢'};
     var stateLbl={'activo':'Activo','cancelado':'Cancelado','dado_de_baja':'Dado de baja'};
