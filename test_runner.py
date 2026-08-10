@@ -1202,6 +1202,16 @@ CREATE TABLE IF NOT EXISTS qa_executions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE qa_executions ADD COLUMN IF NOT EXISTS steps_json TEXT;
+CREATE TABLE IF NOT EXISTS qa_access_ids (
+    access_id   VARCHAR(200) PRIMARY KEY,
+    vno         VARCHAR(10),
+    vno_lbl     VARCHAR(100),
+    state       VARCHAR(30)  DEFAULT 'activo',
+    last_op     VARCHAR(200),
+    last_result VARCHAR(10),
+    ts          BIGINT,
+    updated_at  TIMESTAMPTZ  DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS qa_config (
     key        VARCHAR(100) PRIMARY KEY,
     value      TEXT NOT NULL DEFAULT '',
@@ -6410,86 +6420,107 @@ async def api_coreuse_poll(request: Request):
     return JSONResponse(result)
 
 
-# ─── Access ID tracking endpoint ─────────────────────────────────────────────
+# ─── Access ID tracking (tabla dedicada qa_access_ids) ───────────────────────
+
+@app.post("/api/access-ids/update")
+async def api_access_ids_update(request: Request):
+    """
+    Registra o actualiza el estado de un Access ID en qa_access_ids.
+    Llamado desde el frontend ATRF al completar cada paso.
+    Transiciones de estado:
+      Asignación/Activación ok  → activo
+      Cancelación OOSS ok       → cancelado
+      Baja Total ok             → dado_de_baja
+      cualquier otra op ok      → no cambia estado (solo actualiza last_op/ts)
+      resultado error           → no cambia estado (solo actualiza last_op/ts)
+    """
+    body = await request.json()
+    access_id = (body.get("access_id") or "").strip()
+    if not access_id:
+        return {"ok": True}
+    op      = body.get("op", "")
+    result  = body.get("result", "error")
+    vno     = body.get("vno", "")
+    vno_lbl = body.get("vno_lbl", "")
+    ts      = body.get("ts") or 0
+
+    # Ops que cambian el estado del ciclo de vida
+    _STATE_OPS = {
+        "Baja Total de Servicio":        "dado_de_baja",
+        "Cancelación Orden de Servicio": "cancelado",
+        "Asignación":                    "activo",
+        "Activación":                    "activo",
+    }
+
+    pool = await _db()
+    if not pool:
+        return {"ok": True}
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT state FROM qa_access_ids WHERE access_id=$1", access_id)
+            current_state = row["state"] if row else None
+
+            if result == "ok" and op in _STATE_OPS:
+                new_state = _STATE_OPS[op]
+            else:
+                new_state = current_state or "activo"
+
+            await conn.execute("""
+                INSERT INTO qa_access_ids
+                    (access_id, vno, vno_lbl, state, last_op, last_result, ts)
+                VALUES ($1,$2,$3,$4,$5,$6,$7)
+                ON CONFLICT (access_id) DO UPDATE SET
+                    vno        = EXCLUDED.vno,
+                    vno_lbl    = EXCLUDED.vno_lbl,
+                    state      = $4,
+                    last_op    = EXCLUDED.last_op,
+                    last_result= EXCLUDED.last_result,
+                    ts         = EXCLUDED.ts,
+                    updated_at = NOW()
+            """, access_id, vno, vno_lbl, new_state, op, result, ts)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True}
+
+
 @app.get("/api/access-tracking")
 async def api_access_tracking():
-    """
-    Devuelve el estado de cada Access ID usado en ejecuciones ATRF.
-    Estado derivado de las operaciones registradas en qa_executions:
-      - dado_de_baja : "Baja Total de Servicio" ejecutada OK
-      - cancelado    : "Cancelación Orden de Servicio" OK pero sin Baja
-      - activo       : ninguna cancelación exitosa (necesita atención)
-    """
+    """Lee el estado de todos los Access IDs desde qa_access_ids."""
     pool = await _db()
     if not pool:
         return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
     try:
         rows = await pool.fetch("""
-            SELECT direccion, vno, vno_lbl, escenario, resultado, ts
-            FROM qa_executions
-            WHERE suite_id = 'atrf'
-              AND direccion IS NOT NULL AND direccion != ''
-            ORDER BY ts ASC
+            SELECT access_id, vno, vno_lbl, state, last_op, last_result, ts
+            FROM qa_access_ids
+            ORDER BY
+                CASE state
+                    WHEN 'activo'       THEN 0
+                    WHEN 'cancelado'    THEN 1
+                    WHEN 'dado_de_baja' THEN 2
+                    ELSE 3
+                END,
+                ts DESC NULLS LAST
         """)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-    # Construir estado por Access ID procesando operaciones en orden cronológico
-    from collections import defaultdict
-    access_map: dict = {}
-    for row in rows:
-        aid   = row["direccion"]
-        op    = row["escenario"] or ""
-        ok    = row["resultado"] == "ok"
-        ts    = row["ts"] or 0
-        vno   = row["vno"] or ""
-        vnolbl= row["vno_lbl"] or vno
-
-        if aid not in access_map:
-            access_map[aid] = {
-                "access_id": aid, "vno": vno, "vno_lbl": vnolbl,
-                "has_baja": False, "has_cancel": False, "has_active": False,
-                "last_op": op, "last_ts": ts,
-            }
-        entry = access_map[aid]
-        # Actualizar última operación
-        if ts >= entry["last_ts"]:
-            entry["last_op"] = op
-            entry["last_ts"] = ts
-        if ok:
-            if op == "Baja Total de Servicio":
-                entry["has_baja"] = True
-            elif op == "Cancelación Orden de Servicio":
-                entry["has_cancel"] = True
-            elif op in ("Asignación", "Activación"):
-                entry["has_active"] = True
-
-    # Determinar estado final
+    _label = {"activo": "Activo", "cancelado": "OOSS Cancelado", "dado_de_baja": "Dado de Baja"}
     result = []
-    for aid, e in access_map.items():
-        if e["has_baja"]:
-            state = "dado_de_baja"
-            label = "Dado de Baja"
-        elif e["has_cancel"]:
-            state = "cancelado"
-            label = "OOSS Cancelado"
-        else:
-            state = "activo"
-            label = "Activo"
+    for r in rows:
+        st = r["state"] or "activo"
         result.append({
-            "access_id": aid,
-            "vno": e["vno"],
-            "vno_lbl": e["vno_lbl"],
-            "state": state,
-            "state_label": label,
-            "last_op": e["last_op"],
-            "last_ts": e["last_ts"],
-            "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={aid}",
+            "access_id":   r["access_id"],
+            "vno":         r["vno"] or "",
+            "vno_lbl":     r["vno_lbl"] or r["vno"] or "",
+            "state":       st,
+            "state_label": _label.get(st, st),
+            "last_op":     r["last_op"] or "",
+            "last_result": r["last_result"] or "",
+            "last_ts":     r["ts"] or 0,
+            "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={r['access_id']}",
         })
-
-    # Ordenar: activos primero, luego cancelados, luego dados de baja
-    _order = {"activo": 0, "cancelado": 1, "dado_de_baja": 2}
-    result.sort(key=lambda x: (_order.get(x["state"], 9), -(x["last_ts"] or 0)))
     return JSONResponse(result)
 
 
@@ -13539,6 +13570,14 @@ async function _atrf_runSelected(){
             }
           }
         }catch(_cuErr){}
+      }
+      // ── Registrar en tabla dedicada qa_access_ids ────────────────────────────
+      if(_currentAccessId){
+        fetch('/api/access-ids/update',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({access_id:_currentAccessId,op:fn,
+            result:pass?'ok':'error',vno:vno,
+            vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,ts:Date.now()})
+        }).catch(function(){});
       }
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
