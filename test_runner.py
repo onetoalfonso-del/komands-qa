@@ -31,6 +31,16 @@ try:
 except ImportError:
     _COREUSE_AVAILABLE = False
 
+# APScheduler para agenda de regresiones programadas
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler as _APSched
+    from apscheduler.triggers.cron import CronTrigger as _CronTrigger
+    _APS_AVAILABLE = True
+except ImportError:
+    _APS_AVAILABLE = False
+    _APSched = None
+    _CronTrigger = None
+
 ROOT      = Path(__file__).parent
 COLL_DIR  = ROOT / "collection Kommand"
 BP_DIR    = ROOT / "collection Blueplanet"
@@ -1253,6 +1263,38 @@ CREATE TABLE IF NOT EXISTS qa_users (
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS qa_schedules (
+    id           BIGSERIAL PRIMARY KEY,
+    name         VARCHAR(200) NOT NULL,
+    preset       VARCHAR(20) NOT NULL DEFAULT 'acotada',
+    vno          VARCHAR(10) NOT NULL DEFAULT '02',
+    direccion    TEXT NOT NULL DEFAULT '',
+    address_mcd  VARCHAR(50) DEFAULT 'OSP',
+    svc_type     VARCHAR(20) DEFAULT 'FTTH',
+    speed_plan   VARCHAR(50) DEFAULT '600/600',
+    amb_url      TEXT DEFAULT '',
+    days_of_week TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
+    times_of_day TEXT NOT NULL DEFAULT '["09:00"]',
+    active       BOOLEAN DEFAULT TRUE,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    last_run     TIMESTAMPTZ,
+    next_run     TIMESTAMPTZ,
+    run_count    INT DEFAULT 0,
+    last_status  VARCHAR(50)
+);
+CREATE TABLE IF NOT EXISTS qa_sched_runs (
+    id           BIGSERIAL PRIMARY KEY,
+    schedule_id  BIGINT REFERENCES qa_schedules(id) ON DELETE CASCADE,
+    started_at   TIMESTAMPTZ DEFAULT NOW(),
+    finished_at  TIMESTAMPTZ,
+    preset       VARCHAR(20),
+    vno          VARCHAR(10),
+    total_steps  INT DEFAULT 0,
+    passed_steps INT DEFAULT 0,
+    failed_steps INT DEFAULT 0,
+    status       VARCHAR(20) DEFAULT 'running',
+    steps_json   TEXT
+);
 CREATE TABLE IF NOT EXISTS qa_return_codes (
     id          BIGSERIAL PRIMARY KEY,
     flow        TEXT NOT NULL,
@@ -1482,9 +1524,288 @@ async def _db_save(record: dict):
     except Exception as _e:
         print(f"[db] error guardando ejecución: {_e}")
 
+
+# ─── Agenda de Regresiones Programadas (APScheduler) ─────────────────────────
+
+_AGENDA_SCHEDULER = None
+_AGENDA_PORT = int(os.environ.get("PORT", "8001"))
+
+ATRF_FUNCS_REAL = [
+    "Factibilidad","Asignación","Activación","Inicio Intervención Asegurada",
+    "Cancelación Intervención Asegurada","Finalización Intervención Asegurada",
+    "Cancelación Orden de Servicio","Baja Total de Servicio",
+    "Modificación de Acceso","Modificación de Dispositivo",
+    "Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess",
+    "Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)",
+    "Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT",
+    "Consulta de Alarmas"
+]
+ATRF_PRESET_INDEXES = {
+    "acotada":  [0, 1, 11, 3, 4, 6],
+    "completa": [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7]
+}
+
+async def _agenda_load_from_db():
+    """Carga todos los schedules activos de la BD y los registra en APScheduler."""
+    global _AGENDA_SCHEDULER
+    if not _APS_AVAILABLE or not _AGENDA_SCHEDULER:
+        return
+    try:
+        conn = await _db()
+        rows = await conn.fetch("SELECT * FROM qa_schedules WHERE active=TRUE")
+        for row in rows:
+            _agenda_register_job(dict(row))
+        print(f"[agenda] {len(rows)} schedule(s) cargados")
+    except Exception as e:
+        print(f"[agenda] error cargando schedules: {e}")
+
+def _agenda_register_job(sched: dict):
+    """Registra o actualiza un job en APScheduler para el schedule dado."""
+    global _AGENDA_SCHEDULER
+    if not _APS_AVAILABLE or not _AGENDA_SCHEDULER:
+        return
+    try:
+        import json as _j
+        job_id_base = f"sched_{sched['id']}"
+        days = _j.loads(sched.get("days_of_week") or "[1,2,3,4,5]")
+        times = _j.loads(sched.get("times_of_day") or '["09:00"]')
+        # Eliminar jobs previos de este schedule
+        for prev_i in range(20):
+            try:
+                _AGENDA_SCHEDULER.remove_job(f"{job_id_base}_t{prev_i}")
+            except Exception:
+                break
+        if not sched.get("active", True):
+            return
+        # Registrar un job por cada horario
+        for i, t in enumerate(times):
+            parts = (str(t) + ":00").split(":")
+            h = int(parts[0])
+            m = int(parts[1])
+            day_str = ",".join(str(d) for d in days)
+            _AGENDA_SCHEDULER.add_job(
+                _agenda_fire_sync,
+                trigger=_CronTrigger(
+                    day_of_week=day_str,
+                    hour=h, minute=m,
+                    timezone="America/Santiago"
+                ),
+                id=f"{job_id_base}_t{i}",
+                args=[sched["id"]],
+                replace_existing=True,
+                misfire_grace_time=300
+            )
+        print(f"[agenda] schedule {sched['id']} '{sched.get('name','')}' registrado ({len(times)} horario(s))")
+    except Exception as e:
+        print(f"[agenda] error registrando job {sched.get('id')}: {e}")
+
+def _agenda_fire_sync(schedule_id: int):
+    """Llamado por APScheduler en thread separado: ejecuta la regresion programada."""
+    import asyncio as _aio
+    loop = _aio.new_event_loop()
+    _aio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_agenda_fire_async(schedule_id))
+    finally:
+        loop.close()
+
+async def _agenda_fire_async(schedule_id: int):
+    """Ejecuta el preset del schedule via el endpoint interno /api/atrf/run-step."""
+    import json as _j
+    import datetime as _dt
+    print(f"[agenda] disparando schedule_id={schedule_id}")
+    conn = await _db()
+    row = await conn.fetchrow("SELECT * FROM qa_schedules WHERE id=$1", schedule_id)
+    if not row:
+        print(f"[agenda] schedule {schedule_id} no encontrado")
+        return
+    sched = dict(row)
+    preset = sched.get("preset", "acotada")
+    func_indexes = ATRF_PRESET_INDEXES.get(preset, ATRF_PRESET_INDEXES["acotada"])
+    func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
+    vno = sched.get("vno", "02")
+    run_id = await conn.fetchval(
+        "INSERT INTO qa_sched_runs (schedule_id, preset, vno, total_steps, status) "
+        "VALUES ($1, $2, $3, $4, 'running') RETURNING id",
+        schedule_id, preset, vno, len(func_names)
+    )
+    started = _dt.datetime.now(_dt.timezone.utc)
+    steps_results = []
+    passed = 0
+    failed = 0
+    import urllib.request as _ur
+    base_url = f"http://localhost:{_AGENDA_PORT}"
+    prev_access_id = ""
+    for fn in func_names:
+        body = {
+            "func": fn,
+            "vno": vno,
+            "direccion": sched.get("direccion", ""),
+            "addressMcd": sched.get("address_mcd", "OSP"),
+            "serviceType": sched.get("svc_type", "FTTH"),
+            "speedPlan": sched.get("speed_plan", "600/600"),
+            "ambUrl": sched.get("amb_url", ""),
+            "accessId": prev_access_id,
+        }
+        step_r = {"func": fn, "pass": False, "error": None}
+        try:
+            req_data = _j.dumps(body).encode("utf-8")
+            req = _ur.Request(
+                f"{base_url}/api/atrf/run-step",
+                data=req_data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with _ur.urlopen(req, timeout=120) as resp:
+                result = _j.loads(resp.read())
+                step_r["pass"] = result.get("pass", False)
+                step_r["http"] = result.get("httpCode", 0)
+                if step_r["pass"]:
+                    passed += 1
+                    new_aid = result.get("accessId") or result.get("access_id", "")
+                    if new_aid:
+                        prev_access_id = new_aid
+                else:
+                    failed += 1
+        except Exception as ex:
+            step_r["error"] = str(ex)
+            failed += 1
+        steps_results.append(step_r)
+        print(f"[agenda] sched={schedule_id} run={run_id} {fn}: {'PASS' if step_r['pass'] else 'FAIL'}")
+    finished = _dt.datetime.now(_dt.timezone.utc)
+    status = "pass" if failed == 0 else ("fail" if passed == 0 else "partial")
+    await conn.execute(
+        "UPDATE qa_sched_runs SET finished_at=$1, passed_steps=$2, failed_steps=$3, "
+        "status=$4, steps_json=$5 WHERE id=$6",
+        finished, passed, failed, status, _j.dumps(steps_results), run_id
+    )
+    await conn.execute(
+        "UPDATE qa_schedules SET last_run=$1, run_count=run_count+1, last_status=$2 WHERE id=$3",
+        finished, status, schedule_id
+    )
+    print(f"[agenda] run_id={run_id} completado: {passed} PASS / {failed} FAIL -> {status}")
+
+
+# ─── API Agenda (CRUD + run-now) ─────────────────────────────────────────────
+
+@app.get("/api/schedules")
+async def api_schedules_list(token: str = Depends(_require_auth)):
+    conn = await _db()
+    rows = await conn.fetch("SELECT * FROM qa_schedules ORDER BY created_at DESC")
+    return JSONResponse([dict(r) for r in rows])
+
+@app.post("/api/schedules")
+async def api_schedules_create(request: Request, token: str = Depends(_require_auth)):
+    import json as _j
+    data = await request.json()
+    conn = await _db()
+    row = await conn.fetchrow(
+        "INSERT INTO qa_schedules (name, preset, vno, direccion, address_mcd, svc_type, "
+        "speed_plan, amb_url, days_of_week, times_of_day, active) "
+        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
+        data.get("name","Sin nombre"),
+        data.get("preset","acotada"),
+        data.get("vno","02"),
+        data.get("direccion",""),
+        data.get("address_mcd","OSP"),
+        data.get("svc_type","FTTH"),
+        data.get("speed_plan","600/600"),
+        data.get("amb_url",""),
+        _j.dumps(data.get("days_of_week",[1,2,3,4,5])),
+        _j.dumps(data.get("times_of_day",["09:00"])),
+        data.get("active",True)
+    )
+    sched = dict(row)
+    _agenda_register_job(sched)
+    return JSONResponse(sched)
+
+@app.put("/api/schedules/{sched_id}")
+async def api_schedules_update(sched_id: int, request: Request, token: str = Depends(_require_auth)):
+    import json as _j
+    data = await request.json()
+    conn = await _db()
+    row = await conn.fetchrow(
+        "UPDATE qa_schedules SET name=$1, preset=$2, vno=$3, direccion=$4, address_mcd=$5, "
+        "svc_type=$6, speed_plan=$7, amb_url=$8, days_of_week=$9, times_of_day=$10, active=$11 "
+        "WHERE id=$12 RETURNING *",
+        data.get("name","Sin nombre"),
+        data.get("preset","acotada"),
+        data.get("vno","02"),
+        data.get("direccion",""),
+        data.get("address_mcd","OSP"),
+        data.get("svc_type","FTTH"),
+        data.get("speed_plan","600/600"),
+        data.get("amb_url",""),
+        _j.dumps(data.get("days_of_week",[1,2,3,4,5])),
+        _j.dumps(data.get("times_of_day",["09:00"])),
+        data.get("active",True),
+        sched_id
+    )
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Schedule no encontrado")
+    sched = dict(row)
+    _agenda_register_job(sched)
+    return JSONResponse(sched)
+
+@app.delete("/api/schedules/{sched_id}")
+async def api_schedules_delete(sched_id: int, token: str = Depends(_require_auth)):
+    global _AGENDA_SCHEDULER
+    conn = await _db()
+    await conn.execute("DELETE FROM qa_schedules WHERE id=$1", sched_id)
+    if _APS_AVAILABLE and _AGENDA_SCHEDULER:
+        for i in range(20):
+            try:
+                _AGENDA_SCHEDULER.remove_job(f"sched_{sched_id}_t{i}")
+            except Exception:
+                break
+    return JSONResponse({"ok": True})
+
+@app.post("/api/schedules/{sched_id}/run-now")
+async def api_schedules_run_now(sched_id: int, token: str = Depends(_require_auth)):
+    import threading as _thr
+    t = _thr.Thread(target=_agenda_fire_sync, args=(sched_id,), daemon=True)
+    t.start()
+    return JSONResponse({"ok": True, "message": "Ejecución iniciada en background"})
+
+@app.post("/api/schedules/{sched_id}/toggle")
+async def api_schedules_toggle(sched_id: int, token: str = Depends(_require_auth)):
+    conn = await _db()
+    row = await conn.fetchrow(
+        "UPDATE qa_schedules SET active=NOT active WHERE id=$1 RETURNING *", sched_id
+    )
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Schedule no encontrado")
+    sched = dict(row)
+    _agenda_register_job(sched)
+    return JSONResponse(sched)
+
+@app.get("/api/schedules/{sched_id}/runs")
+async def api_schedules_runs(sched_id: int, limit: int = 20, token: str = Depends(_require_auth)):
+    conn = await _db()
+    rows = await conn.fetch(
+        "SELECT * FROM qa_sched_runs WHERE schedule_id=$1 ORDER BY started_at DESC LIMIT $2",
+        sched_id, limit
+    )
+    return JSONResponse([dict(r) for r in rows])
+
+
+
 @app.on_event("startup")
 async def _startup_db():
+    global _AGENDA_SCHEDULER
     await _db()
+    if _APS_AVAILABLE:
+        try:
+            _AGENDA_SCHEDULER = _APSched(timezone="America/Santiago")
+            _AGENDA_SCHEDULER.start()
+            await _agenda_load_from_db()
+            print("[agenda] APScheduler iniciado")
+        except Exception as e:
+            print(f"[agenda] error iniciando APScheduler: {e}")
+    else:
+        print("[agenda] APScheduler no disponible (pip install apscheduler)")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -7784,6 +8105,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <button class="hist-btn" id="dashboard-btn" onclick="showDashboard()">&#128200;&nbsp; Dashboard</button>
     <button class="hist-btn" id="codigos-btn" onclick="showCodigos()">&#128214;&nbsp; C&#xF3;digos de Retorno</button>
     <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;&nbsp; Historial de Pruebas</button>
+    <button class="hist-btn" id="agenda-btn" onclick="showAgenda()">&#128197;&nbsp; Agenda</button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;&nbsp; Settings</button>
   </aside>
   <main class="main">
@@ -7874,6 +8196,10 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <!-- Vista Dashboard -->
     <div id="dashboard-view" style="display:none;flex-direction:column;flex:1;overflow:auto;padding:18px 20px;gap:16px">
       <div id="dash-content"><div style="padding:40px;text-align:center;color:var(--txt2);font-size:.8rem">Cargando dashboard&#8230;</div></div>
+    </div>
+    <!-- Vista Agenda de Regresiones -->
+    <div id="agenda-view" style="display:none;flex-direction:column;flex:1;overflow:auto;padding:0">
+      <div id="agenda-content" style="flex:1"></div>
     </div>
     <!-- Vista Historial -->
     <div id="historial-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -8792,9 +9118,9 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view"}[mode]||"std-view";
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -12036,6 +12362,374 @@ function showSettings(){
 }
 var _dashRefreshTimer=null;
 function _dashStopRefresh(){if(_dashRefreshTimer){clearInterval(_dashRefreshTimer);_dashRefreshTimer=null;}}
+
+// ── Agenda de Regresiones Programadas ─────────────────────────────────────
+var _agendaData = [];
+var _agendaEditId = null;
+
+function showAgenda(){
+  _dashStopRefresh();
+  switchView('agenda');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var ab=document.getElementById('agenda-btn');if(ab)ab.classList.add('active');
+  setTop('','Agenda de Regresiones','Programación automática de pruebas');
+  _agendaLoad();
+}
+
+function _agendaLoad(){
+  var cont=document.getElementById('agenda-content');
+  if(!cont)return;
+  cont.innerHTML='<div style="color:var(--txt2);padding:24px;text-align:center">Cargando schedules…</div>';
+  fetch('/api/schedules',{headers:{Authorization:'Bearer '+(_jwt||'')}})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      _agendaData=data;
+      _agendaRender();
+    })
+    .catch(function(e){
+      cont.innerHTML='<div style="color:var(--err);padding:16px">Error cargando schedules: '+String(e)+'</div>';
+    });
+}
+
+function _agendaRender(){
+  var cont=document.getElementById('agenda-content');
+  if(!cont)return;
+  var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  var rows=_agendaData.map(function(s){
+    var days=[];try{days=JSON.parse(s.days_of_week||'[1,2,3,4,5]');}catch(e){}
+    var times=[];try{times=JSON.parse(s.times_of_day||'["09:00"]');}catch(e){}
+    var dayStr=days.map(function(d){return DAYS[d]||d;}).join(', ');
+    var timeStr=times.join(' · ');
+    var lastRun=s.last_run?new Date(s.last_run).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'Nunca';
+    var statusDot=s.last_status==='pass'?'🟢':s.last_status==='fail'?'🔴':s.last_status==='partial'?'🟡':'⚪';
+    var active=s.active;
+    var toggleLabel=active?'Pausar':'Activar';
+    var toggleIcon=active?'⏸':'▶';
+    return (
+      '<tr style="border-bottom:1px solid var(--brd);transition:background .12s" class="agenda-row">'
+      +'<td style="padding:8px 12px;font-weight:600;font-size:.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(s.name)+'</td>'
+      +'<td style="padding:8px 8px">'
+        +'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:600;'
+        +(s.preset==='completa'?'background:#3D7FFF22;color:#3D7FFF':'background:#22C55E22;color:#22C55E')
+        +'">'+_esc(s.preset)+'</span>'
+      +'</td>'
+      +'<td style="padding:8px 8px;font-size:.75rem;color:var(--txt2)">VNO '+_esc(s.vno)+'</td>'
+      +'<td style="padding:8px 8px;font-size:.73rem;color:var(--txt2)">'+_esc(dayStr)+'</td>'
+      +'<td style="padding:8px 8px;font-family:monospace;font-size:.73rem">'+_esc(timeStr)+'</td>'
+      +'<td style="padding:8px 8px;font-size:.7rem;color:var(--txt3)">'+statusDot+' '+lastRun+'</td>'
+      +'<td style="padding:8px 8px">'
+        +'<span style="display:inline-block;padding:2px 8px;border-radius:8px;font-size:.65rem;font-weight:600;cursor:pointer;'
+        +(active?'background:#22C55E22;color:#22C55E':'background:#6b728022;color:var(--txt3)')
+        +'" onclick="_agendaToggle('+s.id+')">'+_esc(active?'Activo':'Pausado')+'</span>'
+      +'</td>'
+      +'<td style="padding:8px 10px;white-space:nowrap">'
+        +'<button onclick="_agendaRunNow('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer" title="Ejecutar ahora">▶ Ahora</button>'
+        +'<button onclick="_agendaEdit('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">✎ Editar</button>'
+        +'<button onclick="_agendaHistory('+s.id+',\''+_esc(s.name)+'\')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">📜 Historial</button>'
+        +'<button onclick="_agendaDelete('+s.id+')" style="padding:3px 9px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.67rem;cursor:pointer">✕</button>'
+      +'</td>'
+      +'</tr>'
+    );
+  }).join('');
+
+  cont.innerHTML=
+    '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--brd)">'
+    +'<span style="font-weight:600;font-size:.85rem">Schedules configurados</span>'
+    +'<span style="font-size:.72rem;color:var(--txt3)">'+_agendaData.length+' schedule'+(_agendaData.length!==1?'s':'')+'</span>'
+    +'<div style="flex:1"></div>'
+    +'<button onclick="_agendaNew()" style="padding:5px 14px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.75rem;cursor:pointer;font-weight:600">+ Nuevo schedule</button>'
+    +'</div>'
+    +(_agendaData.length===0
+      ? '<div style="padding:48px 24px;text-align:center;color:var(--txt3);font-size:.82rem">'
+        +'<div style="font-size:2.5rem;margin-bottom:12px">📅</div>'
+        +'<div style="font-weight:600;margin-bottom:6px">Sin schedules configurados</div>'
+        +'<div>Crea un schedule para programar regresiones automáticas.</div>'
+        +'<button onclick="_agendaNew()" style="margin-top:16px;padding:7px 18px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.78rem;cursor:pointer">+ Nuevo schedule</button>'
+        +'</div>'
+      : '<div style="overflow-x:auto">'
+        +'<table style="width:100%;border-collapse:collapse;min-width:700px">'
+        +'<thead><tr style="font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);background:var(--card)">'
+        +'<th style="padding:6px 12px;text-align:left;font-weight:600">Nombre</th>'
+        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Preset</th>'
+        +'<th style="padding:6px 8px;text-align:left;font-weight:600">VNO</th>'
+        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Días</th>'
+        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Horarios</th>'
+        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Último run</th>'
+        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Estado</th>'
+        +'<th style="padding:6px 10px;text-align:left;font-weight:600">Acciones</th>'
+        +'</tr></thead>'
+        +'<tbody>'+rows+'</tbody>'
+        +'</table></div>'
+    );
+}
+
+function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function _agendaNew(){
+  _agendaEditId=null;
+  _agendaOpenModal(null);
+}
+
+function _agendaEdit(id){
+  var s=_agendaData.find(function(x){return x.id===id;});
+  if(!s)return;
+  _agendaEditId=id;
+  _agendaOpenModal(s);
+}
+
+function _agendaOpenModal(s){
+  var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  var selDays=[];try{selDays=JSON.parse((s&&s.days_of_week)||'[1,2,3,4,5]');}catch(e){}
+  var selTimes=[];try{selTimes=JSON.parse((s&&s.times_of_day)||'["09:00"]');}catch(e){}
+  if(!selTimes.length)selTimes=['09:00'];
+  var vno=(s&&s.vno)||'02';
+  var preset=(s&&s.preset)||'acotada';
+
+  var dayBtns=DAYS.map(function(lbl,i){
+    var on=selDays.indexOf(i)>=0;
+    return '<button type="button" data-day="'+i+'" class="ag-day-btn'+(on?' on':'')+'" onclick="_agToggleDay(this,'+i+')" style="padding:5px 8px;border-radius:4px;border:1px solid var(--brd);background:'+(on?'var(--acc)':'var(--card)')+';color:'+(on?'#fff':'var(--txt2)')+';font-size:.72rem;cursor:pointer;min-width:36px">'+lbl+'</button>';
+  }).join('');
+
+  var timeInputs=selTimes.map(function(t,i){
+    return '<div class="ag-time-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<input type="time" class="ag-time-inp" value="'+t+'" style="background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:5px 8px;font-size:.78rem;flex:1">'
+      +(i>0?'<button type="button" onclick="this.parentElement.remove()" style="padding:3px 8px;border:1px solid var(--errb);background:var(--errd);color:var(--err);border-radius:4px;cursor:pointer;font-size:.72rem">✕</button>':'<span style="width:32px"></span>')
+      +'</div>';
+  }).join('');
+
+  var modal=document.createElement('div');
+  modal.id='ag-modal-overlay';
+  modal.style.cssText='position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML=(
+    '<div style="background:var(--bg);border:1px solid var(--brd);border-radius:8px;width:100%;max-width:520px;display:flex;flex-direction:column;max-height:90vh;overflow:hidden">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:10px;background:var(--card)">'
+    +'<span style="font-weight:600;font-size:.85rem">'+(s?'Editar schedule':'Nuevo schedule')+'</span>'
+    +'<div style="flex:1"></div>'
+    +'<button onclick="_agendaCloseModal()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:1.1rem;padding:2px 6px">✕</button>'
+    +'</div>'
+    +'<div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px">'
+
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:4px">Nombre</label>'
+    +'<input id="ag-name" type="text" placeholder="Ej: Regresión KAO - Lunes a Viernes" value="'+_esc((s&&s.name)||'')+'" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:7px 10px;font-size:.8rem;box-sizing:border-box">'
+    +'</div>'
+
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Preset de Regresión</label>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button type="button" id="ag-pre-acotada" onclick="_agSetPreset(\'acotada\')" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='acotada'?'var(--acc)':'var(--brd)')+';background:'+(preset==='acotada'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='acotada'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
+    +'🟢 Acotada <div style="font-size:.65rem;font-weight:400;opacity:.7">6 funciones</div>'
+    +'</button>'
+    +'<button type="button" id="ag-pre-completa" onclick="_agSetPreset(\'completa\')" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='completa'?'var(--acc)':'var(--brd)')+';background:'+(preset==='completa'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='completa'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
+    +'🔵 Completa <div style="font-size:.65rem;font-weight:400;opacity:.7">14 funciones</div>'
+    +'</button>'
+    +'</div>'
+    +'<input type="hidden" id="ag-preset" value="'+preset+'">'
+    +'</div>'
+
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">VNO</label>'
+    +'<div style="display:flex;gap:6px">'
+    +['00','02','03','05'].map(function(v){
+      var lbls={'00':'TCH','02':'KAO','03':'Entel','05':'DTV'};
+      var on=vno===v;
+      return '<button type="button" class="ag-vno-btn'+(on?' on':'')+'" data-vno="'+v+'" onclick="_agSetVno(\''+v+'\')" style="padding:5px 10px;border-radius:4px;border:1px solid '+(on?'var(--acc)':'var(--brd)')+';background:'+(on?'rgba(61,127,255,.1)':'var(--card)')+';color:'+(on?'var(--acc)':'var(--txt2)')+';font-size:.72rem;cursor:pointer;font-weight:600">'+v+' '+lbls[v]+'</button>';
+    }).join('')
+    +'</div>'
+    +'<input type="hidden" id="ag-vno" value="'+vno+'">'
+    +'</div>'
+
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:4px">Dirección (Address ID para Factibilidad) <span style="color:var(--err)">*</span></label>'
+    +'<input id="ag-dir" type="text" placeholder="Ej: DIR02803636" value="'+_esc((s&&s.direccion)||'')+'" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:7px 10px;font-size:.78rem;font-family:monospace;box-sizing:border-box">'
+    +'</div>'
+
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:4px">Tipo de Servicio</label>'
+    +'<select id="ag-svctype" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:6px 8px;font-size:.78rem">'
+    +'<option value="FTTH"'+(((s&&s.svc_type)||'FTTH')==='FTTH'?' selected':'')+'>FTTH</option>'
+    +'<option value="SSAA"'+((s&&s.svc_type)==='SSAA'?' selected':'')+'>SSAA</option>'
+    +'</select>'
+    +'</div>'
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:4px">Plan de velocidad</label>'
+    +'<input id="ag-speed" type="text" placeholder="600/600" value="'+_esc((s&&s.speed_plan)||'600/600')+'" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:7px 8px;font-size:.78rem;font-family:monospace;box-sizing:border-box">'
+    +'</div>'
+    +'</div>'
+
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Días de la semana</label>'
+    +'<div id="ag-days-wrap" style="display:flex;gap:6px;flex-wrap:wrap">'+dayBtns+'</div>'
+    +'<input type="hidden" id="ag-days" value="'+JSON.stringify(selDays)+'">'
+    +'</div>'
+
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Horarios de ejecución</label>'
+    +'<div id="ag-times-wrap">'+timeInputs+'</div>'
+    +'<button type="button" onclick="_agAddTime()" style="padding:4px 12px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.72rem;cursor:pointer;margin-top:2px">+ Agregar horario</button>'
+    +'</div>'
+
+    +'</div>'
+    +'<div style="padding:12px 18px;border-top:1px solid var(--brd);display:flex;justify-content:flex-end;gap:8px;background:var(--card)">'
+    +'<button onclick="_agendaCloseModal()" style="padding:6px 16px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.78rem;cursor:pointer">Cancelar</button>'
+    +'<button onclick="_agendaSave()" style="padding:6px 16px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.78rem;cursor:pointer;font-weight:600">Guardar schedule</button>'
+    +'</div>'
+    +'</div>'
+  );
+  document.body.appendChild(modal);
+  modal.addEventListener('click',function(e){if(e.target===modal)_agendaCloseModal();});
+}
+
+function _agendaCloseModal(){
+  var m=document.getElementById('ag-modal-overlay');
+  if(m)m.remove();
+  _agendaEditId=null;
+}
+
+function _agToggleDay(btn,day){
+  var inp=document.getElementById('ag-days');
+  var days=[];try{days=JSON.parse(inp.value||'[]');}catch(e){}
+  var idx=days.indexOf(day);
+  if(idx>=0){days.splice(idx,1);btn.classList.remove('on');btn.style.background='var(--card)';btn.style.color='var(--txt2)';}
+  else{days.push(day);days.sort(function(a,b){return a-b;});btn.classList.add('on');btn.style.background='var(--acc)';btn.style.color='#fff';}
+  inp.value=JSON.stringify(days);
+}
+
+function _agSetPreset(p){
+  document.getElementById('ag-preset').value=p;
+  ['acotada','completa'].forEach(function(x){
+    var b=document.getElementById('ag-pre-'+x);
+    if(!b)return;
+    var on=(x===p);
+    b.style.borderColor=on?'var(--acc)':'var(--brd)';
+    b.style.background=on?'rgba(61,127,255,.08)':'var(--card)';
+    b.style.color=on?'var(--acc)':'var(--txt2)';
+  });
+}
+
+function _agSetVno(v){
+  document.getElementById('ag-vno').value=v;
+  document.querySelectorAll('.ag-vno-btn').forEach(function(b){
+    var on=(b.dataset.vno===v);
+    b.style.borderColor=on?'var(--acc)':'var(--brd)';
+    b.style.background=on?'rgba(61,127,255,.1)':'var(--card)';
+    b.style.color=on?'var(--acc)':'var(--txt2)';
+  });
+}
+
+function _agAddTime(){
+  var wrap=document.getElementById('ag-times-wrap');
+  if(!wrap)return;
+  var row=document.createElement('div');
+  row.className='ag-time-row';
+  row.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:6px';
+  row.innerHTML='<input type="time" class="ag-time-inp" value="10:00" style="background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:5px 8px;font-size:.78rem;flex:1">'
+    +'<button type="button" onclick="this.parentElement.remove()" style="padding:3px 8px;border:1px solid var(--errb);background:var(--errd);color:var(--err);border-radius:4px;cursor:pointer;font-size:.72rem">✕</button>';
+  wrap.appendChild(row);
+}
+
+function _agendaSave(){
+  var name=(document.getElementById('ag-name').value||'').trim();
+  var preset=document.getElementById('ag-preset').value||'acotada';
+  var vno=document.getElementById('ag-vno').value||'02';
+  var dir=(document.getElementById('ag-dir').value||'').trim();
+  var svctype=document.getElementById('ag-svctype').value||'FTTH';
+  var speed=(document.getElementById('ag-speed').value||'600/600').trim();
+  var days=[];try{days=JSON.parse(document.getElementById('ag-days').value||'[]');}catch(e){}
+  var timeInps=document.querySelectorAll('.ag-time-inp');
+  var times=[];
+  timeInps.forEach(function(inp){var v=(inp.value||'').trim();if(v)times.push(v);});
+
+  if(!name){alert('Ingresa un nombre para el schedule');return;}
+  if(!dir){alert('Ingresa la Dirección (Address ID)');return;}
+  if(!days.length){alert('Selecciona al menos un día de la semana');return;}
+  if(!times.length){alert('Agrega al menos un horario');return;}
+
+  var payload={
+    name:name,preset:preset,vno:vno,direccion:dir,
+    address_mcd:vno==='03'?'XYGO':'OSP',
+    svc_type:svctype,speed_plan:speed,amb_url:'',
+    days_of_week:days,times_of_day:times,active:true
+  };
+  var url=_agendaEditId?'/api/schedules/'+_agendaEditId:'/api/schedules';
+  var method=_agendaEditId?'PUT':'POST';
+  fetch(url,{method:method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+(_jwt||'')},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(){
+      _agendaCloseModal();
+      _agendaLoad();
+      if(typeof showToast==='function')showToast(_agendaEditId?'Schedule actualizado':'Schedule creado','ok');
+    })
+    .catch(function(e){alert('Error: '+e);});
+}
+
+function _agendaToggle(id){
+  fetch('/api/schedules/'+id+'/toggle',{method:'POST',headers:{Authorization:'Bearer '+(_jwt||'')}})
+    .then(function(r){return r.json();})
+    .then(function(){_agendaLoad();})
+    .catch(function(e){alert('Error: '+e);});
+}
+
+function _agendaDelete(id){
+  var s=_agendaData.find(function(x){return x.id===id;});
+  var nm=s?s.name:('schedule '+id);
+  if(!confirm('Eliminar "'+nm+'"? Esta acción no se puede deshacer.'))return;
+  fetch('/api/schedules/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+(_jwt||'')}})
+    .then(function(){_agendaLoad();if(typeof showToast==='function')showToast('Schedule eliminado','ok');})
+    .catch(function(e){alert('Error: '+e);});
+}
+
+function _agendaRunNow(id){
+  var s=_agendaData.find(function(x){return x.id===id;});
+  var nm=s?s.name:('schedule '+id);
+  if(!confirm('Ejecutar "'+nm+'" ahora mismo?'))return;
+  fetch('/api/schedules/'+id+'/run-now',{method:'POST',headers:{Authorization:'Bearer '+(_jwt||'')}})
+    .then(function(r){return r.json();})
+    .then(function(d){if(typeof showToast==='function')showToast('Ejecución iniciada en background','ok');})
+    .catch(function(e){alert('Error: '+e);});
+}
+
+function _agendaHistory(id, name){
+  fetch('/api/schedules/'+id+'/runs?limit=20',{headers:{Authorization:'Bearer '+(_jwt||'')}})
+    .then(function(r){return r.json();})
+    .then(function(runs){
+      var rows=runs.map(function(r){
+        var st=r.started_at?new Date(r.started_at).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+        var fin=r.finished_at?new Date(r.finished_at).toLocaleString('es-CL',{hour:'2-digit',minute:'2-digit'}):'—';
+        var stDot=r.status==='pass'?'🟢':r.status==='fail'?'🔴':r.status==='partial'?'🟡':r.status==='running'?'⏳':'⚪';
+        return '<tr style="border-bottom:1px solid var(--brd)">'
+          +'<td style="padding:6px 10px;font-size:.72rem;font-family:monospace">'+st+'</td>'
+          +'<td style="padding:6px 10px;font-size:.72rem;font-family:monospace">'+fin+'</td>'
+          +'<td style="padding:6px 10px;font-size:.72rem">'+stDot+' '+_esc(r.status||'—')+'</td>'
+          +'<td style="padding:6px 10px;font-size:.72rem;color:#22C55E">'+r.passed_steps+' pass</td>'
+          +'<td style="padding:6px 10px;font-size:.72rem;color:var(--err)">'+r.failed_steps+' fail</td>'
+          +'</tr>';
+      }).join('');
+      var modal=document.createElement('div');
+      modal.id='ag-hist-overlay';
+      modal.style.cssText='position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+      modal.innerHTML='<div style="background:var(--bg);border:1px solid var(--brd);border-radius:8px;width:100%;max-width:560px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">'
+        +'<div style="padding:12px 16px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;background:var(--card)">'
+        +'<span style="font-weight:600;font-size:.82rem">Historial — '+_esc(name)+'</span>'
+        +'<div style="flex:1"></div>'
+        +'<button onclick="document.getElementById(\'ag-hist-overlay\').remove()" style="background:none;border:none;cursor:pointer;color:var(--txt2);font-size:1.1rem">✕</button>'
+        +'</div>'
+        +(runs.length===0
+          ? '<div style="padding:32px;text-align:center;color:var(--txt3);font-size:.8rem">Sin ejecuciones aún</div>'
+          : '<div style="overflow-y:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="font-size:.63rem;text-transform:uppercase;color:var(--txt3);background:var(--card)">'
+            +'<th style="padding:5px 10px;text-align:left">Inicio</th><th style="padding:5px 10px;text-align:left">Fin</th>'
+            +'<th style="padding:5px 10px;text-align:left">Estado</th><th style="padding:5px 10px;text-align:left">Pass</th>'
+            +'<th style="padding:5px 10px;text-align:left">Fail</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+        )
+        +'</div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+    })
+    .catch(function(e){alert('Error cargando historial: '+e);});
+}
+
 function showDashboard(){
   switchView('dashboard');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
