@@ -1560,42 +1560,50 @@ async def _agenda_load_from_db():
         print(f"[agenda] error cargando schedules: {e}")
 
 def _agenda_register_job(sched: dict):
-    """Registra o actualiza un job en APScheduler para el schedule dado."""
+    """Registra un job por cada fecha+hora concreta del schedule.
+    days_of_week almacena fechas ISO: ["2026-08-11","2026-08-25",...]
+    """
     global _AGENDA_SCHEDULER
     if not _APS_AVAILABLE or not _AGENDA_SCHEDULER:
         return
     try:
         import json as _j
+        import datetime as _dt2
         job_id_base = f"sched_{sched['id']}"
-        days = _j.loads(sched.get("days_of_week") or "[1,2,3,4,5]")
-        times = _j.loads(sched.get("times_of_day") or '["09:00"]')
-        # Eliminar jobs previos de este schedule
-        for prev_i in range(20):
+        # Eliminar TODOS los jobs previos de este schedule
+        for prev_i in range(500):
             try:
-                _AGENDA_SCHEDULER.remove_job(f"{job_id_base}_t{prev_i}")
+                _AGENDA_SCHEDULER.remove_job(f"{job_id_base}_j{prev_i}")
             except Exception:
                 break
         if not sched.get("active", True):
             return
-        # Registrar un job por cada horario
-        for i, t in enumerate(times):
-            parts = (str(t) + ":00").split(":")
-            h = int(parts[0])
-            m = int(parts[1])
-            day_str = ",".join(str(d) for d in days)
-            _AGENDA_SCHEDULER.add_job(
-                _agenda_fire_sync,
-                trigger=_CronTrigger(
-                    day_of_week=day_str,
-                    hour=h, minute=m,
-                    timezone="America/Santiago"
-                ),
-                id=f"{job_id_base}_t{i}",
-                args=[sched["id"]],
-                replace_existing=True,
-                misfire_grace_time=300
-            )
-        print(f"[agenda] schedule {sched['id']} '{sched.get('name','')}' registrado ({len(times)} horario(s))")
+        dates = _j.loads(sched.get("days_of_week") or "[]")
+        times = _j.loads(sched.get("times_of_day") or '["09:00"]')
+        job_idx = 0
+        for date_str in dates:
+            try:
+                d = _dt2.date.fromisoformat(str(date_str))
+            except Exception:
+                continue  # ignorar valores legacy (enteros, etc.)
+            for t in times:
+                parts = (str(t) + ":00").split(":")
+                h = int(parts[0])
+                mi = int(parts[1])
+                _AGENDA_SCHEDULER.add_job(
+                    _agenda_fire_sync,
+                    trigger=_CronTrigger(
+                        year=d.year, month=d.month, day=d.day,
+                        hour=h, minute=mi,
+                        timezone="America/Santiago"
+                    ),
+                    id=f"{job_id_base}_j{job_idx}",
+                    args=[sched["id"]],
+                    replace_existing=True,
+                    misfire_grace_time=300
+                )
+                job_idx += 1
+        print(f"[agenda] schedule {sched['id']} '{sched.get('name','')}' registrado ({job_idx} job(s) para {len(dates)} fecha(s))")
     except Exception as e:
         print(f"[agenda] error registrando job {sched.get('id')}: {e}")
 
@@ -12462,10 +12470,12 @@ function _agendaRender(){
         ?'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font-size:.72rem;font-weight:700'
         :'font-size:.72rem;font-weight:'+(isWe2?'400':'600')+';color:'+(isWe2?'var(--txt3)':'var(--txt)')+';padding:1px 2px';
       html+='<div><span style="'+numStyle+'">'+dayNum+'</span></div>';
-      // schedules de este dia de la semana
+      // schedules con esta fecha concreta
+      var mm2=(m+1<10?'0':'')+(m+1),dd2=(dayNum<10?'0':'')+dayNum;
+      var cellDate=y+'-'+mm2+'-'+dd2;
       var scheds=_agendaData.filter(function(s){
         var ds=[];try{ds=JSON.parse(s.days_of_week||'[]');}catch(ex){}
-        return ds.indexOf(wday)>=0;
+        return ds.indexOf(cellDate)>=0;
       });
       scheds.forEach(function(s){
         var times=[];try{times=JSON.parse(s.times_of_day||'["09:00"]');}catch(ex){}
@@ -12594,7 +12604,7 @@ function _agendaEdit(id){
 
 function _agendaOpenModal(s){
   var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-  var selDays=[];try{selDays=JSON.parse((s&&s.days_of_week)||'[1,2,3,4,5]');}catch(e){}
+  var selDays=[];try{selDays=JSON.parse((s&&s.days_of_week)||'[]');}catch(e){}
   var selTimes=[];try{selTimes=JSON.parse((s&&s.times_of_day)||'["09:00"]');}catch(e){}
   if(!selTimes.length)selTimes=['09:00'];
   var vno=(s&&s.vno)||'02';
@@ -12718,64 +12728,77 @@ function _agMiniCalRender(){
   if(!wrap)return;
   if(!_agMiniCalState){var _n=new Date();_agMiniCalState={y:_n.getFullYear(),m:_n.getMonth()};}
   var y=_agMiniCalState.y,m=_agMiniCalState.m;
-  var DAYSL=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  var DAYSL=['Lun','Mar','Mi\xe9','Jue','Vie','S\xe1b','Dom'];
   var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var today=new Date();
   var todayY=today.getFullYear(),todayM=today.getMonth(),todayD=today.getDate();
   var daysInMonth=new Date(y,m+1,0).getDate();
   var startWday=(new Date(y,m,1).getDay()+6)%7;
-  var selDays=[];
+  // selDates: array de strings ISO "YYYY-MM-DD" (fechas concretas)
+  var selDates=[];
   var inp=document.getElementById('ag-days');
-  if(inp)try{selDays=JSON.parse(inp.value||'[]');}catch(ex){}
+  if(inp)try{selDates=JSON.parse(inp.value||'[]');}catch(ex){}
+
   var html='<div style="display:flex;align-items:center;padding:6px 8px;background:var(--card);border-bottom:1px solid var(--brd)">'
     +'<button onclick="_agMiniCalPrev()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.85rem;cursor:pointer">&#8249;</button>'
     +'<span style="flex:1;text-align:center;font-size:.72rem;font-weight:600">'+MONTHS[m]+' '+y+'</span>'
     +'<button onclick="_agMiniCalNext()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.85rem;cursor:pointer">&#8250;</button>'
     +'</div>';
+  // cabecera dias (solo decorativa)
   html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--brd);background:var(--card)">';
   for(var di=0;di<7;di++){
-    var sel=selDays.indexOf(di)>=0;
-    var isWe=di>=5;
-    html+='<div data-wday="'+di+'" class="ag-mhdr" style="padding:5px 2px;text-align:center;font-size:.63rem;font-weight:700;cursor:pointer;border-radius:0;'
-      +(sel?'color:var(--acc);background:rgba(61,127,255,.15);':'color:'+(isWe?'var(--txt3)':'var(--txt2)')+';')+'">' +DAYSL[di]+'</div>';
+    html+='<div style="padding:5px 2px;text-align:center;font-size:.63rem;font-weight:700;color:'+(di>=5?'var(--txt3)':'var(--txt2)')+'">'+DAYSL[di]+'</div>';
   }
   html+='</div>';
+  // celdas — cada una es una fecha ISO concreta
   html+='<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
   var totalCells=Math.ceil((startWday+daysInMonth)/7)*7;
   for(var ci=0;ci<totalCells;ci++){
     var dayNum=ci-startWday+1;
     var valid=dayNum>=1&&dayNum<=daysInMonth;
     var wday=ci%7;
-    var selCell=selDays.indexOf(wday)>=0;
+    var isWe2=wday>=5;
+    var mm3=(m+1<10?'0':'')+(m+1), dd3=(dayNum<10?'0':'')+dayNum;
+    var dateStr=y+'-'+mm3+'-'+dd3;
+    var selCell=valid&&selDates.indexOf(dateStr)>=0;
     var isToday2=valid&&dayNum===todayD&&m===todayM&&y===todayY;
     var borderR=wday<6?'border-right:1px solid var(--brd);':'';
     var borderB=ci<totalCells-7?'border-bottom:1px solid var(--brd);':'';
-    var cellBg=selCell?'background:rgba(61,127,255,.10);':isToday2?'background:rgba(61,127,255,.04);':'';
-    html+='<div data-wday="'+wday+'" class="ag-mcell" style="padding:5px 3px;text-align:center;cursor:pointer;'+cellBg+borderR+borderB+'">';
+    var cellBg=selCell?'background:rgba(61,127,255,.15);':isToday2?'background:rgba(61,127,255,.05);':isWe2?'background:rgba(0,0,0,.02);':'';
+    html+='<div'+(valid?' data-date="'+dateStr+'" class="ag-mcell"':'')
+      +' style="padding:6px 3px;text-align:center;'+cellBg+borderR+borderB+(valid?'cursor:pointer;':'')+'">';
     if(valid){
-      var ns=isToday2?'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;font-size:.68rem;font-weight:700'
-        :selCell?'font-size:.68rem;font-weight:700;color:var(--acc)'
-        :'font-size:.68rem;color:var(--txt2)';
+      var ns=selCell
+        ?'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font-size:.7rem;font-weight:700'
+        :isToday2
+        ?'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:2px solid var(--acc);color:var(--acc);font-size:.7rem;font-weight:700'
+        :'font-size:.7rem;color:'+(isWe2?'var(--txt3)':'var(--txt)')+';font-weight:'+(isWe2?'400':'500');
       html+='<span style="'+ns+'">'+dayNum+'</span>';
     } else {
       var gd=dayNum<=0?new Date(y,m,dayNum).getDate():dayNum-daysInMonth;
-      html+='<span style="font-size:.65rem;color:var(--txt3);opacity:.3">'+gd+'</span>';
+      html+='<span style="font-size:.65rem;color:var(--txt3);opacity:.25">'+gd+'</span>';
     }
     html+='</div>';
   }
   html+='</div>';
+  // pie con contador
+  var cnt=selDates.length;
+  html+='<div style="padding:5px 8px;background:var(--card);border-top:1px solid var(--brd);font-size:.65rem;color:var(--txt3);text-align:right">'
+    +(cnt===0?'Sin fechas seleccionadas':cnt+' fecha'+(cnt!==1?'s':'')+' seleccionada'+(cnt!==1?'s':''))+'</div>';
   wrap.innerHTML=html;
-  wrap.querySelectorAll('.ag-mhdr,.ag-mcell').forEach(function(el){
+
+  wrap.querySelectorAll('.ag-mcell').forEach(function(el){
     el.onclick=function(e){
       e.stopPropagation();
-      var wd=parseInt(this.dataset.wday);
+      var ds=this.dataset.date;
       var inp2=document.getElementById('ag-days');
-      if(!inp2)return;
-      var days=[];try{days=JSON.parse(inp2.value||'[]');}catch(ex){}
-      var idx=days.indexOf(wd);
-      if(idx>=0)days.splice(idx,1);
-      else{days.push(wd);days.sort(function(a,b){return a-b;});}
-      inp2.value=JSON.stringify(days);
+      if(!inp2||!ds)return;
+      var dates=[];try{dates=JSON.parse(inp2.value||'[]');}catch(ex){}
+      var idx=dates.indexOf(ds);
+      if(idx>=0)dates.splice(idx,1);
+      else dates.push(ds);
+      dates.sort();
+      inp2.value=JSON.stringify(dates);
       _agMiniCalRender();
     };
   });
@@ -12840,7 +12863,7 @@ function _agendaSave(){
 
   if(!name){alert('Ingresa un nombre para el schedule');return;}
   if(!dir){alert('Ingresa la Dirección (Address ID)');return;}
-  if(!days.length){alert('Selecciona al menos un día de la semana');return;}
+  if(!days.length){alert('Selecciona al menos una fecha en el calendario');return;}
   if(!times.length){alert('Agrega al menos un horario');return;}
 
   var payload={
