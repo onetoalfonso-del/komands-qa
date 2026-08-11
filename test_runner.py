@@ -1692,7 +1692,7 @@ async def _agenda_fire_async(schedule_id: int):
 async def api_schedules_list():
     conn = await _db()
     rows = await conn.fetch("SELECT * FROM qa_schedules ORDER BY created_at DESC")
-    return JSONResponse([dict(r) for r in rows])
+    return [dict(r) for r in rows]
 
 @app.post("/api/schedules")
 async def api_schedules_create(request: Request):
@@ -1717,7 +1717,7 @@ async def api_schedules_create(request: Request):
     )
     sched = dict(row)
     _agenda_register_job(sched)
-    return JSONResponse(sched)
+    return sched
 
 @app.put("/api/schedules/{sched_id}")
 async def api_schedules_update(sched_id: int, request: Request):
@@ -1746,7 +1746,7 @@ async def api_schedules_update(sched_id: int, request: Request):
         raise HTTPException(404, "Schedule no encontrado")
     sched = dict(row)
     _agenda_register_job(sched)
-    return JSONResponse(sched)
+    return sched
 
 @app.delete("/api/schedules/{sched_id}")
 async def api_schedules_delete(sched_id: int):
@@ -1759,14 +1759,14 @@ async def api_schedules_delete(sched_id: int):
                 _AGENDA_SCHEDULER.remove_job(f"sched_{sched_id}_t{i}")
             except Exception:
                 break
-    return JSONResponse({"ok": True})
+    return {"ok": True}
 
 @app.post("/api/schedules/{sched_id}/run-now")
 async def api_schedules_run_now(sched_id: int):
     import threading as _thr
     t = _thr.Thread(target=_agenda_fire_sync, args=(sched_id,), daemon=True)
     t.start()
-    return JSONResponse({"ok": True, "message": "Ejecución iniciada en background"})
+    return {"ok": True, "message": "Ejecución iniciada en background"}
 
 @app.post("/api/schedules/{sched_id}/toggle")
 async def api_schedules_toggle(sched_id: int):
@@ -1779,7 +1779,7 @@ async def api_schedules_toggle(sched_id: int):
         raise HTTPException(404, "Schedule no encontrado")
     sched = dict(row)
     _agenda_register_job(sched)
-    return JSONResponse(sched)
+    return sched
 
 @app.get("/api/schedules/{sched_id}/runs")
 async def api_schedules_runs(sched_id: int, limit: int = 20):
@@ -1788,7 +1788,7 @@ async def api_schedules_runs(sched_id: int, limit: int = 20):
         "SELECT * FROM qa_sched_runs WHERE schedule_id=$1 ORDER BY started_at DESC LIMIT $2",
         sched_id, limit
     )
-    return JSONResponse([dict(r) for r in rows])
+    return [dict(r) for r in rows]
 
 
 
