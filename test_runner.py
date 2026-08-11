@@ -1686,6 +1686,8 @@ async def _agenda_fire_async(schedule_id: int):
                     result = _j.loads(resp.read())
                     step_r["pass"] = result.get("pass", False)
                     step_r["http"] = result.get("httpCode", 0)
+                    step_r["req"] = result.get("req", "")
+                    step_r["res"] = result.get("res", "")
                     if step_r["pass"]:
                         passed += 1
                         new_aid = result.get("accessId") or result.get("access_id", "")
@@ -14047,20 +14049,12 @@ function _atrf_renderQueue(){
       var stepsData=[];try{stepsData=JSON.parse(r.steps_json||'[]');}catch(ex){}
       var stepsHtml='';
       if(stepsData.length){
-        stepsHtml='<div style="padding:6px 12px 8px 14px;border-top:1px solid var(--atrf-border)">';
-        stepsData.forEach(function(st){
-          var passIcon=st.pass
-            ?'<span style="color:#22C55E;font-weight:700">&#10003;</span>'
-            :'<span style="color:var(--atrf-danger);font-weight:700">&#10007;</span>';
-          var bg=st.pass?'rgba(34,197,94,.08)':'rgba(220,38,38,.07)';
-          var col=st.pass?'#166534':'#991b1b';
-          stepsHtml+='<div style="display:flex;flex-direction:column;padding:3px 6px;margin:2px 0;border-radius:4px;background:'+bg+'">'
-            +'<div style="display:flex;align-items:center;gap:4px;font-size:.63rem;color:'+col+'">'
-            +passIcon+' <span style="font-weight:600">'+esc(st.func||'?')+'</span>'
-            +(st.http?' <span style="opacity:.6">HTTP '+st.http+'</span>':'')
-            +'</div>'
-            +(st.error?'<div style="font-size:.58rem;color:var(--atrf-danger);font-family:monospace;word-break:break-all;margin-top:2px">'+esc(st.error)+'</div>':'')
-            +'</div>';
+        stepsHtml='<div class="atrf-tc-results" style="padding:6px 12px 10px 14px;border-top:1px solid var(--atrf-border)">';
+        stepsData.forEach(function(st,si){
+          var cls=st.pass?'pass':'fail';
+          var icon=st.pass?'&#10003;':'&#10007;';
+          var httpLbl=st.http?' <span style="opacity:.55;font-weight:400">HTTP '+st.http+'</span>':'';
+          stepsHtml+='<span class="atrf-tc-badge '+cls+' ag-sr-step" data-rid="'+r.id+'" data-sidx="'+si+'">'+icon+' '+esc(st.func||'?')+httpLbl+'</span>';
         });
         stepsHtml+='</div>';
       }
@@ -14091,6 +14085,13 @@ function _atrf_renderQueue(){
       fetch('/api/sched-runs/'+rid,{method:'DELETE',headers:_authHdr()})
         .then(function(){_atrf_loadSchedRuns();})
         .catch(function(e){alert('Error: '+e);});
+    };
+  });
+  // click en step de run programado → modal req/res
+  el.querySelectorAll('.ag-sr-step').forEach(function(b){
+    b.onclick=function(e){
+      e.stopPropagation();
+      _agSchedStepModal(parseInt(this.dataset.rid),parseInt(this.dataset.sidx));
     };
   });
 }
@@ -14648,6 +14649,60 @@ function _atrf_openTcModal(qi,idx){
   document.getElementById('atrf-modal-tc').classList.add('show');
 }
 function _atrf_closeTcModal(){document.getElementById('atrf-modal-tc').classList.remove('show');}
+
+function _agSchedStepModal(rid,sidx){
+  var run=_schedRuns.find(function(x){return x.id===rid;});
+  if(!run)return;
+  var steps=[];try{steps=JSON.parse(run.steps_json||'[]');}catch(e){}
+  var st=steps[sidx];if(!st)return;
+  // poblar modal reutilizando la infraestructura existente
+  document.getElementById('atrf-tc-modal-title').textContent=st.func||'—';
+  document.getElementById('atrf-tc-modal-func').textContent=run.schedule_name||'—';
+  document.getElementById('atrf-tc-modal-vno').textContent=run.vno||'—';
+  var badge=document.getElementById('atrf-tc-modal-badge');
+  badge.textContent=st.pass?'Paso':'Fallo';
+  badge.className='atrf-badge '+(st.pass?'atrf-badge-ok':'atrf-badge-err');
+  document.getElementById('atrf-tc-modal-endpoint').textContent='';
+  var stBadge=document.getElementById('atrf-tc-status-badge');
+  stBadge.textContent=st.http?String(st.http):'';
+  stBadge.style.background=st.pass?'rgba(0,200,100,.18)':'rgba(240,60,60,.18)';
+  stBadge.style.color=st.pass?'var(--atrf-green)':'var(--atrf-red)';
+  document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(st.req||'(sin datos)');
+  document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(st.res||(st.error||'(sin datos)'));
+  // banner de codigo de retorno
+  var _retCode='',_retDesc='',_retDetail='';
+  try{
+    var _rj=JSON.parse(st.res||'{}');
+    var _rr=_rj.result||_rj;
+    _retCode=String(_rr.u_return_code||_rr.returnCode||'');
+    _retDesc=_rr.u_return_code_desc||_rr.returnCodeDesc||'';
+    _retDetail=_rr.u_error_detail||_rr.errorDetail||'';
+  }catch(e){}
+  var _rcEl=document.getElementById('atrf-tc-modal-retcode');
+  var _rcVal=document.getElementById('atrf-tc-modal-retcode-val');
+  var _banner=document.getElementById('atrf-tc-api-banner');
+  var _bannerIcon=document.getElementById('atrf-tc-api-banner-icon');
+  var _bannerMsg=document.getElementById('atrf-tc-api-banner-msg');
+  var _bannerDetail=document.getElementById('atrf-tc-api-banner-detail');
+  if(_retCode){
+    _rcEl.style.display='';_rcVal.textContent=_retCode;
+    var _isOk=_retCode==='0'||_retCode==='21';
+    var _isWarn=!_isOk&&_retCode!=='1';
+    _banner.style.display='flex';
+    _banner.style.background=_isOk?'rgba(0,180,90,.10)':_isWarn?'rgba(240,160,0,.10)':'rgba(220,50,50,.10)';
+    _bannerIcon.textContent=_isOk?'OK':_isWarn?'Aviso':'Error';
+    _bannerMsg.textContent='Codigo '+_retCode+(_retDesc?' - '+_retDesc:'');
+    _bannerMsg.style.color=_isOk?'var(--atrf-green)':_isWarn?'#c8820a':'var(--atrf-red)';
+    _bannerDetail.textContent=_retDetail||'';
+  }else{
+    _rcEl.style.display='none';_banner.style.display='none';
+  }
+  var nwmTab=document.getElementById('atrf-tc-tab-nwm');
+  if(nwmTab)nwmTab.style.display='none';
+  _atrf_tcTab('req');
+  document.getElementById('atrf-modal-tc').classList.add('show');
+}
+
 function _atrf_openView(qi){
   _atrfViewIdx=qi;var q=_atrfQueue[qi];
   document.getElementById('atrf-view-name').value=q.name||'';
