@@ -14032,28 +14032,37 @@ function _atrf_renderQueue(){
         ?('<span style="color:#22C55E;font-size:.6rem;margin-right:4px">&#10003; '+(r.passed_steps||0)+'</span>'
          +'<span style="color:var(--atrf-danger);font-size:.6rem;margin-right:6px">&#10007; '+(r.failed_steps||0)+'</span>')
         :'';
-      var srId='sr-'+r.id;
       var stepsData=[];try{stepsData=JSON.parse(r.steps_json||'[]');}catch(ex){}
       var stepsHtml='';
       if(stepsData.length){
-        stepsHtml='<div style="padding:8px 12px 8px 16px;border-top:1px solid var(--atrf-border);display:flex;flex-wrap:wrap;gap:4px">';
+        stepsHtml='<div style="padding:6px 12px 8px 14px;border-top:1px solid var(--atrf-border)">';
         stepsData.forEach(function(st){
-          var icon=st.pass?'<span style="color:#22C55E">&#10003;</span>':'<span style="color:var(--atrf-danger)">&#10007;</span>';
-          var errTip=st.error?(' title="'+esc(st.error)+'"'):'';
-          stepsHtml+='<span'+errTip+' style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:3px;font-size:.62rem;background:'+(st.pass?'rgba(34,197,94,.1)':'rgba(220,38,38,.1)')+';color:'+(st.pass?'#166534':'#991b1b')+'">'+icon+' '+esc(st.func||'?')+'</span>';
+          var passIcon=st.pass
+            ?'<span style="color:#22C55E;font-weight:700">&#10003;</span>'
+            :'<span style="color:var(--atrf-danger);font-weight:700">&#10007;</span>';
+          var bg=st.pass?'rgba(34,197,94,.08)':'rgba(220,38,38,.07)';
+          var col=st.pass?'#166534':'#991b1b';
+          stepsHtml+='<div style="display:flex;flex-direction:column;padding:3px 6px;margin:2px 0;border-radius:4px;background:'+bg+'">'
+            +'<div style="display:flex;align-items:center;gap:4px;font-size:.63rem;color:'+col+'">'
+            +passIcon+' <span style="font-weight:600">'+esc(st.func||'?')+'</span>'
+            +(st.http?' <span style="opacity:.6">HTTP '+st.http+'</span>':'')
+            +'</div>'
+            +(st.error?'<div style="font-size:.58rem;color:var(--atrf-danger);font-family:monospace;word-break:break-all;margin-top:2px">'+esc(st.error)+'</div>':'')
+            +'</div>';
         });
         stepsHtml+='</div>';
       }
-      html+='<div class="atrf-qrow" style="border-left:2px solid #3D7FFF;flex-direction:column">'
-        +'<div class="atrf-qrow-main" onclick="var d=document.getElementById(\''+srId+'\');if(d)d.style.display=d.style.display===\'none\'?\'\':\'none\'" style="cursor:pointer">'
-        +'<div class="atrf-q-info" style="padding-left:6px">'
-        +'<span class="atrf-q-name">'+esc(r.schedule_name||'Schedule')+'</span>'+urlBadge
-        +'<div class="atrf-q-meta">'+steps+' func · '+startStr+'</div>'
+      html+='<div style="border-left:2px solid #3D7FFF;border-bottom:1px solid var(--atrf-border);padding:0">'
+        +'<div style="display:flex;align-items:center;padding:8px 12px;gap:8px">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:.75rem;font-weight:600;color:var(--atrf-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.schedule_name||'Schedule')+'</div>'
+        +(r.amb_url?'<span class="atrf-url-badge">'+esc(r.amb_url)+'</span>':'<span style="font-size:.6rem;color:var(--atrf-danger)">sin URL de ambiente</span>')
+        +'<div class="atrf-q-meta" style="margin-top:1px">'+steps+' func · '+startStr+'</div>'
         +'</div>'
         +pf
         +'<span class="atrf-badge '+sc+'">'+sl+'</span>'
         +'</div>'
-        +(stepsHtml?'<div id="'+srId+'" style="display:none">'+stepsHtml+'</div>':'')
+        +stepsHtml
         +'</div>';
     });
   }
