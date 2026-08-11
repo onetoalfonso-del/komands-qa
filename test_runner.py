@@ -12472,7 +12472,8 @@ function _agendaRender(){
         var tExtra=times.length>1?' +'+(times.length-1):'';
         var isComp=s.preset==='completa';
         var ac=isComp?'#3D7FFF':'#22C55E';
-        var dot=s.last_status==='pass'?'\ud83d\udfe2':s.last_status==='fail'?'\ud83d\udd34':s.last_status==='partial'?'\ud83d\udfe1':'';
+        var dotC=s.last_status==='pass'?'#22C55E':s.last_status==='fail'?'#EF4444':s.last_status==='partial'?'#EAB308':'';
+        var dot=dotC?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotC+';flex-shrink:0"></span>':'';
         html+='<div data-sid="'+s.id+'" class="ag-chip" style="border-left:2px solid '+ac+';border-radius:0 3px 3px 0;background:'+ac+'18;padding:2px 4px;cursor:pointer;'+(s.active?'':'opacity:.4')+'">'
           +'<div style="font-size:.6rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(s.name)+'">'+_esc(s.name)+'</div>'
           +'<div style="font-size:.57rem;color:var(--txt2);font-family:monospace">'+_esc(tStr+tExtra)+(dot?' '+dot:'')+'</div>'
