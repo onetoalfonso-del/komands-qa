@@ -1818,6 +1818,12 @@ async def api_schedules_runs(sched_id: int, limit: int = 20):
     )
     return [dict(r) for r in rows]
 
+@app.delete("/api/sched-runs/{run_id}")
+async def api_sched_run_delete(run_id: int):
+    conn = await _db()
+    await conn.execute("DELETE FROM qa_sched_runs WHERE id=$1", run_id)
+    return {"ok": True}
+
 @app.get("/api/sched-runs/recent")
 async def api_sched_runs_recent(limit: int = 20):
     """Retorna las ultimas ejecuciones de schedules (de todos los schedules)."""
@@ -14061,6 +14067,7 @@ function _atrf_renderQueue(){
         +'</div>'
         +pf
         +'<span class="atrf-badge '+sc+'">'+sl+'</span>'
+        +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger ag-sr-del" data-rid="'+r.id+'" style="padding:3px 8px;flex-shrink:0">&#10005;</button>'
         +'</div>'
         +stepsHtml
         +'</div>';
@@ -14069,6 +14076,17 @@ function _atrf_renderQueue(){
   html+='</div>';
   el.innerHTML=html;
   _atrf_syncCb();
+  // borrar run programado
+  el.querySelectorAll('.ag-sr-del').forEach(function(btn){
+    btn.onclick=function(e){
+      e.stopPropagation();
+      var rid=parseInt(this.dataset.rid);
+      if(!confirm('Eliminar esta ejecucion programada?'))return;
+      fetch('/api/sched-runs/'+rid,{method:'DELETE',headers:_authHdr()})
+        .then(function(){_atrf_loadSchedRuns();})
+        .catch(function(e){alert('Error: '+e);});
+    };
+  });
 }
 function _atrf_syncCb(){
   var allCb=document.getElementById('atrf-selall-cb');
