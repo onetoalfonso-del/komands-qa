@@ -12740,9 +12740,15 @@ function _agendaOpenModal(s){
       if(!wrap||!Array.isArray(data))return;
       if(!data.length){wrap.textContent='Sin ambientes configurados';return;}
       wrap.innerHTML=data.map(function(env){
-        return '<button type="button" onclick="document.getElementById(\'ag-amb-url\').value=\''+env.base_url+'\'" '
+        return '<button type="button" class="ag-env-btn" data-url="'+_esc(env.base_url)+'" '
           +'style="padding:3px 10px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.68rem;cursor:pointer">'+_esc(env.name)+'</button>';
       }).join('');
+      wrap.querySelectorAll('.ag-env-btn').forEach(function(btn){
+        btn.onclick=function(){
+          var inp=document.getElementById('ag-amb-url');
+          if(inp)inp.value=this.dataset.url;
+        };
+      });
     })
     .catch(function(){var w=document.getElementById('ag-amb-btns');if(w)w.textContent='';});
 }
