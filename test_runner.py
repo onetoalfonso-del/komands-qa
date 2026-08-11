@@ -1687,7 +1687,8 @@ async def _agenda_fire_async(schedule_id: int):
         failed = 0
         import urllib.request as _ur
         base_url = f"http://localhost:{_AGENDA_PORT}"
-        prev_access_id = ""
+        # El access_id viene del formulario guardado en cfg_extra (igual que en runs manuales)
+        prev_access_id = _cfg_extra.get("accessId", "")
         for fn in func_names:
             body = {
                 "func": fn,
@@ -1723,11 +1724,9 @@ async def _agenda_fire_async(schedule_id: int):
                     step_r["res"] = result.get("res", "")
                     if step_r["pass"]:
                         passed += 1
-                        new_aid = result.get("accessId") or result.get("access_id", "")
-                        if new_aid:
-                            prev_access_id = new_aid
                     else:
                         failed += 1
+                    # prev_access_id no se actualiza: se mantiene el del formulario
             except Exception as ex:
                 step_r["error"] = str(ex)
                 failed += 1
@@ -14764,7 +14763,11 @@ function _atrf_schedSave(){
   var dir=_atrf_v('atrf-dir').trim();
   var tdir=_atrf_v('atrf-tdir');
   var vno=vnos[0]; // para schedule solo se usa 1 VNO (primer seleccionado)
+  // Calcular access_id desde el formulario (mismo logic que _atrf_enqueue)
+  var _aidAuto=_atrf_buildAid(vno);
+  var _aidForm=_atrfAutoState.aid?_aidAuto:_atrf_v('atrf-aid').trim();
   var cfg_extra={
+    accessId: _aidForm,
     esc: _atrf_v('atrf-esc'),
     tex: _atrf_v('atrf-tex'),
     bp: _atrf_v('atrf-bp'),
@@ -15153,20 +15156,7 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
-      // Encadenar access_id hacia pasos siguientes
-      // En runs manuales el usuario fija el access_id desde el formulario (_currentAccessId inicial).
-      // Solo actualizamos si _currentAccessId estaba vacio (no habia valor en el form).
-      if(pass&&!_currentAccessId){
-        var _rdAid=(rd&&rd.accessId)||'';
-        var _bodyAid='';
-        try{
-          var _chainRj=JSON.parse(res_s||'{}');
-          var _ro=_chainRj.result||_chainRj;
-          _bodyAid=_ro.u_access_id_vno||_ro.u_access_id||'';
-        }catch(e){}
-        var _newAid=_rdAid||_bodyAid;
-        if(_newAid)_currentAccessId=_newAid;
-      }
+      // El access_id del formulario se mantiene fijo en todos los pasos — no se sobreescribe.
       // Aplicar delay post-paso si está configurado
       var _dk=_ATRF_DELAY_MAP[fn];
       if(_dk&&_delays[_dk]>0){
