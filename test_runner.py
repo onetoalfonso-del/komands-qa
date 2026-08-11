@@ -1724,12 +1724,11 @@ async def _agenda_fire_async(schedule_id: int):
                     step_r["res"] = result.get("res", "")
                     if step_r["pass"]:
                         passed += 1
-                        # Factibilidad crea un u_access_id nuevo en el servidor.
-                        # Ese ID (devuelto por run-step como "accessId") debe usarse
-                        # en todos los pasos siguientes (Asignacion, Inicio IA, etc.)
-                        new_aid = result.get("accessId", "")
-                        if new_aid:
-                            prev_access_id = new_aid
+                        # Solo actualizar si NO habia access_id en cfg_extra (schedule viejo)
+                        if not prev_access_id:
+                            new_aid = result.get("accessId", "")
+                            if new_aid:
+                                prev_access_id = new_aid
                     else:
                         failed += 1
             except Exception as ex:
@@ -15161,9 +15160,9 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
-      // Factibilidad crea un access_id nuevo en el servidor (u_access_id en su response).
-      // run-step lo devuelve como rd.accessId. Ese es el que usan todos los pasos siguientes.
-      if(pass&&rd&&rd.accessId){_currentAccessId=rd.accessId;}
+      // Solo actualizar si el formulario NO tenia access_id (schedule viejo o campo vacio).
+      // Si el formulario tenia access_id, ese se respeta siempre.
+      if(pass&&rd&&rd.accessId&&!_currentAccessId){_currentAccessId=rd.accessId;}
       // Aplicar delay post-paso si está configurado
       var _dk=_ATRF_DELAY_MAP[fn];
       if(_dk&&_delays[_dk]>0){
