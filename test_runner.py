@@ -1826,6 +1826,7 @@ async def api_sched_runs_recent(limit: int = 20):
         SELECT r.id, r.schedule_id, r.preset, r.vno, r.status,
                r.started_at, r.finished_at,
                r.passed_steps, r.failed_steps, r.total_steps,
+               r.steps_json,
                s.name AS schedule_name, s.amb_url
         FROM qa_sched_runs r
         JOIN qa_schedules s ON s.id = r.schedule_id
@@ -12700,6 +12701,12 @@ function _agendaOpenModal(s){
     +'</div>'
 
     +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:4px">URL del ambiente <span style="color:var(--err)">*</span></label>'
+    +'<input id="ag-amb-url" type="text" placeholder="https://eqapi.onnetfibra.cl" value="'+_esc((s&&s.amb_url)||'')+'" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:7px 10px;font-size:.78rem;font-family:monospace;box-sizing:border-box;margin-bottom:5px">'
+    +'<div id="ag-amb-btns" style="display:flex;flex-wrap:wrap;gap:4px;font-size:.66rem;color:var(--txt3)">Cargando ambientes...</div>'
+    +'</div>'
+
+    +'<div>'
     +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Días de ejecución</label>'
     +'<div id="ag-mini-cal" style="border-radius:6px;overflow:hidden;border:1px solid var(--brd)"></div>'
     +'<input type="hidden" id="ag-days" value="'+JSON.stringify(selDays)+'">'\n    +'</div>'+'<div>'
@@ -12719,6 +12726,19 @@ function _agendaOpenModal(s){
   modal.addEventListener('click',function(e){if(e.target===modal)_agendaCloseModal();});
   _agMiniCalState=null;
   _agMiniCalRender();
+  // cargar botones de ambiente
+  fetch('/api/environments',{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var wrap=document.getElementById('ag-amb-btns');
+      if(!wrap||!Array.isArray(data))return;
+      if(!data.length){wrap.textContent='Sin ambientes configurados';return;}
+      wrap.innerHTML=data.map(function(env){
+        return '<button type="button" onclick="document.getElementById(\'ag-amb-url\').value=\''+env.base_url+'\'" '
+          +'style="padding:3px 10px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.68rem;cursor:pointer">'+_esc(env.name)+'</button>';
+      }).join('');
+    })
+    .catch(function(){var w=document.getElementById('ag-amb-btns');if(w)w.textContent='';});
 }
 
 function _agendaCloseModal(){
@@ -12882,10 +12902,12 @@ function _agendaSave(){
   if(!days.length){alert('Selecciona al menos una fecha en el calendario');return;}
   if(!times.length){alert('Agrega al menos un horario');return;}
 
+  var ambUrl=(document.getElementById('ag-amb-url').value||'').trim();
+  if(!ambUrl){alert('Ingresa la URL del ambiente (ej: https://eqapi.onnetfibra.cl)');return;}
   var payload={
     name:name,preset:preset,vno:vno,direccion:dir,
     address_mcd:vno==='03'?'XYGO':'OSP',
-    svc_type:svctype,speed_plan:speed,amb_url:'',
+    svc_type:svctype,speed_plan:speed,amb_url:ambUrl,
     days_of_week:days,times_of_day:times,active:true
   };
   var url=_agendaEditId?'/api/schedules/'+_agendaEditId:'/api/schedules';
@@ -14010,8 +14032,20 @@ function _atrf_renderQueue(){
         ?('<span style="color:#22C55E;font-size:.6rem;margin-right:4px">&#10003; '+(r.passed_steps||0)+'</span>'
          +'<span style="color:var(--atrf-danger);font-size:.6rem;margin-right:6px">&#10007; '+(r.failed_steps||0)+'</span>')
         :'';
-      html+='<div class="atrf-qrow" style="border-left:2px solid #3D7FFF">'
-        +'<div class="atrf-qrow-main">'
+      var srId='sr-'+r.id;
+      var stepsData=[];try{stepsData=JSON.parse(r.steps_json||'[]');}catch(ex){}
+      var stepsHtml='';
+      if(stepsData.length){
+        stepsHtml='<div style="padding:8px 12px 8px 16px;border-top:1px solid var(--atrf-border);display:flex;flex-wrap:wrap;gap:4px">';
+        stepsData.forEach(function(st){
+          var icon=st.pass?'<span style="color:#22C55E">&#10003;</span>':'<span style="color:var(--atrf-danger)">&#10007;</span>';
+          var errTip=st.error?(' title="'+esc(st.error)+'"'):'';
+          stepsHtml+='<span'+errTip+' style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:3px;font-size:.62rem;background:'+(st.pass?'rgba(34,197,94,.1)':'rgba(220,38,38,.1)')+';color:'+(st.pass?'#166534':'#991b1b')+'">'+icon+' '+esc(st.func||'?')+'</span>';
+        });
+        stepsHtml+='</div>';
+      }
+      html+='<div class="atrf-qrow" style="border-left:2px solid #3D7FFF;flex-direction:column">'
+        +'<div class="atrf-qrow-main" onclick="var d=document.getElementById(\''+srId+'\');if(d)d.style.display=d.style.display===\'none\'?\'\':\'none\'" style="cursor:pointer">'
         +'<div class="atrf-q-info" style="padding-left:6px">'
         +'<span class="atrf-q-name">'+esc(r.schedule_name||'Schedule')+'</span>'+urlBadge
         +'<div class="atrf-q-meta">'+steps+' func · '+startStr+'</div>'
@@ -14019,6 +14053,7 @@ function _atrf_renderQueue(){
         +pf
         +'<span class="atrf-badge '+sc+'">'+sl+'</span>'
         +'</div>'
+        +(stepsHtml?'<div id="'+srId+'" style="display:none">'+stepsHtml+'</div>':'')
         +'</div>';
     });
   }
