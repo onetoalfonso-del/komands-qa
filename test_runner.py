@@ -12634,6 +12634,7 @@ function _agendaOpenModal(s){
   if(!selTimes.length)selTimes=['09:00'];
   var vno=(s&&s.vno)||'02';
   var preset=(s&&s.preset)||'acotada';
+  var mcd=(s&&s.address_mcd)||(vno==='03'?'XYGO':'OSP');
 
   var dayBtns=DAYS.map(function(lbl,i){
     var on=selDays.indexOf(i)>=0;
@@ -12694,6 +12695,20 @@ function _agendaOpenModal(s){
     +'<input id="ag-dir" type="text" placeholder="Ej: DIR02803636" value="'+_esc((s&&s.direccion)||'')+'" style="width:100%;background:var(--card);border:1px solid var(--brd);border-radius:4px;color:var(--txt);padding:7px 10px;font-size:.78rem;font-family:monospace;box-sizing:border-box">'
     +'</div>'
 
+    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Address MCD</label>'
+    +'<div style="display:flex;gap:6px">'
+    +['OSP','XYGO'].map(function(m){
+        var on=mcd===m;
+        return '<button type="button" class="ag-mcd-btn'+(on?' on':'')+'" data-mcd="'+m
+          +'" style="padding:5px 12px;border-radius:4px;border:1px solid '+(on?'var(--acc)':'var(--brd)')
+          +';background:'+(on?'rgba(61,127,255,.1)':'var(--card)')
+          +';color:'+(on?'var(--acc)':'var(--txt2)')+';font-size:.72rem;cursor:pointer;font-weight:600">'+m+'</button>';
+      }).join('')
+    +'</div>'
+    +'<input type="hidden" id="ag-mcd" value="'+mcd+'">'
+    +'</div>'
+
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     +'<div>'
     +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:4px">Tipo de Servicio</label>'
@@ -12732,6 +12747,19 @@ function _agendaOpenModal(s){
   );
   document.body.appendChild(modal);
   modal.addEventListener('click',function(e){if(e.target===modal)_agendaCloseModal();});
+  // toggle OSP / XYGO
+  modal.querySelectorAll('.ag-mcd-btn').forEach(function(btn){
+    btn.onclick=function(){
+      modal.querySelectorAll('.ag-mcd-btn').forEach(function(b){
+        var on=(b.dataset.mcd===this.dataset.mcd);
+        b.classList.toggle('on',on);
+        b.style.borderColor=on?'var(--acc)':'var(--brd)';
+        b.style.background=on?'rgba(61,127,255,.1)':'var(--card)';
+        b.style.color=on?'var(--acc)':'var(--txt2)';
+      }.bind(this));
+      document.getElementById('ag-mcd').value=this.dataset.mcd;
+    };
+  });
   _agMiniCalState=null;
   _agMiniCalRender();
   // cargar botones de ambiente
@@ -12886,6 +12914,17 @@ function _agSetVno(v){
     b.style.background=on?'rgba(61,127,255,.1)':'var(--card)';
     b.style.color=on?'var(--acc)':'var(--txt2)';
   });
+  // auto-set address MCD segun VNO
+  var defaultMcd=(v==='03')?'XYGO':'OSP';
+  var mcdInp=document.getElementById('ag-mcd');
+  if(mcdInp)mcdInp.value=defaultMcd;
+  document.querySelectorAll('.ag-mcd-btn').forEach(function(b){
+    var on=(b.dataset.mcd===defaultMcd);
+    b.classList.toggle('on',on);
+    b.style.borderColor=on?'var(--acc)':'var(--brd)';
+    b.style.background=on?'rgba(61,127,255,.1)':'var(--card)';
+    b.style.color=on?'var(--acc)':'var(--txt2)';
+  });
 }
 
 function _agAddTime(){
@@ -12920,7 +12959,7 @@ function _agendaSave(){
   if(!ambUrl){alert('Ingresa la URL del ambiente (ej: https://eqapi.onnetfibra.cl)');return;}
   var payload={
     name:name,preset:preset,vno:vno,direccion:dir,
-    address_mcd:vno==='03'?'XYGO':'OSP',
+    address_mcd:document.getElementById('ag-mcd').value||'OSP',
     svc_type:svctype,speed_plan:speed,amb_url:ambUrl,
     days_of_week:days,times_of_day:times,active:true
   };
@@ -14025,6 +14064,7 @@ function _atrf_renderQueue(){
         +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
         +'</div>'
         +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
+        +'<button class="atrf-btn atrf-btn-sm ag-prog-btn" data-qi="'+qi+'" style="padding:3px 8px" title="Programar esta secuencia">&#128197;</button>'
         +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
         +'</div>'
         +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'">'+_atrf_buildDetailHtml(qi)+'</div>'
@@ -14092,6 +14132,29 @@ function _atrf_renderQueue(){
     b.onclick=function(e){
       e.stopPropagation();
       _agSchedStepModal(parseInt(this.dataset.rid),parseInt(this.dataset.sidx));
+    };
+  });
+  // boton programar secuencia manual → abrir modal agenda pre-llenado
+  el.querySelectorAll('.ag-prog-btn').forEach(function(btn){
+    btn.onclick=function(e){
+      e.stopPropagation();
+      var qi=parseInt(this.dataset.qi);
+      var q=_atrfQueue[qi];if(!q)return;
+      var cfg=q.cfg||{};
+      var nFuncs=(q.funcs||[]).length;
+      var preset=nFuncs<=6?'acotada':'completa';
+      _agendaOpenModal({
+        name:q.name||'',
+        preset:preset,
+        vno:cfg.vno||'02',
+        direccion:cfg.direccion||'',
+        address_mcd:cfg.tdir||((cfg.vno==='03')?'XYGO':'OSP'),
+        svc_type:cfg.tsvc||'FTTH',
+        speed_plan:cfg.plan||'600/600',
+        amb_url:cfg.ambUrl||'',
+        days_of_week:'[]',
+        times_of_day:'["09:00"]'
+      });
     };
   });
 }
