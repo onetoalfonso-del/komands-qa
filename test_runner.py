@@ -5483,6 +5483,7 @@ async def atrf_run_step(request: Request):
                 except: _res_body = str(_he)
             except Exception as _ae:
                 _res_body = f"Error HTTP directo: {_ae}"
+            _fact_aid_pre = ""
             try:
                 _rj = _j.loads(_res_body)
                 _res_obj = _rj.get("result") or _rj
@@ -5491,11 +5492,12 @@ async def atrf_run_step(request: Request):
                 # Factibilidad: éxito = code 0 + descripción confirma éxito
                 _desc_ok = (not _rc_desc) or ("completado con" in _rc_desc) or ("flujo completado" in _rc_desc)
                 _pass = ((_rc == "0") and _desc_ok) if _rc else (_http_code in (200, 201))
+                _fact_aid_pre = str(_res_obj.get("u_access_id", ""))
             except Exception:
                 _pass = _http_code in (200, 201)
             return JSONResponse({"pass": _pass, "req": req_body_str,
                                  "res": _res_body, "vno": vno, "func": func_name,
-                                 "httpCode": _http_code})
+                                 "httpCode": _http_code, "accessId": _fact_aid_pre})
         # QA: usar Newman con colección QA
         folder_name = QA_FACTIBILIDAD_FOLDER_MAP.get(vno, "feasibility-KAO")
         if vno == "03" and svc_type == "SSAA":
@@ -5541,6 +5543,7 @@ async def atrf_run_step(request: Request):
                     res_body = r.get("body", "")
                 http_code = r.get("code", 0)
                 failures  = jdata.get("run", {}).get("failures", [])
+                fact_aid = ""
                 try:
                     rj = _j.loads(res_body)
                     _res_obj  = rj.get("result") or rj
@@ -5549,6 +5552,7 @@ async def atrf_run_step(request: Request):
                     # Factibilidad: éxito = code 0 + descripción confirma éxito
                     desc_ok   = (not rc_desc) or ("completado con" in rc_desc) or ("flujo completado" in rc_desc)
                     pass_flag = http_code in (200, 201) and not failures and str(rc) == "0" and desc_ok
+                    fact_aid  = str(_res_obj.get("u_access_id", ""))
                 except Exception:
                     pass_flag = http_code in (200, 201) and not failures
         except Exception as pe:
@@ -5560,7 +5564,7 @@ async def atrf_run_step(request: Request):
             pass
         return JSONResponse({"pass": pass_flag, "req": req_body_str,
                              "res": res_body, "vno": vno, "func": func_name,
-                             "httpCode": http_code})
+                             "httpCode": http_code, "accessId": fact_aid})
 
     # ── Asignación ────────────────────────────────────────────────────────────
     if func_name == "Asignación":
@@ -15089,7 +15093,7 @@ async function _atrf_runSelected(){
       var tc=tcMap[vno];if(!tc)continue;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
-      var pass=false,req_s='',res_s='',httpCode=0;
+      var pass=false,req_s='',res_s='',httpCode=0,rd=null;
       try{
         var resp=await fetch('/api/atrf/run-step',{
           method:'POST',
@@ -15149,11 +15153,17 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
-      // Encadenar access_id desde Factibilidad y Asignacion hacia pasos siguientes
-      if((fn==='Factibilidad'||fn==='Asignación')&&pass&&res_s){
+      // Encadenar access_id hacia pasos siguientes
+      // 1) Prioridad: campo "accessId" devuelto por run-step (Factibilidad devuelve u_access_id aqui)
+      if(pass&&rd&&rd.accessId){
+        _currentAccessId=rd.accessId;
+      } else if(pass&&res_s){
+        // Fallback: parsear body de la respuesta API
+        // Factibilidad → u_access_id  |  Asignacion → u_access_id_vno
         try{
           var _chainRj=JSON.parse(res_s);
-          var _newAid=((_chainRj.result||_chainRj).u_access_id_vno)||'';
+          var _ro=_chainRj.result||_chainRj;
+          var _newAid=_ro.u_access_id_vno||_ro.u_access_id||'';
           if(_newAid){_currentAccessId=_newAid;}
         }catch(e){}
       }
