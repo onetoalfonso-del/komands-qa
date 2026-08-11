@@ -1606,84 +1606,104 @@ def _agenda_fire_sync(schedule_id: int):
     _aio.set_event_loop(loop)
     try:
         loop.run_until_complete(_agenda_fire_async(schedule_id))
+    except Exception as _fe:
+        print(f"[agenda] ERROR fire_sync schedule={schedule_id}: {_fe}")
+        import traceback
+        traceback.print_exc()
     finally:
         loop.close()
 
 async def _agenda_fire_async(schedule_id: int):
-    """Ejecuta el preset del schedule via el endpoint interno /api/atrf/run-step."""
+    """Ejecuta el preset del schedule via el endpoint interno /api/atrf/run-step.
+    NOTA: No usa _db() (pool del loop principal). Crea conexion asyncpg propia
+    para este thread/loop evitando el error 'attached to a different loop'.
+    """
     import json as _j
     import datetime as _dt
+    import ssl as _ssl_th
+    import asyncpg as _apg_th
     print(f"[agenda] disparando schedule_id={schedule_id}")
-    conn = await _db()
-    row = await conn.fetchrow("SELECT * FROM qa_schedules WHERE id=$1", schedule_id)
-    if not row:
-        print(f"[agenda] schedule {schedule_id} no encontrado")
+    # Conexion propia — independiente del pool de FastAPI
+    _dsn = os.getenv("DATABASE_URL")
+    if not _dsn:
+        print("[agenda] ERROR: DATABASE_URL no configurada")
         return
-    sched = dict(row)
-    preset = sched.get("preset", "acotada")
-    func_indexes = ATRF_PRESET_INDEXES.get(preset, ATRF_PRESET_INDEXES["acotada"])
-    func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
-    vno = sched.get("vno", "02")
-    run_id = await conn.fetchval(
-        "INSERT INTO qa_sched_runs (schedule_id, preset, vno, total_steps, status) "
-        "VALUES ($1, $2, $3, $4, 'running') RETURNING id",
-        schedule_id, preset, vno, len(func_names)
-    )
-    started = _dt.datetime.now(_dt.timezone.utc)
-    steps_results = []
-    passed = 0
-    failed = 0
-    import urllib.request as _ur
-    base_url = f"http://localhost:{_AGENDA_PORT}"
-    prev_access_id = ""
-    for fn in func_names:
-        body = {
-            "func": fn,
-            "vno": vno,
-            "direccion": sched.get("direccion", ""),
-            "addressMcd": sched.get("address_mcd", "OSP"),
-            "serviceType": sched.get("svc_type", "FTTH"),
-            "speedPlan": sched.get("speed_plan", "600/600"),
-            "ambUrl": sched.get("amb_url", ""),
-            "accessId": prev_access_id,
-        }
-        step_r = {"func": fn, "pass": False, "error": None}
-        try:
-            req_data = _j.dumps(body).encode("utf-8")
-            req = _ur.Request(
-                f"{base_url}/api/atrf/run-step",
-                data=req_data,
-                headers={"Content-Type": "application/json"},
-                method="POST"
-            )
-            with _ur.urlopen(req, timeout=120) as resp:
-                result = _j.loads(resp.read())
-                step_r["pass"] = result.get("pass", False)
-                step_r["http"] = result.get("httpCode", 0)
-                if step_r["pass"]:
-                    passed += 1
-                    new_aid = result.get("accessId") or result.get("access_id", "")
-                    if new_aid:
-                        prev_access_id = new_aid
-                else:
-                    failed += 1
-        except Exception as ex:
-            step_r["error"] = str(ex)
-            failed += 1
-        steps_results.append(step_r)
-        print(f"[agenda] sched={schedule_id} run={run_id} {fn}: {'PASS' if step_r['pass'] else 'FAIL'}")
-    finished = _dt.datetime.now(_dt.timezone.utc)
-    status = "pass" if failed == 0 else ("fail" if passed == 0 else "partial")
-    await conn.execute(
-        "UPDATE qa_sched_runs SET finished_at=$1, passed_steps=$2, failed_steps=$3, "
-        "status=$4, steps_json=$5 WHERE id=$6",
-        finished, passed, failed, status, _j.dumps(steps_results), run_id
-    )
-    await conn.execute(
-        "UPDATE qa_schedules SET last_run=$1, run_count=run_count+1, last_status=$2 WHERE id=$3",
-        finished, status, schedule_id
-    )
-    print(f"[agenda] run_id={run_id} completado: {passed} PASS / {failed} FAIL -> {status}")
+    _ssl_ctx = _ssl_th.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = _ssl_th.CERT_NONE
+    conn = await _apg_th.connect(_dsn, ssl=_ssl_ctx, statement_cache_size=0)
+    try:
+        row = await conn.fetchrow("SELECT * FROM qa_schedules WHERE id=$1", schedule_id)
+        if not row:
+            print(f"[agenda] schedule {schedule_id} no encontrado")
+            return
+        sched = dict(row)
+        preset = sched.get("preset", "acotada")
+        func_indexes = ATRF_PRESET_INDEXES.get(preset, ATRF_PRESET_INDEXES["acotada"])
+        func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
+        vno = sched.get("vno", "02")
+        run_id = await conn.fetchval(
+            "INSERT INTO qa_sched_runs (schedule_id, preset, vno, total_steps, status) "
+            "VALUES ($1, $2, $3, $4, 'running') RETURNING id",
+            schedule_id, preset, vno, len(func_names)
+        )
+        started = _dt.datetime.now(_dt.timezone.utc)
+        steps_results = []
+        passed = 0
+        failed = 0
+        import urllib.request as _ur
+        base_url = f"http://localhost:{_AGENDA_PORT}"
+        prev_access_id = ""
+        for fn in func_names:
+            body = {
+                "func": fn,
+                "vno": vno,
+                "direccion": sched.get("direccion", ""),
+                "addressMcd": sched.get("address_mcd", "OSP"),
+                "serviceType": sched.get("svc_type", "FTTH"),
+                "speedPlan": sched.get("speed_plan", "600/600"),
+                "ambUrl": sched.get("amb_url", ""),
+                "accessId": prev_access_id,
+            }
+            step_r = {"func": fn, "pass": False, "error": None}
+            try:
+                req_data = _j.dumps(body).encode("utf-8")
+                req = _ur.Request(
+                    f"{base_url}/api/atrf/run-step",
+                    data=req_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                with _ur.urlopen(req, timeout=120) as resp:
+                    result = _j.loads(resp.read())
+                    step_r["pass"] = result.get("pass", False)
+                    step_r["http"] = result.get("httpCode", 0)
+                    if step_r["pass"]:
+                        passed += 1
+                        new_aid = result.get("accessId") or result.get("access_id", "")
+                        if new_aid:
+                            prev_access_id = new_aid
+                    else:
+                        failed += 1
+            except Exception as ex:
+                step_r["error"] = str(ex)
+                failed += 1
+            steps_results.append(step_r)
+            print(f"[agenda] sched={schedule_id} run={run_id} {fn}: {'PASS' if step_r['pass'] else 'FAIL'}")
+        finished = _dt.datetime.now(_dt.timezone.utc)
+        status = "pass" if failed == 0 else ("fail" if passed == 0 else "partial")
+        await conn.execute(
+            "UPDATE qa_sched_runs SET finished_at=$1, passed_steps=$2, failed_steps=$3, "
+            "status=$4, steps_json=$5 WHERE id=$6",
+            finished, passed, failed, status, _j.dumps(steps_results), run_id
+        )
+        await conn.execute(
+            "UPDATE qa_schedules SET last_run=$1, run_count=run_count+1, last_status=$2 WHERE id=$3",
+            finished, status, schedule_id
+        )
+        print(f"[agenda] run_id={run_id} completado: {passed} PASS / {failed} FAIL -> {status}")
+    finally:
+        await conn.close()
 
 
 # ─── API Agenda (CRUD + run-now) ─────────────────────────────────────────────
