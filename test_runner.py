@@ -12416,72 +12416,100 @@ function _agendaRender(){
   var cont=document.getElementById('agenda-content');
   if(!cont)return;
   var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-  var rows=_agendaData.map(function(s){
-    var days=[];try{days=JSON.parse(s.days_of_week||'[1,2,3,4,5]');}catch(e){}
-    var times=[];try{times=JSON.parse(s.times_of_day||'["09:00"]');}catch(e){}
-    var dayStr=days.map(function(d){return DAYS[d]||d;}).join(', ');
-    var timeStr=times.join(' · ');
-    var lastRun=s.last_run?new Date(s.last_run).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'Nunca';
-    var statusDot=s.last_status==='pass'?'🟢':s.last_status==='fail'?'🔴':s.last_status==='partial'?'🟡':'⚪';
-    var active=s.active;
-    var toggleLabel=active?'Pausar':'Activar';
-    var toggleIcon=active?'⏸':'▶';
-    return (
-      '<tr style="border-bottom:1px solid var(--brd);transition:background .12s" class="agenda-row">'
-      +'<td style="padding:8px 12px;font-weight:600;font-size:.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(s.name)+'</td>'
-      +'<td style="padding:8px 8px">'
-        +'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:600;'
-        +(s.preset==='completa'?'background:#3D7FFF22;color:#3D7FFF':'background:#22C55E22;color:#22C55E')
-        +'">'+_esc(s.preset)+'</span>'
-      +'</td>'
-      +'<td style="padding:8px 8px;font-size:.75rem;color:var(--txt2)">VNO '+_esc(s.vno)+'</td>'
-      +'<td style="padding:8px 8px;font-size:.73rem;color:var(--txt2)">'+_esc(dayStr)+'</td>'
-      +'<td style="padding:8px 8px;font-family:monospace;font-size:.73rem">'+_esc(timeStr)+'</td>'
-      +'<td style="padding:8px 8px;font-size:.7rem;color:var(--txt3)">'+statusDot+' '+lastRun+'</td>'
-      +'<td style="padding:8px 8px">'
-        +'<span style="display:inline-block;padding:2px 8px;border-radius:8px;font-size:.65rem;font-weight:600;cursor:pointer;'
-        +(active?'background:#22C55E22;color:#22C55E':'background:#6b728022;color:var(--txt3)')
-        +'" onclick="_agendaToggle('+s.id+')">'+_esc(active?'Activo':'Pausado')+'</span>'
-      +'</td>'
-      +'<td style="padding:8px 10px;white-space:nowrap">'
-        +'<button onclick="_agendaRunNow('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer" title="Ejecutar ahora">▶ Ahora</button>'
-        +'<button onclick="_agendaEdit('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">✎ Editar</button>'
-        +'<button onclick="_agendaHistory('+s.id+')" style="margin-right:4px;padding:3px 9px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.67rem;cursor:pointer">📜 Historial</button>'
-        +'<button onclick="_agendaDelete('+s.id+')" style="padding:3px 9px;border-radius:4px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.67rem;cursor:pointer">✕</button>'
-      +'</td>'
-      +'</tr>'
-    );
-  }).join('');
+  // getDay(): 0=Dom,1=Lun..6=Sáb  →  nuestro índice 0=Lun..6=Dom
+  var todayIdx=(new Date().getDay()+6)%7;
 
-  cont.innerHTML=
-    '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--brd)">'
+  var hdr='<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--brd);flex-shrink:0">'
     +'<span style="font-weight:600;font-size:.85rem">Schedules configurados</span>'
     +'<span style="font-size:.72rem;color:var(--txt3)">'+_agendaData.length+' schedule'+(_agendaData.length!==1?'s':'')+'</span>'
     +'<div style="flex:1"></div>'
     +'<button onclick="_agendaNew()" style="padding:5px 14px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.75rem;cursor:pointer;font-weight:600">+ Nuevo schedule</button>'
-    +'</div>'
-    +(_agendaData.length===0
-      ? '<div style="padding:48px 24px;text-align:center;color:var(--txt3);font-size:.82rem">'
-        +'<div style="font-size:2.5rem;margin-bottom:12px">📅</div>'
-        +'<div style="font-weight:600;margin-bottom:6px">Sin schedules configurados</div>'
-        +'<div>Crea un schedule para programar regresiones automáticas.</div>'
-        +'<button onclick="_agendaNew()" style="margin-top:16px;padding:7px 18px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.78rem;cursor:pointer">+ Nuevo schedule</button>'
-        +'</div>'
-      : '<div style="overflow-x:auto">'
-        +'<table style="width:100%;border-collapse:collapse;min-width:700px">'
-        +'<thead><tr style="font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);background:var(--card)">'
-        +'<th style="padding:6px 12px;text-align:left;font-weight:600">Nombre</th>'
-        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Preset</th>'
-        +'<th style="padding:6px 8px;text-align:left;font-weight:600">VNO</th>'
-        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Días</th>'
-        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Horarios</th>'
-        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Último run</th>'
-        +'<th style="padding:6px 8px;text-align:left;font-weight:600">Estado</th>'
-        +'<th style="padding:6px 10px;text-align:left;font-weight:600">Acciones</th>'
-        +'</tr></thead>'
-        +'<tbody>'+rows+'</tbody>'
-        +'</table></div>'
-    );
+    +'</div>';
+
+  if(_agendaData.length===0){
+    cont.innerHTML=hdr
+      +'<div style="padding:48px 24px;text-align:center;color:var(--txt3);font-size:.82rem">'
+      +'<div style="font-size:2.5rem;margin-bottom:12px">📅</div>'
+      +'<div style="font-weight:600;margin-bottom:6px">Sin schedules configurados</div>'
+      +'<div>Crea un schedule para programar regresiones automáticas.</div>'
+      +'<button onclick="_agendaNew()" style="margin-top:16px;padding:7px 18px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.78rem;cursor:pointer">+ Nuevo schedule</button>'
+      +'</div>';
+    return;
+  }
+
+  // Calendario semanal: 7 columnas
+  var cols='';
+  for(var d=0;d<7;d++){
+    var isToday=(d===todayIdx);
+    var dayScheds=_agendaData.filter(function(s){
+      var ds=[];try{ds=JSON.parse(s.days_of_week||'[]');}catch(ex){}
+      return ds.indexOf(d)>=0;
+    });
+    // Ordenar por primer horario
+    dayScheds.sort(function(a,b){
+      var ta=[],tb=[];
+      try{ta=JSON.parse(a.times_of_day||'["00:00"]');}catch(ex){}
+      try{tb=JSON.parse(b.times_of_day||'["00:00"]');}catch(ex){}
+      return (ta[0]||'').localeCompare(tb[0]||'');
+    });
+    var borderR=d<6?'border-right:1px solid var(--brd);':'';
+    var hdrBg=isToday?'background:rgba(61,127,255,.07);':'background:var(--card);';
+    var hdrColor=isToday?'color:var(--acc);':'color:var(--txt2);';
+    var hdrBorder=isToday?'border-bottom:2px solid var(--acc);':'border-bottom:1px solid var(--brd);';
+    cols+='<div style="'+borderR+'display:flex;flex-direction:column;min-width:0">'
+      // cabecera día
+      +'<div style="padding:7px 8px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;'+hdrBg+hdrColor+hdrBorder+'text-align:center">'
+      +DAYS[d]+(isToday?' <span style="font-size:.55rem;opacity:.75">(hoy)</span>':'')
+      +'</div>'
+      // tarjetas
+      +'<div style="padding:5px;display:flex;flex-direction:column;gap:5px;flex:1;overflow-y:auto">';
+
+    if(dayScheds.length===0){
+      cols+='<div style="text-align:center;color:var(--txt3);font-size:.65rem;padding:12px 4px;opacity:.5">—</div>';
+    } else {
+      dayScheds.forEach(function(s){
+        var times=[];try{times=JSON.parse(s.times_of_day||'["09:00"]');}catch(ex){}
+        var timeStr=times.join(' · ');
+        var isComp=s.preset==='completa';
+        var ac=isComp?'#3D7FFF':'#22C55E';
+        var dot=s.last_status==='pass'?'🟢':s.last_status==='fail'?'🔴':s.last_status==='partial'?'🟡':'';
+        var sid=s.id;
+        cols+='<div data-sid="'+sid+'" style="border-left:3px solid '+ac+';border-radius:0 5px 5px 0;'
+          +'background:var(--card);padding:6px 7px;'+(s.active?'':'opacity:.45')+';cursor:default">'
+          // nombre
+          +'<div style="font-weight:600;font-size:.7rem;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(s.name)+'">'+_esc(s.name)+'</div>'
+          // horario
+          +'<div style="font-family:monospace;font-size:.67rem;color:var(--txt2);margin-top:1px">'+_esc(timeStr)+'</div>'
+          // badges
+          +'<div style="display:flex;align-items:center;gap:3px;margin-top:3px">'
+          +'<span style="font-size:.58rem;padding:1px 5px;border-radius:8px;background:'+ac+'22;color:'+ac+';font-weight:600">'+_esc(s.preset)+'</span>'
+          +'<span style="font-size:.58rem;color:var(--txt3)">VNO '+_esc(s.vno)+'</span>'
+          +(dot?'<span style="margin-left:auto;font-size:.65rem">'+dot+'</span>':'')
+          +'</div>'
+          // botones acción
+          +'<div style="display:flex;gap:2px;margin-top:5px">'
+          +'<button data-sid="'+sid+'" class="ag-c-run" title="Ejecutar ahora" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.62rem;cursor:pointer">▶</button>'
+          +'<button data-sid="'+sid+'" class="ag-c-edit" title="Editar" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.62rem;cursor:pointer">✎</button>'
+          +'<button data-sid="'+sid+'" class="ag-c-hist" title="Historial" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.62rem;cursor:pointer">📜</button>'
+          +'<button data-sid="'+sid+'" class="ag-c-del" title="Eliminar" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.62rem;cursor:pointer">✕</button>'
+          +'</div>'
+          +'</div>';
+      });
+    }
+    cols+='</div></div>'; // cierre tarjetas + columna
+  }
+
+  cont.innerHTML=hdr
+    +'<div style="overflow-x:auto;flex:1">'
+    +'<div style="display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));height:100%;min-width:700px">'
+    +cols
+    +'</div></div>';
+
+  // Delegated click handlers (evita \'  en onclick)
+  cont.querySelectorAll('.ag-c-run').forEach(function(b){b.onclick=function(){_agendaRunNow(parseInt(this.dataset.sid));};});
+  cont.querySelectorAll('.ag-c-edit').forEach(function(b){b.onclick=function(){_agendaEdit(parseInt(this.dataset.sid));};});
+  cont.querySelectorAll('.ag-c-hist').forEach(function(b){b.onclick=function(){_agendaHistory(parseInt(this.dataset.sid));};});
+  cont.querySelectorAll('.ag-c-del').forEach(function(b){b.onclick=function(){_agendaDelete(parseInt(this.dataset.sid));};});
 }
 
 function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
