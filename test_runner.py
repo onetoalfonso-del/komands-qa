@@ -1724,9 +1724,14 @@ async def _agenda_fire_async(schedule_id: int):
                     step_r["res"] = result.get("res", "")
                     if step_r["pass"]:
                         passed += 1
+                        # Factibilidad crea un u_access_id nuevo en el servidor.
+                        # Ese ID (devuelto por run-step como "accessId") debe usarse
+                        # en todos los pasos siguientes (Asignacion, Inicio IA, etc.)
+                        new_aid = result.get("accessId", "")
+                        if new_aid:
+                            prev_access_id = new_aid
                     else:
                         failed += 1
-                    # prev_access_id no se actualiza: se mantiene el del formulario
             except Exception as ex:
                 step_r["error"] = str(ex)
                 failed += 1
@@ -15156,7 +15161,9 @@ async function _atrf_runSelected(){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
-      // El access_id del formulario se mantiene fijo en todos los pasos — no se sobreescribe.
+      // Factibilidad crea un access_id nuevo en el servidor (u_access_id en su response).
+      // run-step lo devuelve como rd.accessId. Ese es el que usan todos los pasos siguientes.
+      if(pass&&rd&&rd.accessId){_currentAccessId=rd.accessId;}
       // Aplicar delay post-paso si está configurado
       var _dk=_ATRF_DELAY_MAP[fn];
       if(_dk&&_delays[_dk]>0){
