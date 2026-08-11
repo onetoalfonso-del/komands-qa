@@ -1264,24 +1264,35 @@ CREATE TABLE IF NOT EXISTS qa_users (
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS qa_schedules (
-    id           BIGSERIAL PRIMARY KEY,
-    name         VARCHAR(200) NOT NULL,
-    preset       VARCHAR(20) NOT NULL DEFAULT 'acotada',
-    vno          VARCHAR(10) NOT NULL DEFAULT '02',
-    direccion    TEXT NOT NULL DEFAULT '',
-    address_mcd  VARCHAR(50) DEFAULT 'OSP',
-    svc_type     VARCHAR(20) DEFAULT 'FTTH',
-    speed_plan   VARCHAR(50) DEFAULT '600/600',
-    amb_url      TEXT DEFAULT '',
-    days_of_week TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
-    times_of_day TEXT NOT NULL DEFAULT '["09:00"]',
-    active       BOOLEAN DEFAULT TRUE,
-    created_at   TIMESTAMPTZ DEFAULT NOW(),
-    last_run     TIMESTAMPTZ,
-    next_run     TIMESTAMPTZ,
-    run_count    INT DEFAULT 0,
-    last_status  VARCHAR(50)
+    id             BIGSERIAL PRIMARY KEY,
+    name           VARCHAR(200) NOT NULL,
+    preset         VARCHAR(20) NOT NULL DEFAULT 'acotada',
+    vno            VARCHAR(10) NOT NULL DEFAULT '02',
+    direccion      TEXT NOT NULL DEFAULT '',
+    address_mcd    VARCHAR(50) DEFAULT 'OSP',
+    svc_type       VARCHAR(20) DEFAULT 'FTTH',
+    speed_plan     VARCHAR(50) DEFAULT '600/600',
+    amb_url        TEXT DEFAULT '',
+    days_of_week   TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
+    times_of_day   TEXT NOT NULL DEFAULT '["09:00"]',
+    active         BOOLEAN DEFAULT TRUE,
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    last_run       TIMESTAMPTZ,
+    next_run       TIMESTAMPTZ,
+    run_count      INT DEFAULT 0,
+    last_status    VARCHAR(50),
+    cfg_extra_json TEXT,
+    funcs_json     TEXT
 );
+-- Migracion: agregar columnas si ya existe la tabla
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='qa_schedules' AND column_name='cfg_extra_json') THEN
+    ALTER TABLE qa_schedules ADD COLUMN cfg_extra_json TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='qa_schedules' AND column_name='funcs_json') THEN
+    ALTER TABLE qa_schedules ADD COLUMN funcs_json TEXT;
+  END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS qa_sched_runs (
     id           BIGSERIAL PRIMARY KEY,
     schedule_id  BIGINT REFERENCES qa_schedules(id) ON DELETE CASCADE,
@@ -1647,9 +1658,24 @@ async def _agenda_fire_async(schedule_id: int):
             return
         sched = dict(row)
         preset = sched.get("preset", "acotada")
-        func_indexes = ATRF_PRESET_INDEXES.get(preset, ATRF_PRESET_INDEXES["acotada"])
-        func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
+        # funcs_json permite lista personalizada; si no hay, usar preset estandar
+        _funcs_json_raw = sched.get("funcs_json") or ""
+        if _funcs_json_raw:
+            try:
+                _custom_idxs = _j.loads(_funcs_json_raw)
+                func_names = [ATRF_FUNCS_REAL[i] for i in _custom_idxs if i < len(ATRF_FUNCS_REAL)]
+            except Exception:
+                func_names = []
+        else:
+            func_indexes = ATRF_PRESET_INDEXES.get(preset, ATRF_PRESET_INDEXES["acotada"])
+            func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
         vno = sched.get("vno", "02")
+        # cfg_extra_json: campos adicionales del formulario ATRF completo
+        _cfg_extra = {}
+        _cfg_extra_raw = sched.get("cfg_extra_json") or ""
+        if _cfg_extra_raw:
+            try: _cfg_extra = _j.loads(_cfg_extra_raw)
+            except Exception: pass
         run_id = await conn.fetchval(
             "INSERT INTO qa_sched_runs (schedule_id, preset, vno, total_steps, status) "
             "VALUES ($1, $2, $3, $4, 'running') RETURNING id",
@@ -1672,6 +1698,13 @@ async def _agenda_fire_async(schedule_id: int):
                 "speedPlan": sched.get("speed_plan", "600/600"),
                 "ambUrl": sched.get("amb_url", ""),
                 "accessId": prev_access_id,
+                "scenario": _cfg_extra.get("esc", "Instalación"),
+                "serialNumber": _cfg_extra.get("sn", ""),
+                "newSerialNumber": _cfg_extra.get("nsn", ""),
+                "newSpeedPlan": _cfg_extra.get("nplan", ""),
+                "serviceBa": _cfg_extra.get("ba", True),
+                "serviceVoip": _cfg_extra.get("voip", True),
+                "serviceIptv": _cfg_extra.get("iptv", True),
             }
             step_r = {"func": fn, "pass": False, "error": None}
             try:
@@ -1731,8 +1764,8 @@ async def api_schedules_create(request: Request):
     conn = await _db()
     row = await conn.fetchrow(
         "INSERT INTO qa_schedules (name, preset, vno, direccion, address_mcd, svc_type, "
-        "speed_plan, amb_url, days_of_week, times_of_day, active) "
-        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *",
+        "speed_plan, amb_url, days_of_week, times_of_day, active, cfg_extra_json, funcs_json) "
+        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",
         data.get("name","Sin nombre"),
         data.get("preset","acotada"),
         data.get("vno","02"),
@@ -1743,7 +1776,9 @@ async def api_schedules_create(request: Request):
         data.get("amb_url",""),
         _j.dumps(data.get("days_of_week",[1,2,3,4,5])),
         _j.dumps(data.get("times_of_day",["09:00"])),
-        data.get("active",True)
+        data.get("active",True),
+        _j.dumps(data.get("cfg_extra",{})) if data.get("cfg_extra") else None,
+        _j.dumps(data.get("funcs_list",[])) if data.get("funcs_list") else None
     )
     sched = dict(row)
     _agenda_register_job(sched)
@@ -1756,8 +1791,9 @@ async def api_schedules_update(sched_id: int, request: Request):
     conn = await _db()
     row = await conn.fetchrow(
         "UPDATE qa_schedules SET name=$1, preset=$2, vno=$3, direccion=$4, address_mcd=$5, "
-        "svc_type=$6, speed_plan=$7, amb_url=$8, days_of_week=$9, times_of_day=$10, active=$11 "
-        "WHERE id=$12 RETURNING *",
+        "svc_type=$6, speed_plan=$7, amb_url=$8, days_of_week=$9, times_of_day=$10, active=$11, "
+        "cfg_extra_json=$12, funcs_json=$13 "
+        "WHERE id=$14 RETURNING *",
         data.get("name","Sin nombre"),
         data.get("preset","acotada"),
         data.get("vno","02"),
@@ -1769,6 +1805,8 @@ async def api_schedules_update(sched_id: int, request: Request):
         _j.dumps(data.get("days_of_week",[1,2,3,4,5])),
         _j.dumps(data.get("times_of_day",["09:00"])),
         data.get("active",True),
+        _j.dumps(data.get("cfg_extra",{})) if data.get("cfg_extra") else None,
+        _j.dumps(data.get("funcs_list",[])) if data.get("funcs_list") else None,
         sched_id
     )
     if not row:
@@ -13967,6 +14005,7 @@ var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
+var _atrf_schedCalState=null; // {y,m} estado del mini-cal en la pestana Programar
 var _schedRuns=[];
 var _schedRunsTimer=null;
 var _atrfViewIdx=-1;
@@ -14373,16 +14412,24 @@ function _atrf_openNew(){
   _atrf_switchTab('cfg');
   _atrf_renderCatalog();
   _atrf_renderSeq();
+  // Reset pestana programar
+  _atrf_schedCalState=null;
+  var sdInp=document.getElementById('atrf-sched-days');if(sdInp)sdInp.value='[]';
+  var stWrap=document.getElementById('atrf-sched-times-wrap');
+  if(stWrap)stWrap.innerHTML='<div class="atrf-sched-time-row"><input type="time" class="atrf-sched-time" value="09:00" style="font-family:var(--atrf-mono);padding:4px 8px;border:1px solid var(--atrf-border);border-radius:4px;background:var(--bg);color:var(--txt)"/><button onclick="_atrf_schedRemoveTime(this)" style="border:none;background:none;color:var(--txt3);font-size:1rem;cursor:pointer;padding:2px 6px" title="Eliminar horario">&#10005;</button></div>';
   document.getElementById('atrf-modal-new').classList.add('show');
   setTimeout(function(){document.getElementById('atrf-seq-name').focus();},80);
 }
 function _atrf_closeNew(){document.getElementById('atrf-modal-new').classList.remove('show');}
 
 function _atrf_switchTab(t){
-  ['cfg','funcs'].forEach(function(x){
-    document.getElementById('atrf-ntab-'+x).classList.toggle('active',x===t);
-    document.getElementById('atrf-nbody-'+x).style.display=x===t?'':'none';
+  ['cfg','funcs','sched'].forEach(function(x){
+    var tab=document.getElementById('atrf-ntab-'+x);
+    var body=document.getElementById('atrf-nbody-'+x);
+    if(tab)tab.classList.toggle('active',x===t);
+    if(body)body.style.display=x===t?'':'none';
   });
+  if(t==='sched')_atrf_schedCalRender();
 }
 
 function _atrf_buildAid(vno){
@@ -14585,6 +14632,187 @@ function _atrf_enqueue(){
   _atrf_closeNew();_atrf_renderQueue();_atrf_save();
   var msg=vnos.length>1?vnos.length+' secuencias encoladas (una por VNO)':'"'+name+'" encolada';
   if(typeof showToast==='function')showToast(msg,'ok');
+}
+
+function _atrf_schedCalRender(){
+  var wrap=document.getElementById('atrf-sched-mini-cal');
+  if(!wrap)return;
+  if(!_atrf_schedCalState){var _n=new Date();_atrf_schedCalState={y:_n.getFullYear(),m:_n.getMonth()};}
+  var y=_atrf_schedCalState.y,m=_atrf_schedCalState.m;
+  var DAYSL=['L','M','X','J','V','S','D'];
+  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var today=new Date();var todayY=today.getFullYear(),todayM=today.getMonth(),todayD=today.getDate();
+  var daysInMonth=new Date(y,m+1,0).getDate();
+  var startWday=(new Date(y,m,1).getDay()+6)%7;
+  var selDates=[];
+  var inp=document.getElementById('atrf-sched-days');
+  if(inp)try{selDates=JSON.parse(inp.value||'[]');}catch(ex){}
+  var html='<div style="display:flex;align-items:center;padding:5px 8px;background:var(--atrf-surface);border-bottom:1px solid var(--atrf-border)">'
+    +'<button onclick="_atrf_schedCalPrev()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--atrf-border);background:var(--bg);color:var(--txt);font-size:.85rem;cursor:pointer">&#8249;</button>'
+    +'<span style="flex:1;text-align:center;font-size:.72rem;font-weight:600;color:var(--txt)">'+MONTHS[m]+' '+y+'</span>'
+    +'<button onclick="_atrf_schedCalNext()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--atrf-border);background:var(--bg);color:var(--txt);font-size:.85rem;cursor:pointer">&#8250;</button>'
+    +'</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--atrf-surface);border-bottom:1px solid var(--atrf-border)">';
+  for(var di=0;di<7;di++){
+    var isWe=di>=5;
+    html+='<div style="padding:4px 2px;text-align:center;font-size:.6rem;font-weight:700;color:'+(isWe?'var(--atrf-text3)':'var(--atrf-text2)')+'">'+DAYSL[di]+'</div>';
+  }
+  html+='</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
+  var totalCells=Math.ceil((startWday+daysInMonth)/7)*7;
+  for(var ci=0;ci<totalCells;ci++){
+    var dayNum=ci-startWday+1;
+    var valid=dayNum>=1&&dayNum<=daysInMonth;
+    var wday=ci%7;var isWe2=wday>=5;
+    var mm2=(m+1<10?'0':'')+(m+1),dd2=(dayNum<10?'0':'')+dayNum;
+    var dateStr=y+'-'+mm2+'-'+dd2;
+    var selCell=valid&&selDates.indexOf(dateStr)>=0;
+    var isToday2=valid&&dayNum===todayD&&m===todayM&&y===todayY;
+    var borderR=wday<6?'border-right:1px solid var(--atrf-border);':'';
+    var borderB=ci<totalCells-7?'border-bottom:1px solid var(--atrf-border);':'';
+    var cellBg=selCell?'background:var(--atrf-blue);':isToday2?'background:rgba(61,127,255,.08);':isWe2?'background:rgba(0,0,0,.02);':'';
+    html+='<div'+(valid?' data-sdate="'+dateStr+'" class="atrf-sched-mcell"':'')
+      +' style="padding:5px 2px;text-align:center;'+cellBg+borderR+borderB+(valid?'cursor:pointer;':'')+'">';
+    if(valid){
+      var ns=selCell
+        ?'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--atrf-blue);color:#fff;font-size:.65rem;font-weight:700'
+        :isToday2
+        ?'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--atrf-blue);color:var(--atrf-blue);font-size:.65rem;font-weight:700'
+        :'font-size:.65rem;color:'+(isWe2?'var(--atrf-text3)':'var(--atrf-text)')+';font-weight:'+(isWe2?'400':'500');
+      html+='<span style="'+ns+'">'+dayNum+'</span>';
+    } else {
+      var gd=dayNum<=0?new Date(y,m,dayNum).getDate():dayNum-daysInMonth;
+      html+='<span style="font-size:.6rem;color:var(--atrf-text3);opacity:.25">'+gd+'</span>';
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  var cnt=selDates.length;
+  html+='<div style="padding:4px 8px;background:var(--atrf-surface);border-top:1px solid var(--atrf-border);font-size:.62rem;color:var(--atrf-text3)">'
+    +(cnt===0?'Ninguna fecha seleccionada':cnt+' fecha'+(cnt!==1?'s':'')+' seleccionada'+(cnt!==1?'s':''))+'</div>';
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('.atrf-sched-mcell').forEach(function(el){
+    el.onclick=function(e){
+      e.stopPropagation();
+      var ds=this.dataset.sdate;
+      var inp2=document.getElementById('atrf-sched-days');if(!inp2||!ds)return;
+      var dates=[];try{dates=JSON.parse(inp2.value||'[]');}catch(ex){}
+      var idx=dates.indexOf(ds);
+      if(idx>=0)dates.splice(idx,1);else dates.push(ds);
+      dates.sort();inp2.value=JSON.stringify(dates);
+      _atrf_schedCalRender();
+    };
+  });
+}
+function _atrf_schedCalPrev(){
+  if(!_atrf_schedCalState){var _n=new Date();_atrf_schedCalState={y:_n.getFullYear(),m:_n.getMonth()};}
+  _atrf_schedCalState.m--;if(_atrf_schedCalState.m<0){_atrf_schedCalState.m=11;_atrf_schedCalState.y--;}
+  _atrf_schedCalRender();
+}
+function _atrf_schedCalNext(){
+  if(!_atrf_schedCalState){var _n=new Date();_atrf_schedCalState={y:_n.getFullYear(),m:_n.getMonth()};}
+  _atrf_schedCalState.m++;if(_atrf_schedCalState.m>11){_atrf_schedCalState.m=0;_atrf_schedCalState.y++;}
+  _atrf_schedCalRender();
+}
+function _atrf_schedAddTime(){
+  var wrap=document.getElementById('atrf-sched-times-wrap');if(!wrap)return;
+  var cnt=wrap.querySelectorAll('.atrf-sched-time-row').length;
+  if(cnt>=5){if(typeof showToast==='function')showToast('Maximo 5 horarios por schedule','warn');return;}
+  var row=document.createElement('div');row.className='atrf-sched-time-row';
+  row.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px';
+  row.innerHTML='<input type="time" class="atrf-sched-time" value="14:00" style="font-family:var(--atrf-mono);padding:4px 8px;border:1px solid var(--atrf-border);border-radius:4px;background:var(--bg);color:var(--txt)"/>'
+    +'<button onclick="_atrf_schedRemoveTime(this)" style="border:none;background:none;color:var(--txt3);font-size:1rem;cursor:pointer;padding:2px 6px" title="Eliminar horario">&#10005;</button>';
+  wrap.appendChild(row);
+}
+function _atrf_schedRemoveTime(btn){
+  var wrap=document.getElementById('atrf-sched-times-wrap');if(!wrap)return;
+  var rows=wrap.querySelectorAll('.atrf-sched-time-row');
+  if(rows.length<=1)return; // siempre mantener al menos 1
+  btn.closest('.atrf-sched-time-row').remove();
+}
+function _atrf_schedSave(){
+  // Validar campos ATRF (igual que enqueue)
+  var errors=[];
+  document.querySelectorAll('#atrf-modal-new .err').forEach(function(e){e.classList.remove('err');});
+  var name=_atrf_v('atrf-seq-name').trim();
+  var vnos=_atrf_getVnos();
+  if(!name){errors.push('Nombre de la secuencia es obligatorio');document.getElementById('atrf-seq-name').classList.add('err');}
+  if(!vnos.length){errors.push('Selecciona al menos una VNO');}
+  if(!_atrf_v('atrf-dir').trim()){errors.push('Direcci\u00f3n es obligatoria');document.getElementById('atrf-dir').classList.add('err');}
+  if(!_atrf_v('atrf-esc')){errors.push('Escenario es obligatorio');}
+  if(!_atrf_v('atrf-tex')){errors.push('Tipo de ejecuci\u00f3n es obligatorio');}
+  if(!_atrfSel.length){errors.push('Debes seleccionar al menos una funcionalidad');}
+  // Validar pestana programar
+  var daysInp=document.getElementById('atrf-sched-days');
+  var selDates=[];try{selDates=JSON.parse((daysInp&&daysInp.value)||'[]');}catch(ex){}
+  if(!selDates.length){errors.push('Selecciona al menos una fecha en el calendario');}
+  var times=[];
+  document.querySelectorAll('.atrf-sched-time').forEach(function(inp){var v=(inp.value||'').trim();if(v)times.push(v);});
+  if(!times.length){errors.push('Agrega al menos un horario');}
+  if(errors.length){
+    var errEl=document.getElementById('atrf-val-err');
+    errEl.innerHTML=errors.map(function(e){return'\u00b7 '+e;}).join('<br>');
+    errEl.classList.add('show');
+    return;
+  }
+  document.getElementById('atrf-val-err').classList.remove('show');
+  var amb=_atrf_getAmb();
+  var dir=_atrf_v('atrf-dir').trim();
+  var tdir=_atrf_v('atrf-tdir');
+  var vno=vnos[0]; // para schedule solo se usa 1 VNO (primer seleccionado)
+  var cfg_extra={
+    esc: _atrf_v('atrf-esc'),
+    tex: _atrf_v('atrf-tex'),
+    bp: _atrf_v('atrf-bp'),
+    plan: _atrf_v('atrf-plan'),
+    nplan: _atrf_v('atrf-nplan'),
+    ba: document.getElementById('atrf-svc-ba').checked,
+    voip: document.getElementById('atrf-svc-voip').checked,
+    iptv: document.getElementById('atrf-svc-iptv').checked,
+    sn: _atrf_v('atrf-sn'),
+    nsn: _atrf_v('atrf-nsn')
+  };
+  // Determinar preset
+  var preset='custom';
+  var acotadaStr=JSON.stringify([0,1,11,3,4,6]);
+  var completaStr=JSON.stringify([0,1,3,2,11,13,8,17,15,16,9,5,10,7]);
+  var selStr=JSON.stringify(_atrfSel);
+  if(selStr===acotadaStr)preset='acotada';
+  else if(selStr===completaStr)preset='completa';
+  var payload={
+    name: name+(vnos.length>1?' [VNO '+vno+']':''),
+    preset: preset,
+    vno: vno,
+    direccion: dir,
+    address_mcd: tdir,
+    svc_type: _atrf_v('atrf-tsvc'),
+    speed_plan: _atrf_v('atrf-plan'),
+    amb_url: _atrfEnvUrls[amb]||'',
+    days_of_week: selDates,
+    times_of_day: times,
+    active: true,
+    cfg_extra: cfg_extra,
+    funcs_list: preset==='custom'?_atrfSel:[]
+  };
+  fetch('/api/schedules',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},_authHdr()),body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&d.id){
+        _atrf_closeNew();
+        if(typeof showToast==='function')showToast('Schedule "'+payload.name+'" guardado con '+selDates.length+' fecha(s)','ok');
+        if(typeof _agendaLoad==='function')_agendaLoad();
+      } else {
+        if(typeof showToast==='function')showToast('Error al guardar schedule','err');
+      }
+    })
+    .catch(function(e){if(typeof showToast==='function')showToast('Error: '+e,'err');});
+  if(vnos.length>1){
+    // Crear un schedule por VNO adicional (2do, 3ro...)
+    vnos.slice(1).forEach(function(v2){
+      var p2=Object.assign({},payload,{name:name+' [VNO '+v2+']',vno:v2});
+      fetch('/api/schedules',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},_authHdr()),body:JSON.stringify(p2)}).catch(function(){});
+    });
+  }
 }
 
 function _atrf_buildSimReq(funcName,cfg){
@@ -15405,6 +15633,7 @@ function showCodigos(){
     <div class="atrf-tabs">
       <div class="atrf-tab active" id="atrf-ntab-cfg" onclick="_atrf_switchTab('cfg')">Configuración</div>
       <div class="atrf-tab" id="atrf-ntab-funcs" onclick="_atrf_switchTab('funcs')">Funcionalidades <span id="atrf-funcs-cnt" style="font-size:10px;opacity:.6"></span></div>
+      <div class="atrf-tab" id="atrf-ntab-sched" onclick="_atrf_switchTab('sched')" style="display:flex;align-items:center;gap:4px">&#128197; Programar</div>
       <div style="flex:1"></div>
       <button id="atrf-clear-seq-btn" onclick="_atrf_clearSeq()" title="Eliminar todas las funcionalidades de la secuencia" style="display:none;align-items:center;gap:5px;margin:auto 0;padding:3px 10px;border-radius:5px;border:1px solid var(--atrf-border2);background:transparent;color:var(--atrf-text3);font-size:11px;font-family:var(--atrf-mono);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--atrf-red)';this.style.color='var(--atrf-red)'" onmouseout="this.style.borderColor='var(--atrf-border2)';this.style.color='var(--atrf-text3)'">🗑 Limpiar secuencia</button>
     </div>
@@ -15563,6 +15792,36 @@ function showCodigos(){
             <span class="atrf-func-pt" id="atrf-seq-counter">Secuencia (0)</span>
           </div>
           <div id="atrf-seq-list"><div class="atrf-seq-empty">â† Selecciona funcionalidades</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="atrf-modal-body" id="atrf-nbody-sched" style="display:none;padding:20px">
+      <div class="atrf-grid" style="row-gap:16px">
+        <div class="atrf-field atrf-col-12">
+          <div style="font-size:.72rem;color:var(--atrf-text2);background:var(--atrf-surface);border:1px solid var(--atrf-border);border-radius:6px;padding:10px 12px;line-height:1.6">
+            <strong style="color:var(--atrf-text)">Programar esta secuencia</strong><br>
+            Selecciona fechas y horarios. Se usará la configuración de las pestañas Configuración y Funcionalidades.<br>
+            <span style="color:var(--atrf-text3);font-size:.67rem">Si seleccionas varias VNO, se crea un schedule independiente por cada una.</span>
+          </div>
+        </div>
+        <div class="atrf-field atrf-col-12">
+          <label style="font-size:.72rem;font-weight:600;color:var(--atrf-text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block">Fechas de ejecución</label>
+          <input type="hidden" id="atrf-sched-days" value="[]"/>
+          <div id="atrf-sched-mini-cal" style="border:1px solid var(--atrf-border);border-radius:6px;overflow:hidden;max-width:340px;font-family:var(--atrf-font)"></div>
+        </div>
+        <div class="atrf-field atrf-col-12">
+          <label style="font-size:.72rem;font-weight:600;color:var(--atrf-text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block">Horarios de ejecución</label>
+          <div id="atrf-sched-times-wrap" style="display:flex;flex-direction:column;gap:4px">
+            <div class="atrf-sched-time-row" style="display:flex;align-items:center;gap:6px">
+              <input type="time" class="atrf-sched-time" value="09:00" style="font-family:var(--atrf-mono);padding:4px 8px;border:1px solid var(--atrf-border);border-radius:4px;background:var(--bg);color:var(--txt)"/>
+              <button onclick="_atrf_schedRemoveTime(this)" style="border:none;background:none;color:var(--txt3);font-size:1rem;cursor:pointer;padding:2px 6px" title="Eliminar horario">&#10005;</button>
+            </div>
+          </div>
+          <button onclick="_atrf_schedAddTime()" style="margin-top:6px;padding:3px 10px;border-radius:4px;border:1px dashed var(--atrf-border);background:transparent;color:var(--atrf-text3);font-size:.7rem;cursor:pointer">+ Agregar horario</button>
+        </div>
+        <div class="atrf-field atrf-col-12" style="border-top:1px solid var(--atrf-border);padding-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:10px">
+          <span style="font-size:.68rem;color:var(--atrf-text3);flex:1">Los campos de configuración y funcionalidades se guardarán con el schedule.</span>
+          <button class="atrf-btn atrf-btn-primary" onclick="_atrf_schedSave()" style="padding:7px 18px;font-size:.8rem">&#128197; Guardar Schedule</button>
         </div>
       </div>
     </div>
