@@ -1818,6 +1818,22 @@ async def api_schedules_runs(sched_id: int, limit: int = 20):
     )
     return [dict(r) for r in rows]
 
+@app.get("/api/sched-runs/recent")
+async def api_sched_runs_recent(limit: int = 20):
+    """Retorna las ultimas ejecuciones de schedules (de todos los schedules)."""
+    conn = await _db()
+    rows = await conn.fetch("""
+        SELECT r.id, r.schedule_id, r.preset, r.vno, r.status,
+               r.started_at, r.finished_at,
+               r.passed_steps, r.failed_steps, r.total_steps,
+               s.name AS schedule_name, s.amb_url
+        FROM qa_sched_runs r
+        JOIN qa_schedules s ON s.id = r.schedule_id
+        ORDER BY r.started_at DESC
+        LIMIT $1
+    """, limit)
+    return [dict(r) for r in rows]
+
 
 
 @app.on_event("startup")
@@ -7931,7 +7947,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-badge-wait{background:var(--atrf-surface2);border:1px solid var(--atrf-border2);color:var(--atrf-text2)}
 .atrf-badge-run{background:var(--atrf-amber-bg);border:1px solid var(--atrf-amber-border);color:var(--atrf-amber)}
 .atrf-badge-ok{background:var(--atrf-green-bg);border:1px solid var(--atrf-green-border);color:var(--atrf-green)}
-.atrf-badge-err{background:var(--atrf-red-bg);border:1px solid var(--atrf-red-border);color:var(--atrf-red)}
+.atrf-badge-err{background:var(--atrf-red-bg);border:1px solid var(--atrf-red-border);color:var(--atrf-red)}.atrf-badge-warn{background:#fef9c3;border:1px solid #fde047;color:#854d0e}
 .atrf-empty-state{padding:4rem;text-align:center;color:var(--atrf-text3);font-size:13px;font-family:var(--atrf-mono)}
 .atrf-empty-hint{font-size:11px;color:var(--atrf-text3);margin-top:8px}
 .atrf-chip-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
@@ -12906,7 +12922,15 @@ function _agendaRunNow(id){
   if(!confirm('Ejecutar "'+nm+'" ahora mismo?'))return;
   fetch('/api/schedules/'+id+'/run-now',{method:'POST',headers:_authHdr()})
     .then(function(r){return r.json();})
-    .then(function(d){if(typeof showToast==='function')showToast('Ejecución iniciada en background','ok');})
+    .then(function(d){
+      if(typeof showToast==='function')showToast('Ejecuci\xf3n iniciada — aparece en Pruebas Automatizadas','ok');
+      // actualizar panel de ejecuciones (si esta visible)
+      _atrf_loadSchedRuns();
+      // iniciar polling para que se actualice cuando termine
+      if(!_schedRunsTimer){
+        _schedRunsTimer=setInterval(function(){_atrf_loadSchedRuns();},8000);
+      }
+    })
     .catch(function(e){alert('Error: '+e);});
 }
 
@@ -13868,6 +13892,8 @@ var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
+var _schedRuns=[];
+var _schedRunsTimer=null;
 var _atrfViewIdx=-1;
 var _atrfSel=[];
 var _atrfFilter='';
@@ -13892,8 +13918,26 @@ function _atrf_toggleVno(el){
 function _atrf_load(){
   try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
   _atrf_loadEnvUrls();
+  _atrf_loadSchedRuns();
 }
 function _atrf_save(){localStorage.setItem('atrf-queue',JSON.stringify(_atrfQueue));}
+
+function _atrf_loadSchedRuns(){
+  fetch('/api/sched-runs/recent?limit=30',{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      _schedRuns=Array.isArray(data)?data:[];
+      _atrf_renderQueue();
+      // auto-refresh si hay runs corriendo
+      var hasRunning=_schedRuns.some(function(r){return r.status==='running';});
+      if(hasRunning&&!_schedRunsTimer){
+        _schedRunsTimer=setInterval(function(){_atrf_loadSchedRuns();},8000);
+      } else if(!hasRunning&&_schedRunsTimer){
+        clearInterval(_schedRunsTimer);_schedRunsTimer=null;
+      }
+    })
+    .catch(function(){});
+}
 
 function _atrf_loadEnvUrls(){
   fetch('/api/environments').then(function(r){return r.json();}).then(function(data){
@@ -13920,30 +13964,69 @@ function _atrf_updateAmbUrl(){
 
 function _atrf_renderQueue(){
   var el=document.getElementById('atrf-exec-area'); if(!el)return;
-  if(!_atrfQueue.length){
+  var hasQ=_atrfQueue.length>0;
+  var hasSR=_schedRuns.length>0;
+  if(!hasQ&&!hasSR){
     el.innerHTML='<div class="atrf-empty-state">Sin secuencias encoladas<div class="atrf-empty-hint">Presiona "+ Nueva secuencia" para comenzar</div></div>';
-    return;
+    _atrf_syncCb();return;
   }
-  var rows='';
-  _atrfQueue.forEach(function(q,qi){
-    var sc={espera:'atrf-badge-wait',ejecutando:'atrf-badge-run',ok:'atrf-badge-ok',error:'atrf-badge-err'}[q.status];
-    var sl={espera:'En espera',ejecutando:'Ejecutando',ok:'Completado',error:'Con errores'}[q.status];
-    var urlBadge=q.cfg&&q.cfg.ambUrl?('<span class="atrf-url-badge">'+esc(q.cfg.ambUrl)+'</span>'):'';
-    rows+='<div class="atrf-qrow" id="atrf-qrow-'+qi+'">'
-      +'<div class="atrf-qrow-main">'
-      +'<span class="atrf-qrow-arrow" onclick="event.stopPropagation();_atrf_toggleDetail('+qi+')" id="atrf-qarrow-'+qi+'">▶</span>'
-      +'<div class="atrf-qcb'+(q.checked?' on':'')+'" onclick="event.stopPropagation();_atrf_toggleCb('+qi+')" id="atrf-qcb-'+qi+'"></div>'
-      +'<div class="atrf-q-info">'
-      +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'—')+'</span>'+urlBadge
-      +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
-      +'</div>'
-      +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
-      +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
-      +'</div>'
-      +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'">'+_atrf_buildDetailHtml(qi)+'</div>'
-      +'</div>';
-  });
-  el.innerHTML='<div class="atrf-queue-list">'+rows+'</div>';
+  var html='<div class="atrf-queue-list">';
+  // ── sección cola manual ───────────────────────────────────────────────────
+  if(hasQ){
+    if(hasSR){
+      html+='<div style="padding:4px 12px 3px;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);background:var(--atrf-bg);border-bottom:1px solid var(--atrf-border)">Cola manual</div>';
+    }
+    _atrfQueue.forEach(function(q,qi){
+      var sc={espera:'atrf-badge-wait',ejecutando:'atrf-badge-run',ok:'atrf-badge-ok',error:'atrf-badge-err'}[q.status];
+      var sl={espera:'En espera',ejecutando:'Ejecutando',ok:'Completado',error:'Con errores'}[q.status];
+      var urlBadge=q.cfg&&q.cfg.ambUrl?('<span class="atrf-url-badge">'+esc(q.cfg.ambUrl)+'</span>'):'';
+      html+='<div class="atrf-qrow" id="atrf-qrow-'+qi+'">'
+        +'<div class="atrf-qrow-main">'
+        +'<span class="atrf-qrow-arrow" onclick="event.stopPropagation();_atrf_toggleDetail('+qi+')" id="atrf-qarrow-'+qi+'">▶</span>'
+        +'<div class="atrf-qcb'+(q.checked?' on':'')+'" onclick="event.stopPropagation();_atrf_toggleCb('+qi+')" id="atrf-qcb-'+qi+'"></div>'
+        +'<div class="atrf-q-info">'
+        +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'—')+'</span>'+urlBadge
+        +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
+        +'</div>'
+        +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
+        +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
+        +'</div>'
+        +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'">'+_atrf_buildDetailHtml(qi)+'</div>'
+        +'</div>';
+    });
+  }
+  // ── sección ejecuciones programadas ──────────────────────────────────────
+  if(hasSR){
+    html+='<div style="padding:4px 12px 3px;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);background:var(--atrf-bg);border-bottom:1px solid var(--atrf-border)'+(hasQ?';border-top:2px solid var(--atrf-border)':'')+'">'
+      +'&#128197; Ejecuciones programadas</div>';
+    _schedRuns.forEach(function(r){
+      var sc={running:'atrf-badge-run',pass:'atrf-badge-ok',fail:'atrf-badge-err',partial:'atrf-badge-warn'}[r.status]||'atrf-badge-wait';
+      var sl={running:'Ejecutando...',pass:'Completado',fail:'Con errores',partial:'Parcial'}[r.status]||r.status;
+      var urlBadge=r.amb_url?('<span class="atrf-url-badge">'+esc(r.amb_url)+'</span>'):'';
+      var startStr='';
+      if(r.started_at){try{startStr=new Date(r.started_at).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(ex){}}
+      var steps=r.total_steps||0;
+      var pf=(r.status!=='running')
+        ?('<span style="color:#22C55E;font-size:.6rem;margin-right:4px">&#10003; '+(r.passed_steps||0)+'</span>'
+         +'<span style="color:var(--atrf-danger);font-size:.6rem;margin-right:6px">&#10007; '+(r.failed_steps||0)+'</span>')
+        :'';
+      html+='<div class="atrf-qrow" style="border-left:2px solid #3D7FFF">'
+        +'<div class="atrf-qrow-main">'
+        +'<div class="atrf-q-info" style="padding-left:6px">'
+        +'<span class="atrf-q-name">'+esc(r.schedule_name||'Schedule')+'</span>'+urlBadge
+        +'<div class="atrf-q-meta">'+steps+' func · '+startStr+'</div>'
+        +'</div>'
+        +pf
+        +'<span class="atrf-badge '+sc+'">'+sl+'</span>'
+        +'</div>'
+        +'</div>';
+    });
+  }
+  html+='</div>';
+  el.innerHTML=html;
+  _atrf_syncCb();
+}
+function _atrf_syncCb(){
   var allCb=document.getElementById('atrf-selall-cb');
   var delBtn=document.getElementById('atrf-del-sel-btn');
   if(allCb){
