@@ -15154,18 +15154,18 @@ async function _atrf_runSelected(){
       }
       q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
       // Encadenar access_id hacia pasos siguientes
-      // 1) Prioridad: campo "accessId" devuelto por run-step (Factibilidad devuelve u_access_id aqui)
-      if(pass&&rd&&rd.accessId){
-        _currentAccessId=rd.accessId;
-      } else if(pass&&res_s){
-        // Fallback: parsear body de la respuesta API
-        // Factibilidad → u_access_id  |  Asignacion → u_access_id_vno
+      // En runs manuales el usuario fija el access_id desde el formulario (_currentAccessId inicial).
+      // Solo actualizamos si _currentAccessId estaba vacio (no habia valor en el form).
+      if(pass&&!_currentAccessId){
+        var _rdAid=(rd&&rd.accessId)||'';
+        var _bodyAid='';
         try{
-          var _chainRj=JSON.parse(res_s);
+          var _chainRj=JSON.parse(res_s||'{}');
           var _ro=_chainRj.result||_chainRj;
-          var _newAid=_ro.u_access_id_vno||_ro.u_access_id||'';
-          if(_newAid){_currentAccessId=_newAid;}
+          _bodyAid=_ro.u_access_id_vno||_ro.u_access_id||'';
         }catch(e){}
+        var _newAid=_rdAid||_bodyAid;
+        if(_newAid)_currentAccessId=_newAid;
       }
       // Aplicar delay post-paso si está configurado
       var _dk=_ATRF_DELAY_MAP[fn];
