@@ -12387,6 +12387,7 @@ function _dashStopRefresh(){if(_dashRefreshTimer){clearInterval(_dashRefreshTime
 var _agendaData = [];
 var _agendaEditId = null;
 var _agCal = null; // {y, m} estado mes visible en el calendario
+var _agMiniCalState = null; // {y, m} estado del mini-calendario en el modal
 
 function showAgenda(){
   _dashStopRefresh();
@@ -12474,9 +12475,15 @@ function _agendaRender(){
         var ac=isComp?'#3D7FFF':'#22C55E';
         var dotC=s.last_status==='pass'?'#22C55E':s.last_status==='fail'?'#EF4444':s.last_status==='partial'?'#EAB308':'';
         var dot=dotC?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotC+';flex-shrink:0"></span>':'';
-        html+='<div data-sid="'+s.id+'" class="ag-chip" style="border-left:2px solid '+ac+';border-radius:0 3px 3px 0;background:'+ac+'18;padding:2px 4px;cursor:pointer;'+(s.active?'':'opacity:.4')+'">'
-          +'<div style="font-size:.6rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(s.name)+'">'+_esc(s.name)+'</div>'
-          +'<div style="font-size:.57rem;color:var(--txt2);font-family:monospace">'+_esc(tStr+tExtra)+(dot?' '+dot:'')+'</div>'
+        html+='<div data-sid="'+s.id+'" style="border-left:2px solid '+ac+';border-radius:0 4px 4px 0;background:'+ac+'18;padding:5px 6px;'+(s.active?'':'opacity:.4')+'">'
+          +'<div style="font-size:.65rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(s.name)+'">'+(dot?dot+' ':'')+_esc(s.name)+'</div>'
+          +'<div style="font-family:monospace;font-size:.6rem;color:var(--txt2);margin-top:1px">'+_esc(tStr+tExtra)+'</div>'
+          +'<div style="display:flex;gap:2px;margin-top:4px">'
+          +'<button data-sid="'+s.id+'" data-act="run" class="ag-cb" title="Ejecutar ahora" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.58rem;cursor:pointer">&#9654;</button>'
+          +'<button data-sid="'+s.id+'" data-act="edit" class="ag-cb" title="Editar" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.58rem;cursor:pointer">&#10000;</button>'
+          +'<button data-sid="'+s.id+'" data-act="hist" class="ag-cb" title="Historial" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.58rem;cursor:pointer">&#128221;</button>'
+          +'<button data-sid="'+s.id+'" data-act="del" class="ag-cb" title="Eliminar" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--errb);background:var(--errd);color:var(--err);font-size:.58rem;cursor:pointer">&#10005;</button>'
+          +'</div>'
           +'</div>';
       });
     } else {
@@ -12503,9 +12510,16 @@ function _agendaRender(){
 
   cont.innerHTML=html;
 
-  // chips abren menu contextual
-  cont.querySelectorAll('.ag-chip').forEach(function(chip){
-    chip.onclick=function(e){e.stopPropagation();_agChipMenu(parseInt(this.dataset.sid),this);};
+  // botones de accion en cada chip
+  cont.querySelectorAll('.ag-cb').forEach(function(b){
+    b.onclick=function(e){
+      e.stopPropagation();
+      var id=parseInt(this.dataset.sid),act=this.dataset.act;
+      if(act==='run')_agendaRunNow(id);
+      else if(act==='edit')_agendaEdit(id);
+      else if(act==='hist')_agendaHistory(id);
+      else if(act==='del')_agendaDelete(id);
+    };
   });
 }
 
@@ -12660,12 +12674,9 @@ function _agendaOpenModal(s){
     +'</div>'
 
     +'<div>'
-    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Días de la semana</label>'
-    +'<div id="ag-days-wrap" style="display:flex;gap:6px;flex-wrap:wrap">'+dayBtns+'</div>'
-    +'<input type="hidden" id="ag-days" value="'+JSON.stringify(selDays)+'">'
-    +'</div>'
-
-    +'<div>'
+    +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Días de ejecución</label>'
+    +'<div id="ag-mini-cal" style="border-radius:6px;overflow:hidden;border:1px solid var(--brd)"></div>'
+    +'<input type="hidden" id="ag-days" value="'+JSON.stringify(selDays)+'">'\n    +'</div>'+'<div>'
     +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Horarios de ejecución</label>'
     +'<div id="ag-times-wrap">'+timeInputs+'</div>'
     +'<button type="button" onclick="_agAddTime()" style="padding:4px 12px;border-radius:4px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.72rem;cursor:pointer;margin-top:2px">+ Agregar horario</button>'
@@ -12680,6 +12691,8 @@ function _agendaOpenModal(s){
   );
   document.body.appendChild(modal);
   modal.addEventListener('click',function(e){if(e.target===modal)_agendaCloseModal();});
+  _agMiniCalState=null;
+  _agMiniCalRender();
 }
 
 function _agendaCloseModal(){
@@ -12689,12 +12702,95 @@ function _agendaCloseModal(){
 }
 
 function _agToggleDay(btn,day){
+  // legacy - ya no se usa con mini-cal
   var inp=document.getElementById('ag-days');
+  if(!inp)return;
   var days=[];try{days=JSON.parse(inp.value||'[]');}catch(e){}
   var idx=days.indexOf(day);
-  if(idx>=0){days.splice(idx,1);btn.classList.remove('on');btn.style.background='var(--card)';btn.style.color='var(--txt2)';}
-  else{days.push(day);days.sort(function(a,b){return a-b;});btn.classList.add('on');btn.style.background='var(--acc)';btn.style.color='#fff';}
+  if(idx>=0)days.splice(idx,1);
+  else{days.push(day);days.sort(function(a,b){return a-b;});}
   inp.value=JSON.stringify(days);
+  _agMiniCalRender();
+}
+
+function _agMiniCalRender(){
+  var wrap=document.getElementById('ag-mini-cal');
+  if(!wrap)return;
+  if(!_agMiniCalState){var _n=new Date();_agMiniCalState={y:_n.getFullYear(),m:_n.getMonth()};}
+  var y=_agMiniCalState.y,m=_agMiniCalState.m;
+  var DAYSL=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var today=new Date();
+  var todayY=today.getFullYear(),todayM=today.getMonth(),todayD=today.getDate();
+  var daysInMonth=new Date(y,m+1,0).getDate();
+  var startWday=(new Date(y,m,1).getDay()+6)%7;
+  var selDays=[];
+  var inp=document.getElementById('ag-days');
+  if(inp)try{selDays=JSON.parse(inp.value||'[]');}catch(ex){}
+  var html='<div style="display:flex;align-items:center;padding:6px 8px;background:var(--card);border-bottom:1px solid var(--brd)">'
+    +'<button onclick="_agMiniCalPrev()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.85rem;cursor:pointer">&#8249;</button>'
+    +'<span style="flex:1;text-align:center;font-size:.72rem;font-weight:600">'+MONTHS[m]+' '+y+'</span>'
+    +'<button onclick="_agMiniCalNext()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.85rem;cursor:pointer">&#8250;</button>'
+    +'</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--brd);background:var(--card)">';
+  for(var di=0;di<7;di++){
+    var sel=selDays.indexOf(di)>=0;
+    var isWe=di>=5;
+    html+='<div data-wday="'+di+'" class="ag-mhdr" style="padding:5px 2px;text-align:center;font-size:.63rem;font-weight:700;cursor:pointer;border-radius:0;'
+      +(sel?'color:var(--acc);background:rgba(61,127,255,.15);':'color:'+(isWe?'var(--txt3)':'var(--txt2)')+';')+'">' +DAYSL[di]+'</div>';
+  }
+  html+='</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
+  var totalCells=Math.ceil((startWday+daysInMonth)/7)*7;
+  for(var ci=0;ci<totalCells;ci++){
+    var dayNum=ci-startWday+1;
+    var valid=dayNum>=1&&dayNum<=daysInMonth;
+    var wday=ci%7;
+    var selCell=selDays.indexOf(wday)>=0;
+    var isToday2=valid&&dayNum===todayD&&m===todayM&&y===todayY;
+    var borderR=wday<6?'border-right:1px solid var(--brd);':'';
+    var borderB=ci<totalCells-7?'border-bottom:1px solid var(--brd);':'';
+    var cellBg=selCell?'background:rgba(61,127,255,.10);':isToday2?'background:rgba(61,127,255,.04);':'';
+    html+='<div data-wday="'+wday+'" class="ag-mcell" style="padding:5px 3px;text-align:center;cursor:pointer;'+cellBg+borderR+borderB+'">';
+    if(valid){
+      var ns=isToday2?'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;font-size:.68rem;font-weight:700'
+        :selCell?'font-size:.68rem;font-weight:700;color:var(--acc)'
+        :'font-size:.68rem;color:var(--txt2)';
+      html+='<span style="'+ns+'">'+dayNum+'</span>';
+    } else {
+      var gd=dayNum<=0?new Date(y,m,dayNum).getDate():dayNum-daysInMonth;
+      html+='<span style="font-size:.65rem;color:var(--txt3);opacity:.3">'+gd+'</span>';
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('.ag-mhdr,.ag-mcell').forEach(function(el){
+    el.onclick=function(e){
+      e.stopPropagation();
+      var wd=parseInt(this.dataset.wday);
+      var inp2=document.getElementById('ag-days');
+      if(!inp2)return;
+      var days=[];try{days=JSON.parse(inp2.value||'[]');}catch(ex){}
+      var idx=days.indexOf(wd);
+      if(idx>=0)days.splice(idx,1);
+      else{days.push(wd);days.sort(function(a,b){return a-b;});}
+      inp2.value=JSON.stringify(days);
+      _agMiniCalRender();
+    };
+  });
+}
+
+function _agMiniCalPrev(){
+  if(!_agMiniCalState){var _n=new Date();_agMiniCalState={y:_n.getFullYear(),m:_n.getMonth()};}
+  _agMiniCalState.m--;if(_agMiniCalState.m<0){_agMiniCalState.m=11;_agMiniCalState.y--;}
+  _agMiniCalRender();
+}
+
+function _agMiniCalNext(){
+  if(!_agMiniCalState){var _n=new Date();_agMiniCalState={y:_n.getFullYear(),m:_n.getMonth()};}
+  _agMiniCalState.m++;if(_agMiniCalState.m>11){_agMiniCalState.m=0;_agMiniCalState.y++;}
+  _agMiniCalRender();
 }
 
 function _agSetPreset(p){
