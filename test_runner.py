@@ -12511,7 +12511,7 @@ function _agendaRender(){
     +'<span style="font-weight:700;font-size:.95rem;flex:1;text-align:center">'+MONTHS[m]+' '+y+'</span>'
     +'<button onclick="_agCalNext()" style="padding:3px 12px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt);font-size:1.1rem;cursor:pointer;line-height:1">&#8250;</button>'
     +'<div style="width:1px;height:18px;background:var(--brd);margin:0 6px"></div>'
-    +'<button onclick="_atrf_openNew();setTimeout(function(){_atrf_switchTab(\'sched\');},80);" style="padding:5px 14px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.75rem;cursor:pointer;font-weight:600">+ Nuevo schedule</button>'
+    +'<button onclick="_agendaNewFull()" style="padding:5px 14px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:.75rem;cursor:pointer;font-weight:600">+ Nuevo schedule</button>'
     +'</div>';
 
   // ── Cabecera dias semana ─────────────────────────────────────────────────
@@ -12663,6 +12663,10 @@ function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function _agendaNew(){
   _agendaEditId=null;
   _agendaOpenModal(null);
+}
+function _agendaNewFull(){
+  _atrf_openNew();
+  setTimeout(function(){_atrf_switchTab('sched');},80);
 }
 
 function _agendaEdit(id){
