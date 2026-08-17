@@ -1687,8 +1687,26 @@ async def _agenda_fire_async(schedule_id: int):
         failed = 0
         import urllib.request as _ur
         base_url = f"http://localhost:{_AGENDA_PORT}"
-        # El access_id viene del formulario guardado en cfg_extra (igual que en runs manuales)
+        # El access_id viene del formulario guardado en cfg_extra (igual que en runs manuales).
+        # Si el schedule es viejo y no tiene accessId guardado, se genera con la misma
+        # formula que usa el formulario ATRF: VNO + AMB(2) + digitos_dir + HH+mm+ss
         prev_access_id = _cfg_extra.get("accessId", "")
+        if not prev_access_id:
+            import datetime as _dt_aid
+            _now = _dt_aid.datetime.now()
+            _HH = f"{_now.hour:02d}"
+            _mm2 = f"{_now.minute:02d}"
+            _ss = f"{_now.second:02d}"
+            _amb = "QA"
+            _raw_dir = sched.get("direccion", "")
+            _digs = (''.join(c for c in _raw_dir if c.isdigit()) + '0000000')[:7]
+            def _mk_aid(pfx, sfx_len):
+                return pfx + _amb + _digs[:sfx_len - 8] + _HH + _mm2 + _ss
+            if vno == "00":   prev_access_id = _mk_aid("00",   9)
+            elif vno == "02": prev_access_id = _mk_aid("02-",  8)
+            elif vno == "03": prev_access_id = _mk_aid("03-", 11)
+            elif vno == "05": prev_access_id = _mk_aid("05-",  9)
+            else:             prev_access_id = _mk_aid(vno+"-", 8)
         for fn in func_names:
             body = {
                 "func": fn,
