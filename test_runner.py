@@ -1707,6 +1707,24 @@ async def _agenda_fire_async(schedule_id: int):
             elif vno == "03": prev_access_id = _mk_aid("03-", 11)
             elif vno == "05": prev_access_id = _mk_aid("05-",  9)
             else:             prev_access_id = _mk_aid(vno+"-", 8)
+        # Leer delays configurados en qa_config (mismos que usa el runner manual)
+        _sched_delays = {}
+        _delay_keys = ["delay_post_asig_ms","delay_post_ia_ms","delay_post_activ_ms",
+                       "delay_post_dm_ms","delay_post_cancel_ms"]
+        try:
+            _dcfg_rows = await conn.fetch(
+                "SELECT key, value FROM qa_config WHERE key = ANY($1)", _delay_keys)
+            for _row in _dcfg_rows:
+                _sched_delays[_row["key"]] = int(_row["value"] or 0)
+        except Exception:
+            pass
+        _SCHED_DELAY_MAP = {
+            "Asignación":                    "delay_post_asig_ms",
+            "Inicio Intervención Asegurada": "delay_post_ia_ms",
+            "Activación":                    "delay_post_activ_ms",
+            "Modificación de Dispositivo":   "delay_post_dm_ms",
+            "Cancelación Orden de Servicio": "delay_post_cancel_ms",
+        }
         for fn in func_names:
             body = {
                 "func": fn,
@@ -1754,6 +1772,13 @@ async def _agenda_fire_async(schedule_id: int):
                 failed += 1
             steps_results.append(step_r)
             print(f"[agenda] sched={schedule_id} run={run_id} {fn}: {'PASS' if step_r['pass'] else 'FAIL'}")
+            # Aplicar delay post-paso (igual que el runner manual)
+            import asyncio as _asyncio
+            _dk = _SCHED_DELAY_MAP.get(fn)
+            _dms = _sched_delays.get(_dk, 0) if _dk else 0
+            if _dms > 0:
+                print(f"[agenda] esperando {_dms}ms post-{fn}…")
+                await _asyncio.sleep(_dms / 1000)
         finished = _dt.datetime.now(_dt.timezone.utc)
         status = "pass" if failed == 0 else ("fail" if passed == 0 else "partial")
         await conn.execute(
