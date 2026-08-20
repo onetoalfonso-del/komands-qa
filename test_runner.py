@@ -1699,14 +1699,20 @@ async def _agenda_fire_async(schedule_id: int):
             _mmd  = f"{_now.month:02d}"
             _yyyy = f"{_now.year}"
             _date_str = f"{_dd}{_mmd}{_yyyy}"
-            # Correlativo: runs del mismo VNO en el dia de hoy antes de este run_id
+            # Correlativo: usa el mismo endpoint que el formulario manual
+            # para que manual y programado compartan el mismo contador diario
             _corr = 1
             try:
-                _cnt = await conn.fetchval(
-                    "SELECT COUNT(*) FROM qa_sched_runs WHERE vno=$1 AND id < $2 "
-                    "AND started_at >= CURRENT_DATE AND started_at < CURRENT_DATE + INTERVAL '1 day'",
-                    vno, run_id)
-                _corr = int(_cnt or 0) + 1
+                _aid_key = f"aid_corr_{vno}_{_date_str}"
+                _aid_row = await conn.fetchrow(
+                    """INSERT INTO qa_config (key, value, label, updated_at)
+                       VALUES ($1, '1', 'correlativo aid auto', NOW())
+                       ON CONFLICT (key) DO UPDATE
+                       SET value = (CAST(qa_config.value AS INT) + 1)::TEXT,
+                           updated_at = NOW()
+                       RETURNING value""",
+                    _aid_key)
+                _corr = int(_aid_row["value"])
             except Exception:
                 pass
             prev_access_id = f"{vno}-TESTQA{_date_str}-{_corr:02d}"
@@ -7205,6 +7211,35 @@ async def api_stats():
             ORDER BY last_run DESC
         """)
         return [dict(r) for r in rows]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.get("/api/atrf/next-aid")
+async def api_next_aid(vno: str = "02"):
+    """Retorna el proximo access_id correlativo del dia para el VNO dado.
+    Formato: VNO-TESTQAddmmyyyy-NN  (ej: 02-TESTQA20082026-01)
+    El contador se incrementa atomicamente en qa_config.
+    """
+    import datetime as _dt_na
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "db unavailable"}, status_code=503)
+    try:
+        _now = _dt_na.datetime.now()
+        _ds = f"{_now.day:02d}{_now.month:02d}{_now.year}"
+        _key = f"aid_corr_{vno}_{_ds}"
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """INSERT INTO qa_config (key, value, label, updated_at)
+                   VALUES ($1, '1', 'correlativo aid auto', NOW())
+                   ON CONFLICT (key) DO UPDATE
+                   SET value = (CAST(qa_config.value AS INT) + 1)::TEXT,
+                       updated_at = NOW()
+                   RETURNING value""",
+                _key)
+            _corr = int(row["value"])
+        _aid = f"{vno}-TESTQA{_ds}-{_corr:02d}"
+        return JSONResponse({"aid": _aid, "corr": _corr})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -14560,22 +14595,30 @@ function _atrf_switchTab(t){
 }
 
 function _atrf_buildAid(vno){
-  // Formato: VNO-TESTQAddmmyyyy-HHmm  (ej: 02-TESTQA20082026-1407)
+  // Fallback local si el endpoint falla: usa HHmm como diferenciador
   var v=vno||_atrf_firstVno()||'00';
-  var n=_atrf_now();
   var d=new Date();
   var dd=String(d.getDate()).padStart(2,'0');
   var mm=String(d.getMonth()+1).padStart(2,'0');
   var yyyy=String(d.getFullYear());
-  return v+'-TESTQA'+dd+mm+yyyy+'-'+n.HH+n.mm;
+  var HH=String(d.getHours()).padStart(2,'0');
+  var mi=String(d.getMinutes()).padStart(2,'0');
+  return v+'-TESTQA'+dd+mm+yyyy+'-'+HH+mi;
 }
 function _atrf_updateAid(){
   if(!_atrfAutoState.aid)return;
   var el=document.getElementById('atrf-aid');if(!el)return;
   var vnos=_atrf_getVnos();
   if(!vnos.length){el.value='';}
-  else if(vnos.length>1){el.value='Se genera automáticamente al encolar';}
-  else{el.value=_atrf_buildAid(vnos[0]);}
+  else if(vnos.length>1){el.value='Se genera automaticamente al encolar';}
+  else{
+    var _vno=vnos[0];
+    el.value='Generando…';
+    fetch('/api/atrf/next-aid?vno='+encodeURIComponent(_vno))
+      .then(function(r){return r.json();})
+      .then(function(rd){if(rd.aid&&_atrfAutoState.aid){el.value=rd.aid;}})
+      .catch(function(){if(_atrfAutoState.aid){el.value=_atrf_buildAid(_vno);}});
+  }
 }
 function _atrf_onAidInput(){_atrfAutoState.aid=false;document.getElementById('atrf-auto-aid').classList.add('off');}
 
