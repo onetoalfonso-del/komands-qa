@@ -14560,20 +14560,14 @@ function _atrf_switchTab(t){
 }
 
 function _atrf_buildAid(vno){
+  // Formato: VNO-TESTQAddmmyyyy-HHmm  (ej: 02-TESTQA20082026-1407)
   var v=vno||_atrf_firstVno()||'00';
-  var amb=(_atrf_getAmb()||'QA').toUpperCase().slice(0,2);
-  var dir=_atrf_v('atrf-dir').trim();
   var n=_atrf_now();
-  var digs=(dir.replace(/\D/g,'')+'0000000').slice(0,7);
-  function mk(pfx,sfxLen){
-    // pfx + amb(2) + dir_digits(sfxLen-8) + HH(2) + mm(2) + ss(2) = pfx + sfxLen
-    return pfx+amb+digs.slice(0,sfxLen-8)+n.HH+n.mm+n.ss;
-  }
-  if(v==='00')return mk('00',9);    // 11 total
-  if(v==='02')return mk('02-',8);   // 11 total
-  if(v==='03')return mk('03-',11);  // 14 total
-  if(v==='05')return mk('05-',9);   // 12 total
-  return mk(v+'-',8);
+  var d=new Date();
+  var dd=String(d.getDate()).padStart(2,'0');
+  var mm=String(d.getMonth()+1).padStart(2,'0');
+  var yyyy=String(d.getFullYear());
+  return v+'-TESTQA'+dd+mm+yyyy+'-'+n.HH+n.mm;
 }
 function _atrf_updateAid(){
   if(!_atrfAutoState.aid)return;
