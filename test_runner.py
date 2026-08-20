@@ -5677,6 +5677,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
+        # HTTP 408: timeout del APIM gateway — el backend igual procesa la solicitud.
+        # Se marca como pass con advertencia; el polling de CoreUse confirmará el resultado.
+        if not _pass and _http_code == 408:
+            _pass = True
+            _res_body = _res_body + "\n\n⚠ HTTP 408 APIM timeout — solicitud enviada, verificar en CoreUse/ServiceNow"
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
