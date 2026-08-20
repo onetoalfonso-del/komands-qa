@@ -1688,25 +1688,28 @@ async def _agenda_fire_async(schedule_id: int):
         import urllib.request as _ur
         base_url = f"http://localhost:{_AGENDA_PORT}"
         # El access_id viene del formulario guardado en cfg_extra (igual que en runs manuales).
-        # Si el schedule es viejo y no tiene accessId guardado, se genera con la misma
-        # formula que usa el formulario ATRF: VNO + AMB(2) + digitos_dir + HH+mm+ss
+        # Si el schedule no tiene accessId guardado, se genera con formato:
+        #   VNO-TESTQAddmmyyyy-NN  (ej: 02-TESTQA20082026-01)
+        # donde NN es correlativo diario por VNO (cuantos runs hubo hoy antes de este).
         prev_access_id = _cfg_extra.get("accessId", "")
         if not prev_access_id:
             import datetime as _dt_aid
             _now = _dt_aid.datetime.now()
-            _HH = f"{_now.hour:02d}"
-            _mm2 = f"{_now.minute:02d}"
-            _ss = f"{_now.second:02d}"
-            _amb = "QA"
-            _raw_dir = sched.get("direccion", "")
-            _digs = (''.join(c for c in _raw_dir if c.isdigit()) + '0000000')[:7]
-            def _mk_aid(pfx, sfx_len):
-                return pfx + _amb + _digs[:sfx_len - 8] + _HH + _mm2 + _ss
-            if vno == "00":   prev_access_id = _mk_aid("00",   9)
-            elif vno == "02": prev_access_id = _mk_aid("02-",  8)
-            elif vno == "03": prev_access_id = _mk_aid("03-", 11)
-            elif vno == "05": prev_access_id = _mk_aid("05-",  9)
-            else:             prev_access_id = _mk_aid(vno+"-", 8)
+            _dd   = f"{_now.day:02d}"
+            _mmd  = f"{_now.month:02d}"
+            _yyyy = f"{_now.year}"
+            _date_str = f"{_dd}{_mmd}{_yyyy}"
+            # Correlativo: runs del mismo VNO en el dia de hoy antes de este run_id
+            _corr = 1
+            try:
+                _cnt = await conn.fetchval(
+                    "SELECT COUNT(*) FROM qa_sched_runs WHERE vno=$1 AND id < $2 "
+                    "AND started_at >= CURRENT_DATE AND started_at < CURRENT_DATE + INTERVAL '1 day'",
+                    vno, run_id)
+                _corr = int(_cnt or 0) + 1
+            except Exception:
+                pass
+            prev_access_id = f"{vno}-TESTQA{_date_str}-{_corr:02d}"
         # Leer delays configurados en qa_config (mismos que usa el runner manual)
         _sched_delays = {}
         _delay_keys = ["delay_post_asig_ms","delay_post_ia_ms","delay_post_activ_ms",
