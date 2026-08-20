@@ -15275,11 +15275,18 @@ async function _atrf_runSelected(){
       // Solo actualizar si el formulario NO tenia access_id (schedule viejo o campo vacio).
       // Si el formulario tenia access_id, ese se respeta siempre.
       if(pass&&rd&&rd.accessId&&!_currentAccessId){_currentAccessId=rd.accessId;}
-      // Aplicar delay post-paso si está configurado
+      // Aplicar delay post-paso: cuenta regresiva de 1s para mantener JS activo
+      // (un solo setTimeout largo puede ser suspendido por el navegador en tabs inactivos)
       var _dk=_ATRF_DELAY_MAP[fn];
       if(_dk&&_delays[_dk]>0){
-        if(prog)prog.textContent='⏸ Esperando '+_delays[_dk]+'ms ('+fn+')…';
-        await new Promise(function(r){setTimeout(r,_delays[_dk]);});
+        var _dTotal=_delays[_dk];
+        var _dEnd=Date.now()+_dTotal;
+        while(Date.now()<_dEnd){
+          var _dLeft=Math.ceil((_dEnd-Date.now())/1000);
+          if(prog)prog.textContent='⏸ Esperando '+_dLeft+'s post-'+fn+'…';
+          await new Promise(function(r){setTimeout(r,Math.min(1000,_dEnd-Date.now()));});
+        }
+        if(prog)prog.textContent='';
       }
       // ── Polling CoreUse: verificar resultado real en ServiceNow ─────────────
       if(!_COREUSE_NO_POLL[fn] && _currentAccessId && pass){
