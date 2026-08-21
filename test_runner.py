@@ -2276,8 +2276,82 @@ async def api_report_sched_run(run_id: int):
     })
 
 
+async def _agenda_poll_loop():
+    """
+    Loop continuo (cada 60s) que verifica en BD si hay schedules que deberian haberse
+    ejecutado en los ultimos 10 minutos y no tienen run registrado.
+    Es la solucion robusta para Railway: no depende del estado in-memory de APScheduler.
+    """
+    import asyncio as _aio_pl, json as _jpl, datetime as _dtpl, threading as _thrpl
+    try:
+        from zoneinfo import ZoneInfo as _ZIpl
+        _tz_pl = _ZIpl("America/Santiago")
+    except Exception:
+        try:
+            import pytz as _ptz_pl
+            _tz_pl = _ptz_pl.timezone("America/Santiago")
+        except Exception:
+            print("[agenda-poll] ERROR: no se pudo cargar timezone Santiago")
+            return
+
+    await _aio_pl.sleep(15)  # dar tiempo al servidor para arrancar
+    print("[agenda-poll] loop iniciado")
+
+    while True:
+        try:
+            now_utc  = _dtpl.datetime.now(_dtpl.timezone.utc)
+            now_stgo = now_utc.astimezone(_tz_pl)
+            conn = await _db()
+            rows = await conn.fetch("SELECT * FROM qa_schedules WHERE active=TRUE")
+            for row in rows:
+                sched  = dict(row)
+                sched_id = sched["id"]
+                try:
+                    dates = _jpl.loads(sched.get("days_of_week") or "[]")
+                    times = _jpl.loads(sched.get("times_of_day") or '["09:00"]')
+                except Exception:
+                    continue
+                for date_str in dates:
+                    try:
+                        d = _dtpl.date.fromisoformat(str(date_str))
+                    except Exception:
+                        continue
+                    if d != now_stgo.date():
+                        continue  # no es hoy
+                    for t in times:
+                        try:
+                            parts = (str(t) + ":00").split(":")
+                            h, mi = int(parts[0]), int(parts[1])
+                            sched_stgo = now_stgo.replace(hour=h, minute=mi, second=0, microsecond=0)
+                            diff_secs  = (now_stgo - sched_stgo).total_seconds()
+                            # Ventana: la hora ya paso (diff>0) pero hace menos de 10 minutos
+                            if diff_secs < 0 or diff_secs > 600:
+                                continue
+                            sched_utc = sched_stgo.astimezone(_dtpl.timezone.utc)
+                            existing = await conn.fetchval(
+                                "SELECT COUNT(*) FROM qa_sched_runs "
+                                "WHERE schedule_id=$1 AND started_at >= $2",
+                                sched_id,
+                                sched_utc - _dtpl.timedelta(minutes=10)
+                            )
+                            if existing == 0:
+                                print(f"[agenda-poll] DISPARANDO schedule {sched_id} "
+                                      f"'{sched.get('name','')}' ({date_str} {t} Santiago)")
+                                _thrpl.Thread(
+                                    target=_agenda_fire_sync,
+                                    args=[sched_id],
+                                    daemon=True
+                                ).start()
+                        except Exception as _ep:
+                            print(f"[agenda-poll] error schedule {sched_id}: {_ep}")
+        except Exception as _eloop:
+            print(f"[agenda-poll] error loop general: {_eloop}")
+        await _aio_pl.sleep(60)  # verificar cada minuto
+
+
 @app.on_event("startup")
 async def _startup_db():
+    import asyncio as _aio_st
     global _AGENDA_SCHEDULER
     await _db()
     if _APS_AVAILABLE:
@@ -2291,6 +2365,9 @@ async def _startup_db():
             print(f"[agenda] error iniciando APScheduler: {e}")
     else:
         print("[agenda] APScheduler no disponible (pip install apscheduler)")
+    # Loop de polling: capa extra independiente de APScheduler
+    _aio_st.create_task(_agenda_poll_loop())
+    print("[agenda] poll-loop iniciado")
 
 
 @app.get("/", response_class=HTMLResponse)
