@@ -2299,6 +2299,22 @@ async def _agenda_poll_loop():
 
     while True:
         try:
+            # Limpiar runs atascados en "running" hace mas de 30 minutos
+            conn = await _db()
+            stuck = await conn.fetch(
+                "SELECT id FROM qa_sched_runs WHERE status='running' "
+                "AND started_at < NOW() - INTERVAL '30 minutes'"
+            )
+            for sr in stuck:
+                await conn.execute(
+                    "UPDATE qa_sched_runs SET status='fail', finished_at=NOW(), "
+                    "failed_steps=total_steps WHERE id=$1",
+                    sr["id"]
+                )
+                print(f"[agenda-poll] run {sr['id']} atascado → marcado fail")
+        except Exception as _estuck:
+            print(f"[agenda-poll] error limpiando stuck runs: {_estuck}")
+        try:
             now_utc  = _dtpl.datetime.now(_dtpl.timezone.utc)
             now_stgo = now_utc.astimezone(_tz_pl)
             conn = await _db()
