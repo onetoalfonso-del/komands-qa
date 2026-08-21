@@ -1830,7 +1830,9 @@ async def _agenda_fire_async(schedule_id: int):
                 "serviceVoip": _cfg_extra.get("voip", True),
                 "serviceIptv": _cfg_extra.get("iptv", True),
             }
-            step_r = {"func": fn, "pass": False, "error": None}
+            step_r = {"func": fn, "pass": False, "error": None, "duration_ms": 0}
+            import time as _tme
+            _step_t0 = _tme.monotonic()
             try:
                 req_data = _j.dumps(body).encode("utf-8")
                 req = _ur.Request(
@@ -1857,6 +1859,8 @@ async def _agenda_fire_async(schedule_id: int):
             except Exception as ex:
                 step_r["error"] = str(ex)
                 failed += 1
+            finally:
+                step_r["duration_ms"] = int((_tme.monotonic() - _step_t0) * 1000)
             steps_results.append(step_r)
             print(f"[agenda] sched={schedule_id} run={run_id} {fn}: {'PASS' if step_r['pass'] else 'FAIL'}")
             # Aplicar delay post-paso (igual que el runner manual)
@@ -2080,13 +2084,17 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
             sc = "pass" if sp else "fail"
             sn = _esc(s.get("name") or s.get("func", "—"))
             sh = s.get("http", 0) or 0
+            sdur = s.get("duration_ms", 0) or 0
             sreq = _esc(_pj(s.get("req","") or ""))
             sres = _esc(_pj(s.get("res","") or s.get("error","") or ""))
             hbadge = f'<span class="hbadge">{sh}</span>' if sh else ""
+            _dur_secs = sdur / 1000.0
+            _dur_lbl = f"{_dur_secs:.1f}s" if _dur_secs < 60 else f"{int(_dur_secs)//60}m {int(_dur_secs)%60}s"
+            durbadge = f'<span class="hbadge" title="Duración">⏱ {_dur_lbl}</span>' if sdur else ""
             steps_html += (
                 f'<div class="scard"><div class="shdr" onclick="tStep(this)">'
                 f'<span class="sico {sc}">{"✓" if sp else "✗"}</span>'
-                f'<span class="snm">{sn}</span>{hbadge}'
+                f'<span class="snm">{sn}</span>{hbadge}{durbadge}'
                 f'<span class="sarr">▶</span></div>'
                 f'<div class="sbdy" style="display:none">'
                 f'<div class="ctabs">'
@@ -2262,7 +2270,7 @@ async def api_report_sched_run(run_id: int):
     title = f"Reporte Schedule — {sname} ({sa_s})"
     html = _build_extent_html(title, tests, sa, fa, vno, "", "QA")
     from fastapi.responses import HTMLResponse
-    fname = f"reporte_sched_{run_id}.html"
+    fname = f"Reporte_Automatizacion_{sa_s or run_id}.html"
     return HTMLResponse(content=html, headers={
         "Content-Disposition": f'attachment; filename="{fname}"'
     })
@@ -15599,6 +15607,7 @@ async function _atrf_runSelected(){
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,rd=null;
+      var _stepT0=Date.now();
       try{
         var resp=await fetch('/api/atrf/run-step',{
           method:'POST',
@@ -15657,7 +15666,7 @@ async function _atrf_runSelected(){
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
-      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut});
+      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_stepT0});
       // Solo actualizar si el formulario NO tenia access_id (schedule viejo o campo vacio).
       // Si el formulario tenia access_id, ese se respeta siempre.
       if(pass&&rd&&rd.accessId&&!_currentAccessId){_currentAccessId=rd.accessId;}
@@ -15808,7 +15817,7 @@ async function _atrf_downloadManualReport(){
   _atrfQueue.forEach(function(q){
     if(!q.tcResults||!q.tcResults.length)return;
     var steps=q.tcResults.map(function(r){
-      return{name:r.func||r.label||'',pass:!!r.pass,http:r.httpCode||0,req:r.req||'',res:r.res||''};
+      return{name:r.func||r.label||'',pass:!!r.pass,http:r.httpCode||0,req:r.req||'',res:r.res||'',duration_ms:r.duration_ms||0};
     });
     var anyFail=steps.some(function(s){return !s.pass;});
     tests.push({name:q.name||'Secuencia',pass:!anyFail,steps:steps});
@@ -15824,7 +15833,7 @@ async function _atrf_downloadManualReport(){
     var html=await r.text();
     var blob=new Blob([html],{type:'text/html;charset=utf-8'});
     var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');a.href=url;a.download='reporte_qa_'+ds+'.html';
+    var a=document.createElement('a');a.href=url;a.download='Reporte_Automatizacion_'+ds+'.html';
     document.body.appendChild(a);a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
   }catch(ex){alert('Error generando reporte: '+ex);}
@@ -15838,7 +15847,8 @@ function _atrf_downloadSchedReport(rid){
     .then(function(html){
       var blob=new Blob([html],{type:'text/html;charset=utf-8'});
       var url=URL.createObjectURL(blob);
-      var a=document.createElement('a');a.href=url;a.download='reporte_sched_'+rid+'.html';
+      var _now2=new Date();var _ds2=String(_now2.getDate()).padStart(2,'0')+String(_now2.getMonth()+1).padStart(2,'0')+_now2.getFullYear();
+      var a=document.createElement('a');a.href=url;a.download='Reporte_Automatizacion_'+_ds2+'.html';
       document.body.appendChild(a);a.click();
       setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
     })
