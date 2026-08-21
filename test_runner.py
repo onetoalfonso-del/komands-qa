@@ -1937,6 +1937,243 @@ async def api_sched_runs_recent(limit: int = 20):
     return [dict(r) for r in rows]
 
 
+# ─── Generador de reportes HTML estilo ExtentReports ─────────────────────────
+
+def _build_extent_html(title, tests, started_at=None, finished_at=None,
+                        vno="", access_id="", env_name="QA"):
+    """
+    Genera HTML self-contained estilo ExtentReports Spark.
+    tests = lista de dict {name, pass, steps:[{name,pass,http,req,res,error}]}
+    """
+    import json as _jrpt, html as _hrpt, datetime as _dtrpt
+
+    def _fmt(d):
+        if not d: return "—"
+        try:
+            if isinstance(d, str): d = _dtrpt.datetime.fromisoformat(d.replace("Z",""))
+            return d.strftime("%d/%m/%Y %H:%M:%S")
+        except: return str(d)
+
+    def _esc(s): return _hrpt.escape(str(s) if s is not None else "")
+
+    def _pj(s):
+        if not s: return ""
+        try: return _jrpt.dumps(_jrpt.loads(s), indent=2, ensure_ascii=False)
+        except: return str(s)
+
+    passed_t = sum(1 for t in tests if t.get("pass"))
+    failed_t = len(tests) - passed_t
+    all_s = [s for t in tests for s in (t.get("steps") or [])]
+    passed_s = sum(1 for s in all_s if s.get("pass"))
+    failed_s = len(all_s) - passed_s
+    total_t = len(tests)
+    total_s = len(all_s)
+
+    dur_str = "—"
+    if started_at and finished_at:
+        try:
+            sa = _dtrpt.datetime.fromisoformat(str(started_at).replace("Z","")) if isinstance(started_at,str) else started_at
+            fa = _dtrpt.datetime.fromisoformat(str(finished_at).replace("Z","")) if isinstance(finished_at,str) else finished_at
+            secs = max(0, int((fa-sa).total_seconds()))
+            dur_str = f"{secs//60}m {secs%60}s"
+        except: pass
+
+    now_str = _dtrpt.datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    # Build test list + content panels
+    items_html = ""
+    contents_html = ""
+    for ti, t in enumerate(tests):
+        tp = t.get("pass", False)
+        tn = _esc(t.get("name", f"Test {ti+1}"))
+        tc = "pass" if tp else "fail"
+        steps = t.get("steps") or []
+        steps_html = ""
+        for si, s in enumerate(steps):
+            sp = s.get("pass", False)
+            sc = "pass" if sp else "fail"
+            sn = _esc(s.get("name") or s.get("func", "—"))
+            sh = s.get("http", 0) or 0
+            sreq = _esc(_pj(s.get("req","") or ""))
+            sres = _esc(_pj(s.get("res","") or s.get("error","") or ""))
+            hbadge = f'<span class="hbadge">{sh}</span>' if sh else ""
+            steps_html += (
+                f'<div class="scard"><div class="shdr" onclick="tStep(this)">'
+                f'<span class="sico {sc}">{"✓" if sp else "✗"}</span>'
+                f'<span class="snm">{sn}</span>{hbadge}'
+                f'<span class="sarr">▶</span></div>'
+                f'<div class="sbdy" style="display:none">'
+                f'<div class="ctabs">'
+                f'<button class="ctab active" onclick="showTab(this,\'rq-{ti}-{si}\')">Request</button>'
+                f'<button class="ctab" onclick="showTab(this,\'rs-{ti}-{si}\')">Response</button>'
+                f'</div>'
+                f'<div id="rq-{ti}-{si}" class="cpanel"><pre>{sreq or "(sin datos)"}</pre></div>'
+                f'<div id="rs-{ti}-{si}" class="cpanel" style="display:none"><pre>{sres or "(sin datos)"}</pre></div>'
+                f'</div></div>'
+            )
+        items_html += (
+            f'<li class="tli {tc}" data-ti="{ti}" onclick="selTest({ti})">'
+            f'<span class="tln">{tn}</span>'
+            f'<span class="tlb {tc}">{"Pass" if tp else "Fail"}</span></li>'
+        )
+        contents_html += (
+            f'<div class="tcont" id="tc-{ti}" style="display:none">'
+            f'<div class="tch"><h3 class="tct">{tn}</h3>'
+            f'<span class="sbadge {tc}">{"Pass" if tp else "Fail"}</span></div>'
+            f'<div class="tsteps">{steps_html if steps_html else "<p class=\\"nosp\\">Sin pasos registrados</p>"}</div>'
+            f'</div>'
+        )
+
+    ai_chip = f'<span class="chip">Access ID <b>{_esc(access_id)}</b></span>' if access_id else ""
+    vno_chip = f'<span class="chip">VNO <b>{_esc(vno)}</b></span>' if vno else ""
+    env_chip = f'<span class="chip">Env <b>{_esc(env_name)}</b></span>' if env_name else ""
+
+    return (
+        '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>{_esc(title)}</title><style>'
+        '*{box-sizing:border-box;margin:0;padding:0}'
+        'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1117;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}'
+        '.hdr{background:#1a1d2e;border-bottom:1px solid #252840;padding:10px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0}'
+        '.hlogo{font-size:1rem;font-weight:800;color:#818cf8;letter-spacing:-.5px;flex-shrink:0}'
+        '.htitle{font-size:.88rem;font-weight:600;color:#c7d2fe;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+        '.hmeta{font-size:.68rem;color:#6b7280;display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap}'
+        '.body{display:flex;flex:1;overflow:hidden}'
+        '.sb{width:290px;background:#13151f;border-right:1px solid #1e2130;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}'
+        '.sbsum{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:12px}'
+        '.sbs{background:#1a1d2e;border-radius:6px;padding:9px 10px;text-align:center}'
+        '.sbsn{font-size:1.5rem;font-weight:700;line-height:1}.sbsl{font-size:.6rem;color:#9ca3af;margin-top:2px;text-transform:uppercase;letter-spacing:.05em}'
+        '.sbs.p .sbsn{color:#22c55e}.sbs.f .sbsn{color:#ef4444}.sbs.t .sbsn{color:#818cf8}.sbs.d .sbsn{color:#f59e0b;font-size:.95rem;padding-top:5px}'
+        '.sblbl{font-size:.65rem;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;padding:8px 12px 5px}'
+        '.tlist{flex:1;overflow-y:auto;list-style:none}'
+        '.tli{display:flex;align-items:center;padding:8px 12px;gap:8px;cursor:pointer;border-bottom:1px solid #1a1c28;border-left:2px solid transparent}'
+        '.tli:hover{background:#1a1d2e}.tli.sel{background:#1e2235;border-left-color:#818cf8}'
+        '.tli.pass.sel{border-left-color:#22c55e}.tli.fail.sel{border-left-color:#ef4444}'
+        '.tln{flex:1;font-size:.74rem;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+        '.tlb{font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:3px;flex-shrink:0}'
+        '.tlb.pass{background:rgba(34,197,94,.15);color:#22c55e}.tlb.fail{background:rgba(239,68,68,.15);color:#ef4444}'
+        '.main{flex:1;overflow-y:auto;padding:18px}'
+        '.welcome{text-align:center;padding:60px 20px;color:#374151}'
+        '.welcome h2{font-size:1rem;color:#4b5563;margin-bottom:6px}.welcome p{font-size:.78rem}'
+        '.tcont{display:none}.tch{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #1e2130}'
+        '.tct{font-size:.95rem;font-weight:700;color:#e2e8f0}'
+        '.sbadge{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:4px}'
+        '.sbadge.pass{background:rgba(34,197,94,.18);color:#22c55e}.sbadge.fail{background:rgba(239,68,68,.18);color:#ef4444}'
+        '.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}'
+        '.chip{background:#1a1d2e;border:1px solid #252840;border-radius:4px;padding:3px 9px;font-size:.68rem;color:#9ca3af}'
+        '.chip b{color:#c7d2fe}'
+        '.scard{background:#1a1d2e;border-radius:7px;margin-bottom:7px;overflow:hidden;border:1px solid #252840}'
+        '.shdr{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer}'
+        '.shdr:hover{background:rgba(255,255,255,.025)}'
+        '.sico{font-size:.8rem;font-weight:700;width:18px;text-align:center;flex-shrink:0}'
+        '.sico.pass{color:#22c55e}.sico.fail{color:#ef4444}'
+        '.snm{flex:1;font-size:.78rem;color:#c7d2fe;font-weight:500}'
+        '.hbadge{font-size:.62rem;font-family:monospace;background:#1e2130;color:#94a3b8;padding:1px 6px;border-radius:3px;flex-shrink:0}'
+        '.sarr{font-size:.58rem;color:#374151;transition:transform .15s;flex-shrink:0}'
+        '.scard.open .sarr{transform:rotate(90deg)}'
+        '.sbdy{border-top:1px solid #1e2130}'
+        '.ctabs{display:flex;background:#111320;border-bottom:1px solid #252840}'
+        '.ctab{background:none;border:none;color:#6b7280;font-size:.68rem;font-weight:600;padding:6px 13px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}'
+        '.ctab.active{color:#818cf8;border-bottom-color:#818cf8}'
+        '.cpanel{max-height:320px;overflow:auto}'
+        '.cpanel pre{font-family:"SF Mono","Fira Code",monospace;font-size:.7rem;line-height:1.5;padding:11px 14px;white-space:pre-wrap;word-break:break-word;color:#94a3b8}'
+        '.nosp{color:#374151;font-size:.78rem;font-style:italic;padding:16px 0}'
+        '::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#0f1117}::-webkit-scrollbar-thumb{background:#252840;border-radius:2px}'
+        '</style></head><body>'
+        f'<div class="hdr"><div class="hlogo">KomandQA</div><div class="htitle">{_esc(title)}</div>'
+        f'<div class="hmeta"><span>▶ {_fmt(started_at)}</span><span>■ {_fmt(finished_at)}</span><span>⏱ {dur_str}</span><span>Gen. {now_str}</span></div></div>'
+        '<div class="body">'
+        '<div class="sb">'
+        f'<div class="sbsum"><div class="sbs p"><div class="sbsn">{passed_t}</div><div class="sbsl">Pasaron</div></div>'
+        f'<div class="sbs f"><div class="sbsn">{failed_t}</div><div class="sbsl">Fallaron</div></div>'
+        f'<div class="sbs t"><div class="sbsn">{total_s}</div><div class="sbsl">Total pasos</div></div>'
+        f'<div class="sbs d"><div class="sbsn">{dur_str}</div><div class="sbsl">Duración</div></div></div>'
+        '<div class="sblbl">Tests</div>'
+        f'<ul class="tlist">{items_html}</ul></div>'
+        '<div class="main">'
+        f'<div id="rw" class="welcome"><h2>Reporte de Ejecución QA</h2><p>Selecciona un test de la lista para ver los detalles.</p></div>'
+        f'{contents_html}</div></div>'
+        '<script>'
+        'var _a=-1;'
+        'function selTest(ti){'
+        '  if(_a>=0){var oi=document.querySelector("[data-ti=\\""+_a+"\\"]");if(oi)oi.classList.remove("sel");'
+        '  var oc=document.getElementById("tc-"+_a);if(oc)oc.style.display="none";}'
+        '  _a=ti;'
+        '  var li=document.querySelector("[data-ti=\\""+ti+"\\"]");if(li)li.classList.add("sel");'
+        '  var c=document.getElementById("tc-"+ti);if(c)c.style.display="block";'
+        '  document.getElementById("rw").style.display="none";}'
+        'function tStep(h){'
+        '  var card=h.parentElement;var body=card.querySelector(".sbdy");'
+        '  var open=card.classList.toggle("open");body.style.display=open?"block":"none";}'
+        'function showTab(btn,pid){'
+        '  var tabs=btn.parentElement;tabs.querySelectorAll(".ctab").forEach(function(t){t.classList.remove("active");});'
+        '  btn.classList.add("active");'
+        '  var panel=btn.closest(".sbdy");panel.querySelectorAll(".cpanel").forEach(function(p){p.style.display="none";});'
+        '  document.getElementById(pid).style.display="block";}'
+        f'if({total_t}===1){{selTest(0);}}'
+        '</script></body></html>'
+    )
+
+
+@app.post("/api/report/generate")
+async def api_report_generate(request: Request):
+    """Genera y devuelve un HTML de reporte a partir de resultados enviados por el cliente."""
+    import json as _jrg, datetime as _dtrg
+    data = await request.json()
+    title = data.get("title", "Reporte QA")
+    vno = data.get("vno", "")
+    access_id = data.get("access_id", "")
+    env_name = data.get("env_name", "QA")
+    started_at = data.get("started_at")
+    finished_at = data.get("finished_at") or _dtrg.datetime.now().isoformat()
+    tests = data.get("tests", [])
+    html = _build_extent_html(title, tests, started_at, finished_at, vno, access_id, env_name)
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html, headers={
+        "Content-Disposition": f'attachment; filename="{title.replace(" ","_")}.html"'
+    })
+
+
+@app.get("/api/report/sched-run/{run_id}")
+async def api_report_sched_run(run_id: int):
+    """Genera y descarga un HTML de reporte para una ejecución programada."""
+    import json as _jsr, datetime as _dtsr
+    conn = await _db()
+    row = await conn.fetchrow("""
+        SELECT r.*, s.name AS schedule_name, s.amb_url, s.vno AS sched_vno
+        FROM qa_sched_runs r JOIN qa_schedules s ON s.id=r.schedule_id
+        WHERE r.id=$1
+    """, run_id)
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Run no encontrado")
+    r = dict(row)
+    steps_raw = []
+    try: steps_raw = _jsr.loads(r.get("steps_json") or "[]")
+    except: pass
+    steps = [
+        {"name": s.get("func",""), "pass": s.get("pass",False),
+         "http": s.get("http",0), "req": s.get("req",""), "res": s.get("res",""),
+         "error": s.get("error","")}
+        for s in steps_raw
+    ]
+    any_fail = any(not s["pass"] for s in steps)
+    tests = [{"name": r.get("schedule_name","Schedule"), "pass": not any_fail, "steps": steps}]
+    sa = r.get("started_at"); fa = r.get("finished_at")
+    vno = r.get("vno") or r.get("sched_vno","")
+    sname = r.get("schedule_name","Schedule")
+    if sa:
+        try: sa_s = sa.strftime("%d%m%Y") if hasattr(sa,'strftime') else str(sa)[:10].replace("-","")
+        except: sa_s = ""
+    else: sa_s = ""
+    title = f"Reporte Schedule — {sname} ({sa_s})"
+    html = _build_extent_html(title, tests, sa, fa, vno, "", "QA")
+    from fastapi.responses import HTMLResponse
+    fname = f"reporte_sched_{run_id}.html"
+    return HTMLResponse(content=html, headers={
+        "Content-Disposition": f'attachment; filename="{fname}"'
+    })
+
 
 @app.on_event("startup")
 async def _startup_db():
@@ -8406,6 +8643,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected()">&#9654; Ejecutar seleccionadas</button>
+            <button class="atrf-btn atrf-btn-sm" id="atrf-dl-report-btn" onclick="_atrf_downloadManualReport()" style="display:none;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)">&#128229; Descargar Reporte</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
           </div>
           <div id="atrf-exec-area"></div>
@@ -14308,6 +14546,7 @@ function _atrf_renderQueue(){
         +'</div>'
         +pf
         +'<span class="atrf-badge '+sc+'">'+sl+'</span>'
+        +(r.status!=='running'?'<button class="atrf-btn atrf-btn-sm ag-sr-dl" data-rid="'+r.id+'" style="padding:3px 8px;flex-shrink:0;background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.25)" title="Descargar reporte HTML">&#128229;</button>':'')
         +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger ag-sr-del" data-rid="'+r.id+'" style="padding:3px 8px;flex-shrink:0">&#10005;</button>'
         +'</div>'
         +stepsHtml
@@ -14326,6 +14565,14 @@ function _atrf_renderQueue(){
       fetch('/api/sched-runs/'+rid,{method:'DELETE',headers:_authHdr()})
         .then(function(){_atrf_loadSchedRuns();})
         .catch(function(e){alert('Error: '+e);});
+    };
+  });
+  // descargar reporte de run programado
+  el.querySelectorAll('.ag-sr-dl').forEach(function(btn){
+    btn.onclick=function(e){
+      e.stopPropagation();
+      var rid=parseInt(this.dataset.rid);
+      _atrf_downloadSchedReport(rid);
     };
   });
   // click en step de run programado → modal req/res
@@ -15406,6 +15653,9 @@ async function _atrf_runSelected(){
   _atrfRunning=false;
   if(prog)prog.style.display='none';
   if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
+  // Mostrar botón de descarga de reporte si hay resultados
+  var _dlBtn=document.getElementById('atrf-dl-report-btn');
+  if(_dlBtn){var _hasRes=_atrfQueue.some(function(q){return q.tcResults&&q.tcResults.length;});if(_hasRes)_dlBtn.style.display='';}
 }
 
 // ── Perfil ────────────────────────────────────────────────────────────────────
@@ -15454,6 +15704,51 @@ function _doChangePwd(){
         if(err){err.textContent=res.d.detail||'Error';err.style.display='block';}
       }
     });
+}
+
+// ── Reportes descargables ─────────────────────────────────────────────────────
+async function _atrf_downloadManualReport(){
+  // Recopilar resultados de todas las secuencias con resultados
+  var tests=[];
+  var startTs=null,endTs=Date.now();
+  _atrfQueue.forEach(function(q){
+    if(!q.tcResults||!q.tcResults.length)return;
+    var steps=q.tcResults.map(function(r){
+      return{name:r.func||r.label||'',pass:!!r.pass,http:r.httpCode||0,req:r.req||'',res:r.res||''};
+    });
+    var anyFail=steps.some(function(s){return !s.pass;});
+    tests.push({name:q.name||'Secuencia',pass:!anyFail,steps:steps});
+  });
+  if(!tests.length){alert('Sin resultados para generar reporte. Ejecuta primero una secuencia.');return;}
+  var now=new Date();
+  var ds=String(now.getDate()).padStart(2,'0')+String(now.getMonth()+1).padStart(2,'0')+now.getFullYear();
+  var title='Reporte QA - '+ds;
+  var payload={title:title,tests:tests,started_at:null,finished_at:new Date().toISOString()};
+  try{
+    var r=await fetch('/api/report/generate',{method:'POST',headers:_authHdr(),body:JSON.stringify(payload)});
+    if(!r.ok){alert('Error al generar reporte: '+r.status);return;}
+    var html=await r.text();
+    var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download='reporte_qa_'+ds+'.html';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+  }catch(ex){alert('Error generando reporte: '+ex);}
+}
+function _atrf_downloadSchedReport(rid){
+  fetch('/api/report/sched-run/'+rid,{headers:_authHdr()})
+    .then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.text();
+    })
+    .then(function(html){
+      var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');a.href=url;a.download='reporte_sched_'+rid+'.html';
+      document.body.appendChild(a);a.click();
+      setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+    })
+    .catch(function(e){alert('Error descargando reporte: '+e);});
 }
 
 // ── Usuarios (Admin panel) ─────────────────────────────────────────────────────
