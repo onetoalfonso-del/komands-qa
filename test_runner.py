@@ -1945,7 +1945,15 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
     Genera HTML self-contained estilo ExtentReports Spark.
     tests = lista de dict {name, pass, steps:[{name,pass,http,req,res,error}]}
     """
-    import json as _jrpt, html as _hrpt, datetime as _dtrpt
+    import json as _jrpt, html as _hrpt, datetime as _dtrpt, base64 as _b64rpt
+
+    # Cargar logo Onnetfibra embebido como data URI
+    _logo_uri = ""
+    try:
+        _lpath = ROOT / "collection QA" / "logo-onnet.png"
+        _logo_uri = "data:image/png;base64," + _b64rpt.b64encode(open(_lpath, "rb").read()).decode()
+    except Exception:
+        pass
 
     def _fmt(d):
         if not d: return "—"
@@ -2029,6 +2037,10 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
     vno_chip = f'<span class="chip">VNO <b>{_esc(vno)}</b></span>' if vno else ""
     env_chip = f'<span class="chip">Env <b>{_esc(env_name)}</b></span>' if env_name else ""
 
+    # Brand header: logo Onnetfibra + "QA AUTOMATION"
+    _logo_img_tag = '<img src="' + _logo_uri + '" alt="Onnetfibra">' if _logo_uri else ""
+    _brand_html = '<div class="hbrand">' + _logo_img_tag + '<span class="hqa">QA AUTOMATION</span></div>'
+
     return (
         '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -2036,7 +2048,9 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
         '*{box-sizing:border-box;margin:0;padding:0}'
         'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1117;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}'
         '.hdr{background:#1a1d2e;border-bottom:1px solid #252840;padding:10px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0}'
-        '.hlogo{font-size:1rem;font-weight:800;color:#818cf8;letter-spacing:-.5px;flex-shrink:0}'
+        '.hbrand{display:flex;align-items:center;gap:8px;flex-shrink:0}'
+        '.hbrand img{height:30px;width:auto;object-fit:contain}'
+        '.hqa{font-size:.78rem;font-weight:800;color:#818cf8;letter-spacing:.04em;white-space:nowrap;text-transform:uppercase}'
         '.htitle{font-size:.88rem;font-weight:600;color:#c7d2fe;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
         '.hmeta{font-size:.68rem;color:#6b7280;display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap}'
         '.body{display:flex;flex:1;overflow:hidden}'
@@ -2081,7 +2095,7 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
         '.nosp{color:#374151;font-size:.78rem;font-style:italic;padding:16px 0}'
         '::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#0f1117}::-webkit-scrollbar-thumb{background:#252840;border-radius:2px}'
         '</style></head><body>'
-        f'<div class="hdr"><div class="hlogo">KomandQA</div><div class="htitle">{_esc(title)}</div>'
+        f'<div class="hdr">{_brand_html}<div class="htitle">{_esc(title)}</div>'
         f'<div class="hmeta"><span>▶ {_fmt(started_at)}</span><span>■ {_fmt(finished_at)}</span><span>⏱ {dur_str}</span><span>Gen. {now_str}</span></div></div>'
         '<div class="body">'
         '<div class="sb">'
