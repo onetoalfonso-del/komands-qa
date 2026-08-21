@@ -1611,12 +1611,90 @@ def _agenda_register_job(sched: dict):
                     id=f"{job_id_base}_j{job_idx}",
                     args=[sched["id"]],
                     replace_existing=True,
-                    misfire_grace_time=300
+                    misfire_grace_time=3600  # 1h de gracia para reinicios de Railway
                 )
                 job_idx += 1
         print(f"[agenda] schedule {sched['id']} '{sched.get('name','')}' registrado ({job_idx} job(s) para {len(dates)} fecha(s))")
     except Exception as e:
         print(f"[agenda] error registrando job {sched.get('id')}: {e}")
+
+async def _agenda_catch_up():
+    """
+    Al arrancar, detecta schedules de HOY (hora Santiago) que tenian ejecucion
+    programada en el pasado pero no tienen run registrado (perdidos por reinicio Railway).
+    Los dispara con un breve retraso para que el servidor termine de iniciar.
+    """
+    import datetime as _dtcu, json as _jcu, threading as _thrcu
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        _tz_stgo = _ZI("America/Santiago")
+    except Exception:
+        try:
+            import pytz as _ptz
+            _tz_stgo = _ptz.timezone("America/Santiago")
+        except Exception:
+            print("[agenda] catch-up: no se pudo cargar timezone Santiago, omitiendo")
+            return
+
+    now_utc  = _dtcu.datetime.now(_dtcu.timezone.utc)
+    now_stgo = now_utc.astimezone(_tz_stgo)
+    today    = now_stgo.date()
+
+    try:
+        conn = await _db()
+        rows = await conn.fetch("SELECT * FROM qa_schedules WHERE active=TRUE")
+    except Exception as _e:
+        print(f"[agenda] catch-up: error BD: {_e}")
+        return
+
+    fired = 0
+    for row in rows:
+        sched = dict(row)
+        sched_id = sched["id"]
+        try:
+            dates = _jcu.loads(sched.get("days_of_week") or "[]")
+            times = _jcu.loads(sched.get("times_of_day") or '["09:00"]')
+        except Exception:
+            continue
+
+        for date_str in dates:
+            try:
+                d = _dtcu.date.fromisoformat(str(date_str))
+            except Exception:
+                continue
+            if d != today:
+                continue
+            for t in times:
+                try:
+                    parts = (str(t) + ":00").split(":")
+                    h, mi = int(parts[0]), int(parts[1])
+                    # Momento programado en Santiago
+                    sched_stgo = now_stgo.replace(hour=h, minute=mi, second=0, microsecond=0)
+                    if sched_stgo > now_stgo:
+                        continue  # aun no es la hora, el scheduler lo capturara normal
+                    # Buscar si ya existe un run desde esa hora ±10 min
+                    sched_utc = sched_stgo.astimezone(_dtcu.timezone.utc)
+                    existing = await conn.fetchval(
+                        "SELECT COUNT(*) FROM qa_sched_runs "
+                        "WHERE schedule_id=$1 AND started_at >= $2",
+                        sched_id, sched_utc - _dtcu.timedelta(minutes=10)
+                    )
+                    if existing == 0:
+                        delay = 5.0 + fired * 2.0  # escalonar disparos
+                        print(f"[agenda] catch-up: schedule {sched_id} '{sched.get('name','')}' "
+                              f"perdido ({date_str} {t} Santiago) → disparando en {delay:.0f}s")
+                        _thrcu.Timer(delay, _agenda_fire_sync, args=[sched_id]).start()
+                        fired += 1
+                    else:
+                        print(f"[agenda] catch-up: schedule {sched_id} ya tiene run reciente, ok")
+                except Exception as _e2:
+                    print(f"[agenda] catch-up error en schedule {sched_id}: {_e2}")
+
+    if fired:
+        print(f"[agenda] catch-up: {fired} schedule(s) perdidos disparados")
+    else:
+        print("[agenda] catch-up: sin schedules perdidos")
+
 
 def _agenda_fire_sync(schedule_id: int):
     """Llamado por APScheduler en thread separado: ejecuta la regresion programada."""
@@ -2199,6 +2277,7 @@ async def _startup_db():
             _AGENDA_SCHEDULER = _APSched(timezone="America/Santiago")
             _AGENDA_SCHEDULER.start()
             await _agenda_load_from_db()
+            await _agenda_catch_up()
             print("[agenda] APScheduler iniciado")
         except Exception as e:
             print(f"[agenda] error iniciando APScheduler: {e}")
