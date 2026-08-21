@@ -2016,11 +2016,12 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
             f'<span class="tln">{tn}</span>'
             f'<span class="tlb {tc}">{"Pass" if tp else "Fail"}</span></li>'
         )
+        _nosp = '<p class="nosp">Sin pasos registrados</p>'
         contents_html += (
             f'<div class="tcont" id="tc-{ti}" style="display:none">'
             f'<div class="tch"><h3 class="tct">{tn}</h3>'
             f'<span class="sbadge {tc}">{"Pass" if tp else "Fail"}</span></div>'
-            f'<div class="tsteps">{steps_html if steps_html else "<p class=\\"nosp\\">Sin pasos registrados</p>"}</div>'
+            f'<div class="tsteps">{steps_html or _nosp}</div>'
             f'</div>'
         )
 
