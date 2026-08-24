@@ -1882,8 +1882,158 @@ async def _agenda_fire_async(schedule_id: int):
             finished, status, schedule_id
         )
         print(f"[agenda] run_id={run_id} completado: {passed} PASS / {failed} FAIL -> {status}")
+        # ── Enviar reporte por correo ─────────────────────────────────────────
+        try:
+            await _send_report_email_sched(
+                run_id=run_id,
+                sched_name=sched.get("name", "Schedule"),
+                status=status,
+                passed=passed,
+                failed=failed,
+                started=started,
+                finished=finished,
+                steps=steps_results,
+                vno=vno,
+                conn=conn
+            )
+        except Exception as _mail_err:
+            print(f"[agenda] advertencia: no se pudo enviar correo: {_mail_err}")
     finally:
         await conn.close()
+
+
+async def _send_report_email_sched(run_id, sched_name, status, passed, failed,
+                                    started, finished, steps, vno, conn):
+    """
+    Genera el reporte HTML y lo envía por correo al terminar una ejecución programada.
+    Requiere variables de entorno en Railway:
+      SMTP_USER  → correo remitente (ej: qa@mos-it.cl)
+      SMTP_PASS  → contraseña o app-password
+    Destinatarios: clave 'report_email_to' en qa_config (separados por coma)
+                   o variable REPORT_EMAIL_TO en Railway como fallback.
+    """
+    import smtplib as _smtp, ssl as _ssl_m, os as _os_m
+    import datetime as _dt_m
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.application import MIMEApplication
+
+    # ── Leer destinatarios ────────────────────────────────────────────────────
+    _to_raw = ""
+    try:
+        _cfg_row = await conn.fetchrow(
+            "SELECT value FROM qa_config WHERE key='report_email_to'"
+        )
+        if _cfg_row:
+            _to_raw = _cfg_row["value"] or ""
+    except Exception:
+        pass
+    if not _to_raw:
+        _to_raw = _os_m.environ.get("REPORT_EMAIL_TO", "")
+    recipients = [r.strip() for r in _to_raw.replace(";", ",").split(",") if r.strip()]
+    if not recipients:
+        print("[email] sin destinatarios configurados — omitiendo envío")
+        return
+
+    # ── Credenciales SMTP ─────────────────────────────────────────────────────
+    smtp_user = _os_m.environ.get("SMTP_USER", "")
+    smtp_pass = _os_m.environ.get("SMTP_PASS", "")
+    if not smtp_user or not smtp_pass:
+        print("[email] SMTP_USER / SMTP_PASS no configurados — omitiendo envío")
+        return
+
+    # ── Generar reporte HTML ──────────────────────────────────────────────────
+    _tests = [{"name": sched_name, "pass": status == "pass",
+               "steps": [{"name": s.get("func",""), "pass": s.get("pass", False),
+                           "http": s.get("http", 0), "req": s.get("req",""),
+                           "res": s.get("res", s.get("error","")),
+                           "duration_ms": s.get("duration_ms", 0)} for s in steps]}]
+    _date_s = started.strftime("%d%m%Y") if hasattr(started, "strftime") else ""
+    _fname  = f"Reporte_Automatizacion_{_date_s}.html"
+    _html_content = _build_extent_html(
+        title=f"Reporte Automatización — {sched_name}",
+        tests=_tests,
+        started_at=started,
+        finished_at=finished,
+        vno=vno,
+        env_name="QA"
+    )
+
+    # ── Construir mensaje ─────────────────────────────────────────────────────
+    _status_emoji = {"pass": "✅", "fail": "❌", "partial": "⚠️"}.get(status, "📋")
+    _status_label = {"pass": "EXITOSA", "fail": "CON ERRORES", "partial": "PARCIAL"}.get(status, status.upper())
+    _dur_secs = int((finished - started).total_seconds()) if finished and started else 0
+    _dur_str  = f"{_dur_secs // 60}m {_dur_secs % 60}s"
+    _date_disp = started.strftime("%d/%m/%Y %H:%M") if hasattr(started, "strftime") else ""
+
+    msg = MIMEMultipart()
+    msg["Subject"] = f"{_status_emoji} QA Automation — {sched_name} — {_status_label} ({_date_disp})"
+    msg["From"]    = smtp_user
+    msg["To"]      = ", ".join(recipients)
+
+    _body_html = f"""
+<html><body style="font-family:Arial,sans-serif;color:#222;max-width:600px">
+  <h2 style="color:{'#22c55e' if status=='pass' else '#ef4444' if status=='fail' else '#f59e0b'}">
+    {_status_emoji} Ejecución Programada — {_status_label}
+  </h2>
+  <table style="border-collapse:collapse;width:100%">
+    <tr><td style="padding:6px 12px;background:#f4f4f4;font-weight:bold">Schedule</td>
+        <td style="padding:6px 12px">{sched_name}</td></tr>
+    <tr><td style="padding:6px 12px;background:#f4f4f4;font-weight:bold">Fecha</td>
+        <td style="padding:6px 12px">{_date_disp}</td></tr>
+    <tr><td style="padding:6px 12px;background:#f4f4f4;font-weight:bold">Duración</td>
+        <td style="padding:6px 12px">{_dur_str}</td></tr>
+    <tr><td style="padding:6px 12px;background:#f4f4f4;font-weight:bold">Pasos</td>
+        <td style="padding:6px 12px">
+          <span style="color:#22c55e">✓ {passed} OK</span> &nbsp;
+          <span style="color:#ef4444">✗ {failed} Error</span>
+        </td></tr>
+    <tr><td style="padding:6px 12px;background:#f4f4f4;font-weight:bold">VNO</td>
+        <td style="padding:6px 12px">{vno}</td></tr>
+  </table>
+  <p style="margin-top:20px;color:#555;font-size:13px">
+    El reporte completo se adjunta como archivo HTML.<br>
+    Ábrelo en cualquier navegador para ver el detalle de cada paso.
+  </p>
+  <p style="color:#999;font-size:11px">— QA Automation · MOS-IT</p>
+</body></html>"""
+
+    msg.attach(MIMEText(_body_html, "html", "utf-8"))
+
+    # Adjuntar HTML del reporte
+    _attach = MIMEApplication(_html_content.encode("utf-8"), Name=_fname)
+    _attach["Content-Disposition"] = f'attachment; filename="{_fname}"'
+    msg.attach(_attach)
+
+    # ── Enviar vía Office 365 SMTP + STARTTLS ─────────────────────────────────
+    _ctx_smtp = _ssl_m.create_default_context()
+    with _smtp.SMTP("smtp.office365.com", 587, timeout=30) as _srv:
+        _srv.ehlo()
+        _srv.starttls(context=_ctx_smtp)
+        _srv.login(smtp_user, smtp_pass)
+        _srv.sendmail(smtp_user, recipients, msg.as_bytes())
+    print(f"[email] reporte enviado a: {', '.join(recipients)}")
+
+
+# ─── API Email config ─────────────────────────────────────────────────────────
+
+@app.get("/api/config/email-recipients")
+async def api_email_recipients_get():
+    conn = await _db()
+    row = await conn.fetchrow("SELECT value FROM qa_config WHERE key='report_email_to'")
+    return {"recipients": row["value"] if row else ""}
+
+@app.put("/api/config/email-recipients")
+async def api_email_recipients_put(request: Request):
+    data = await request.json()
+    value = data.get("recipients", "")
+    conn = await _db()
+    await conn.execute(
+        "INSERT INTO qa_config (key, value) VALUES ('report_email_to', $1) "
+        "ON CONFLICT (key) DO UPDATE SET value=$1",
+        value
+    )
+    return {"ok": True}
 
 
 # ─── API Agenda (CRUD + run-now) ─────────────────────────────────────────────
@@ -14407,6 +14557,8 @@ function loadConfig(){
     });
     h+='</div>';
     body.innerHTML=h;
+    // Cargar sección de destinatarios de correo
+    _loadEmailRecipientsCfg();
   }).catch(function(e){body.innerHTML='<div class="hist-empty" style="color:var(--err)">Error: '+esc(e.message)+'</div>';});
 }
 function _saveConfig(key){
@@ -14415,6 +14567,43 @@ function _saveConfig(key){
   fetch('/api/config/'+encodeURIComponent(key),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:inp.value})})
   .then(function(r){return r.json();}).then(function(d){
     if(d.ok&&msg){msg.style.display='inline';setTimeout(function(){msg.style.display='none';},2000);}
+  }).catch(function(){});
+}
+function _loadEmailRecipientsCfg(){
+  var body=document.getElementById('spane-cfg-body');
+  if(!body) return;
+  fetch('/api/config/email-recipients').then(function(r){return r.json();}).then(function(d){
+    var cur=d.recipients||'';
+    var sec=document.createElement('div');
+    sec.style.cssText='max-width:560px;margin-top:28px;padding-top:20px;border-top:1px solid var(--brd)';
+    sec.innerHTML=
+      '<h3 style="margin:0 0 6px;font-size:.85rem;color:var(--txt);font-weight:700">&#9993; Notificaciones por correo</h3>'+
+      '<p style="margin:0 0 14px;font-size:.72rem;color:var(--txt2);line-height:1.5">'+
+        'Al terminar cada ejecución programada se enviará el reporte HTML por correo.<br>'+
+        'Ingresa uno o más destinatarios separados por coma.'+
+      '</p>'+
+      '<label style="display:block;font-size:.74rem;color:var(--txt2);margin-bottom:4px">Destinatarios</label>'+
+      '<textarea id="cfg-email-recipients" rows="3" placeholder="correo1@empresa.cl, correo2@empresa.cl" '+
+        'style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:6px;border:1px solid var(--brd);'+
+        'background:var(--bg);color:var(--txt);font-size:.78rem;font-family:inherit;resize:vertical;line-height:1.5">'+esc(cur)+'</textarea>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
+        '<button onclick="_saveEmailRecipients()" style="padding:6px 16px;border-radius:6px;border:1px solid var(--brd);background:var(--accd);color:var(--acc);font-size:.78rem;cursor:pointer;font-weight:600">Guardar destinatarios</button>'+
+        '<span id="cfg-email-msg" style="font-size:.7rem;color:var(--ok);display:none">&#10003; Guardado</span>'+
+      '</div>'+
+      '<p style="margin:10px 0 0;font-size:.68rem;color:var(--txt3)">'+
+        'Servidor SMTP: smtp.office365.com:587 (Microsoft 365). '+
+        'Las credenciales SMTP_USER / SMTP_PASS se configuran como variables de entorno en Railway.'+
+      '</p>';
+    body.appendChild(sec);
+  }).catch(function(){});
+}
+function _saveEmailRecipients(){
+  var inp=document.getElementById('cfg-email-recipients');
+  var msg=document.getElementById('cfg-email-msg');
+  if(!inp) return;
+  fetch('/api/config/email-recipients',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({recipients:inp.value.trim()})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok&&msg){msg.style.display='inline';setTimeout(function(){msg.style.display='none';},2500);}
   }).catch(function(){});
 }
 function _histVnoColor(v){
