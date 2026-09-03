@@ -14057,6 +14057,7 @@ function _dashDrawVno(byVno){
   var total=vnos.reduce(function(s,v){return s+parseInt(v.total);},0);
   var colors=['#4EC9B0','#C586C0','#CE9178','#569CD6'];
   var cx=W/2-20,cy=H/2,r=Math.min(cx,cy)-14;
+  if(r<=0){ctx.fillStyle=textColor;ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('Sin datos',W/2,H/2);return;}
   var start=-Math.PI/2;
   var vHits=[];
   vnos.forEach(function(v,i){
