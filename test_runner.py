@@ -16145,9 +16145,16 @@ async function _atrf_runSelected(){
   _atrfRunning=false;
   if(prog)prog.style.display='none';
   if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
-  // Mostrar botón de descarga de reporte si hay resultados
+  // Mostrar botón de descarga de reporte y auto-generar al terminar
   var _dlBtn=document.getElementById('atrf-dl-report-btn');
-  if(_dlBtn){var _hasRes=_atrfQueue.some(function(q){return q.tcResults&&q.tcResults.length;});if(_hasRes)_dlBtn.style.display='';}
+  if(_dlBtn){
+    var _hasRes=_atrfQueue.some(function(q){return q.tcResults&&q.tcResults.length;});
+    if(_hasRes){
+      _dlBtn.style.display='';
+      // Auto-generar reporte sin necesidad de hacer clic
+      setTimeout(function(){_atrf_downloadManualReport();},600);
+    }
+  }
 }
 
 // ── Perfil ────────────────────────────────────────────────────────────────────
