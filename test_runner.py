@@ -1812,7 +1812,32 @@ async def _agenda_fire_async(schedule_id: int):
             "Modificación de Dispositivo":   "delay_post_dm_ms",
             "Cancelación Orden de Servicio": "delay_post_cancel_ms",
         }
-        for fn in func_names:
+        # ── Grupos de dependencia para ejecución paralela ─────────────────────
+        # SEQ_FIRST  : Factibilidad → Asignación (secuencial, el 2° necesita access_id del 1°)
+        # IA_CHAIN   : Inicio IA → Cancel IA → Final IA → Cambio de Pelo (secuencial entre sí)
+        # INDEP      : Activación, Mods, Consultas — paralelo con IA_CHAIN (no necesitan Inicio IA)
+        # TEARDOWN   : Cancel OOSS, Baja Total — siempre al final, tras ambos grupos
+        import asyncio as _asyncio
+        import time as _tme
+        _SEQ_FIRST_SET    = {"Factibilidad", "Asignación"}
+        _IA_CHAIN_ORDERED = ["Inicio Intervención Asegurada",
+                             "Cancelación Intervención Asegurada",
+                             "Finalización Intervención Asegurada",
+                             "Cambio de Pelo"]
+        _TEARDOWN_ORDERED = ["Cancelación Orden de Servicio", "Baja Total de Servicio"]
+        _IA_SET           = set(_IA_CHAIN_ORDERED)
+        _TEARDOWN_SET     = set(_TEARDOWN_ORDERED)
+
+        fn_set         = set(func_names)
+        seq_phase      = [f for f in ["Factibilidad", "Asignación"] if f in fn_set]
+        ia_phase       = [f for f in _IA_CHAIN_ORDERED if f in fn_set]
+        teardown_phase = [f for f in _TEARDOWN_ORDERED  if f in fn_set]
+        indep_phase    = [f for f in func_names
+                          if f not in _IA_SET and f not in _TEARDOWN_SET
+                          and f not in _SEQ_FIRST_SET]
+
+        async def _exec_step(fn):
+            """Ejecuta un paso via HTTP local; usa run_in_executor para no bloquear el loop."""
             body = {
                 "func": fn,
                 "vno": vno,
@@ -1831,45 +1856,83 @@ async def _agenda_fire_async(schedule_id: int):
                 "serviceIptv": _cfg_extra.get("iptv", True),
             }
             step_r = {"func": fn, "pass": False, "error": None, "duration_ms": 0}
-            import time as _tme
-            _step_t0 = _tme.monotonic()
+            _t0 = _tme.monotonic()
             try:
-                req_data = _j.dumps(body).encode("utf-8")
-                req = _ur.Request(
-                    f"{base_url}/api/atrf/run-step",
-                    data=req_data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST"
-                )
-                with _ur.urlopen(req, timeout=120) as resp:
-                    result = _j.loads(resp.read())
-                    step_r["pass"] = result.get("pass", False)
-                    step_r["http"] = result.get("httpCode", 0)
-                    step_r["req"] = result.get("req", "")
-                    step_r["res"] = result.get("res", "")
-                    if step_r["pass"]:
-                        passed += 1
-                        # Solo actualizar si NO habia access_id en cfg_extra (schedule viejo)
-                        if not prev_access_id:
-                            new_aid = result.get("accessId", "")
-                            if new_aid:
-                                prev_access_id = new_aid
-                    else:
-                        failed += 1
-            except Exception as ex:
-                step_r["error"] = str(ex)
-                failed += 1
+                _req_data = _j.dumps(body).encode("utf-8")
+                def _do_req():
+                    import urllib.request as _ur2
+                    _r2 = _ur2.Request(
+                        f"{base_url}/api/atrf/run-step",
+                        data=_req_data,
+                        headers={"Content-Type": "application/json"},
+                        method="POST"
+                    )
+                    with _ur2.urlopen(_r2, timeout=120) as _rsp:
+                        return _j.loads(_rsp.read())
+                _loop = _asyncio.get_running_loop()
+                _res  = await _loop.run_in_executor(None, _do_req)
+                step_r["pass"] = _res.get("pass", False)
+                step_r["http"] = _res.get("httpCode", 0)
+                step_r["req"]  = _res.get("req", "")
+                step_r["res"]  = _res.get("res", "")
+                step_r["accessId"] = _res.get("accessId", "")
+            except Exception as _ex:
+                step_r["error"] = str(_ex)
             finally:
-                step_r["duration_ms"] = int((_tme.monotonic() - _step_t0) * 1000)
-            steps_results.append(step_r)
-            print(f"[agenda] sched={schedule_id} run={run_id} {fn}: {'PASS' if step_r['pass'] else 'FAIL'}")
-            # Aplicar delay post-paso (igual que el runner manual)
-            import asyncio as _asyncio
-            _dk = _SCHED_DELAY_MAP.get(fn)
+                step_r["duration_ms"] = int((_tme.monotonic() - _t0) * 1000)
+            _dk  = _SCHED_DELAY_MAP.get(fn)
             _dms = _sched_delays.get(_dk, 0) if _dk else 0
             if _dms > 0:
                 print(f"[agenda] esperando {_dms}ms post-{fn}…")
                 await _asyncio.sleep(_dms / 1000)
+            print(f"[agenda] sched={schedule_id} run={run_id} {fn}: "
+                  f"{'PASS' if step_r['pass'] else 'FAIL'}")
+            return step_r
+
+        # ── FASE 1: Secuencial — Factibilidad → Asignación ───────────────────
+        for fn in seq_phase:
+            _r1 = await _exec_step(fn)
+            steps_results.append(_r1)
+            # Capturar access_id generado por Asignación (si no venía en cfg_extra)
+            if _r1["pass"] and not prev_access_id:
+                _aid = _r1.get("accessId", "")
+                if _aid:
+                    prev_access_id = _aid
+
+        # ── FASE 2: Paralelo — Rama IA ∥ Independientes ───────────────────────
+        async def _run_ia_chain():
+            _res = []
+            for _fn in ia_phase:
+                _r = await _exec_step(_fn)
+                _res.append(_r)
+                if _fn == "Inicio Intervención Asegurada" and not _r["pass"]:
+                    # Inicio IA falló → marcar el resto del chain como saltados
+                    for _fn2 in ia_phase[ia_phase.index(_fn) + 1:]:
+                        _res.append({"func": _fn2, "pass": False,
+                                     "error": "⊘ Saltado: Inicio IA falló", "duration_ms": 0})
+                    break
+            return _res
+
+        async def _run_indep():
+            if not indep_phase:
+                return []
+            _sem = _asyncio.Semaphore(4)   # máx 4 llamadas paralelas simultáneas
+            async def _limited(_fn):
+                async with _sem:
+                    return await _exec_step(_fn)
+            return list(await _asyncio.gather(*[_limited(f) for f in indep_phase]))
+
+        _ia_res, _indep_res = await _asyncio.gather(_run_ia_chain(), _run_indep())
+        steps_results.extend(_ia_res)
+        steps_results.extend(_indep_res)
+
+        # ── FASE 3: Teardown secuencial — Cancel OOSS → Baja Total ───────────
+        for fn in teardown_phase:
+            _r3 = await _exec_step(fn)
+            steps_results.append(_r3)
+
+        passed = sum(1 for r in steps_results if r.get("pass"))
+        failed = len(steps_results) - passed
         finished = _dt.datetime.now(_dt.timezone.utc)
         status = "pass" if failed == 0 else ("fail" if passed == 0 else "partial")
         await conn.execute(
