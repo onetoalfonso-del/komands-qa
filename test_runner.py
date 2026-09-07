@@ -2323,11 +2323,54 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
             f'<span class="tln">{tn}</span>'
             f'<span class="tlb {tc}">{"Pass" if tp else "Fail"}</span></li>'
         )
+        # ── Tabla resumen de tiempos ──────────────────────────────────────────
+        _timed_steps = [s for s in steps if (s.get("duration_ms") or 0) > 0]
+        _timing_html = ""
+        if _timed_steps:
+            _max_ms = max((s.get("duration_ms",0) or 0) for s in _timed_steps) or 1
+            _rows = ""
+            for s in steps:
+                _ms  = s.get("duration_ms", 0) or 0
+                _sp  = s.get("pass", False)
+                _sn  = _esc(s.get("name") or s.get("func","—"))
+                _ico = "✓" if _sp else "✗"
+                _cls = "pass" if _sp else "fail"
+                _pct = int(_ms / _max_ms * 100) if _ms else 0
+                if _ms > 0:
+                    _ds  = _ms/1000.0
+                    _dl  = f"{_ds:.1f}s" if _ds < 60 else f"{int(_ds)//60}m {int(_ds)%60}s"
+                else:
+                    _dl  = "—"
+                _rows += (
+                    f'<tr>'
+                    f'<td><span class="sico {_cls}" style="font-size:.75rem">{_ico}</span></td>'
+                    f'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{_sn}</td>'
+                    f'<td style="width:120px">'
+                    f'<div style="background:#1e2130;border-radius:3px;height:8px;overflow:hidden">'
+                    f'<div style="width:{_pct}%;height:100%;background:{"#22c55e" if _sp else "#ef4444"};border-radius:3px"></div>'
+                    f'</div></td>'
+                    f'<td style="text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">{_dl}</td>'
+                    f'</tr>'
+                )
+            _timing_html = (
+                f'<div style="margin:14px 0 8px;padding:0 4px">'
+                f'<div style="font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">⏱ Tiempos de ejecución</div>'
+                f'<table style="width:100%;border-collapse:collapse;font-size:.75rem;color:#c7d2fe">'
+                f'<thead><tr style="color:#6b7280;font-size:.65rem">'
+                f'<th style="width:20px"></th>'
+                f'<th style="text-align:left;padding-bottom:4px">API</th>'
+                f'<th style="text-align:left;padding:0 8px">Duración relativa</th>'
+                f'<th style="text-align:right">Tiempo</th>'
+                f'</tr></thead>'
+                f'<tbody style="border-top:1px solid #1e2130">{_rows}</tbody>'
+                f'</table></div>'
+            )
         _nosp = '<p class="nosp">Sin pasos registrados</p>'
         contents_html += (
             f'<div class="tcont" id="tc-{ti}" style="display:none">'
             f'<div class="tch"><h3 class="tct">{tn}</h3>'
             f'<span class="sbadge {tc}">{"Pass" if tp else "Fail"}</span></div>'
+            f'{_timing_html}'
             f'<div class="tsteps">{steps_html or _nosp}</div>'
             f'</div>'
         )
@@ -2468,7 +2511,7 @@ async def api_report_sched_run(run_id: int):
     steps = [
         {"name": s.get("func",""), "pass": s.get("pass",False),
          "http": s.get("http",0), "req": s.get("req",""), "res": s.get("res",""),
-         "error": s.get("error","")}
+         "error": s.get("error",""), "duration_ms": s.get("duration_ms", 0)}
         for s in steps_raw
     ]
     any_fail = any(not s["pass"] for s in steps)
