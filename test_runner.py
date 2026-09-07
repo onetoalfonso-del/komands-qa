@@ -2291,7 +2291,8 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
         tn = _esc(t.get("name", f"Test {ti+1}"))
         tc = "pass" if tp else "fail"
         steps = t.get("steps") or []
-        steps_html = ""
+        _SPPP = 8   # pasos por página
+        _step_cards = []
         for si, s in enumerate(steps):
             sp = s.get("pass", False)
             sc = "pass" if sp else "fail"
@@ -2304,7 +2305,7 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
             _dur_secs = sdur / 1000.0
             _dur_lbl = f"{_dur_secs:.1f}s" if _dur_secs < 60 else f"{int(_dur_secs)//60}m {int(_dur_secs)%60}s"
             durbadge = f'<span class="hbadge" title="Duración">⏱ {_dur_lbl}</span>' if sdur else ""
-            steps_html += (
+            _step_cards.append(
                 f'<div class="scard"><div class="shdr" onclick="tStep(this)">'
                 f'<span class="sico {sc}">{"✓" if sp else "✗"}</span>'
                 f'<span class="snm">{sn}</span>{hbadge}{durbadge}'
@@ -2317,6 +2318,25 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
                 f'<div id="rq-{ti}-{si}" class="cpanel"><pre>{sreq or "(sin datos)"}</pre></div>'
                 f'<div id="rs-{ti}-{si}" class="cpanel" style="display:none"><pre>{sres or "(sin datos)"}</pre></div>'
                 f'</div></div>'
+            )
+        # Agrupar en páginas
+        _total_pages = max(1, -(-len(_step_cards) // _SPPP))
+        steps_html = ""
+        for _pi in range(_total_pages):
+            _page_cards = _step_cards[_pi * _SPPP: (_pi + 1) * _SPPP]
+            _vis = "" if _pi == 0 else "display:none"
+            steps_html += (
+                f'<div class="spage" data-ti="{ti}" id="sp-{ti}-{_pi}" style="{_vis}">'
+                + "".join(_page_cards) +
+                f'</div>'
+            )
+        if _total_pages > 1:
+            steps_html += (
+                f'<div class="spag">'
+                f'<button class="spag-btn" id="spb-p-{ti}" onclick="prevPage({ti})" disabled>‹ Anterior</button>'
+                f'<span class="spag-lbl" id="spb-l-{ti}">1 / {_total_pages}</span>'
+                f'<button class="spag-btn" id="spb-n-{ti}" onclick="nextPage({ti})">Siguiente ›</button>'
+                f'</div>'
             )
         items_html += (
             f'<li class="tli {tc}" data-ti="{ti}" onclick="selTest({ti})">'
@@ -2435,6 +2455,11 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
         '.cpanel{max-height:320px;overflow:auto}'
         '.cpanel pre{font-family:"SF Mono","Fira Code",monospace;font-size:.7rem;line-height:1.5;padding:11px 14px;white-space:pre-wrap;word-break:break-word;color:#94a3b8}'
         '.nosp{color:#374151;font-size:.78rem;font-style:italic;padding:16px 0}'
+        '.spag{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px 0 4px;border-top:1px solid #1e2130;margin-top:6px}'
+        '.spag-btn{background:#1a1d2e;border:1px solid #252840;color:#818cf8;border-radius:5px;padding:5px 14px;cursor:pointer;font-size:.74rem;transition:background .15s}'
+        '.spag-btn:hover:not(:disabled){background:#252840}'
+        '.spag-btn:disabled{opacity:.3;cursor:default}'
+        '.spag-lbl{font-size:.72rem;color:#9ca3af;min-width:55px;text-align:center}'
         '::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#0f1117}::-webkit-scrollbar-thumb{background:#252840;border-radius:2px}'
         '</style></head><body>'
         f'<div class="hdr">{_brand_html}<div class="htitle">{_esc(title)}</div>'
@@ -2467,6 +2492,20 @@ def _build_extent_html(title, tests, started_at=None, finished_at=None,
         '  btn.classList.add("active");'
         '  var panel=btn.closest(".sbdy");panel.querySelectorAll(".cpanel").forEach(function(p){p.style.display="none";});'
         '  document.getElementById(pid).style.display="block";}'
+        'var _spgC={};'
+        'function goPage(ti,p){'
+        '  document.querySelectorAll(".spage[data-ti=\'"+ti+"\']").forEach(function(el){el.style.display="none";});'
+        '  var t=document.getElementById("sp-"+ti+"-"+p);if(t)t.style.display="";'
+        '  _spgC[ti]=p;'
+        '  var n=document.querySelectorAll(".spage[data-ti=\'"+ti+"\']").length;'
+        '  var lbl=document.getElementById("spb-l-"+ti);if(lbl)lbl.textContent=(p+1)+" / "+n;'
+        '  var bp=document.getElementById("spb-p-"+ti);if(bp)bp.disabled=p===0;'
+        '  var bn=document.getElementById("spb-n-"+ti);if(bn)bn.disabled=p===n-1;}'
+        'function prevPage(ti){var c=_spgC[ti]||0;if(c>0)goPage(ti,c-1);}'
+        'function nextPage(ti){'
+        '  var c=_spgC[ti]||0;'
+        '  var n=document.querySelectorAll(".spage[data-ti=\'"+ti+"\']").length;'
+        '  if(c<n-1)goPage(ti,c+1);}'
         f'if({total_t}===1){{selTest(0);}}'
         '</script></body></html>'
     )
