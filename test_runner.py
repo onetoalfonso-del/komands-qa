@@ -1612,7 +1612,10 @@ ATRF_FUNCS_REAL = [
 ]
 ATRF_PRESET_INDEXES = {
     "acotada":  [0, 1, 11, 3, 4, 6],
-    "completa": [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7]
+    "completa": [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7],
+    # Flujos Nokia — equivalentes a lo que el equipo ejecuta manualmente
+    "flujo1":   [0, 1, 6],              # Sanity básico: Factibilidad → Asignación → Cancel OOSS
+    "flujo2":   [1, 2, 8, 9, 3, 4, 5, 7],  # Sanity completo: Asig → Activ → ModAcceso → DevMod → IIA → CancelIA → FIA → Baja
 }
 
 async def _agenda_load_from_db():
@@ -7647,9 +7650,13 @@ async def api_coreuse_poll(request: Request):
         return JSONResponse({"status": "not_applicable",
                              "message": "CoreUse no configurado (env vars faltantes)", "attempts": 0})
 
-    # Intentos de polling: 8 × 45s = ~6 min de espera máxima
-    # Cubre operaciones lentas como Cancelación OOSS (~5 min en ServiceNow)
-    _MAX_ATTEMPTS = 8
+    # Polling adaptativo: chequeo rápido al inicio, luego cada 15s
+    # Intento 1 → esperar 8s (operaciones rápidas ~10-20s)
+    # Intentos 2-15 → esperar 15s c/u → máximo total ~3.5 min
+    # Antes: 8 × 45s = 6 min máx. Ahora: responde 3× más rápido en promedio.
+    _MAX_ATTEMPTS  = 15
+    _FIRST_WAIT_S  = 8
+    _NORMAL_WAIT_S = 15
 
     loop   = _aio.get_event_loop()
     result = {"status": "timeout", "message": f"Sin respuesta tras {_MAX_ATTEMPTS} intentos", "attempts": 0}
@@ -7670,7 +7677,7 @@ async def api_coreuse_poll(request: Request):
 
         # Aún pendiente o no encontrado → esperar antes del siguiente intento
         if attempt < _MAX_ATTEMPTS:
-            await _aio.sleep(45)
+            await _aio.sleep(_FIRST_WAIT_S if attempt == 1 else _NORMAL_WAIT_S)
 
     # Después de _MAX_ATTEMPTS intentos sin resultado → fallo
     # Regla: éxito requiere que CoreUse confirme code 0 explícitamente.
@@ -13625,11 +13632,17 @@ function _agendaOpenModal(s){
     +'<div>'
     +'<label style="font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:block;margin-bottom:6px">Preset de Regresión</label>'
     +'<div style="display:flex;gap:8px">'
+    +'<button type="button" id="ag-pre-flujo1" data-preset="flujo1" onclick="_agSetPreset(this.dataset.preset)" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='flujo1'?'var(--acc)':'var(--brd)')+';background:'+(preset==='flujo1'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='flujo1'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
+    +'🔵 Flujo 1 <div style="font-size:.65rem;font-weight:400;opacity:.7">Fact → Asig → CancelOOSS</div>'
+    +'</button>'
+    +'<button type="button" id="ag-pre-flujo2" data-preset="flujo2" onclick="_agSetPreset(this.dataset.preset)" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='flujo2'?'var(--acc)':'var(--brd)')+';background:'+(preset==='flujo2'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='flujo2'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
+    +'🟣 Flujo 2 <div style="font-size:.65rem;font-weight:400;opacity:.7">Activ → Mods → IA → Baja</div>'
+    +'</button>'
     +'<button type="button" id="ag-pre-acotada" data-preset="acotada" onclick="_agSetPreset(this.dataset.preset)" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='acotada'?'var(--acc)':'var(--brd)')+';background:'+(preset==='acotada'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='acotada'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
     +'🟢 Acotada <div style="font-size:.65rem;font-weight:400;opacity:.7">6 funciones</div>'
     +'</button>'
     +'<button type="button" id="ag-pre-completa" data-preset="completa" onclick="_agSetPreset(this.dataset.preset)" style="flex:1;padding:7px;border-radius:5px;border:2px solid '+(preset==='completa'?'var(--acc)':'var(--brd)')+';background:'+(preset==='completa'?'rgba(61,127,255,.08)':'var(--card)')+';color:'+(preset==='completa'?'var(--acc)':'var(--txt2)')+';font-size:.75rem;cursor:pointer;font-weight:600">'
-    +'🔵 Completa <div style="font-size:.65rem;font-weight:400;opacity:.7">14 funciones</div>'
+    +'🔴 Completa <div style="font-size:.65rem;font-weight:400;opacity:.7">14 funciones</div>'
     +'</button>'
     +'</div>'
     +'<input type="hidden" id="ag-preset" value="'+preset+'">'
@@ -13853,7 +13866,7 @@ function _agMiniCalNext(){
 
 function _agSetPreset(p){
   document.getElementById('ag-preset').value=p;
-  ['acotada','completa'].forEach(function(x){
+  ['flujo1','flujo2','acotada','completa'].forEach(function(x){
     var b=document.getElementById('ag-pre-'+x);
     if(!b)return;
     var on=(x===p);
@@ -16840,6 +16853,8 @@ function showCodigos(){
             <input class="atrf-func-search" type="text" placeholder="Buscar..." oninput="_atrf_filterFuncs(this.value)"/>
           </div>
           <div style="display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)">
+            <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('flujo1')" title="Sanity básico Nokia — Flujo 1: Factibilidad → Asignación → Cancel OOSS">🔵 Flujo 1</button>
+            <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('flujo2')" title="Sanity completo Nokia — Flujo 2: Asignación → Activación → ModAcceso → DevMod → IIA → CancelIA → FIA → Baja">🟣 Flujo 2</button>
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('acotada')" title="01 Factibilidad · 02 Asignación · 13 Consulta Acceso · 03 Inicio IA · 10 Cancelación IA · 11 Cancelación OOSS">📋 Regresión Acotada</button>
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('completa')" title="Flujo completo: Factibilidad → Baja + IA + Modificaciones + Consultas">📋 Regresión Completa</button>
           </div>
