@@ -1213,6 +1213,8 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                 "no encontrada", "no se encuentra",
                 "error en el flujo", "error al procesar",
                 "timed out", "timeout", "failed to", "flujo fallido",
+                "rotura",           # ROTURA: VLAN, ROTURA: PON AVAILABILITY, etc.
+                "not available", "unavailable",
             ]
             success_phrases = [
                 "con éxito",
@@ -1232,7 +1234,8 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
 
             _kw = re.compile(
                 r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|'
-                r'operaci|petici|flujo completado|assignment|activation|deregistration|device)',
+                r'operaci|petici|flujo completado|assignment|activation|deregistration|device|'
+                r'rotura|availability|vlan)',
                 re.I
             )
             flujos = [c for c in _result_chunks if _kw.search(c)][:1]
