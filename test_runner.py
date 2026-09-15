@@ -1035,6 +1035,8 @@ _COREUSE_USER = os.environ.get("COREUSE_USER", "")
 _COREUSE_PASS = os.environ.get("COREUSE_PASS", "")
 _COREUSE_PIN  = os.environ.get("COREUSE_PIN",  "")   # PIN de 6 dígitos para desbloqueo por inactividad
 _coreuse_session = None
+import threading as _cu_threading
+_coreuse_lock = _cu_threading.RLock()  # protege _coreuse_session en ejecuciones paralelas
 
 # Funcionalidades que NO deben consultarse en CoreUse:
 #   - Grupo Consultas: no aparecen en portal CoreUse
@@ -1122,9 +1124,10 @@ def _coreuse_unlock(s, locked_url: str) -> bool:
 
 def _coreuse_get_session():
     global _coreuse_session
-    if _coreuse_session is None:
-        return _coreuse_login()
-    return _coreuse_session
+    with _coreuse_lock:
+        if _coreuse_session is None:
+            return _coreuse_login()
+        return _coreuse_session
 
 def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
     """
@@ -1138,119 +1141,113 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
     if func_name in _COREUSE_NO_POLL:
         return {"status": "not_applicable", "message": "Consultas no requieren polling CoreUse"}
 
-    s = _coreuse_get_session()
-    if not s:
-        return {"status": "error", "message": "No se pudo autenticar en CoreUse"}
+    # Lock global: requests.Session no es thread-safe para uso concurrente.
+    # Serializar los polls evita corrupción de sesión en ejecuciones paralelas.
+    with _coreuse_lock:
+        s = _coreuse_get_session()
+        if not s:
+            return {"status": "error", "message": "No se pudo autenticar en CoreUse"}
 
-    try:
-        r = s.get(
-            f"{_COREUSE_BASE}/flujos-qa",
-            params={"access": access_id},
-            verify=False, timeout=15, allow_redirects=True,
-        )
-        # Sesión bloqueada por inactividad → desbloquear con PIN automáticamente
-        if "/desbloqueo" in r.url:
-            unlocked = _coreuse_unlock(s, r.url)
-            if not unlocked:
-                # Si el desbloqueo falló, forzar re-login completo
+        try:
+            r = s.get(
+                f"{_COREUSE_BASE}/flujos-qa",
+                params={"access": access_id},
+                verify=False, timeout=15, allow_redirects=True,
+            )
+            # Sesión bloqueada por inactividad → desbloquear con PIN automáticamente
+            if "/desbloqueo" in r.url:
+                unlocked = _coreuse_unlock(s, r.url)
+                if not unlocked:
+                    # Si el desbloqueo falló, forzar re-login completo
+                    _coreuse_session = None
+                    s = _coreuse_login()
+                    if not s:
+                        return {"status": "error", "message": "CoreUse bloqueado y re-login falló"}
+                r = s.get(
+                    f"{_COREUSE_BASE}/flujos-qa",
+                    params={"access": access_id},
+                    verify=False, timeout=15, allow_redirects=True,
+                )
+            # Sesión expirada → re-login
+            if "/login" in r.url:
                 _coreuse_session = None
                 s = _coreuse_login()
                 if not s:
-                    return {"status": "error", "message": "CoreUse bloqueado y re-login falló"}
-            r = s.get(
-                f"{_COREUSE_BASE}/flujos-qa",
-                params={"access": access_id},
-                verify=False, timeout=15, allow_redirects=True,
+                    return {"status": "error", "message": "Re-login CoreUse fallido"}
+                r = s.get(
+                    f"{_COREUSE_BASE}/flujos-qa",
+                    params={"access": access_id},
+                    verify=False, timeout=15, allow_redirects=True,
+                )
+
+            html = r.text
+            hl   = html.lower()
+            url  = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
+
+            # Sin datos para este access_id → ServiceNow aún no procesó
+            if not ("flujos ejecutados" in hl or "factibilidad" in hl
+                    or "recursos" in hl or access_id in html):
+                return {"status": "not_found",
+                        "message": "Access ID aún no registrado en CoreUse", "url": url}
+
+            # ── Factibilidad: éxito = sección presente con datos (fecha + address id) ──
+            if func_name == "Factibilidad":
+                has_fact_section = "factibilidad" in hl
+                has_fact_data = bool(re.search(r'\d{2}-\d{2}-\d{2}', html)) \
+                             or bool(re.search(r'DIR\d{6,}|address\s*id', html, re.I))
+                if has_fact_section and has_fact_data:
+                    return {"status": "success",
+                            "message": "Factibilidad registrada en CoreUse", "url": url}
+                else:
+                    return {"status": "pending",
+                            "message": "Sección Factibilidad aún sin datos en CoreUse", "url": url}
+
+            # ── Resto de funcionalidades: buscar en chunks del RSC payload ────────────
+            _result_chunks = re.findall(
+                r'"(?:title|children|text|label)\\":\\"([^\\"]{5,200})\\"', html
             )
-        # Sesión expirada → re-login
-        if "/login" in r.url:
-            _coreuse_session = None
-            s = _coreuse_login()
-            if not s:
-                return {"status": "error", "message": "Re-login CoreUse fallido"}
-            r = s.get(
-                f"{_COREUSE_BASE}/flujos-qa",
-                params={"access": access_id},
-                verify=False, timeout=15, allow_redirects=True,
+            _result_text = " ".join(_result_chunks).lower()
+
+            failure_phrases = [
+                "fallido", "rechazado", "rechazada", "no se pudo", "no encontrado",
+                "no encontrada", "no se encuentra",
+                "error en el flujo", "error al procesar",
+                "timed out", "timeout", "failed to", "flujo fallido",
+            ]
+            success_phrases = [
+                "con éxito",
+                "exitosamente",
+                "completada con", "completado con",
+                "operación aceptada",
+                "operacion aceptada",
+                "petición realizada",
+                "peticion realizada",
+                "assigned", "activated", "procesado correctamente",
+                "ticket de intervención",
+                "ticket de intervencion",
+            ]
+
+            is_fail = any(p in _result_text for p in failure_phrases)
+            is_ok   = any(p in _result_text for p in success_phrases)
+
+            _kw = re.compile(
+                r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|'
+                r'operaci|petici|flujo completado|assignment|activation|deregistration|device)',
+                re.I
             )
+            flujos = [c for c in _result_chunks if _kw.search(c)][:1]
 
-        html = r.text
-        hl   = html.lower()
-        url  = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
-
-        # Sin datos para este access_id → ServiceNow aún no procesó
-        if not ("flujos ejecutados" in hl or "factibilidad" in hl
-                or "recursos" in hl or access_id in html):
-            return {"status": "not_found",
-                    "message": "Access ID aún no registrado en CoreUse", "url": url}
-
-        # ── Factibilidad: éxito = sección presente con datos (fecha + address id) ──
-        # No hay texto "completada con éxito" — la sección en CoreUse con datos es
-        # la confirmación de que ServiceNow procesó la factibilidad.
-        if func_name == "Factibilidad":
-            # La sección aparece con datos cuando tiene fecha (ej. "07-08-26") y address id
-            has_fact_section = "factibilidad" in hl
-            has_fact_data = bool(re.search(
-                r'\d{2}-\d{2}-\d{2}',  # fecha en formato DD-MM-YY
-                html
-            )) or bool(re.search(r'DIR\d{6,}|address\s*id', html, re.I))
-            if has_fact_section and has_fact_data:
-                return {"status": "success",
-                        "message": "Factibilidad registrada en CoreUse", "url": url}
+            if is_fail and not is_ok:
+                msg = flujos[0] if flujos else "Error detectado en CoreUse"
+                return {"status": "failure", "message": msg, "url": url}
+            elif is_ok:
+                msg = flujos[0] if flujos else "Operación completada con éxito"
+                return {"status": "success", "message": msg, "url": url}
             else:
-                return {"status": "pending",
-                        "message": "Sección Factibilidad aún sin datos en CoreUse", "url": url}
+                return {"status": "pending", "message": "ServiceNow procesando...", "url": url}
 
-        # ── Resto de funcionalidades: buscar en chunks del RSC payload ────────────
-        # Los keywords de UI/CSS/JS generan falsos positivos si buscamos en todo el HTML.
-        _result_chunks = re.findall(
-            r'"(?:title|children|text|label)\\":\\"([^\\"]{5,200})\\"', html
-        )
-        _result_text = " ".join(_result_chunks).lower()
-
-        # Frases de fallo específicas del dominio (no palabras sueltas como "error")
-        failure_phrases = [
-            "fallido", "rechazado", "rechazada", "no se pudo", "no encontrado",
-            "no encontrada", "no se encuentra",           # FIA code 3: "La orden no se encuentra con un ticket..."
-            "error en el flujo", "error al procesar",
-            "timed out", "timeout", "failed to", "flujo fallido",
-        ]
-        # Frases de éxito (mapeadas desde CoreUse por operación)
-        success_phrases = [
-            "con éxito",                    # Assignment, Activación, Baja, Mod. Acceso, OOSS cancellation
-            "exitosamente",
-            "completada con", "completado con",
-            "operación aceptada",           # Finalización IA: "Operación aceptada, el flujo continúa"
-            "operacion aceptada",           # sin tilde por si acaso
-            "petición realizada",           # Device Modification: "Petición realizada con éxito"
-            "peticion realizada",           # sin tilde por si acaso
-            "assigned", "activated", "procesado correctamente",
-            "ticket de intervención",       # Cancelación IIA: "Ticket de intervención asociado: WO..."
-            "ticket de intervencion",       # sin tilde por si acaso
-        ]
-
-        is_fail = any(p in _result_text for p in failure_phrases)
-        is_ok   = any(p in _result_text for p in success_phrases)
-
-        # Extraer mensaje descriptivo del payload RSC
-        _kw = re.compile(
-            r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|'
-            r'operaci|petici|flujo completado|assignment|activation|deregistration|device)',
-            re.I
-        )
-        flujos = [c for c in _result_chunks if _kw.search(c)][:1]
-
-        if is_fail and not is_ok:
-            msg = flujos[0] if flujos else "Error detectado en CoreUse"
-            return {"status": "failure", "message": msg, "url": url}
-        elif is_ok:
-            msg = flujos[0] if flujos else "Operación completada con éxito"
-            return {"status": "success", "message": msg, "url": url}
-        else:
-            return {"status": "pending", "message": "ServiceNow procesando...", "url": url}
-
-    except Exception as exc:
-        return {"status": "error", "message": str(exc)}
+        except Exception as exc:
+            return {"status": "error", "message": str(exc)}
 
 # ─────────────────────────────────────────────────────────────────────────────
 
