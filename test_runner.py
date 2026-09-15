@@ -1612,7 +1612,7 @@ ATRF_PRESET_INDEXES = {
     "completa": [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7],
     # Flujos Nokia — equivalentes a lo que el equipo ejecuta manualmente
     "flujo1":   [0, 1, 6],              # Sanity básico: Factibilidad → Asignación → Cancel OOSS
-    "flujo2":   [1, 2, 8, 9, 3, 4, 5, 7],  # Sanity completo: Asig → Activ → ModAcceso → DevMod → IIA → CancelIA → FIA → Baja
+    "flujo2":   [1, 2, 8, 9, 3, 4, 3, 5, 7],  # Sanity completo: Asig → Activ → ModAcceso → DevMod → IIA → CancelIA → IIA → FIA → Baja
 }
 
 async def _agenda_load_from_db():
@@ -1889,7 +1889,8 @@ async def _agenda_fire_async(schedule_id: int):
 
         fn_set         = set(func_names)
         seq_phase      = [f for f in ["Factibilidad", "Asignación"] if f in fn_set]
-        ia_phase       = [f for f in _IA_CHAIN_ORDERED if f in fn_set]
+        # ia_phase preserva orden Y duplicados del input (ej. IIA puede aparecer dos veces)
+        ia_phase       = [f for f in func_names if f in _IA_SET]
         teardown_phase = [f for f in _TEARDOWN_ORDERED  if f in fn_set]
         indep_phase    = [f for f in func_names
                           if f not in _IA_SET and f not in _TEARDOWN_SET
@@ -1961,12 +1962,13 @@ async def _agenda_fire_async(schedule_id: int):
         # ── FASE 2: Paralelo — Rama IA ∥ Independientes ───────────────────────
         async def _run_ia_chain():
             _res = []
-            for _fn in ia_phase:
+            for _i, _fn in enumerate(ia_phase):
                 _r = await _exec_step(_fn)
                 _res.append(_r)
                 if _fn == "Inicio Intervención Asegurada" and not _r["pass"]:
                     # Inicio IA falló → marcar el resto del chain como saltados
-                    for _fn2 in ia_phase[ia_phase.index(_fn) + 1:]:
+                    # Usa _i (índice actual) en vez de .index() para soportar IIA duplicado
+                    for _fn2 in ia_phase[_i + 1:]:
                         _res.append({"func": _fn2, "pass": False,
                                      "error": "⊘ Saltado: Inicio IA falló", "duration_ms": 0})
                     break
@@ -15545,11 +15547,13 @@ function _atrf_toggleFunc(i){
 }
 // Presets de regresión — basados en diagrama de procesos
 var _ATRF_PRESETS={
+  // Flujo 1 Nokia: Factibilidad → Asignación → Cancel OOSS
+  flujo1: [0, 1, 6],
+  // Flujo 2 Nokia: Asig → Activ → ModServ → DevMod → IIA → CancelIA → IIA → FIA → Baja
+  flujo2: [1, 2, 8, 9, 3, 4, 3, 5, 7],
   // Acotada: 01-Fact · 02-Asig · 13-ConsultaAcceso · 03-InicioIA · 10-CancelIA · 11-CancelOOSS
   acotada: [0, 1, 11, 3, 4, 6],
   // Completa: flujo venta completo + postventa + consultas (según diagrama fila 2)
-  // 01-Fact · 02-Asig · 03-InicioIA · 04-Activ · 13-ConsAcceso · 14-CEV · 15-ModAcceso ·
-  // 16-ConsONT · 17-Diag · 18-ReinicioONT · 19-CambDisp · 06-FIA · 12-CambPelo · 08-FIA · 09-Baja
   completa: [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7]
 };
 function _atrf_setPreset(name){
