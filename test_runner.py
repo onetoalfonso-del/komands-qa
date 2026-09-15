@@ -1033,6 +1033,7 @@ _db_pool: _apg.Pool | None = None
 _COREUSE_BASE = os.environ.get("COREUSE_URL", "https://2.24.121.109")
 _COREUSE_USER = os.environ.get("COREUSE_USER", "")
 _COREUSE_PASS = os.environ.get("COREUSE_PASS", "")
+_COREUSE_PIN  = os.environ.get("COREUSE_PIN",  "")   # PIN de 6 dígitos para desbloqueo por inactividad
 _coreuse_session = None
 
 # Funcionalidades que NO deben consultarse en CoreUse:
@@ -1075,6 +1076,50 @@ def _coreuse_login():
         _coreuse_session = None
         return None
 
+def _coreuse_unlock(s, locked_url: str) -> bool:
+    """Desbloquea sesión CoreUse bloqueada por inactividad usando COREUSE_PIN."""
+    if not _COREUSE_PIN:
+        print("[coreuse] COREUSE_PIN no configurado — no se puede desbloquear automáticamente")
+        return False
+    try:
+        r = s.get(locked_url, verify=False, timeout=15)
+        html = r.text
+        # Extraer campos de formulario (mismo patrón que el login)
+        files = {}
+        ak  = re.search(r'name="\$ACTION_KEY"\s+value="([^"]+)"', html)
+        a10 = re.search(r'name="\$ACTION_1:0"\s+value="([^"]+)"', html)
+        a11 = re.search(r'name="\$ACTION_1:1"\s+value="([^"]+)"', html)
+        if ak:  files["$ACTION_KEY"] = (None, ak.group(1))
+        if a10: files["$ACTION_1:0"] = (None, a10.group(1).replace("&quot;", '"'))
+        if a11: files["$ACTION_1:1"] = (None, a11.group(1))
+        # Detectar nombre del campo PIN en el formulario
+        pin_name = None
+        for pat in [
+            r'<input[^>]+name="([^"]+)"[^>]*(?:pin|codigo|digit|unlock)',
+            r'<input[^>]+(?:pin|codigo|digit|unlock)[^>]*name="([^"]+)"',
+            r'<input[^>]+type="(?:number|text|password)"[^>]+name="([^"]+)"',
+            r'name="([^$][^"]*)"[^>]*type="(?:number|text|password)"',
+        ]:
+            m = re.search(pat, html, re.I)
+            if m and not m.group(1).startswith("$ACTION"):
+                pin_name = m.group(1)
+                break
+        if not pin_name:
+            pin_name = "pin"  # fallback
+        files[pin_name] = (None, _COREUSE_PIN)
+        # Pasar el parámetro 'next' para redirigir tras desbloquear
+        from urllib.parse import urlparse, parse_qs, unquote as _unq
+        _pq = parse_qs(urlparse(locked_url).query)
+        files["next"] = (None, unquote(_pq.get("next", ["/"])[0]) if "next" in _pq else "/")
+        base_unlock = locked_url.split("?")[0]
+        resp = s.post(base_unlock, files=files, allow_redirects=True, verify=False, timeout=15)
+        ok = "/desbloqueo" not in resp.url
+        print(f"[coreuse] desbloqueo PIN {'exitoso' if ok else 'FALLÓ'} → {resp.url}")
+        return ok
+    except Exception as _ue:
+        print(f"[coreuse] error desbloqueo: {_ue}")
+        return False
+
 def _coreuse_get_session():
     global _coreuse_session
     if _coreuse_session is None:
@@ -1103,6 +1148,20 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
             params={"access": access_id},
             verify=False, timeout=15, allow_redirects=True,
         )
+        # Sesión bloqueada por inactividad → desbloquear con PIN automáticamente
+        if "/desbloqueo" in r.url:
+            unlocked = _coreuse_unlock(s, r.url)
+            if not unlocked:
+                # Si el desbloqueo falló, forzar re-login completo
+                _coreuse_session = None
+                s = _coreuse_login()
+                if not s:
+                    return {"status": "error", "message": "CoreUse bloqueado y re-login falló"}
+            r = s.get(
+                f"{_COREUSE_BASE}/flujos-qa",
+                params={"access": access_id},
+                verify=False, timeout=15, allow_redirects=True,
+            )
         # Sesión expirada → re-login
         if "/login" in r.url:
             _coreuse_session = None
