@@ -7651,15 +7651,16 @@ async def api_coreuse_poll(request: Request):
                              "message": "CoreUse no configurado (env vars faltantes)", "attempts": 0})
 
     # Polling adaptativo: chequeo rápido al inicio, luego cada 15s
-    # Intento 1 → esperar 8s (operaciones rápidas ~10-20s)
-    # Intentos 2-15 → esperar 15s c/u → máximo total ~3.5 min
-    # Antes: 8 × 45s = 6 min máx. Ahora: responde 3× más rápido en promedio.
-    _MAX_ATTEMPTS  = 15
-    _FIRST_WAIT_S  = 8
-    _NORMAL_WAIT_S = 15
+    # Tiempos reales por paso: Fact 2min, Asig 1min, Activ 4min,
+    # IIA/CIA/FIA ~20s-1min, Mods ~1min, Consultas ~1min, Baja/CancelOOSS ~2min
+    # Intento 1 → esperar 10s (captura pasos rápidos: IIA, CIA, FIA, consultas)
+    # Intentos 2-20 → esperar 18s c/u → máximo total ~5.9 min (cubre Activación de 4 min)
+    _MAX_ATTEMPTS  = 20
+    _FIRST_WAIT_S  = 10
+    _NORMAL_WAIT_S = 18
 
     loop   = _aio.get_event_loop()
-    result = {"status": "timeout", "message": f"Sin respuesta tras {_MAX_ATTEMPTS} intentos", "attempts": 0}
+    result = {"status": "timeout", "message": f"Sin respuesta tras {_MAX_ATTEMPTS} intentos (~6 min)", "attempts": 0}
 
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
