@@ -16439,13 +16439,8 @@ async function _atrf_runSelected(){
       return _sr;
     }
     // ── FASE 1: Secuencial (Factibilidad → [Cancelación] → Asignación) ───────
-    var _asigsDone=0;
     for(var _ms=0;_ms<_mSeqPhase.length;_ms++){
-      var _msStep=_mSeqPhase[_ms];
-      // 2da+ Asignación: resetear access ID para que el backend genere uno nuevo
-      if(_msStep.fn==="Asignación"&&_asigsDone>0){_currentAccessId='';}
-      if(_msStep.fn==="Asignación")_asigsDone++;
-      var _mr=await _mDoStep(_msStep);if(_mr){q.tcResults.push(_mr);_atrf_refreshDetail(qi);}
+      var _mr=await _mDoStep(_mSeqPhase[_ms]);if(_mr){q.tcResults.push(_mr);_atrf_refreshDetail(qi);}
     }
     // ── FASE 2: Paralelo — Cadena IA ∥ Independientes ───────────────────────
     async function _mRunIA(){
