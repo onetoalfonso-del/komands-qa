@@ -1210,7 +1210,9 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
             # 1. RSC chunks: extrae texto de campos del payload Next.js
             # 2. HTML directo: busca en todo el HTML como fallback (más robusto)
             _result_chunks = re.findall(
-                r'"(?:title|children|text|label|message|description|value|content)\\":\\"([^\\"]{3,400})\\"',
+                r'"(?:title|children|text|label|message|description|value|content|'
+                r'error|name|status|reason|detail|info|summary|body|result|msg|'
+                r'code_desc|breaking_point|u_return_code_desc|u_breaking_point)\\":\\"([^\\"]{3,400})\\"',
                 html
             )
             _result_text = " ".join(_result_chunks).lower()
@@ -2017,8 +2019,13 @@ async def _agenda_fire_async(schedule_id: int):
         for fn in seq_phase:
             _r1 = await _exec_step(fn)
             steps_results.append(_r1)
-            # Capturar access_id generado por Asignación (si no venía en cfg_extra)
-            if _r1["pass"] and not prev_access_id:
+            # Asignación es quien confirma el Access ID real en ServiceNow.
+            # Siempre actualizarlo desde la respuesta (puede diferir del pre-seteado).
+            if fn == "Asignación":
+                _aid = _r1.get("accessId", "")
+                if _aid:
+                    prev_access_id = _aid
+            elif _r1["pass"] and not prev_access_id:
                 _aid = _r1.get("accessId", "")
                 if _aid:
                     prev_access_id = _aid
@@ -16334,7 +16341,8 @@ async function _atrf_runSelected(){
         }
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
-      if(pass&&rd&&rd.accessId&&!_currentAccessId)_currentAccessId=rd.accessId;
+      // Asignación confirma el Access ID real en ServiceNow — siempre actualizar desde su respuesta
+      if(rd&&rd.accessId){if(fn==="Asignación"||!_currentAccessId)_currentAccessId=rd.accessId;}
       // CoreUse poll PRIMERO — determina el pass/fail real antes del delay
       if(!_COREUSE_NO_POLL[fn]&&_currentAccessId&&pass){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
