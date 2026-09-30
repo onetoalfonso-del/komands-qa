@@ -16343,10 +16343,19 @@ async function _atrf_runSelected(){
     var _qRowEl=document.getElementById('atrf-qrow-'+qi);
     if(_qRowEl&&!_qRowEl.classList.contains('open'))_qRowEl.classList.add('open');
     _atrf_refreshDetail(qi);
-    var _mSeqPhase =_mAllSteps.filter(function(s){return _MSeqSet.has(s.fn);});
-    var _mIaPhase  =_mAllSteps.filter(function(s){return _MIaSet.has(s.fn);});
-    var _mIndep    =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MTdSet.has(s.fn);});
-    var _mTeardown =_mAllSteps.filter(function(s){return _MTdSet.has(s.fn);});
+    // Phase 1: Fact→Asig EN ORDEN DECLARADO, incluyendo cualquier Teardown
+    // que aparezca antes del último _MSeqSet (p.ej. Cancelación ODS entre dos Asignaciones)
+    var _mSeqPhase=[],_mTeardown=[];
+    var _lastSeqIdx=-1;
+    for(var _psi=_mAllSteps.length-1;_psi>=0;_psi--){if(_MSeqSet.has(_mAllSteps[_psi].fn)){_lastSeqIdx=_psi;break;}}
+    for(var _psi=0;_psi<_mAllSteps.length;_psi++){
+      var _psf=_mAllSteps[_psi];
+      if(_MSeqSet.has(_psf.fn)){_mSeqPhase.push(_psf);}
+      else if(_MTdSet.has(_psf.fn)&&_psi<_lastSeqIdx){_mSeqPhase.push(_psf);}  // intercalado antes de última Asig
+      else if(_MTdSet.has(_psf.fn)){_mTeardown.push(_psf);}
+    }
+    var _mIaPhase=_mAllSteps.filter(function(s){return _MIaSet.has(s.fn);});
+    var _mIndep  =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MTdSet.has(s.fn);});
     // Función ejecutora de un solo paso
     async function _mDoStep(s){
       var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
@@ -16429,9 +16438,14 @@ async function _atrf_runSelected(){
       q.runningFns.delete(fn);
       return _sr;
     }
-    // ── FASE 1: Secuencial (Factibilidad → Asignación) ──────────────────────
+    // ── FASE 1: Secuencial (Factibilidad → [Cancelación] → Asignación) ───────
+    var _asigsDone=0;
     for(var _ms=0;_ms<_mSeqPhase.length;_ms++){
-      var _mr=await _mDoStep(_mSeqPhase[_ms]);if(_mr){q.tcResults.push(_mr);_atrf_refreshDetail(qi);}
+      var _msStep=_mSeqPhase[_ms];
+      // 2da+ Asignación: resetear access ID para que el backend genere uno nuevo
+      if(_msStep.fn==="Asignación"&&_asigsDone>0){_currentAccessId='';}
+      if(_msStep.fn==="Asignación")_asigsDone++;
+      var _mr=await _mDoStep(_msStep);if(_mr){q.tcResults.push(_mr);_atrf_refreshDetail(qi);}
     }
     // ── FASE 2: Paralelo — Cadena IA ∥ Independientes ───────────────────────
     async function _mRunIA(){
