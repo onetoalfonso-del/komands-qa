@@ -1202,11 +1202,16 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                     return {"status": "pending",
                             "message": "Sección Factibilidad aún sin datos en CoreUse", "url": url}
 
-            # ── Resto de funcionalidades: buscar en chunks del RSC payload ────────────
+            # ── Resto de funcionalidades ──────────────────────────────────────────
+            # Estrategia doble:
+            # 1. RSC chunks: extrae texto de campos del payload Next.js
+            # 2. HTML directo: busca en todo el HTML como fallback (más robusto)
             _result_chunks = re.findall(
-                r'"(?:title|children|text|label)\\":\\"([^\\"]{5,200})\\"', html
+                r'"(?:title|children|text|label|message|description|value|content)\\":\\"([^\\"]{3,400})\\"',
+                html
             )
             _result_text = " ".join(_result_chunks).lower()
+            _html_lower  = hl  # búsqueda directa en HTML completo
 
             failure_phrases = [
                 "fallido", "rechazado", "rechazada", "no se pudo", "no encontrado",
@@ -1227,22 +1232,34 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                 "assigned", "activated", "procesado correctamente",
                 "ticket de intervención",
                 "ticket de intervencion",
-                # IIA: resultado exitoso con diagnóstico de CTO
-                "se recomienda cambio",
+                "se recomienda cambio",   # IIA exitoso con diagnóstico CTO
                 "problemas de potencia",
                 "cambio de cto",
             ]
 
-            is_fail = any(p in _result_text for p in failure_phrases)
-            is_ok   = any(p in _result_text for p in success_phrases)
+            # Buscar en RSC chunks Y directamente en el HTML completo
+            is_fail = (any(p in _result_text for p in failure_phrases) or
+                       any(p in _html_lower   for p in failure_phrases))
+            is_ok   = (any(p in _result_text for p in success_phrases) or
+                       any(p in _html_lower   for p in success_phrases))
 
             _kw = re.compile(
                 r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|'
                 r'operaci|petici|flujo completado|assignment|activation|deregistration|device|'
-                r'rotura|availability|vlan)',
+                r'rotura|availability|vlan|recomien)',
                 re.I
             )
             flujos = [c for c in _result_chunks if _kw.search(c)][:1]
+            # Fallback mensaje: extraer fragmento relevante directo del HTML
+            if not flujos:
+                _m = re.search(
+                    r'(?:con\s+éxito|exitosamente|rotura[:\s]+\w[\w\s:]+|'
+                    r'completad[ao]\s+con|ticket\s+de\s+intervenci[oó]n[^<]{0,80}|'
+                    r'se\s+recomienda[^<]{0,80})',
+                    html, re.I
+                )
+                if _m:
+                    flujos = [_m.group(0).strip()]
 
             if is_fail and not is_ok:
                 msg = flujos[0] if flujos else "Error detectado en CoreUse"
