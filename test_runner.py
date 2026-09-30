@@ -15735,7 +15735,7 @@ function _atrf_renderSeq(){
 }
 function _atrf_removeSeq(pos){_atrfSel.splice(pos,1);_atrf_renderSeq();_atrf_renderCatalog();document.getElementById('atrf-funcs-cnt').textContent=_atrfSel.length?('('+_atrfSel.length+')'):''}
 
-function _atrf_enqueue(){
+async function _atrf_enqueue(){
   var errors=[];
   document.querySelectorAll('#atrf-modal-new .err').forEach(function(e){e.classList.remove('err');});
   document.getElementById('atrf-funcs-err').classList.remove('show');
@@ -15752,16 +15752,32 @@ function _atrf_enqueue(){
   errEl.classList.remove('show');
   var amb=_atrf_getAmb();var ts=document.getElementById('atrf-seq-ts').textContent;
   var dir=_atrf_v('atrf-dir').trim();
-  var n=_atrf_now();
+  // Si auto-AID está activo, obtener correlativo real del API para cada VNO
+  var _aidByVno={};
+  if(_atrfAutoState.aid){
+    // Para VNO único: si el campo ya muestra un AID válido (no "Generando…"), usarlo directo
+    var _fieldAid=_atrf_v('atrf-aid').trim();
+    var _fieldValid=_fieldAid&&_fieldAid.indexOf('Generando')===-1&&_fieldAid.indexOf('automaticamente')===-1&&_fieldAid.indexOf('automáticamente')===-1;
+    if(vnos.length===1&&_fieldValid){
+      _aidByVno[vnos[0]]=_fieldAid;
+    } else {
+      // Multi-VNO o campo no válido: buscar correlativo del API para cada VNO
+      await Promise.all(vnos.map(async function(vno){
+        try{
+          var r=await fetch('/api/atrf/next-aid?vno='+encodeURIComponent(vno));
+          var rd=await r.json();
+          _aidByVno[vno]=rd.aid||_atrf_buildAid(vno);
+        }catch(e){_aidByVno[vno]=_atrf_buildAid(vno);}
+      }));
+    }
+  }
   vnos.forEach(function(vno){
-    var sn_auto=_atrf_buildSerial(vno);
-    var aid_auto=_atrf_buildAid(vno);
     var _snPx=_atrf_getSnPrefix(vno);
     var _snSfx=_atrfAutoState.sn?(_atrf_now().HH+_atrf_now().mm):_atrf_v('atrf-sn').trim();
     var sn_val=_snPx?_snPx+_snSfx:_snSfx;
     var _nsnSfx=_atrfAutoState.nsn?(_atrf_now().HH+_atrf_now().mm):_atrf_v('atrf-nsn').trim();
     var nsn_val=_snPx?_snPx+_nsnSfx:_nsnSfx;
-    var aid_val=_atrfAutoState.aid?aid_auto:_atrf_v('atrf-aid').trim();
+    var aid_val=_atrfAutoState.aid?(_aidByVno[vno]||_atrf_buildAid(vno)):_atrf_v('atrf-aid').trim();
     var qname=name+(vnos.length>1?' [VNO '+vno+']':'');
     var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val,ba:document.getElementById('atrf-svc-ba').checked,voip:document.getElementById('atrf-svc-voip').checked,iptv:document.getElementById('atrf-svc-iptv').checked};
     _atrfQueue.push({name:qname,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:ts,cfg:cfg,history:[]});
@@ -15897,9 +15913,9 @@ function _atrf_schedSave(){
   var dir=_atrf_v('atrf-dir').trim();
   var tdir=_atrf_v('atrf-tdir');
   var vno=vnos[0]; // para schedule solo se usa 1 VNO (primer seleccionado)
-  // Calcular access_id desde el formulario (mismo logic que _atrf_enqueue)
-  var _aidAuto=_atrf_buildAid(vno);
-  var _aidForm=_atrfAutoState.aid?_aidAuto:_atrf_v('atrf-aid').trim();
+  // Si auto-AID está activo, dejamos vacío para que el scheduler genere el correlativo
+  // en el momento real de ejecución (fresco por fecha). Si es manual, usamos el valor.
+  var _aidForm=_atrfAutoState.aid?'':_atrf_v('atrf-aid').trim();
   var cfg_extra={
     accessId: _aidForm,
     esc: _atrf_v('atrf-esc'),
