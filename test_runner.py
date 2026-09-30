@@ -8999,6 +8999,7 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 /* Modal */
 .atrf-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9100;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto}
 .atrf-overlay.show{display:flex}
+#atrf-modal-tc{z-index:9200}
 .atrf-modal{background:var(--atrf-surface);border:1px solid var(--atrf-border2);border-radius:var(--atrf-radius-lg);width:100%;max-width:860px;display:flex;flex-direction:column;margin:auto}
 .atrf-modal-head{display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface2);border-radius:var(--atrf-radius-lg) var(--atrf-radius-lg) 0 0;flex-shrink:0;flex-wrap:wrap}
 .atrf-modal-head-title{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:var(--atrf-text2);flex-shrink:0;font-family:var(--atrf-font)}
