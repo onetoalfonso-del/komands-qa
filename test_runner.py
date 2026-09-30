@@ -15093,6 +15093,8 @@ var _atrfRunning=false;
 var _atrf_schedCalState=null; // {y,m} estado del mini-cal en la pestana Programar
 var _schedRuns=[];
 var _schedRunsTimer=null;
+var _atrfQPage=0,_atrfSRPage=0;
+var _ATRF_PAGE=5;
 var _schedLivePolls={};  // run_id → intervalId para live-badge polling
 var _atrfViewIdx=-1;
 var _atrfSel=[];
@@ -15218,10 +15220,14 @@ function _atrf_renderQueue(){
   var html='<div class="atrf-queue-list">';
   // ── sección cola manual ───────────────────────────────────────────────────
   if(hasQ){
+    var _qTotalPgs=Math.ceil(_atrfQueue.length/_ATRF_PAGE);
+    _atrfQPage=Math.min(_atrfQPage,_qTotalPgs-1);
+    var _qStart=_atrfQPage*_ATRF_PAGE;
     if(hasSR){
       html+='<div style="padding:4px 12px 3px;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);background:var(--atrf-bg);border-bottom:1px solid var(--atrf-border)">Cola manual</div>';
     }
-    _atrfQueue.forEach(function(q,qi){
+    _atrfQueue.slice(_qStart,_qStart+_ATRF_PAGE).forEach(function(q,i){
+      var qi=_qStart+i;
       var sc={espera:'atrf-badge-wait',ejecutando:'atrf-badge-run',ok:'atrf-badge-ok',error:'atrf-badge-err'}[q.status];
       var sl={espera:'En espera',ejecutando:'Ejecutando',ok:'Completado',error:'Con errores'}[q.status];
       var urlBadge=q.cfg&&q.cfg.ambUrl?('<span class="atrf-url-badge">'+esc(q.cfg.ambUrl)+'</span>'):'';
@@ -15240,12 +15246,24 @@ function _atrf_renderQueue(){
         +'<div class="atrf-qrow-detail" id="atrf-qdetail-'+qi+'">'+_atrf_buildDetailHtml(qi)+'</div>'
         +'</div>';
     });
+    if(_qTotalPgs>1){
+      html+='<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:7px 12px;border-top:1px solid var(--atrf-border);background:var(--atrf-bg)">'
+        +'<button class="atrf-btn atrf-btn-sm" onclick="_atrfQPage=Math.max(0,_atrfQPage-1);_atrf_renderQueue()" '
+        +(_atrfQPage===0?'disabled':'')+' style="padding:2px 10px;min-width:28px">‹</button>'
+        +'<span style="font-size:11px;color:var(--atrf-text2);min-width:60px;text-align:center">'+(_atrfQPage+1)+' / '+_qTotalPgs+'</span>'
+        +'<button class="atrf-btn atrf-btn-sm" onclick="_atrfQPage=Math.min('+(_qTotalPgs-1)+',_atrfQPage+1);_atrf_renderQueue()" '
+        +(_atrfQPage>=_qTotalPgs-1?'disabled':'')+' style="padding:2px 10px;min-width:28px">›</button>'
+        +'</div>';
+    }
   }
   // ── sección ejecuciones programadas ──────────────────────────────────────
   if(hasSR){
+    var _srTotalPgs=Math.ceil(_schedRuns.length/_ATRF_PAGE);
+    _atrfSRPage=Math.min(_atrfSRPage,_srTotalPgs-1);
+    var _srStart=_atrfSRPage*_ATRF_PAGE;
     html+='<div style="padding:4px 12px 3px;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);background:var(--atrf-bg);border-bottom:1px solid var(--atrf-border)'+(hasQ?';border-top:2px solid var(--atrf-border)':'')+'">'
       +'&#128197; Ejecuciones programadas</div>';
-    _schedRuns.forEach(function(r){
+    _schedRuns.slice(_srStart,_srStart+_ATRF_PAGE).forEach(function(r){
       var sc={running:'atrf-badge-run',pass:'atrf-badge-ok',fail:'atrf-badge-err',partial:'atrf-badge-warn'}[r.status]||'atrf-badge-wait';
       var sl={running:'Ejecutando...',pass:'Completado',fail:'Con errores',partial:'Parcial'}[r.status]||r.status;
       var urlBadge=r.amb_url?('<span class="atrf-url-badge">'+esc(r.amb_url)+'</span>'):'';
@@ -15259,7 +15277,6 @@ function _atrf_renderQueue(){
       var stepsData=[];try{stepsData=JSON.parse(r.steps_json||'[]');}catch(ex){}
       var stepsHtml='';
       if(r.status==='running'){
-        // Placeholder para live-badges; se llenará por polling
         stepsHtml='<div class="atrf-tc-results" id="ag-sr-live-'+r.id+'" style="padding:6px 12px 10px 14px;border-top:1px solid var(--atrf-border);min-height:28px">'
           +'<span style="font-size:.65rem;color:var(--atrf-text3);font-style:italic">Iniciando…</span></div>';
       } else if(stepsData.length){
@@ -15287,6 +15304,15 @@ function _atrf_renderQueue(){
         +stepsHtml
         +'</div>';
     });
+    if(_srTotalPgs>1){
+      html+='<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:7px 12px;border-top:1px solid var(--atrf-border);background:var(--atrf-bg)">'
+        +'<button class="atrf-btn atrf-btn-sm" onclick="_atrfSRPage=Math.max(0,_atrfSRPage-1);_atrf_renderQueue()" '
+        +(_atrfSRPage===0?'disabled':'')+' style="padding:2px 10px;min-width:28px">‹</button>'
+        +'<span style="font-size:11px;color:var(--atrf-text2);min-width:60px;text-align:center">'+(_atrfSRPage+1)+' / '+_srTotalPgs+'</span>'
+        +'<button class="atrf-btn atrf-btn-sm" onclick="_atrfSRPage=Math.min('+(_srTotalPgs-1)+',_atrfSRPage+1);_atrf_renderQueue()" '
+        +(_atrfSRPage>=_srTotalPgs-1?'disabled':'')+' style="padding:2px 10px;min-width:28px">›</button>'
+        +'</div>';
+    }
   }
   html+='</div>';
   el.innerHTML=html;
@@ -15298,7 +15324,7 @@ function _atrf_renderQueue(){
       var rid=parseInt(this.dataset.rid);
       if(!confirm('Eliminar esta ejecucion programada?'))return;
       fetch('/api/sched-runs/'+rid,{method:'DELETE',headers:_authHdr()})
-        .then(function(){_atrf_loadSchedRuns();})
+        .then(function(){_atrfSRPage=Math.max(0,Math.min(_atrfSRPage,Math.ceil((_schedRuns.length-1)/_ATRF_PAGE)-1));_atrf_loadSchedRuns();})
         .catch(function(e){alert('Error: '+e);});
     };
   });
@@ -15404,12 +15430,14 @@ function _atrf_buildDetailHtml(qi){
 function _atrf_refreshDetail(qi){
   var el=document.getElementById('atrf-qdetail-'+qi);
   if(el)el.innerHTML=_atrf_buildDetailHtml(qi);
+  // Si el modal de vista está abierto para esta secuencia, refrescarlo también
+  if(_atrfViewIdx===qi&&document.getElementById('atrf-modal-view').classList.contains('show'))_atrf_openView(qi,true);
 }
 function _atrf_toggleDetail(qi){
   document.getElementById('atrf-qrow-'+qi).classList.toggle('open');
 }
 function _atrf_toggleCb(qi){_atrfQueue[qi].checked=!_atrfQueue[qi].checked;document.getElementById('atrf-qcb-'+qi).classList.toggle('on',_atrfQueue[qi].checked);_atrf_save();_atrf_renderQueue();}
-function _atrf_removeItem(qi){if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrf_renderQueue();_atrf_save();}
+function _atrf_removeItem(qi){if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(qi,1);_atrfQPage=Math.max(0,Math.min(_atrfQPage,Math.ceil(_atrfQueue.length/_ATRF_PAGE)-1));_atrf_renderQueue();_atrf_save();}
 function _atrf_toggleSelAll(){
   var allChecked=_atrfQueue.length>0&&_atrfQueue.every(function(q){return q.checked;});
   _atrfQueue.forEach(function(q){q.checked=!allChecked;});
@@ -15422,7 +15450,7 @@ function _atrf_deleteSelected(){
   _atrfQueue=_atrfQueue.filter(function(q){return!q.checked;});
   _atrf_renderQueue();_atrf_save();
 }
-function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrf_renderQueue();_atrf_save();}
+function _atrf_clearQueue(){if(!_atrfQueue.length)return;if(!confirm('¿Vaciar toda la cola?'))return;_atrfQueue=[];_atrfQPage=0;_atrf_renderQueue();_atrf_save();}
 
 // ── Estado Access IDs (Dashboard) ────────────────────────────────────────────────
 function _dashLoadAccessTracking(){
@@ -16189,17 +16217,23 @@ function _agSchedStepModal(rid,sidx){
   document.getElementById('atrf-modal-tc').classList.add('show');
 }
 
-function _atrf_openView(qi){
+function _atrf_openView(qi,_noReset){
   _atrfViewIdx=qi;var q=_atrfQueue[qi];
   document.getElementById('atrf-view-name').value=q.name||'';
   document.getElementById('atrf-view-ts').textContent=q.ts||'—';
-  _atrf_switchView('cfg');
+  if(!_noReset)_atrf_switchView('cfg');
   var c=q.cfg||{};
   var fields=[['VNO',c.vno],['Ambiente',c.ambiente],['URL Ambiente',c.ambUrl||'—'],['Tipo Dirección',c.tdir],['Dirección',c.direccion],['Access ID',c.accessId],['Tipo Servicio',c.tsvc],['Escenario',c.esc],['Tipo Ejecución',c.tex],['Con/Sin BP',c.bp],['Plan/Perfil',c.plan],['Nuevo Plan',c.nplan||'—'],['Serial Number',c.sn],['Nuevo S/N',c.nsn||'—']];
   document.getElementById('atrf-vcfg-grid').innerHTML=fields.map(function(f){return'<div class="atrf-dcfg-item"><div class="atrf-dcfg-lbl">'+f[0]+'</div><div class="atrf-dcfg-val">'+(f[1]||'—')+'</div></div>';}).join('');
-  // Resultados por paso
-  var tcByFunc={};var tcIdxByFunc={};
-  (q.tcResults||[]).forEach(function(r,i){tcByFunc[r.func]=r;tcIdxByFunc[r.func]=i;});
+  // Resultados por paso — tracking por ocurrencia para manejar APIs duplicadas
+  var tcByOcc={};  // "FuncName#N" → result
+  var tcIdxByOcc={};
+  var _occCount={};
+  (q.tcResults||[]).forEach(function(r,i){
+    _occCount[r.func]=(_occCount[r.func]||0)+1;
+    tcByOcc[r.func+'#'+_occCount[r.func]]=r;
+    tcIdxByOcc[r.func+'#'+_occCount[r.func]]=i;
+  });
   var hasResults=(q.tcResults||[]).length>0;
   var funcsTab=document.getElementById('atrf-vtab-funcs');
   if(hasResults){
@@ -16221,23 +16255,35 @@ function _atrf_openView(qi){
       +'<span style="color:var(--atrf-text2)">· Haz clic en un paso para ver detalle</span>'
       +'</div>';
   }
+  // Contador de ocurrencias para asignar "FuncName#N" correctamente al iterar
+  var _viewOcc={};var _viewShownRun={};
   document.getElementById('atrf-vfunc-list').innerHTML=summary+(q.funcs||[]).map(function(fi,i){
     var fn=_ATRF_FUNCS[fi]||fi;
-    var res=tcByFunc[fn];
-    var badge='',tcSpan='',clickAttr='',hoverStyle='';
+    _viewOcc[fn]=(_viewOcc[fn]||0)+1;
+    var _key=fn+'#'+_viewOcc[fn];
+    var res=tcByOcc[_key];
+    var badge='',tcSpan='',clickAttr='',rowStyle='',hoverStyle='';
     if(res){
       var bc=res.pass?'atrf-badge-ok':'atrf-badge-err';
       badge='<span class="atrf-badge '+bc+'" style="font-size:10px;padding:1px 7px;margin-left:auto;flex-shrink:0">'+(res.pass?'✓ Pasó':'✗ Falló')+'</span>';
       if(res.httpCode)badge+='<span style="font-size:10px;color:var(--atrf-text2);margin-left:6px;flex-shrink:0">HTTP '+res.httpCode+'</span>';
       tcSpan='<span style="font-family:var(--atrf-mono);font-size:10px;color:var(--atrf-text3);margin-right:4px">'+esc(res.tc||'')+'</span>';
-      clickAttr=' onclick="_atrf_openTcModal('+qi+','+tcIdxByFunc[fn]+')" style="cursor:pointer"';
+      clickAttr=' onclick="_atrf_openTcModal('+qi+','+tcIdxByOcc[_key]+')" style="cursor:pointer"';
       hoverStyle=' class="atrf-view-func-item d-link-row"';
+    } else if(q.status==='ejecutando'&&q.runningFns&&q.runningFns.has(fn)&&!_viewShownRun[fn]){
+      // Primera ocurrencia pendiente de esta función que está en ejecución → amarillo
+      _viewShownRun[fn]=true;
+      badge='<span style="font-size:10px;color:#EAB308;font-weight:600;margin-left:auto;flex-shrink:0;animation:atrf-pulse .9s ease-in-out infinite">▶ Ejecutando</span>';
+      hoverStyle=' class="atrf-view-func-item"';
+      rowStyle=' style="background:rgba(234,179,8,.07);border-left:2px solid rgba(234,179,8,.5)"';
     } else {
       hoverStyle=' class="atrf-view-func-item"';
     }
-    return '<div'+hoverStyle+clickAttr+'><span class="atrf-view-func-pos">'+(i+1)+'</span>'+tcSpan+'<span style="flex:1">'+esc(fn)+'</span>'+badge+'</div>';
+    return '<div'+hoverStyle+rowStyle+clickAttr+'><span class="atrf-view-func-pos">'+(i+1)+'</span>'+tcSpan+'<span style="flex:1">'+esc(fn)+'</span>'+badge+'</div>';
   }).join('');
-  document.getElementById('atrf-modal-view').classList.add('show');
+  // Al abrir en ejecución o con resultados, mostrar directamente el tab de resultados
+  if(hasResults||q.status==='ejecutando')_atrf_switchView('funcs');
+  if(!_noReset)document.getElementById('atrf-modal-view').classList.add('show');
 }
 function _atrf_closeView(){document.getElementById('atrf-modal-view').classList.remove('show');_atrfViewIdx=-1;}
 function _atrf_deleteFromView(){if(_atrfViewIdx<0)return;if(!confirm('¿Eliminar esta secuencia?'))return;_atrfQueue.splice(_atrfViewIdx,1);_atrf_closeView();_atrf_renderQueue();_atrf_save();}
@@ -16446,7 +16492,7 @@ async function _atrf_runSelected(){
     var rowEl=document.getElementById('atrf-qrow-'+qi);
     if(rowEl)rowEl.classList.add('open');
     // Refresca modal de vista si está abierto para esta secuencia
-    if(_atrfViewIdx===qi&&document.getElementById('atrf-modal-view').classList.contains('show')) _atrf_openView(qi);
+    if(_atrfViewIdx===qi&&document.getElementById('atrf-modal-view').classList.contains('show')) _atrf_openView(qi,true);
   }
   _atrfRunning=false;
   if(prog)prog.style.display='none';
