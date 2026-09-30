@@ -1038,6 +1038,9 @@ _coreuse_session = None
 import threading as _cu_threading
 _coreuse_lock = _cu_threading.RLock()  # protege _coreuse_session en ejecuciones paralelas
 
+# Progreso en vivo de ejecuciones programadas {run_id: {"current": [fn,...], "done": [...]}}
+_sched_live_progress: dict = {}
+
 # Funcionalidades que NO deben consultarse en CoreUse:
 #   - Grupo Consultas: no aparecen en portal CoreUse
 #   - Factibilidad: no se guarda en "Flujos ejecutados"; se valida por u_return_code + u_return_code_desc del response
@@ -1920,8 +1923,12 @@ async def _agenda_fire_async(schedule_id: int):
                           if f not in _IA_SET and f not in _TEARDOWN_SET
                           and f not in _SEQ_FIRST_SET]
 
+        # Inicializar progreso en vivo para este run
+        _sched_live_progress[run_id] = {"current": [], "done": [], "all_funcs": list(func_names)}
+
         async def _exec_step(fn):
             """Ejecuta un paso via HTTP local; usa run_in_executor para no bloquear el loop."""
+            _sched_live_progress[run_id]["current"].append(fn)
             body = {
                 "func": fn,
                 "vno": vno,
@@ -1971,6 +1978,13 @@ async def _agenda_fire_async(schedule_id: int):
                 await _asyncio.sleep(_dms / 1000)
             print(f"[agenda] sched={schedule_id} run={run_id} {fn}: "
                   f"{'PASS' if step_r['pass'] else 'FAIL'}")
+            # Actualizar progreso en vivo
+            _live = _sched_live_progress.get(run_id)
+            if _live is not None:
+                _live["current"] = [x for x in _live["current"] if x != fn]
+                _live["done"].append({"func": fn, "pass": step_r["pass"],
+                                      "http": step_r.get("http", 0),
+                                      "error": step_r.get("error", "")})
             return step_r
 
         # ── FASE 1: Secuencial — Factibilidad → Asignación ───────────────────
@@ -2029,6 +2043,7 @@ async def _agenda_fire_async(schedule_id: int):
             "UPDATE qa_schedules SET last_run=$1, run_count=run_count+1, last_status=$2 WHERE id=$3",
             finished, status, schedule_id
         )
+        _sched_live_progress.pop(run_id, None)  # limpiar progreso en vivo
         print(f"[agenda] run_id={run_id} completado: {passed} PASS / {failed} FAIL -> {status}")
         # ── Enviar reporte por correo ─────────────────────────────────────────
         try:
@@ -2292,6 +2307,14 @@ async def api_schedules_runs(sched_id: int, limit: int = 20):
         sched_id, limit
     )
     return [dict(r) for r in rows]
+
+@app.get("/api/sched-runs/{run_id}/live")
+async def api_sched_run_live(run_id: int):
+    """Progreso en tiempo real de un run programado en ejecucion."""
+    data = _sched_live_progress.get(run_id)
+    if data is None:
+        return JSONResponse({"active": False, "current": [], "done": [], "all_funcs": []})
+    return JSONResponse({"active": True, "current": data["current"], "done": data["done"], "all_funcs": data.get("all_funcs", [])})
 
 @app.delete("/api/sched-runs/{run_id}")
 async def api_sched_run_delete(run_id: int):
@@ -9030,6 +9053,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-tc-badge.pass{background:var(--atrf-green-bg);border-color:var(--atrf-green-border);color:var(--atrf-green)}
 .atrf-tc-badge.fail{background:var(--atrf-red-bg);border-color:var(--atrf-red-border);color:var(--atrf-red)}
 .atrf-tc-badge.pending{background:var(--atrf-surface2);border-color:var(--atrf-border);color:var(--atrf-text3);cursor:default}
+.atrf-tc-badge.running{background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.5);color:#EAB308;cursor:default;animation:atrf-pulse .9s ease-in-out infinite}
+@keyframes atrf-pulse{0%,100%{opacity:1}50%{opacity:.5}}
 .atrf-tc-badge:not(.pending):hover{filter:brightness(1.15);transform:translateY(-1px)}
 .atrf-tc-section-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-top:10px;margin-bottom:4px}
 .atrf-tc-modal-pre{background:var(--atrf-surface2);border:1px solid var(--atrf-border);border-radius:6px;padding:12px;font-family:var(--atrf-mono);font-size:11px;color:var(--atrf-text);overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;max-height:260px;overflow-y:auto}
@@ -15034,6 +15059,7 @@ var _atrfRunning=false;
 var _atrf_schedCalState=null; // {y,m} estado del mini-cal en la pestana Programar
 var _schedRuns=[];
 var _schedRunsTimer=null;
+var _schedLivePolls={};  // run_id → intervalId para live-badge polling
 var _atrfViewIdx=-1;
 var _atrfSel=[];
 var _atrfFilter='';
@@ -15075,6 +15101,49 @@ function _atrf_loadSchedRuns(){
       } else if(!hasRunning&&_schedRunsTimer){
         clearInterval(_schedRunsTimer);_schedRunsTimer=null;
       }
+      // Iniciar live-badge polling para runs en ejecución
+      var runningIds=_schedRuns.filter(function(r){return r.status==='running';}).map(function(r){return r.id;});
+      // Cancelar polls de runs que ya no están corriendo
+      Object.keys(_schedLivePolls).forEach(function(rid){
+        if(runningIds.indexOf(parseInt(rid))===-1){clearInterval(_schedLivePolls[rid]);delete _schedLivePolls[rid];}
+      });
+      // Iniciar polls para los que están corriendo y aún no tienen poll
+      runningIds.forEach(function(rid){
+        if(_schedLivePolls[rid])return;
+        _schedLivePolls[rid]=setInterval(function(){_atrf_pollLiveRun(rid);},3000);
+        _atrf_pollLiveRun(rid);  // primera vez inmediata
+      });
+    })
+    .catch(function(){});
+}
+
+function _atrf_pollLiveRun(rid){
+  fetch('/api/sched-runs/'+rid+'/live',{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var el=document.getElementById('ag-sr-live-'+rid);
+      if(!el)return;
+      if(!d.active){el.innerHTML='';return;}
+      var doneFns=d.done||[];var curFns=d.current||[];var allFns=d.all_funcs||[];
+      var html='';
+      // Hechos (pass/fail)
+      doneFns.forEach(function(st,si){
+        var cls=st.pass?'pass':'fail';var icon=st.pass?'✓':'✗';
+        var httpLbl=st.http?' <span style="opacity:.55;font-weight:400">HTTP '+st.http+'</span>':'';
+        html+='<span class="atrf-tc-badge '+cls+'">'+icon+' '+esc(st.func||'?')+httpLbl+'</span>';
+      });
+      // Restantes (corriendo o pendientes)
+      var doneCount={};doneFns.forEach(function(st){doneCount[st.func]=(doneCount[st.func]||0)+1;});
+      var stepCount={};
+      allFns.forEach(function(fn){
+        stepCount[fn]=(stepCount[fn]||0)+1;
+        if(stepCount[fn]>=(doneCount[fn]||0)+1){
+          var isRun=curFns.indexOf(fn)!==-1;
+          var cls=isRun?'running':'pending';var icon=isRun?'▶':'·';
+          html+='<span class="atrf-tc-badge '+cls+'">'+icon+' '+esc(fn)+'</span>';
+        }
+      });
+      el.innerHTML=html||'<span style="font-size:.65rem;color:var(--atrf-text3);font-style:italic">Iniciando…</span>';
     })
     .catch(function(){});
 }
@@ -15153,7 +15222,11 @@ function _atrf_renderQueue(){
         :'';
       var stepsData=[];try{stepsData=JSON.parse(r.steps_json||'[]');}catch(ex){}
       var stepsHtml='';
-      if(stepsData.length){
+      if(r.status==='running'){
+        // Placeholder para live-badges; se llenará por polling
+        stepsHtml='<div class="atrf-tc-results" id="ag-sr-live-'+r.id+'" style="padding:6px 12px 10px 14px;border-top:1px solid var(--atrf-border);min-height:28px">'
+          +'<span style="font-size:.65rem;color:var(--atrf-text3);font-style:italic">Iniciando…</span></div>';
+      } else if(stepsData.length){
         stepsHtml='<div class="atrf-tc-results" style="padding:6px 12px 10px 14px;border-top:1px solid var(--atrf-border)">';
         stepsData.forEach(function(st,si){
           var cls=st.pass?'pass':'fail';
@@ -15163,7 +15236,7 @@ function _atrf_renderQueue(){
         });
         stepsHtml+='</div>';
       }
-      html+='<div style="border-left:2px solid #3D7FFF;border-bottom:1px solid var(--atrf-border);padding:0">'
+      html+='<div id="ag-sr-row-'+r.id+'" style="border-left:2px solid #3D7FFF;border-bottom:1px solid var(--atrf-border);padding:0">'
         +'<div style="display:flex;align-items:center;padding:8px 12px;gap:8px">'
         +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:.75rem;font-weight:600;color:var(--atrf-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.schedule_name||'Schedule')+'</div>'
@@ -15247,7 +15320,25 @@ function _atrf_buildDetailHtml(qi){
   var q=_atrfQueue[qi];
   var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
   var tcHtml='';
-  if(q.tcResults&&q.tcResults.length){
+  if(q.status==='ejecutando'&&q._stepMeta){
+    // Estado mixto: hechos (pass/fail) + en ejecución (amarillo) + pendientes
+    tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
+    (q.tcResults||[]).forEach(function(r,idx){
+      var cls=r.pass?'pass':'fail';var icon=r.pass?'✓':'✗';
+      tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
+    });
+    var _doneCount={};(q.tcResults||[]).forEach(function(r){_doneCount[r.func]=(_doneCount[r.func]||0)+1;});
+    var _stepCount={};
+    (q._stepMeta||[]).forEach(function(s){
+      _stepCount[s.fn]=(_stepCount[s.fn]||0)+1;
+      if(_stepCount[s.fn]>(_doneCount[s.fn]||0)){
+        var _isRun=q.runningFns&&q.runningFns.has(s.fn);
+        var _cls=_isRun?'running':'pending';var _icon=_isRun?'▶':'·';
+        tcHtml+='<span class="atrf-tc-badge '+_cls+'">'+_icon+' '+esc(s.label)+'</span>';
+      }
+    });
+    tcHtml+='</div>';
+  } else if(q.tcResults&&q.tcResults.length){
     tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
     q.tcResults.forEach(function(r,idx){
       var cls=r.pass?'pass':'fail';
@@ -15271,6 +15362,10 @@ function _atrf_buildDetailHtml(qi){
     tcHtml+='</div>';
   }
   return '<div style="padding:10px 0"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--atrf-text3);font-family:var(--atrf-mono);margin-bottom:6px">Funcionalidades</div><div class="atrf-chip-list">'+chips+'</div>'+tcHtml+'</div>';
+}
+function _atrf_refreshDetail(qi){
+  var el=document.getElementById('atrf-qdetail-'+qi);
+  if(el)el.innerHTML=_atrf_buildDetailHtml(qi);
 }
 function _atrf_toggleDetail(qi){
   document.getElementById('atrf-qrow-'+qi).classList.toggle('open');
@@ -16142,6 +16237,11 @@ async function _atrf_runSelected(){
       _mLabels.push(tc?(_mOcc[fn]>1?tc+'-'+_mOcc[fn]+' · '+vl:tc+' · '+vl):null);
     });
     var _mAllSteps=(q.funcs||[]).map(function(fi,i){return {fi:fi,fn:_ATRF_FUNCS[fi]||'',label:_mLabels[i]};}).filter(function(s){return s.fn;});
+    q.runningFns=new Set();q._stepMeta=_mAllSteps;
+    // Abrir detalle para ver progreso en vivo
+    var _qRowEl=document.getElementById('atrf-qrow-'+qi);
+    if(_qRowEl&&!_qRowEl.classList.contains('open'))_qRowEl.classList.add('open');
+    _atrf_refreshDetail(qi);
     var _mSeqPhase =_mAllSteps.filter(function(s){return _MSeqSet.has(s.fn);});
     var _mIaPhase  =_mAllSteps.filter(function(s){return _MIaSet.has(s.fn);});
     var _mIndep    =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MTdSet.has(s.fn);});
@@ -16149,6 +16249,7 @@ async function _atrf_runSelected(){
     // Función ejecutora de un solo paso
     async function _mDoStep(s){
       var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
+      q.runningFns.add(fn);_atrf_refreshDetail(qi);
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
       var _t0=Date.now();
@@ -16219,11 +16320,12 @@ async function _atrf_runSelected(){
             vno:vno,vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,ts:Date.now()})
         }).catch(function(){});
       }
+      q.runningFns.delete(fn);
       return _sr;
     }
     // ── FASE 1: Secuencial (Factibilidad → Asignación) ──────────────────────
     for(var _ms=0;_ms<_mSeqPhase.length;_ms++){
-      var _mr=await _mDoStep(_mSeqPhase[_ms]);if(_mr)q.tcResults.push(_mr);
+      var _mr=await _mDoStep(_mSeqPhase[_ms]);if(_mr){q.tcResults.push(_mr);_atrf_refreshDetail(qi);}
     }
     // ── FASE 2: Paralelo — Cadena IA ∥ Independientes ───────────────────────
     async function _mRunIA(){
@@ -16247,9 +16349,10 @@ async function _atrf_runSelected(){
     var _mPar=await Promise.all([_mRunIA(),_mRunIndep()]);
     _mPar[0].forEach(function(r){if(r)q.tcResults.push(r);});
     _mPar[1].forEach(function(r){if(r)q.tcResults.push(r);});
+    _atrf_refreshDetail(qi);
     // ── FASE 3: Teardown secuencial (Cancel OOSS → Baja) ───────────────────
     for(var _mt=0;_mt<_mTeardown.length;_mt++){
-      var _mr2=await _mDoStep(_mTeardown[_mt]);if(_mr2)q.tcResults.push(_mr2);
+      var _mr2=await _mDoStep(_mTeardown[_mt]);if(_mr2){q.tcResults.push(_mr2);_atrf_refreshDetail(qi);}
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
