@@ -1221,8 +1221,32 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                 "no encontrada", "no se encuentra",
                 "error en el flujo", "error al procesar",
                 "timed out", "timeout", "failed to", "flujo fallido",
-                "rotura",           # ROTURA: VLAN, ROTURA: PON AVAILABILITY, etc.
+                "rotura",           # ROTURA: VLAN, ROTURA: PON AVAILABILITY, CPQD, etc.
                 "not available", "unavailable",
+                # Frases adicionales de fallo ServiceNow / CoreUse
+                "no disponible",    # "VLAN no disponible", "puerto no disponible" (cód 30, 31)
+                "sin recursos",     # sin recursos disponibles
+                "sin cobertura",    # sin cobertura de red (cód 16)
+                "no procesado",     # pedido no procesado
+                "exception",        # excepciones Java/ServiceNow
+                "inválido", "invalido",   # datos inválidos
+                "fuera de servicio",
+                "no activo",        # servicio no activo (cód 6 Activación)
+                "no existe",        # registro no existe (cód 1, 2 varios flujos)
+                "ya existe",        # idempotencia: servicio ya existe (cód 537, 521)
+                "duplicate",        # duplicado
+                "duplicado",
+                "limit exceeded",
+                "capacidad insuficiente",
+                "method failed",    # error sistémico Blue Planet / Inetum (cód 40, 500, 504)
+                "cannot convert",   # bug dato nulo ServiceNow (cód 1 Modificación)
+                "node not found",   # Blue Planet: nodo no encontrado
+                "no encontró circuito", "no se encontró circuito",  # timeout CPQD (cód 524)
+                "par de destino no está libre",  # FiberChange cód 638
+                "no está en estado",  # validaciones de estado (cód 2, 3, 6)
+                "no tiene contratado",  # VNO sin servicio (cód 30 Factibilidad)
+                "no está disponible",  # disponibilidad general
+                "otra vno",         # AccessID de otra VNO (cód 24 varios flujos)
             ]
             success_phrases = [
                 "con éxito",
@@ -1249,7 +1273,9 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
             _kw = re.compile(
                 r'(?:asignaci|activaci|factibilidad|modificaci|cancelaci|finalizaci|inicio|'
                 r'operaci|petici|flujo completado|assignment|activation|deregistration|device|'
-                r'rotura|availability|vlan|recomien)',
+                r'rotura|availability|vlan|recomien|exception|no disponible|sin recursos|'
+                r'no procesado|inválido|invalido|fuera de servicio|bloqueado|duplicate|'
+                r'limit exceeded|capacidad insuficiente)',
                 re.I
             )
             flujos = [c for c in _result_chunks if _kw.search(c)][:1]
