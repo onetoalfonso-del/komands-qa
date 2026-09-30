@@ -16309,17 +16309,7 @@ async function _atrf_runSelected(){
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
       if(pass&&rd&&rd.accessId&&!_currentAccessId)_currentAccessId=rd.accessId;
-      // Delay post-paso (solo si el paso pasó; si falló no tiene sentido esperar)
-      var _dk=_ATRF_DELAY_MAP[fn];
-      if(pass&&_dk&&_delays[_dk]>0){
-        var _dEnd=Date.now()+_delays[_dk];
-        while(Date.now()<_dEnd){
-          if(prog)prog.textContent='⏸ '+Math.ceil((_dEnd-Date.now())/1000)+'s post-'+fn+'…';
-          await new Promise(function(r){setTimeout(r,Math.min(1000,_dEnd-Date.now()));});
-        }
-        if(prog)prog.textContent='';
-      }
-      // CoreUse poll
+      // CoreUse poll PRIMERO — determina el pass/fail real antes del delay
       if(!_COREUSE_NO_POLL[fn]&&_currentAccessId&&pass){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
@@ -16333,6 +16323,16 @@ async function _atrf_runSelected(){
             }
           }
         }catch(_cuE){}
+      }
+      // Delay post-paso: solo si el paso pasó (incluyendo CoreUse). Si falló, no esperar.
+      var _dk=_ATRF_DELAY_MAP[fn];
+      if(pass&&_dk&&_delays[_dk]>0){
+        var _dEnd=Date.now()+_delays[_dk];
+        while(Date.now()<_dEnd){
+          if(prog)prog.textContent='⏸ '+Math.ceil((_dEnd-Date.now())/1000)+'s post-'+fn+'…';
+          await new Promise(function(r){setTimeout(r,Math.min(1000,_dEnd-Date.now()));});
+        }
+        if(prog)prog.textContent='';
       }
       if(_currentAccessId){
         fetch('/api/access-ids/update',{method:'POST',headers:{'Content-Type':'application/json'},
