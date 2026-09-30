@@ -15134,11 +15134,13 @@ function _atrf_pollLiveRun(rid){
       });
       // Restantes (corriendo o pendientes)
       var doneCount={};doneFns.forEach(function(st){doneCount[st.func]=(doneCount[st.func]||0)+1;});
-      var stepCount={};
+      var stepCount={};var shownRun={};
       allFns.forEach(function(fn){
         stepCount[fn]=(stepCount[fn]||0)+1;
         if(stepCount[fn]>=(doneCount[fn]||0)+1){
-          var isRun=curFns.indexOf(fn)!==-1;
+          // Solo la primera ocurrencia pendiente puede ser "running"
+          var isRun=curFns.indexOf(fn)!==-1&&!shownRun[fn];
+          if(isRun)shownRun[fn]=true;
           var cls=isRun?'running':'pending';var icon=isRun?'▶':'·';
           html+='<span class="atrf-tc-badge '+cls+'">'+icon+' '+esc(fn)+'</span>';
         }
@@ -15328,11 +15330,13 @@ function _atrf_buildDetailHtml(qi){
       tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
     });
     var _doneCount={};(q.tcResults||[]).forEach(function(r){_doneCount[r.func]=(_doneCount[r.func]||0)+1;});
-    var _stepCount={};
+    var _stepCount={};var _shownRun={};
     (q._stepMeta||[]).forEach(function(s){
       _stepCount[s.fn]=(_stepCount[s.fn]||0)+1;
       if(_stepCount[s.fn]>(_doneCount[s.fn]||0)){
-        var _isRun=q.runningFns&&q.runningFns.has(s.fn);
+        // Solo la primera ocurrencia pendiente de una función puede ser "running"
+        var _isRun=q.runningFns&&q.runningFns.has(s.fn)&&!_shownRun[s.fn];
+        if(_isRun)_shownRun[s.fn]=true;
         var _cls=_isRun?'running':'pending';var _icon=_isRun?'▶':'·';
         tcHtml+='<span class="atrf-tc-badge '+_cls+'">'+_icon+' '+esc(s.label)+'</span>';
       }
