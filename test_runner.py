@@ -1990,18 +1990,20 @@ async def _agenda_fire_async(schedule_id: int):
                         return _j.loads(_rsp.read())
                 _loop = _asyncio.get_running_loop()
                 _res  = await _loop.run_in_executor(None, _do_req)
-                step_r["pass"] = _res.get("pass", False)
-                step_r["http"] = _res.get("httpCode", 0)
-                step_r["req"]  = _res.get("req", "")
-                step_r["res"]  = _res.get("res", "")
+                step_r["pass"]   = _res.get("pass", False)
+                step_r["http"]   = _res.get("httpCode", 0)
+                step_r["req"]    = _res.get("req", "")
+                step_r["res"]    = _res.get("res", "")
                 step_r["accessId"] = _res.get("accessId", "")
+                step_r["apim408"]  = _res.get("apim408", False)
             except Exception as _ex:
                 step_r["error"] = str(_ex)
             finally:
                 step_r["duration_ms"] = int((_tme.monotonic() - _t0) * 1000)
+            # Delay solo si el paso pasó (si falló no tiene sentido esperar)
             _dk  = _SCHED_DELAY_MAP.get(fn)
             _dms = _sched_delays.get(_dk, 0) if _dk else 0
-            if _dms > 0:
+            if step_r["pass"] and _dms > 0:
                 print(f"[agenda] esperando {_dms}ms post-{fn}…")
                 await _asyncio.sleep(_dms / 1000)
             print(f"[agenda] sched={schedule_id} run={run_id} {fn}: "
@@ -6554,13 +6556,12 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        # HTTP 408: timeout del APIM gateway — el backend igual procesa la solicitud.
-        # Se marca como pass con advertencia; el polling de CoreUse confirmará el resultado.
+        # HTTP 408: timeout APIM — marcar como fallo; CoreUse poll verificará si igual llegó a ServiceNow.
         if not _pass and _http_code == 408:
-            _pass = True
             _res_body = _res_body + "\n\n⚠ HTTP 408 APIM timeout — solicitud enviada, verificar en CoreUse/ServiceNow"
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+                             "vno": vno, "func": func_name, "httpCode": _http_code,
+                             "apim408": _http_code == 408})
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
@@ -16343,8 +16344,10 @@ async function _atrf_runSelected(){
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
       // Asignación confirma el Access ID real en ServiceNow — siempre actualizar desde su respuesta
       if(rd&&rd.accessId){if(fn==="Asignación"||!_currentAccessId)_currentAccessId=rd.accessId;}
-      // CoreUse poll PRIMERO — determina el pass/fail real antes del delay
-      if(!_COREUSE_NO_POLL[fn]&&_currentAccessId&&pass){
+      // CoreUse poll PRIMERO — determina el pass/fail real antes del delay.
+      // También corre para 408 (APIM timeout): la solicitud pudo llegar a ServiceNow igual.
+      var _is408=rd&&rd.apim408;
+      if(!_COREUSE_NO_POLL[fn]&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
           var _cuR=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
