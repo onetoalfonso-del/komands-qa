@@ -16112,126 +16112,127 @@ async function _atrf_runSelected(){
     q.tcResults=[];
     var vno=q.cfg&&q.cfg.vno||'';
     var _currentAccessId=q.cfg.accessId||'';
-    var _fnOccurrence={};
-    for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
-      var fi=q.funcs[fi_idx];
-      var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
-      var tc=tcMap[vno];if(!tc)continue;
-      var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
-      _fnOccurrence[fn]=(_fnOccurrence[fn]||0)+1;
-      var _tcLabel=_fnOccurrence[fn]>1?tc+'-'+_fnOccurrence[fn]+' · '+vl:tc+' · '+vl;
+    // ── Grupos de dependencia (misma lógica que el scheduler Python) ──────────
+    var _MSeqSet=new Set(["Factibilidad","Asignación"]);
+    var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo"]);
+    var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
+    // Pre-asignar labels con contador de ocurrencias
+    var _mOcc={},_mLabels=[];
+    (q.funcs||[]).forEach(function(fi){
+      var fn=_ATRF_FUNCS[fi]||'';
+      var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
+      _mOcc[fn]=(_mOcc[fn]||0)+1;
+      _mLabels.push(tc?(_mOcc[fn]>1?tc+'-'+_mOcc[fn]+' · '+vl:tc+' · '+vl):null);
+    });
+    var _mAllSteps=(q.funcs||[]).map(function(fi,i){return {fi:fi,fn:_ATRF_FUNCS[fi]||'',label:_mLabels[i]};}).filter(function(s){return s.fn;});
+    var _mSeqPhase =_mAllSteps.filter(function(s){return _MSeqSet.has(s.fn);});
+    var _mIaPhase  =_mAllSteps.filter(function(s){return _MIaSet.has(s.fn);});
+    var _mIndep    =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MTdSet.has(s.fn);});
+    var _mTeardown =_mAllSteps.filter(function(s){return _MTdSet.has(s.fn);});
+    // Función ejecutora de un solo paso
+    async function _mDoStep(s){
+      var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
-      var pass=false,req_s='',res_s='',httpCode=0,rd=null;
-      var _stepT0=Date.now();
+      var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
+      var _t0=Date.now();
       try{
-        var resp=await fetch('/api/atrf/run-step',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+        var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({func:fn,vno:vno,
-            direccion:q.cfg.direccion||'',
-            addressMcd:q.cfg.tdir||'',
-            serviceType:q.cfg.tsvc||'FTTH',
-            accessId:_currentAccessId||'',
-            scenario:q.cfg.esc||'Instalación',
-            serialNumber:q.cfg.sn||'',
-            newSerialNumber:q.cfg.nsn||'',
-            speedPlan:q.cfg.plan||'',
-            newSpeedPlan:q.cfg.nplan||'',
-            ambUrl:q.cfg.ambUrl||'',
-            serviceBa:q.cfg.ba!==false,
-            serviceVoip:q.cfg.voip!==false,
+            direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
+            serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
+            scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
+            newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
+            newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
+            serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false})});
-        var newmanOut='';
         if(resp.status===501){
           var p2=Math.random()>0.25;
-          pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado — pendiente implementar)';
+          pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado)';
         } else {
-          var rd=await resp.json();
+          rd=await resp.json();
           if(rd.mode==='direct'){
             req_s=rd.req||'';
             try{
-              var dResp=await fetch(rd.directUrl,{
-                method:'POST',
-                headers:{
-                  'Authorization':'Bearer '+rd.token,
-                  'Content-Type':'application/json',
-                  'vnoId':rd.vno
-                },
-                body:JSON.stringify(rd.body)
-              });
+              var dResp=await fetch(rd.directUrl,{method:'POST',
+                headers:{'Authorization':'Bearer '+rd.token,'Content-Type':'application/json','vnoId':rd.vno},
+                body:JSON.stringify(rd.body)});
               var dJson=await dResp.json();
               var rc=((dJson.result||dJson).u_return_code)||'';
               pass=(dResp.status===200||dResp.status===201)&&rc!=='1';
-              res_s=JSON.stringify(dJson,null,4);
-              httpCode=dResp.status;
-            }catch(corsErr){
-              pass=false;
-              res_s='Error de llamada directa: '+String(corsErr);
-              httpCode=0;
-            }
+              res_s=JSON.stringify(dJson,null,4);httpCode=dResp.status;
+            }catch(corsErr){pass=false;res_s='Error directo: '+String(corsErr);}
           } else {
-            pass=!!rd.pass;
-            req_s=rd.req||_atrf_buildSimReq(fn,q.cfg);
+            pass=!!rd.pass;req_s=rd.req||_atrf_buildSimReq(fn,q.cfg);
             res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
             if(rd.error&&!rd.req)res_s='Error: '+rd.error;
-            httpCode=rd.httpCode||0;
-            newmanOut=rd.newmanOut||'';
+            httpCode=rd.httpCode||0;newmanOut=rd.newmanOut||'';
           }
         }
-      }catch(e){
-        req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
-      }
-      q.tcResults.push({func:fn,tc:tc,label:_tcLabel,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_stepT0});
-      // Solo actualizar si el formulario NO tenia access_id (schedule viejo o campo vacio).
-      // Si el formulario tenia access_id, ese se respeta siempre.
-      if(pass&&rd&&rd.accessId&&!_currentAccessId){_currentAccessId=rd.accessId;}
-      // Aplicar delay post-paso: cuenta regresiva de 1s para mantener JS activo
-      // (un solo setTimeout largo puede ser suspendido por el navegador en tabs inactivos)
+      }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
+      var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
+      if(pass&&rd&&rd.accessId&&!_currentAccessId)_currentAccessId=rd.accessId;
+      // Delay post-paso
       var _dk=_ATRF_DELAY_MAP[fn];
       if(_dk&&_delays[_dk]>0){
-        var _dTotal=_delays[_dk];
-        var _dEnd=Date.now()+_dTotal;
+        var _dEnd=Date.now()+_delays[_dk];
         while(Date.now()<_dEnd){
-          var _dLeft=Math.ceil((_dEnd-Date.now())/1000);
-          if(prog)prog.textContent='⏸ Esperando '+_dLeft+'s post-'+fn+'…';
+          if(prog)prog.textContent='⏸ '+Math.ceil((_dEnd-Date.now())/1000)+'s post-'+fn+'…';
           await new Promise(function(r){setTimeout(r,Math.min(1000,_dEnd-Date.now()));});
         }
         if(prog)prog.textContent='';
       }
-      // ── Polling CoreUse: verificar resultado real en ServiceNow ─────────────
-      if(!_COREUSE_NO_POLL[fn] && _currentAccessId && pass){
-        if(prog)prog.textContent='🔍 Verificando resultado en CoreUse ('+fn+')…';
+      // CoreUse poll
+      if(!_COREUSE_NO_POLL[fn]&&_currentAccessId&&pass){
+        if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
-          var _cuResp=await fetch('/api/coreuse/poll',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({access_id:_currentAccessId,func_name:fn})
-          });
-          if(_cuResp.ok){
-            var _cuData=await _cuResp.json();
-            if(_cuData.status==='success'||_cuData.status==='failure'){
-              var _cuPass=(_cuData.status==='success');
-              // Actualizar el resultado en tcResults con el veredicto real de ServiceNow
-              var _cuLast=q.tcResults[q.tcResults.length-1];
-              if(_cuLast){
-                _cuLast.pass=_cuPass;
-                _cuLast.coreuse_msg=_cuData.message||'';
-                _cuLast.coreuse_url=_cuData.url||'';
-                _cuLast.coreuse_attempts=_cuData.attempts||0;
-              }
-              pass=_cuPass;
+          var _cuR=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({access_id:_currentAccessId,func_name:fn})});
+          if(_cuR.ok){var _cuD=await _cuR.json();
+            if(_cuD.status==='success'||_cuD.status==='failure'){
+              _sr.pass=(_cuD.status==='success');
+              _sr.coreuse_msg=_cuD.message||'';_sr.coreuse_url=_cuD.url||'';_sr.coreuse_attempts=_cuD.attempts||0;
+              pass=_sr.pass;
             }
           }
-        }catch(_cuErr){}
+        }catch(_cuE){}
       }
-      // ── Registrar en tabla dedicada qa_access_ids ────────────────────────────
       if(_currentAccessId){
         fetch('/api/access-ids/update',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({access_id:_currentAccessId,op:fn,
-            result:pass?'ok':'error',vno:vno,
-            vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,ts:Date.now()})
+          body:JSON.stringify({access_id:_currentAccessId,op:fn,result:pass?'ok':'error',
+            vno:vno,vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,ts:Date.now()})
         }).catch(function(){});
       }
+      return _sr;
+    }
+    // ── FASE 1: Secuencial (Factibilidad → Asignación) ──────────────────────
+    for(var _ms=0;_ms<_mSeqPhase.length;_ms++){
+      var _mr=await _mDoStep(_mSeqPhase[_ms]);if(_mr)q.tcResults.push(_mr);
+    }
+    // ── FASE 2: Paralelo — Cadena IA ∥ Independientes ───────────────────────
+    async function _mRunIA(){
+      var _res=[];var _iaFailed=false;
+      for(var _mi=0;_mi<_mIaPhase.length;_mi++){
+        if(_iaFailed){
+          _res.push({func:_mIaPhase[_mi].fn,tc:(_ATRF_TC_MAP[_mIaPhase[_mi].fn]||{})[vno]||'',
+            label:_mIaPhase[_mi].label,pass:false,req:'',res:'',httpCode:0,newmanOut:'',
+            duration_ms:0,error:'⊘ Saltado: Inicio IA falló'});
+          continue;
+        }
+        var _r=await _mDoStep(_mIaPhase[_mi]);
+        if(_r){_res.push(_r);if(_mIaPhase[_mi].fn==="Inicio Intervención Asegurada"&&!_r.pass)_iaFailed=true;}
+      }
+      return _res;
+    }
+    async function _mRunIndep(){
+      if(!_mIndep.length)return[];
+      return Promise.all(_mIndep.map(function(s){return _mDoStep(s);}));
+    }
+    var _mPar=await Promise.all([_mRunIA(),_mRunIndep()]);
+    _mPar[0].forEach(function(r){if(r)q.tcResults.push(r);});
+    _mPar[1].forEach(function(r){if(r)q.tcResults.push(r);});
+    // ── FASE 3: Teardown secuencial (Cancel OOSS → Baja) ───────────────────
+    for(var _mt=0;_mt<_mTeardown.length;_mt++){
+      var _mr2=await _mDoStep(_mTeardown[_mt]);if(_mr2)q.tcResults.push(_mr2);
     }
     var anyFail=q.tcResults.some(function(r){return !r.pass;});
     q.status=q.tcResults.length===0?'ok':(anyFail?'error':'ok');
