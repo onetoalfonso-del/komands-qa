@@ -1227,6 +1227,10 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                 "assigned", "activated", "procesado correctamente",
                 "ticket de intervención",
                 "ticket de intervencion",
+                # IIA: resultado exitoso con diagnóstico de CTO
+                "se recomienda cambio",
+                "problemas de potencia",
+                "cambio de cto",
             ]
 
             is_fail = any(p in _result_text for p in failure_phrases)
@@ -15236,13 +15240,16 @@ function _atrf_buildDetailHtml(qi){
     tcHtml+='</div>';
   } else if(q.status==='espera'){
     tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
+    var _espOcc={};
     (q.funcs||[]).forEach(function(fi){
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];
       if(!tcMap)return;
       var vno=q.cfg&&q.cfg.vno||'';
       var tc=tcMap[vno];if(!tc)return;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
-      tcHtml+='<span class="atrf-tc-badge pending">'+tc+' · '+vl+'</span>';
+      _espOcc[fn]=(_espOcc[fn]||0)+1;
+      var _el=_espOcc[fn]>1?tc+'-'+_espOcc[fn]+' · '+vl:tc+' · '+vl;
+      tcHtml+='<span class="atrf-tc-badge pending">'+_el+'</span>';
     });
     tcHtml+='</div>';
   }
@@ -16105,11 +16112,14 @@ async function _atrf_runSelected(){
     q.tcResults=[];
     var vno=q.cfg&&q.cfg.vno||'';
     var _currentAccessId=q.cfg.accessId||'';
+    var _fnOccurrence={};
     for(var fi_idx=0;fi_idx<(q.funcs||[]).length;fi_idx++){
       var fi=q.funcs[fi_idx];
       var fn=_ATRF_FUNCS[fi];var tcMap=fn&&_ATRF_TC_MAP[fn];if(!tcMap)continue;
       var tc=tcMap[vno];if(!tc)continue;
       var vl=_ATRF_TC_VNO_LABEL[vno]||vno;
+      _fnOccurrence[fn]=(_fnOccurrence[fn]||0)+1;
+      var _tcLabel=_fnOccurrence[fn]>1?tc+'-'+_fnOccurrence[fn]+' · '+vl:tc+' · '+vl;
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,rd=null;
       var _stepT0=Date.now();
@@ -16171,7 +16181,7 @@ async function _atrf_runSelected(){
       }catch(e){
         req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);
       }
-      q.tcResults.push({func:fn,tc:tc,label:tc+' · '+vl,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_stepT0});
+      q.tcResults.push({func:fn,tc:tc,label:_tcLabel,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_stepT0});
       // Solo actualizar si el formulario NO tenia access_id (schedule viejo o campo vacio).
       // Si el formulario tenia access_id, ese se respeta siempre.
       if(pass&&rd&&rd.accessId&&!_currentAccessId){_currentAccessId=rd.accessId;}
