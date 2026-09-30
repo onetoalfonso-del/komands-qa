@@ -16324,9 +16324,11 @@ async function _atrf_runSelected(){
           }
         }catch(_cuE){}
       }
-      // Delay post-paso: solo si el paso pasó (incluyendo CoreUse). Si falló, no esperar.
+      // Delay post-paso: solo si el paso pasó Y no hubo CoreUse poll.
+      // Si CoreUse corrió, ya esperó a que el sistema procesara — el delay es redundante.
       var _dk=_ATRF_DELAY_MAP[fn];
-      if(pass&&_dk&&_delays[_dk]>0){
+      var _hadCoreuse=!_COREUSE_NO_POLL[fn]&&_currentAccessId;
+      if(pass&&!_hadCoreuse&&_dk&&_delays[_dk]>0){
         var _dEnd=Date.now()+_delays[_dk];
         while(Date.now()<_dEnd){
           if(prog)prog.textContent='⏸ '+Math.ceil((_dEnd-Date.now())/1000)+'s post-'+fn+'…';
