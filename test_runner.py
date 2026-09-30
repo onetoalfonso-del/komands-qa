@@ -16309,9 +16309,9 @@ async function _atrf_runSelected(){
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
       if(pass&&rd&&rd.accessId&&!_currentAccessId)_currentAccessId=rd.accessId;
-      // Delay post-paso
+      // Delay post-paso (solo si el paso pasó; si falló no tiene sentido esperar)
       var _dk=_ATRF_DELAY_MAP[fn];
-      if(_dk&&_delays[_dk]>0){
+      if(pass&&_dk&&_delays[_dk]>0){
         var _dEnd=Date.now()+_delays[_dk];
         while(Date.now()<_dEnd){
           if(prog)prog.textContent='⏸ '+Math.ceil((_dEnd-Date.now())/1000)+'s post-'+fn+'…';
