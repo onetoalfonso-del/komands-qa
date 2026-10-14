@@ -7505,11 +7505,23 @@ async def atrf_run_step(request: Request):
                 token = _j.loads(r.read()).get("access_token", "")
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        cto_code     = body.get("ctoCode", "")
+        cto_type     = body.get("ctoType", "")
+        region_code  = body.get("regionCode", "")
+        site_code    = body.get("siteCode", "")
+        cto_function = body.get("ctoFunction", "")
+        cable_code   = body.get("cableCode", "")
+        logical_unit = body.get("logicalUnit", "")
         req_body_dict = {
-            "u_access_id_vno":   access_id,
-            "u_id_vno":          vno,
-            "u_serial_number":   serial_num,
-            "u_new_serial_number": new_serial,
+            "u_access_id_vno": access_id,
+            "u_id_vno":        vno,
+            "u_cto_code":      cto_code,
+            "u_cto_type":      cto_type,
+            "u_region_code":   region_code,
+            "u_site_code":     site_code,
+            "u_function":      cto_function,
+            "u_cable_code":    cable_code,
+            "u_logical_unit":  logical_unit,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         _cf_url = f"{apim_url.rstrip('/')}/fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
@@ -8031,6 +8043,109 @@ def _coreuse_parse_flujos(html: str, access_id: str) -> dict:
             deduped.append(f)
 
     return {"count": count or len(deduped), "flujos": deduped, "url": url}
+
+
+def _coreuse_parse_iia_fiber(html: str) -> dict:
+    """
+    Parsea el HTML de CoreUse para extraer datos de IIA:
+    - FIBER CHANGE OPTIONS (SI/NO)
+    - Campos CTO{N}: type, code, cable, function, logical units, etc.
+    Retorna: {fiber_change_allowed: bool, ctos: [{cto_n, fields:{...}}], port_data:{...}}
+    """
+    # Extraer todos los pares clave-valor del RSC payload
+    # Formatos posibles: "KEY\\":\"VALUE\\"  o  "KEY":"VALUE"
+    _kv_all = {}
+    for k, v in re.findall(r'"([A-Z][A-Z0-9_ ]{2,39})\\":\\"([^\\"]{0,300})\\"', html):
+        _kv_all[k.strip()] = v.strip()
+    for k, v in re.findall(r'"([A-Z][A-Z0-9_ ]{2,39})":"([^"]{0,300})"', html):
+        _kv_all[k.strip()] = v.strip()
+
+    # FIBER CHANGE OPTIONS
+    _fc_val = ""
+    for _key in ["FIBER CHANGE OPTIONS", "FIBER_CHANGE_OPTIONS", "FiberChangeOptions"]:
+        if _key in _kv_all:
+            _fc_val = _kv_all[_key].upper()
+            break
+    if not _fc_val:
+        # búsqueda en HTML crudo (badge "SI" cercano a "fiber change")
+        _m = re.search(r'fiber.change.options[^<]{0,80}(SI|NO)\b', html, re.I)
+        if _m:
+            _fc_val = _m.group(1).upper()
+    fiber_allowed = (_fc_val == "SI")
+
+    # Port data (PUERTO_X campos)
+    port_data = {}
+    for k, v in _kv_all.items():
+        if re.match(r'PUERTO\d', k, re.I):
+            port_data[k] = v
+
+    # Campos CTO — soporta hasta 8 CTOs
+    _CTO_FIELDS = [
+        "TYPE","OLT_NAME","SLOT","TECHNOLOGY","CONNECTORIZATION_TYPE",
+        "CONNECTORIZATION TYPE","SPEC_MODEL","SPEC_MANUFACTURER","PON","CABLE",
+        "CABLE_FUNCTION","AVAILABLELOGICALUNIT1","AVAILABLELOGICALUNIT2","AVAILABLELOGICALUNIT3",
+        "CODE",
+    ]
+    _ADDR_FIELDS = ["SITECODE","COORDINATEX","COORDINATEY","CITYCODE","SITECODE"]
+
+    ctos = []
+    for n in range(1, 9):
+        fields = {}
+        # CTO{n}_FIELD
+        for f in _CTO_FIELDS:
+            for variant in [f"CTO{n}_{f}", f"CTO{n} {f}"]:
+                if variant in _kv_all:
+                    fields[f"CTO{n}_{f.replace(' ','_')}"] = _kv_all[variant]
+                    break
+        # ADDR_CTO{n}_FIELD
+        for f in _ADDR_FIELDS:
+            for variant in [f"ADDR_CTO{n}_{f}", f"ADDR CTO{n} {f}", f"ADDR_CTO{n} {f}"]:
+                if variant in _kv_all:
+                    fields[f"ADDR_CTO{n}_{f}"] = _kv_all[variant]
+                    break
+        if fields:
+            ctos.append({"cto_n": n, "fields": fields})
+
+    return {"fiber_change_allowed": fiber_allowed, "ctos": ctos, "port_data": port_data}
+
+
+@app.get("/api/coreuse/iia-detail")
+async def api_coreuse_iia_detail(access_id: str = ""):
+    """Extrae datos de IIA: FIBER CHANGE OPTIONS y campos CTO para Cambio de Fibra."""
+    global _coreuse_session
+    if not access_id:
+        return JSONResponse({"error": "access_id requerido"}, status_code=400)
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return JSONResponse({"error": "CoreUse no configurado"}, status_code=503)
+
+    def _fetch():
+        global _coreuse_session
+        s = _coreuse_get_session()
+        if not s:
+            return None, "No se pudo autenticar en CoreUse"
+        try:
+            r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                      verify=False, timeout=15, allow_redirects=True)
+            if "/login" in r.url:
+                _coreuse_session = None
+                s = _coreuse_login()
+                if not s:
+                    return None, "Re-login CoreUse fallido"
+                r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                          verify=False, timeout=15, allow_redirects=True)
+            return r.text, None
+        except Exception as e:
+            return None, str(e)
+
+    loop = _aio.get_event_loop()
+    html, err = await loop.run_in_executor(None, _fetch)
+    if err:
+        return JSONResponse({"error": err}, status_code=500)
+
+    result = _coreuse_parse_iia_fiber(html)
+    result["access_id"] = access_id
+    result["coreuse_url"] = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
+    return JSONResponse(result)
 
 
 @app.get("/api/coreuse/detail")
@@ -15666,10 +15781,10 @@ function _dashOpenCoreUseModal(accessId){
     +'style="font-size:.72rem;color:var(--txt3);text-decoration:none;padding:3px 8px;border:1px solid var(--brd);border-radius:4px">↗ Ver en CoreUse</a>'
     +'<button id="cu-modal-close" style="background:none;border:none;cursor:pointer;color:var(--txt3);font-size:22px;line-height:1;padding:0 0 0 6px">×</button>'
     +'</div>'
-    +'<div id="cu-modal-hdr" style="display:grid;grid-template-columns:130px 180px 1fr 110px;gap:8px;'
+    +'<div id="cu-modal-hdr" style="display:grid;grid-template-columns:130px 180px 1fr 110px 90px;gap:8px;'
     +'padding:7px 18px;border-bottom:1px solid var(--brd);font-size:.63rem;text-transform:uppercase;'
     +'letter-spacing:.06em;color:var(--txt3);font-weight:600">'
-    +'<span>Fecha</span><span>Operación</span><span>Resultado</span><span style="text-align:right">Orden</span></div>'
+    +'<span>Fecha</span><span>Operación</span><span>Resultado</span><span style="text-align:right">Orden</span><span></span></div>'
     +'<div id="cu-modal-body" style="overflow-y:auto;flex:1">'
     +'<div style="padding:48px;text-align:center;color:var(--txt3)">Consultando CoreUse…</div>'
     +'</div>'
@@ -15702,7 +15817,15 @@ function _dashOpenCoreUseModal(accessId){
         var dotCol=isOk?'#22c55e':(isWarn?'#f59e0b':'#ef4444');
         var txtCol=isOk?'#22c55e':(isWarn?'#f59e0b':'#ef4444');
         var bg=i%2===1?'background:rgba(0,0,0,.04)':'';
-        html+='<div style="display:grid;grid-template-columns:130px 180px 1fr 110px;align-items:start;'
+        var _isIia=f.operation&&f.operation.toLowerCase().includes('assured');
+        var _iiaBtn=_isIia
+          ?'<button onclick="_cuOpenIiaFiberDetail(\''+escHtml(accessId)+'\')" '
+            +'title="Ver datos IIA: Fiber Change Options y CTOs disponibles" '
+            +'style="margin-left:6px;padding:1px 6px;font-size:.7rem;border:1px solid var(--brd);'
+            +'border-radius:4px;background:rgba(0,200,212,.1);color:var(--atrf-accent,#00c8d4);'
+            +'cursor:pointer;flex-shrink:0" onmouseenter="this.style.background=\'rgba(0,200,212,.25)\'" '
+            +'onmouseleave="this.style.background=\'rgba(0,200,212,.1)\'">ⓘ CTO</button>':' ';
+        html+='<div style="display:grid;grid-template-columns:130px 180px 1fr 110px 90px;align-items:center;'
           +'gap:8px;padding:10px 18px;border-bottom:1px solid var(--brd);'+bg+'">'
           +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;padding-top:1px">'+escHtml(f.date||'---')+'</span>'
           +'<span style="font-size:.75rem;font-weight:600;color:var(--txt)">'+escHtml(f.operation||'---')+'</span>'
@@ -15710,6 +15833,7 @@ function _dashOpenCoreUseModal(accessId){
           +'<span style="width:8px;height:8px;min-width:8px;border-radius:50%;background:'+dotCol+';margin-top:3px"></span>'
           +escHtml(f.result||'---')+'</span>'
           +'<span style="font-size:.65rem;color:var(--txt3);font-family:monospace;text-align:right;white-space:nowrap">'+escHtml(f.order||'')+'</span>'
+          +'<span style="text-align:right">'+_iiaBtn+'</span>'
           +'</div>';
       });
       mbody.innerHTML=html;
@@ -15718,6 +15842,151 @@ function _dashOpenCoreUseModal(accessId){
       var mb=document.getElementById('cu-modal-body');
       if(mb)mb.innerHTML='<div style="padding:24px;color:var(--err);font-size:.8rem">Error al consultar CoreUse: '+escHtml(String(e))+'</div>';
     });
+}
+
+// ── Modal detalle IIA: Fiber Change Options + selección de CTO ───────────────
+var _atrfPendingCto=null; // CTO seleccionado por el usuario para Cambio de Fibra
+
+function _cuOpenIiaFiberDetail(accessId){
+  function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  var existing=document.getElementById('cu-iia-modal');
+  if(existing)existing.remove();
+  var mo=document.createElement('div');
+  mo.id='cu-iia-modal';
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10999;display:flex;align-items:center;justify-content:center';
+  mo.innerHTML=
+    '<div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;'
+    +'width:min(780px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;'
+    +'box-shadow:0 8px 40px rgba(0,0,0,.5)">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brd)">'
+    +'<span style="font-size:.85rem;font-weight:700;color:var(--txt)">Assured Intervention — Fiber Change</span>'
+    +'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:4px;padding:1px 8px;color:var(--txt2)">'+escH(accessId)+'</code>'
+    +'<div style="flex:1"></div>'
+    +'<button id="cu-iia-close" style="background:none;border:none;cursor:pointer;color:var(--txt3);font-size:22px;line-height:1">×</button>'
+    +'</div>'
+    +'<div id="cu-iia-body" style="overflow-y:auto;flex:1;padding:16px 18px">'
+    +'<div style="color:var(--txt3);font-size:.8rem">Consultando CoreUse…</div>'
+    +'</div>'
+    +'</div>';
+  mo.addEventListener('click',function(e){if(e.target===mo)mo.remove();});
+  document.body.appendChild(mo);
+  document.getElementById('cu-iia-close').onclick=function(){mo.remove();};
+
+  fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(accessId))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var body=document.getElementById('cu-iia-body');
+      if(!body)return;
+      if(d.error){body.innerHTML='<div style="color:var(--err);font-size:.8rem">'+escH(d.error)+'</div>';return;}
+
+      var fcAllowed=d.fiber_change_allowed;
+      var ctos=d.ctos||[];
+      var html='';
+
+      // Banner FIBER CHANGE OPTIONS
+      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;'
+        +'padding:10px 14px;border-radius:6px;background:rgba(0,0,0,.06);border:1px solid var(--brd)">'
+        +'<span style="font-size:.72rem;font-weight:700;letter-spacing:.06em;color:var(--txt3)">FIBER CHANGE OPTIONS</span>'
+        +'<span style="padding:3px 10px;border-radius:4px;font-size:.8rem;font-weight:700;'
+        +(fcAllowed?'background:#16a34a;color:#fff':'background:#dc2626;color:#fff')
+        +'">'+( fcAllowed?'SI':'NO')+'</span>'
+        +(fcAllowed?'<span style="font-size:.72rem;color:var(--txt3)">Selecciona una CTO diferente a la actual y haz clic en "Usar para Cambio de Fibra"</span>':'')
+        +'</div>';
+
+      if(!fcAllowed){
+        html+='<div style="color:var(--txt3);font-size:.8rem;text-align:center;padding:24px">Cambio de fibra no disponible para este acceso.</div>';
+        body.innerHTML=html;return;
+      }
+      if(!ctos.length){
+        html+='<div style="color:var(--txt3);font-size:.8rem;text-align:center;padding:24px">No se encontraron datos CTO en la respuesta de CoreUse.<br>Verifica el registro en <a href="'+escH(d.coreuse_url||'')+'" target="_blank" style="color:var(--atrf-accent,#00c8d4)">CoreUse ↗</a></div>';
+        body.innerHTML=html;return;
+      }
+
+      // Render CTOs
+      var _FIELD_LABELS={
+        'TYPE':'CTO Type','OLT_NAME':'OLT Name','SLOT':'Slot','TECHNOLOGY':'Tecnología',
+        'CONNECTORIZATION_TYPE':'Tipo Conectorización','CONNECTORIZATION TYPE':'Tipo Conectorización',
+        'SPEC_MODEL':'Modelo','SPEC_MANUFACTURER':'Fabricante','PON':'PON',
+        'CABLE':'Cable Code (u_cable_code)','CABLE_FUNCTION':'Cable Function (u_function)',
+        'AVAILABLELOGICALUNIT1':'Logical Unit 1 (u_logical_unit)','AVAILABLELOGICALUNIT2':'Logical Unit 2',
+        'AVAILABLELOGICALUNIT3':'Logical Unit 3','CODE':'CTO Code (u_cto_code)',
+      };
+      ctos.forEach(function(cto){
+        var n=cto.cto_n;
+        var f=cto.fields||{};
+        var code=f['CTO'+n+'_CODE']||'';
+        var type=f['CTO'+n+'_TYPE']||'';
+        var regionCode=f['ADDR_CTO'+n+'_CITYCODE']||'';
+        var siteCode=f['ADDR_CTO'+n+'_SITECODE']||'';
+        var ctoFn=f['CTO'+n+'_CABLE_FUNCTION']||'';
+        var cableCode=f['CTO'+n+'_CABLE']||'';
+        var lu1=f['CTO'+n+'_AVAILABLELOGICALUNIT1']||'';
+        var lu2=f['CTO'+n+'_AVAILABLELOGICALUNIT2']||'';
+        var lu3=f['CTO'+n+'_AVAILABLELOGICALUNIT3']||'';
+        var ctoData={ctoCode:code,ctoType:type,regionCode:regionCode,siteCode:siteCode,
+          ctoFunction:ctoFn,cableCode:cableCode,logicalUnit:lu1,
+          logicalUnit2:lu2,logicalUnit3:lu3};
+        var ctoJson=JSON.stringify(ctoData);
+        html+='<div style="border:1px solid var(--brd);border-radius:8px;margin-bottom:12px;overflow:hidden">'
+          +'<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;'
+          +'background:rgba(0,200,212,.07);border-bottom:1px solid var(--brd)">'
+          +'<span style="font-size:.78rem;font-weight:700;color:var(--txt)">CTO '+n+'</span>'
+          +(code?'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:3px;padding:1px 7px;color:var(--atrf-accent,#00c8d4)">'+escH(code)+'</code>':'')
+          +'<div style="flex:1"></div>'
+          +'<button onclick="_cuSelectCto(\''+escH(accessId)+'\','+ctoJson+',this)" '
+          +'style="padding:4px 12px;border:1px solid var(--atrf-accent,#00c8d4);border-radius:5px;'
+          +'background:rgba(0,200,212,.1);color:var(--atrf-accent,#00c8d4);cursor:pointer;font-size:.75rem;font-weight:600">'
+          +'Usar para Cambio de Fibra</button>'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">';
+        var entries=Object.entries(f);
+        entries.forEach(function(kv,ki){
+          var fk=kv[0].replace(new RegExp('^CTO'+n+'_'),'').replace(new RegExp('^ADDR_CTO'+n+'_'),'ADDR_');
+          var label=_FIELD_LABELS[fk]||kv[0];
+          var bg=ki%2===0?'':'background:rgba(0,0,0,.03)';
+          html+='<div style="padding:5px 12px;border-bottom:1px solid var(--brd);'+bg+'">'
+            +'<div style="font-size:.6rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">'+escH(label)+'</div>'
+            +'<div style="font-size:.75rem;color:var(--txt);font-family:var(--atrf-mono,monospace)">'+escH(kv[1]||'—')+'</div>'
+            +'</div>';
+        });
+        html+='</div></div>';
+      });
+
+      body.innerHTML=html;
+    })
+    .catch(function(e){
+      var b=document.getElementById('cu-iia-body');
+      if(b)b.innerHTML='<div style="color:var(--err);font-size:.8rem">Error: '+escH(String(e))+'</div>';
+    });
+}
+
+function _cuSelectCto(accessId,ctoData,btn){
+  _atrfPendingCto=Object.assign({},ctoData,{accessId:accessId});
+  // Actualizar botón
+  document.querySelectorAll('#cu-iia-body button').forEach(function(b){
+    b.textContent='Usar para Cambio de Fibra';
+    b.style.background='rgba(0,200,212,.1)';b.style.color='var(--atrf-accent,#00c8d4)';
+  });
+  if(btn){btn.textContent='✓ CTO seleccionada';btn.style.background='rgba(34,197,94,.15)';btn.style.color='#16a34a';}
+  _cuShowPendingCtoBadge();
+  setTimeout(function(){var m=document.getElementById('cu-iia-modal');if(m)m.remove();},800);
+}
+
+function _cuShowPendingCtoBadge(){
+  var el=document.getElementById('cu-pending-cto-badge');
+  if(!el){
+    el=document.createElement('div');el.id='cu-pending-cto-badge';
+    el.style.cssText='position:fixed;bottom:16px;right:16px;z-index:8000;padding:8px 14px;'
+      +'border-radius:8px;background:rgba(34,197,94,.15);border:1px solid #16a34a;'
+      +'font-size:.75rem;color:#16a34a;display:flex;align-items:center;gap:8px;cursor:pointer;'
+      +'box-shadow:0 2px 12px rgba(0,0,0,.25)';
+    el.title='Click para limpiar CTO seleccionada';
+    el.onclick=function(){_atrfPendingCto=null;el.remove();};
+    document.body.appendChild(el);
+  }
+  var c=_atrfPendingCto;
+  el.innerHTML='🔗 CTO lista: <strong>'+String(c&&c.ctoCode||'—')+'</strong>'
+    +' &nbsp;<span style="font-size:.65rem;color:#16a34a80" title="Click para limpiar">✕</span>';
 }
 
 function _atrf_openNew(){
@@ -16521,15 +16790,23 @@ async function _atrf_runSelected(){
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
       var _t0=Date.now();
       try{
+        // Para Cambio de Fibra: incluir datos CTO del global _atrfPendingCto
+        var _ctoPayload={};
+        if(fn==='Cambio de Fibra'&&_atrfPendingCto){
+          _ctoPayload={ctoCode:_atrfPendingCto.ctoCode||'',ctoType:_atrfPendingCto.ctoType||'',
+            regionCode:_atrfPendingCto.regionCode||'',siteCode:_atrfPendingCto.siteCode||'',
+            ctoFunction:_atrfPendingCto.ctoFunction||'',cableCode:_atrfPendingCto.cableCode||'',
+            logicalUnit:_atrfPendingCto.logicalUnit||''};
+        }
         var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({func:fn,vno:vno,
+          body:JSON.stringify(Object.assign({func:fn,vno:vno,
             direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
             serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
             scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
             newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
-            serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode})});
+            serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload))});
         if(resp.status===501){
           var p2=Math.random()>0.25;
           pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado)';
