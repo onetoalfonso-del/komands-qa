@@ -1046,10 +1046,11 @@ _sched_live_progress: dict = {}
 #   - Factibilidad: no se guarda en "Flujos ejecutados"; se valida por u_return_code + u_return_code_desc del response
 _COREUSE_NO_POLL = {
     "Factibilidad",
-    "GET Consulta de Acceso", "RetrieveAccess",
+    "GET Consulta de Acceso",
     "Consulta Estado Vecino (GET)", "Consulta Estado Vecino (POST)",
-    "Diagnóstico de Acceso", "Reinicio ONT",
-    "RetrieveAccess ONT", "Consulta de Alarmas",
+    "Diagnóstico de Acceso",
+    "RetrieveAccess ONT",
+    "Cambio de Fibra",        # async-only, sin u_access_id_vno en respuesta
 }
 
 def _coreuse_login():
@@ -6352,6 +6353,7 @@ async def atrf_run_step(request: Request):
     service_ba  = body.get("serviceBa", True)
     service_voip= body.get("serviceVoip", True)
     service_iptv= body.get("serviceIptv", True)
+    async_mode  = body.get("asyncMode", False)
 
     # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
@@ -6530,8 +6532,12 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _asgn_url = (f"{apim_url.rstrip('/')}/fullFillment-AsignationSSAA/v1/assignment" if use_pre
-                     else f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment")
+        if async_mode:
+            _asgn_url = f"{apim_url.rstrip('/')}/fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA"
+        elif use_pre:
+            _asgn_url = f"{apim_url.rstrip('/')}/fullFillment-AsignationSSAA/v1/assignment"
+        else:
+            _asgn_url = f"{apim_url.rstrip('/')}/fullFillment-assignment/v1/assignment"
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_asgn_url,
@@ -6559,9 +6565,12 @@ async def atrf_run_step(request: Request):
         # HTTP 408: timeout APIM — marcar como fallo; CoreUse poll verificará si igual llegó a ServiceNow.
         if not _pass and _http_code == 408:
             _res_body = _res_body + "\n\n⚠ HTTP 408 APIM timeout — solicitud enviada, verificar en CoreUse/ServiceNow"
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code,
-                             "apim408": _http_code == 408})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code,
+                 "apim408": _http_code == 408}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Cancelación Orden de Servicio ──────────────────────────────────────────
     if func_name == "Cancelación Orden de Servicio":
@@ -6598,7 +6607,8 @@ async def atrf_run_step(request: Request):
             "u_service_iptv": service_iptv,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _cncl_url = f"{apim_url.rstrip('/')}/fullFillment-cancelServiceOrder/v1/oossCancellation"
+        _cncl_url = (f"{apim_url.rstrip('/')}/fullFillment-oossCancellationAsync/v1/oossCancellationAsync" if async_mode
+                     else f"{apim_url.rstrip('/')}/fullFillment-cancelServiceOrder/v1/oossCancellation")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_cncl_url,
@@ -6623,8 +6633,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Intervención Asegurada: Inicio / Finalización / Cancelación ──────────
     _IA_ENDPOINTS = {
@@ -6672,7 +6685,13 @@ async def atrf_run_step(request: Request):
                              "u_service_ba": service_ba, "u_service_voip": service_voip,
                              "u_service_iptv": service_iptv}
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _ia_url = f"{apim_url.rstrip('/')}{_IA_ENDPOINTS[func_name]}"
+        _ASYNC_IA_ENDPOINTS = {
+            "Cancelación Intervención Asegurada": "/fullFillment-interventionCancellationAsync/v1/interventionCancellationAsync",
+        }
+        if async_mode and func_name in _ASYNC_IA_ENDPOINTS:
+            _ia_url = f"{apim_url.rstrip('/')}{_ASYNC_IA_ENDPOINTS[func_name]}"
+        else:
+            _ia_url = f"{apim_url.rstrip('/')}{_IA_ENDPOINTS[func_name]}"
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_ia_url,
@@ -6697,8 +6716,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Activación ────────────────────────────────────────────────────────────
     if func_name == "Activación":
@@ -6867,7 +6889,8 @@ async def atrf_run_step(request: Request):
             "u_port": "",
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _reint_url = f"{apim_url.rstrip('/')}/reinicioONT/v1/ONTRestart"
+        _reint_url = (f"{apim_url.rstrip('/')}/fullFillment-oNTRestartAsync/v1/ONTRestartAsync" if async_mode
+                      else f"{apim_url.rstrip('/')}/reinicioONT/v1/ONTRestart")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_reint_url,
@@ -6892,8 +6915,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Diagnóstico de Acceso ─────────────────────────────────────────────────
     if func_name == "Diagnóstico de Acceso":
@@ -6922,7 +6948,8 @@ async def atrf_run_step(request: Request):
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         req_body_dict = {"u_access_id_vno": access_id}
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _diag_url = f"{apim_url.rstrip('/')}/diagnosticoAcceso/v1/AccesStatus"
+        _diag_url = (f"{apim_url.rstrip('/')}/fullFillment-AccesStatusAsync/v1/AccesStatusAsync" if async_mode
+                     else f"{apim_url.rstrip('/')}/diagnosticoAcceso/v1/AccesStatus")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_diag_url,
@@ -6947,8 +6974,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Consulta Estado Vecino (POST) ─────────────────────────────────────────
     if func_name == "Consulta Estado Vecino (POST)":
@@ -7032,7 +7062,10 @@ async def atrf_run_step(request: Request):
                 token = _j.loads(r.read()).get("access_token", "")
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
-        _cev_url = f"{apim_url.rstrip('/')}/fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{access_id}"
+        if async_mode:
+            _cev_url = f"{apim_url.rstrip('/')}/fullFillment-estadoVecinoasync/v1/estado_vecino_api/async/{access_id}"
+        else:
+            _cev_url = f"{apim_url.rstrip('/')}/fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{access_id}"
         req_body_str = f"GET {_cev_url}"
         _pass = False; _res_body = ""; _http_code = 0
         try:
@@ -7056,8 +7089,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── GET Consulta de Acceso ────────────────────────────────────────────────
     if func_name == "GET Consulta de Acceso":
@@ -7145,8 +7181,10 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _baja_url = (f"{apim_url.rstrip('/')}/fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync" if use_pre
-                     else f"{apim_url.rstrip('/')}/fullFillment-unsubcription/v1/accessDeregistration")
+        if async_mode or use_pre:
+            _baja_url = f"{apim_url.rstrip('/')}/fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync"
+        else:
+            _baja_url = f"{apim_url.rstrip('/')}/fullFillment-unsubcription/v1/accessDeregistration"
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_baja_url,
@@ -7171,8 +7209,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Modificación de Dispositivo ───────────────────────────────────────────
     if func_name == "Modificación de Dispositivo":
@@ -7205,7 +7246,8 @@ async def atrf_run_step(request: Request):
             "u_serial_number": serial_num,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _dm_url = f"{apim_url.rstrip('/')}/fullFillment-deviceModification/v1/deviceModification"
+        _dm_url = (f"{apim_url.rstrip('/')}/fullFillment-deviceModificationAsync/v1/deviceModificationAsync" if async_mode
+                   else f"{apim_url.rstrip('/')}/fullFillment-deviceModification/v1/deviceModification")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_dm_url,
@@ -7230,8 +7272,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── Retrieve Access ───────────────────────────────────────────────────────
     if func_name == "RetrieveAccess":
@@ -7267,8 +7312,10 @@ async def atrf_run_step(request: Request):
             "u_flag_scope": "2",
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _ra_url = (f"{apim_url.rstrip('/')}/fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync" if use_pre
-                   else f"{apim_url.rstrip('/')}/provisioning/v1/retrieve-access")
+        if async_mode or use_pre:
+            _ra_url = f"{apim_url.rstrip('/')}/fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync"
+        else:
+            _ra_url = f"{apim_url.rstrip('/')}/provisioning/v1/retrieve-access"
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_ra_url,
@@ -7293,8 +7340,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
 
     # ── RetrieveAccess ONT ────────────────────────────────────────────────────
     if func_name == "RetrieveAccess ONT":
@@ -7380,16 +7430,20 @@ async def atrf_run_step(request: Request):
                 token = _j.loads(r.read()).get("access_token", "")
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
-        req_body_dict = {
-            "u_access_id":    access_id,
-            "u_operation_id": "",
-            "u_user_id":      "",
-            "u_area":         "",
-            "u_msg_id":       "",
-            "u_msg_date":     "",
-        }
+        if async_mode:
+            req_body_dict = {"u_access_id_vno": access_id, "u_id_vno": vno}
+        else:
+            req_body_dict = {
+                "u_access_id":    access_id,
+                "u_operation_id": "",
+                "u_user_id":      "",
+                "u_area":         "",
+                "u_msg_id":       "",
+                "u_msg_date":     "",
+            }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _alarm_url = f"{apim_url.rstrip('/')}/retrieveDataONT/v1/ONTRetrieve"
+        _alarm_url = (f"{apim_url.rstrip('/')}/fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync" if async_mode
+                      else f"{apim_url.rstrip('/')}/retrieveDataONT/v1/ONTRetrieve")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_alarm_url,
@@ -7414,8 +7468,79 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
+        _resp = {"pass": _pass, "req": req_body_str, "res": _res_body,
+                 "vno": vno, "func": func_name, "httpCode": _http_code}
+        if async_mode:
+            _resp["asyncSubmitted"] = _pass
+        return JSONResponse(_resp)
+
+    # ── Reinicio ONT async ────────────────────────────────────────────────────
+    # (el handler de Reinicio ONT ya cubre async con enrutamiento de endpoint)
+
+    # ── Consulta Estado Vecino async (GET) ────────────────────────────────────
+    # (el handler de Consulta Estado Vecino (GET) ya cubre async con enrutamiento)
+
+    # ── Cambio de Fibra (async-only) ──────────────────────────────────────────
+    if func_name == "Cambio de Fibra":
+        env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
+        try:
+            env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
+        except Exception as e:
+            return JSONResponse({"pass": False, "error": f"env file: {e}"})
+        ev = {v["key"]: v["value"] for v in env_data["values"]}
+        apim_url = amb_url or ev.get("apimURL", "")
+        import os as _os
+        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
+        token = ""
+        try:
+            _body_b = _up.urlencode({"grant_type": "client_credentials"}).encode()
+            _tok_req = _ur.Request(f"{apim_url}/token", data=_body_b,
+                headers={"Authorization": f"Basic {auth_b64}",
+                         "Content-Type": "application/x-www-form-urlencoded"})
+            ctx = _sl.create_default_context()
+            ctx.check_hostname = False; ctx.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_tok_req, context=ctx, timeout=15) as r:
+                token = _j.loads(r.read()).get("access_token", "")
+        except Exception as te:
+            return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
+        req_body_dict = {
+            "u_access_id_vno":   access_id,
+            "u_id_vno":          vno,
+            "u_serial_number":   serial_num,
+            "u_new_serial_number": new_serial,
+        }
+        req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
+        _cf_url = f"{apim_url.rstrip('/')}/fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
+        _pass = False; _res_body = ""; _http_code = 0
+        try:
+            _api_req = _ur.Request(_cf_url,
+                data=_j.dumps(req_body_dict).encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json",
+                         "vnoId": vno})
+            _ctx2 = _sl.create_default_context()
+            _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
+            with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
+                _res_body = _r.read().decode("utf-8", errors="replace")
+                _http_code = _r.getcode()
+        except _ur.HTTPError as _he:
+            _http_code = _he.code
+            try: _res_body = _he.read().decode("utf-8", errors="replace")
+            except: _res_body = str(_he)
+        except Exception as _ae:
+            _res_body = f"Error HTTP directo: {_ae}"
+        try:
+            _rj = _j.loads(_res_body)
+            _rc = str((_rj.get("result") or _rj).get("u_return_code", ""))
+            _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
+        except Exception:
+            _pass = _http_code in (200, 201)
+        # Fiber Change no devuelve u_access_id_vno — no hay polling CoreUse
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
-                             "vno": vno, "func": func_name, "httpCode": _http_code})
+                             "vno": vno, "func": func_name, "httpCode": _http_code,
+                             "asyncSubmitted": _pass, "noAccessId": True})
 
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
@@ -15050,7 +15175,8 @@ var _ATRF_TC_MAP={
   "Baja Total de Servicio":              {"03":"CP64","02":"CP65","05":"CP66","00":"CP66"},
   "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"},
   "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"},
-  "Consulta de Alarmas":                 {"03":"CP43","02":"CP43","05":"CP43","00":"CP43"}
+  "Consulta de Alarmas":                 {"03":"CP43","02":"CP43","05":"CP43","00":"CP43"},
+  "Cambio de Fibra":                     {"03":"CF-03","02":"CF-02","05":"CF-05","00":"CF-00"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
 var _ATRF_DELAY_MAP={
@@ -15060,10 +15186,10 @@ var _ATRF_DELAY_MAP={
   "Modificación de Dispositivo":   "delay_post_dm_ms",
   "Cancelación Orden de Servicio": "delay_post_cancel_ms",
 };
-var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas"];
+var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas","Cambio de Fibra"];
 var _ATRF_GROUPS=[
   {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
-  {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,7]},
+  {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,19,7]},
   {label:'Consultas',color:'#00C8D4',funcs:[11,12,17,13,14,15,18]}
 ];
 var _ATRF_PREREQS={
@@ -15085,7 +15211,8 @@ var _ATRF_PREREQS={
   13:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
   14:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
   15:{c:'#00C8D4',t:'Solo necesita un Access ID válido. El diagnóstico puede ejecutarse en cualquier estado del acceso.'},
-  18:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna alarmas activas del ONT.'}
+  18:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna alarmas activas del ONT.'},
+  19:{c:'#FFB347',t:'El Access ID debe estar activo. Requiere serial ONT actual y nuevo (solo disponible en modo Asíncrono). Después de la Asignación se puede ejecutar EstadoVecino; después de la Activación se pueden ejecutar ONTRetrieve, ONTRestart y Diagnóstico.'}
 };
 var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
@@ -15238,7 +15365,7 @@ function _atrf_renderQueue(){
         +'<div class="atrf-qcb'+(q.checked?' on':'')+'" onclick="event.stopPropagation();_atrf_toggleCb('+qi+')" id="atrf-qcb-'+qi+'"></div>'
         +'<div class="atrf-q-info">'
         +'<span class="atrf-q-name" onclick="_atrf_openView('+qi+')">'+(q.name||'—')+'</span>'+urlBadge
-        +'<div class="atrf-q-meta">'+q.funcs.length+' func · '+(q.ts||'')+'</div>'
+        +'<div class="atrf-q-meta">'+(q.cfg&&q.cfg.tex==='Asíncrono'?'<span style="font-size:9px;font-family:var(--atrf-mono);background:rgba(0,200,212,.12);border:1px solid rgba(0,200,212,.35);color:var(--atrf-accent);border-radius:3px;padding:1px 5px;margin-right:4px;letter-spacing:.04em">ASYNC</span>':'')+q.funcs.length+' func · '+(q.ts||'')+'</div>'
         +'</div>'
         +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
         +'<button class="atrf-btn atrf-btn-sm ag-prog-btn" data-qi="'+qi+'" style="padding:3px 8px" title="Programar esta secuencia">&#128197;</button>'
@@ -16096,7 +16223,8 @@ var _ATRF_ENDPOINT_MAP={
   "RetrieveAccess ONT":                  "fullFillment-retrieveAccess/v1/retrieveAccess",
   "Baja Total de Servicio":              "fullFillment-unsubcription/v1/accessDeregistration",
   "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation",
-  "Consulta de Alarmas":                 "retrieveDataONT/v1/ONTRetrieve"
+  "Consulta de Alarmas":                 "retrieveDataONT/v1/ONTRetrieve",
+  "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
@@ -16156,6 +16284,28 @@ function _atrf_openTcModal(qi,idx){
   } else {
     _rcEl.style.display='none';_banner.style.display='none';
   }
+  // Banner async (envío inmediato API)
+  var _asyncBanner=document.getElementById('atrf-tc-async-banner');
+  var _asyncIcon=document.getElementById('atrf-tc-async-icon');
+  var _asyncMsg=document.getElementById('atrf-tc-async-msg');
+  if(r.asyncSubmitted!==undefined){
+    _asyncBanner.style.display='flex';
+    _asyncIcon.textContent=r.asyncSubmitted?'📤':'❌';
+    _asyncMsg.textContent=r.asyncSubmitted?'Aceptado (código 0)':'Rechazado';
+    _asyncMsg.style.color=r.asyncSubmitted?'var(--atrf-green)':'var(--atrf-red)';
+  }else{_asyncBanner.style.display='none';}
+  // Banner CoreUse (resultado real ServiceNow)
+  var _cuBanner=document.getElementById('atrf-tc-coreuse-banner');
+  var _cuIcon=document.getElementById('atrf-tc-coreuse-icon');
+  var _cuMsg=document.getElementById('atrf-tc-coreuse-msg');
+  var _cuLink=document.getElementById('atrf-tc-coreuse-link');
+  if(r.coreuse_msg){
+    _cuBanner.style.display='flex';
+    _cuIcon.textContent=r.pass?'✅':'❌';
+    _cuMsg.textContent=r.coreuse_msg;
+    _cuMsg.style.color=r.pass?'var(--atrf-green)':'var(--atrf-red)';
+    if(r.coreuse_url){_cuLink.style.display='';_cuLink.href=r.coreuse_url;}else{_cuLink.style.display='none';}
+  }else{_cuBanner.style.display='none';}
   var nwmTab=document.getElementById('atrf-tc-tab-nwm');
   var nwmEl=document.getElementById('atrf-tc-modal-nwm');
   if(r.newmanOut){nwmTab.style.display='';nwmEl.textContent=r.newmanOut;}
@@ -16212,6 +16362,11 @@ function _agSchedStepModal(rid,sidx){
   }else{
     _rcEl.style.display='none';_banner.style.display='none';
   }
+  // Ocultar banners async/CoreUse en modo scheduler
+  var _asBanner=document.getElementById('atrf-tc-async-banner');
+  if(_asBanner)_asBanner.style.display='none';
+  var _cBanner=document.getElementById('atrf-tc-coreuse-banner');
+  if(_cBanner)_cBanner.style.display='none';
   var nwmTab=document.getElementById('atrf-tc-tab-nwm');
   if(nwmTab)nwmTab.style.display='none';
   _atrf_tcTab('req');
@@ -16311,10 +16466,9 @@ async function _atrf_runSelected(){
     if(Array.isArray(_dcfg)) _dcfg.forEach(function(c){_delays[c.key]=parseInt(c.value)||0;});
   }catch(e){}
   // Funcionalidades sin polling CoreUse: Consultas (no aparecen) + Factibilidad (valida por response directo)
-  var _COREUSE_NO_POLL={'Factibilidad':1,'GET Consulta de Acceso':1,'RetrieveAccess':1,
+  var _COREUSE_NO_POLL={'Factibilidad':1,'GET Consulta de Acceso':1,
     'Consulta Estado Vecino (GET)':1,'Consulta Estado Vecino (POST)':1,
-    'Diagnóstico de Acceso':1,'Reinicio ONT':1,
-    'RetrieveAccess ONT':1,'Consulta de Alarmas':1};
+    'Diagnóstico de Acceso':1,'RetrieveAccess ONT':1,'Cambio de Fibra':1};
   for(var qi=0;qi<_atrfQueue.length;qi++){
     var q=_atrfQueue[qi];
     if(!q.checked||q.status!=='espera')continue;
@@ -16364,6 +16518,7 @@ async function _atrf_runSelected(){
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
       var _t0=Date.now();
       try{
+        var _asyncMode=q.cfg.tex==='Asíncrono';
         var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({func:fn,vno:vno,
             direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
@@ -16372,7 +16527,7 @@ async function _atrf_runSelected(){
             newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
             newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
-            serviceIptv:q.cfg.iptv!==false})});
+            serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode})});
         if(resp.status===501){
           var p2=Math.random()>0.25;
           pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado)';
@@ -16398,12 +16553,17 @@ async function _atrf_runSelected(){
         }
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
+      // Guardar estado de envío async inmediato
+      if(rd&&rd.asyncSubmitted!==undefined)_sr.asyncSubmitted=rd.asyncSubmitted;
+      if(rd&&rd.noAccessId)_sr.noAccessId=true;
       // Asignación confirma el Access ID real en ServiceNow — siempre actualizar desde su respuesta
       if(rd&&rd.accessId){if(fn==="Asignación"||!_currentAccessId)_currentAccessId=rd.accessId;}
       // CoreUse poll PRIMERO — determina el pass/fail real antes del delay.
       // También corre para 408 (APIM timeout): la solicitud pudo llegar a ServiceNow igual.
       var _is408=rd&&rd.apim408;
-      if(!_COREUSE_NO_POLL[fn]&&_currentAccessId&&(pass||_is408)){
+      // En modo async: RetrieveAccess, Reinicio ONT y Consulta de Alarmas SÍ tienen registro CoreUse
+      var _cuEligible=!_COREUSE_NO_POLL[fn]&&!_sr.noAccessId;
+      if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
           var _cuR=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -16420,7 +16580,7 @@ async function _atrf_runSelected(){
       // Delay post-paso: solo si el paso pasó Y no hubo CoreUse poll.
       // Si CoreUse corrió, ya esperó a que el sistema procesara — el delay es redundante.
       var _dk=_ATRF_DELAY_MAP[fn];
-      var _hadCoreuse=!_COREUSE_NO_POLL[fn]&&_currentAccessId;
+      var _hadCoreuse=_cuEligible&&_currentAccessId;
       if(pass&&!_hadCoreuse&&_dk&&_delays[_dk]>0){
         var _dEnd=Date.now()+_delays[_dk];
         while(Date.now()<_dEnd){
@@ -16926,6 +17086,17 @@ function showCodigos(){
       <span id="atrf-tc-api-banner-icon" style="font-size:14px"></span>
       <span id="atrf-tc-api-banner-msg" style="font-weight:500"></span>
       <span id="atrf-tc-api-banner-detail" style="color:var(--atrf-text2);font-size:11px"></span>
+    </div>
+    <div id="atrf-tc-async-banner" style="display:none;align-items:center;gap:8px;padding:6px 16px;font-size:11px;border-bottom:1px solid var(--atrf-border);background:rgba(0,200,212,.06)">
+      <span id="atrf-tc-async-icon" style="font-size:13px"></span>
+      <span style="color:var(--atrf-text2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--atrf-mono);flex-shrink:0">Envío API</span>
+      <span id="atrf-tc-async-msg" style="font-weight:500;font-family:var(--atrf-mono)"></span>
+    </div>
+    <div id="atrf-tc-coreuse-banner" style="display:none;align-items:center;gap:8px;padding:6px 16px;font-size:11px;border-bottom:1px solid var(--atrf-border);background:rgba(61,214,140,.05)">
+      <span id="atrf-tc-coreuse-icon" style="font-size:13px"></span>
+      <span style="color:var(--atrf-text2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--atrf-mono);flex-shrink:0">CoreUse</span>
+      <span id="atrf-tc-coreuse-msg" style="font-weight:500;font-family:var(--atrf-mono);flex:1"></span>
+      <a id="atrf-tc-coreuse-link" target="_blank" style="display:none;font-size:10px;color:var(--atrf-accent);text-decoration:none;font-family:var(--atrf-mono)" href="#">Ver →</a>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--atrf-border)">
       <button id="atrf-tc-tab-req" class="atrf-tc-tab active" onclick="_atrf_tcTab('req')">Body (Request)</button>
