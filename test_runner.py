@@ -8047,102 +8047,118 @@ def _coreuse_parse_flujos(html: str, access_id: str) -> dict:
 
 def _coreuse_parse_iia_fiber(html: str) -> dict:
     """
-    Parsea el HTML de CoreUse para extraer datos de IIA.
-    Usa múltiples estrategias porque el formato real del RSC puede variar.
-    Siempre retorna raw_kv para depuración si los CTOs no se detectan.
-    Retorna: {fiber_change_allowed, ctos, port_data, raw_kv, debug_note}
+    Parsea el HTML de CoreUse para extraer datos IIA.
+    Nombres de campo confirmados del portal real:
+      - "Fiber change options" → "Sí" (con tilde)
+      - CTO{n}_type, CTO{n}_CODE / CTO{n}_code, CTO{n}_OLT_Name,
+        CTO{n}_SLOT, CTO{n}_PON, CTO{n}_TECHNOLOGY,
+        CTO{n}_connectorizationType, CTO{n}_spec_model, CTO{n}_spec_manufacturer,
+        ADDR_CTO{n}_siteCode, ADDR_CTO{n}_cityCode,
+        CTO{n}_ADDR_coordinateX, CTO{n}_ADDR_coordinateY,
+        CTO{n}_CABLE / CTO{n}_cable_code, CTO{n}_cable_function,
+        CTO{n}_availableLogicalUnit1..N
     """
-    # ── Estrategia 1: pares "KEY\\":\\"VALUE\\" en RSC escaped ──────────────
-    _kv_all: dict[str, str] = {}
-    # RSC escaped doble-barra
-    for k, v in re.findall(r'"([A-Za-z][A-Za-z0-9_ ]{1,49})\\\\":\\\\"([^\\\\"]{0,300})\\\\"', html):
-        _kv_all[k.strip().upper()] = v.strip()
-    # RSC escaped simple-barra
-    for k, v in re.findall(r'"([A-Za-z][A-Za-z0-9_ ]{1,49})\\":\\"([^\\"]{0,300})\\"', html):
-        _kv_all[k.strip().upper()] = v.strip()
-    # JSON literal sin escape
-    for k, v in re.findall(r'"([A-Za-z][A-Za-z0-9_ ]{1,49})"\s*:\s*"([^"]{0,300})"', html):
-        _kv_all[k.strip().upper()] = v.strip()
+    # ── Paso 1: extraer TODOS los strings del RSC en orden de aparición ──────
+    # El portal CoreUse es Next.js — los datos van en el RSC payload como strings
+    # en campos "children", "text", "label", "value", etc. (posiblemente escaped)
+    _rsc_all: list[str] = []
+    # Doble-barra (RSC inside JSON)
+    _rsc_all += re.findall(r'\\\\"([^\\\\"]{1,400})\\\\"', html)
+    # Simple-barra
+    _rsc_all += re.findall(r'\\"([^\\"]{1,400})\\"', html)
+    # JSON literal (sin escape) — fallback
+    _rsc_all += re.findall(r'"([^"]{1,400})"', html)
 
-    # ── Estrategia 2: label/text/value consecutivos en RSC ───────────────────
-    # A veces el RSC serializa {"label":"CTO1_CODE","value":"14/42(11)"}
-    # Extraemos todas las strings RSC en orden y buscamos pares (nombre, valor)
-    _all_strings = re.findall(
-        r'"(?:children|text|title|label|name|key|value|content|description)(?:\\\\|\\)?"(?:\\\\|\\)?:\s*(?:\\\\|\\)?"([^\\"]{1,300})(?:\\\\|\\)?"',
-        html
-    )
-    # Buscar strings que parezcan nombres de campo CTO seguidas por un valor
-    _pat_cto_key = re.compile(
-        r'^((?:ADDR_)?CTO\d+[_ ](?:TYPE|OLT_NAME|SLOT|TECHNOLOGY|CONNECTORIZATION[_ ]?TYPE|'
-        r'SPEC_?MODEL|SPEC_?MANUFACTURER|PON|CABLE_?FUNCTION|CABLE|'
-        r'AVAILABLELOGICALUNIT\d?|CODE)|'
-        r'ADDR_CTO\d+_?(?:SITECODE|CITYCODE|COORDINATEX|COORDINATEY)|'
-        r'FIBER[_ ]CHANGE[_ ]OPTIONS?|FIBER_CHANGE_OPTIONS?)$',
+    # Deduplicar manteniendo orden (prioridad: aparición más temprana)
+    _seen: set[str] = set()
+    _ordered: list[str] = []
+    for _s in _rsc_all:
+        _sc = _s.strip()
+        if _sc and _sc not in _seen:
+            _seen.add(_sc)
+            _ordered.append(_sc)
+
+    # ── Paso 2: pattern para reconocer labels de campo CTO ───────────────────
+    # Patrones reales confirmados del portal
+    _FIELD_RE = re.compile(
+        r'^(?:'
+        r'(?:ADDR_)?CTO\d+[_ ](?:ADDR[_ ])?'   # CTO1_*, ADDR_CTO1_*, CTO1_ADDR_*
+        r'|CTO\d+_ADDR_'                         # CTO1_ADDR_coordinateX
+        r'|Fiber\s+change\s+options?'            # "Fiber change options"
+        r')',
         re.I
     )
-    for i, s in enumerate(_all_strings):
-        if _pat_cto_key.match(s.strip()) and i + 1 < len(_all_strings):
-            _kv_all[s.strip().upper().replace(' ', '_')] = _all_strings[i + 1].strip()
 
-    # ── Estrategia 3: tabla HTML clásica  th/td ──────────────────────────────
-    for k, v in re.findall(r'<th[^>]*>([^<]{2,60})</th>\s*<td[^>]*>([^<]{0,200})</td>', html, re.I):
-        _k = k.strip().upper().replace(' ', '_')
-        if re.match(r'(CTO|ADDR_CTO|FIBER_CHANGE|PUERTO)', _k):
-            _kv_all[_k] = v.strip()
+    # ── Paso 3: pareo label → siguiente valor no-label ────────────────────────
+    _kv_raw: dict[str, str] = {}  # clave original → valor
+    for i, token in enumerate(_ordered):
+        if _FIELD_RE.match(token):
+            for j in range(i + 1, min(i + 8, len(_ordered))):
+                cand = _ordered[j]
+                # Saltear si parece otro label de campo o header de sección
+                if _FIELD_RE.match(cand):
+                    break
+                # Saltear strings de 1 carácter, números de sección o keywords UI
+                if len(cand) < 1 or cand in ('CTO 1','CTO 2','CTO 3','CTO 4','CTO 5',
+                                              'Port 1','Port 2','Port 3',
+                                              'Fiber Change Options','Otros campos'):
+                    continue
+                _kv_raw[token] = cand
+                break
 
-    # ── Estrategia 4: data-* attributes  data-field="CTO1_CODE" data-value="…" ──
-    for k, v in re.findall(r'data-field="([^"]{2,60})"\s+data-value="([^"]{0,200})"', html, re.I):
-        _kv_all[k.strip().upper().replace(' ', '_')] = v.strip()
-    for k, v in re.findall(r'data-key="([^"]{2,60})"\s+data-val="([^"]{0,200})"', html, re.I):
-        _kv_all[k.strip().upper().replace(' ', '_')] = v.strip()
+    # ── Paso 4: fallback — pares JSON directos "KEY":"VALUE" en el HTML ──────
+    _FC_KEYS_RE = re.compile(
+        r'CTO\d|fiber.change|availableLogical|cable_function|siteCode|cityCode'
+        r'|cable_code|connectorizationType|spec_model|spec_manufacturer|OLT_Name'
+        r'|coordinateX|coordinateY',
+        re.I
+    )
+    for k, v in re.findall(r'"([^"\n]{2,80})"\s*:\s*"([^"\n]{0,300})"', html):
+        if _FC_KEYS_RE.search(k) and k not in _kv_raw:
+            _kv_raw[k.strip()] = v.strip()
 
-    # ── FIBER CHANGE OPTIONS ─────────────────────────────────────────────────
-    _fc_val = ""
-    _fc_keys = ["FIBER_CHANGE_OPTIONS", "FIBER_CHANGE_OPTION", "FIBER CHANGE OPTIONS",
-                "FIBERCHANGEOPTIONS", "CAMBIO_DE_FIBRA", "CAMBIO DE FIBRA"]
-    for _key in _fc_keys:
-        if _key in _kv_all:
-            _fc_val = _kv_all[_key].upper()
+    # ── Paso 5: FIBER CHANGE OPTIONS ─────────────────────────────────────────
+    # Valor real del portal: "Sí" (con tilde)
+    fiber_allowed = False
+    for raw_k, raw_v in _kv_raw.items():
+        if re.match(r'^fiber\s*change\s*options?$', raw_k, re.I):
+            fiber_allowed = raw_v.strip().lower() in ('sí', 'si', 'yes', '1', 'true')
             break
-    if not _fc_val:
-        _m = re.search(r'fiber[\s_-]?change[\s_-]?options?[^<\\"]{0,80}?(SI|NO)\b', html, re.I)
+    # Fallback en HTML crudo (busca "Sí" o "SI" cerca de "fiber change")
+    if not fiber_allowed:
+        _m = re.search(
+            r'fiber[\s_-]?change[\s_-]?options?[^<"\]{0,120}?(Sí|SI|Yes|YES|1)\b',
+            html, re.I
+        )
         if _m:
-            _fc_val = _m.group(1).upper()
-    fiber_allowed = (_fc_val == "SI")
+            fiber_allowed = True
 
-    # ── Port data ────────────────────────────────────────────────────────────
-    port_data = {k: v for k, v in _kv_all.items() if re.match(r'PUERTO\d', k)}
-
-    # ── Campos CTO ──────────────────────────────────────────────────────────
-    # Buscamos también directamente en _kv_all cualquier clave que empiece con CTO\d o ADDR_CTO\d
+    # ── Paso 6: agrupar por CTO número ───────────────────────────────────────
+    # Acepta cualquier variante conocida: CTO{n}_*, ADDR_CTO{n}_*, CTO{n}_ADDR_*
+    _CTO_GROUP_RE = re.compile(
+        r'^(ADDR_)?CTO\s*(\d+)[_ ](ADDR[_ ])?(.+)$', re.I
+    )
     ctos_dict: dict[int, dict[str, str]] = {}
-    for raw_k, raw_v in _kv_all.items():
-        # Normalizar: CTO1_CODE, CTO 1 CODE → CTO1_CODE
-        _m = re.match(r'^(ADDR_)?CTO\s?(\d+)[_\s](.+)$', raw_k, re.I)
+    for raw_k, raw_v in _kv_raw.items():
+        _m = _CTO_GROUP_RE.match(raw_k)
         if _m:
-            addr_prefix = "ADDR_" if _m.group(1) else ""
             n = int(_m.group(2))
-            suffix = _m.group(3).strip().replace(' ', '_')
-            norm_key = f"{addr_prefix}CTO{n}_{suffix}"
-            ctos_dict.setdefault(n, {})[norm_key] = raw_v
+            # Guardar con clave original (case preservado) para mostrar en UI
+            ctos_dict.setdefault(n, {})[raw_k] = raw_v
 
     ctos = [{"cto_n": n, "fields": fields}
             for n, fields in sorted(ctos_dict.items()) if fields]
 
-    # Nota de debug si no se encontró nada esperado
-    debug_note = ""
-    if not ctos and not fiber_allowed:
-        debug_note = (
-            f"Parser no encontró campos CTO ni FIBER CHANGE OPTIONS. "
-            f"Total KV extraídos: {len(_kv_all)}. "
-            "Revisa pestaña 'Raw' para ver qué sí se encontró y reporta los nombres reales."
-        )
+    debug_note = (
+        f"KV extraídos: {len(_kv_raw)} · CTOs detectados: {len(ctos)} · "
+        f"Fiber allowed: {fiber_allowed}"
+        + (" · Si CTOs=0 revisa pestaña Raw y reporta nombres reales" if not ctos else "")
+    )
 
     return {
         "fiber_change_allowed": fiber_allowed,
         "ctos": ctos,
-        "port_data": port_data,
-        "raw_kv": dict(sorted(_kv_all.items())),  # todo lo extraído, para debug
+        "raw_kv": dict(sorted(_kv_raw.items())),
         "debug_note": debug_note,
     }
 
@@ -15973,28 +15989,52 @@ function _cuOpenIiaFiberDetail(accessId){
         ctos.forEach(function(cto){
           var n=cto.cto_n;
           var f=cto.fields||{};
-          // Buscar campos con o sin prefijo numérico (el backend ya normaliza a CTO{n}_*)
-          function _fg(base){
-            return f['CTO'+n+'_'+base]||f['ADDR_CTO'+n+'_'+base]||'';
+          // Lookup case-insensitive porque los nombres reales mezclan mayúsculas/minúsculas
+          // Ej: CTO1_CODE, CTO5_code, CTO1_CABLE, CTO5_cable_code
+          var _fkeys=Object.keys(f);
+          function _fg(){
+            // Acepta múltiples sufijos alternativos (orden de prioridad)
+            var suffixes=Array.prototype.slice.call(arguments);
+            for(var si=0;si<suffixes.length;si++){
+              var sfx=suffixes[si].toLowerCase();
+              for(var ki=0;ki<_fkeys.length;ki++){
+                if(_fkeys[ki].toLowerCase()===('cto'+n+'_'+sfx)||
+                   _fkeys[ki].toLowerCase()===('addr_cto'+n+'_'+sfx)||
+                   _fkeys[ki].toLowerCase()===('cto'+n+'_addr_'+sfx)){
+                  return f[_fkeys[ki]];
+                }
+              }
+            }
+            return '';
           }
-          var code=_fg('CODE');
-          var type=_fg('TYPE');
-          var regionCode=_fg('CITYCODE')||f['ADDR_CTO'+n+'_CITYCODE']||'';
-          var siteCode=_fg('SITECODE')||f['ADDR_CTO'+n+'_SITECODE']||'';
-          var ctoFn=_fg('CABLE_FUNCTION');
-          var cableCode=_fg('CABLE');
-          var lu1=_fg('AVAILABLELOGICALUNIT1');
-          var lu2=_fg('AVAILABLELOGICALUNIT2');
-          var lu3=_fg('AVAILABLELOGICALUNIT3');
+          // Nombres reales confirmados del portal (con variantes por CTO)
+          var code=_fg('code');              // CTO1_CODE, CTO5_code
+          var type=_fg('type');              // CTO1_type
+          var regionCode=_fg('citycode');    // ADDR_CTO1_cityCode
+          var siteCode=_fg('sitecode');      // ADDR_CTO1_siteCode
+          var ctoFn=_fg('cable_function');   // CTO1_cable_function
+          var cableCode=_fg('cable','cable_code'); // CTO1_CABLE, CTO5_cable_code
+          // Logical units: hasta 6 confirmadas en CTO5
+          var lu1=_fg('availablelogicalunit1');
+          var lu2=_fg('availablelogicalunit2');
+          var lu3=_fg('availablelogicalunit3');
+          var lu4=_fg('availablelogicalunit4');
+          var lu5=_fg('availablelogicalunit5');
+          var lu6=_fg('availablelogicalunit6');
+          var allLus=[lu1,lu2,lu3,lu4,lu5,lu6].filter(Boolean);
           var ctoData={ctoCode:code,ctoType:type,regionCode:regionCode,siteCode:siteCode,
             ctoFunction:ctoFn,cableCode:cableCode,logicalUnit:lu1,
-            logicalUnit2:lu2,logicalUnit3:lu3};
+            logicalUnit2:lu2,logicalUnit3:lu3,logicalUnit4:lu4,
+            logicalUnit5:lu5,logicalUnit6:lu6};
           var ctoJson=JSON.stringify(ctoData);
+          var luBadge=allLus.length>1
+            ?'<span style="font-size:.65rem;color:var(--txt3);margin-left:4px">'+allLus.length+' LU disponibles</span>':'';
           ctoHtml+='<div style="border:1px solid var(--brd);border-radius:8px;margin-bottom:12px;overflow:hidden">'
             +'<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;'
             +'background:rgba(0,200,212,.07);border-bottom:1px solid var(--brd)">'
             +'<span style="font-size:.78rem;font-weight:700;color:var(--txt)">CTO '+n+'</span>'
             +(code?'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:3px;padding:1px 7px;color:var(--atrf-accent,#00c8d4)">'+escH(code)+'</code>':'')
+            +luBadge
             +'<div style="flex:1"></div>'
             +'<button onclick="_cuSelectCto(\''+escH(accessId)+'\','+ctoJson+',this)" '
             +'style="padding:4px 12px;border:1px solid var(--atrf-accent,#00c8d4);border-radius:5px;'
@@ -16093,7 +16133,10 @@ function _cuShowPendingCtoBadge(){
     document.body.appendChild(el);
   }
   var c=_atrfPendingCto;
-  el.innerHTML='🔗 CTO lista: <strong>'+String(c&&c.ctoCode||'—')+'</strong>'
+  var _luParts=[c.logicalUnit,c.logicalUnit2,c.logicalUnit3,c.logicalUnit4,c.logicalUnit5,c.logicalUnit6].filter(Boolean);
+  el.innerHTML='🔗 CTO: <strong>'+String(c&&c.ctoCode||'—')+'</strong>'
+    +(c.logicalUnit?' &nbsp;LU:'+c.logicalUnit:'')
+    +(_luParts.length>1?' <span style="font-size:.65rem">('+_luParts.length+' disponibles)</span>':'')
     +' &nbsp;<span style="font-size:.65rem;color:#16a34a80" title="Click para limpiar">✕</span>';
 }
 
