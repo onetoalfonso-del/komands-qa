@@ -16480,7 +16480,10 @@ async function _atrf_runSelected(){
     var vno=q.cfg&&q.cfg.vno||'';
     var _currentAccessId=q.cfg.accessId||'';
     // ── Grupos de dependencia (misma lógica que el scheduler Python) ──────────
-    var _MSeqSet=new Set(["Factibilidad","Asignación"]);
+    var _asyncMode=q.cfg&&q.cfg.tex==='Asíncrono';
+    // En async: Activación entra al grupo secuencial para que ONTRetrieve/ONTRestart/AccesStatusAsync
+    // solo arranquen después de que Activación complete (no en paralelo con ella).
+    var _MSeqSet=new Set(_asyncMode?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
     var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo"]);
     var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
     // Pre-asignar labels con contador de ocurrencias
@@ -16518,7 +16521,6 @@ async function _atrf_runSelected(){
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
       var _t0=Date.now();
       try{
-        var _asyncMode=q.cfg.tex==='Asíncrono';
         var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({func:fn,vno:vno,
             direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
