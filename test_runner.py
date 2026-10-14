@@ -16108,10 +16108,13 @@ function _cuShowPendingCtoBadge(){
   }
   var c=_atrfPendingCto;
   var _luParts=[c.logicalUnit,c.logicalUnit2,c.logicalUnit3,c.logicalUnit4,c.logicalUnit5,c.logicalUnit6].filter(Boolean);
-  el.innerHTML='🔗 CTO: <strong>'+String(c&&c.ctoCode||'—')+'</strong>'
+  var _autoTag=c.autoSelected?'<span style="font-size:.6rem;background:rgba(0,200,212,.2);color:var(--atrf-accent,#00c8d4);border-radius:3px;padding:1px 4px;margin-left:4px">AUTO</span>':'';
+  el.innerHTML=(c.autoSelected?'🤖':'🔗')+' CTO'+( c.ctoN?' '+c.ctoN:'')+': <strong>'+String(c.ctoCode||'—')+'</strong>'
+    +_autoTag
     +(c.logicalUnit?' &nbsp;LU:'+c.logicalUnit:'')
-    +(_luParts.length>1?' <span style="font-size:.65rem">('+_luParts.length+' disponibles)</span>':'')
-    +' &nbsp;<span style="font-size:.65rem;color:#16a34a80" title="Click para limpiar">✕</span>';
+    +(_luParts.length>1?' <span style="font-size:.65rem;color:#16a34a80">('+_luParts.length+' LU)</span>':'')
+    +(c.totalCtos>1?' <span style="font-size:.6rem;color:#16a34a80">de '+c.totalCtos+' CTOs</span>':'')
+    +' &nbsp;<span style="font-size:.65rem;color:#16a34a80" title="Click para limpiar o usar otra CTO manualmente">✕</span>';
 }
 
 function _atrf_openNew(){
@@ -16915,13 +16918,53 @@ async function _atrf_runSelected(){
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
       var _t0=Date.now();
       try{
-        // Para Cambio de Fibra: incluir datos CTO del global _atrfPendingCto
+        // Para Cambio de Fibra: auto-fetch CTO desde CoreUse IIA si no hay selección manual
         var _ctoPayload={};
-        if(fn==='Cambio de Fibra'&&_atrfPendingCto){
-          _ctoPayload={ctoCode:_atrfPendingCto.ctoCode||'',ctoType:_atrfPendingCto.ctoType||'',
-            regionCode:_atrfPendingCto.regionCode||'',siteCode:_atrfPendingCto.siteCode||'',
-            ctoFunction:_atrfPendingCto.ctoFunction||'',cableCode:_atrfPendingCto.cableCode||'',
-            logicalUnit:_atrfPendingCto.logicalUnit||''};
+        if(fn==='Cambio de Fibra'){
+          if(!_atrfPendingCto&&_currentAccessId){
+            // Fetch automático: obtener datos IIA y elegir CTO 1
+            try{
+              var _iiaR=await fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(_currentAccessId));
+              if(_iiaR.ok){
+                var _iiaD=await _iiaR.json();
+                if(_iiaD.fiber_change_allowed&&_iiaD.ctos&&_iiaD.ctos.length>0){
+                  var _autoCto=_iiaD.ctos[0];
+                  var _an=_autoCto.cto_n;
+                  var _af=_autoCto.fields||{};
+                  _atrfPendingCto={
+                    ctoCode:   _af['CTO'+_an+'_CODE']||'',
+                    ctoType:   _af['CTO'+_an+'_type']||'',
+                    regionCode:_af['ADDR_CTO'+_an+'_cityCode']||'',
+                    siteCode:  _af['ADDR_CTO'+_an+'_siteCode']||'',
+                    ctoFunction:_af['CTO'+_an+'_cable_function']||'',
+                    cableCode: _af['CTO'+_an+'_CABLE']||'',
+                    logicalUnit: _af['CTO'+_an+'_availableLogicalUnit1']||'',
+                    logicalUnit2:_af['CTO'+_an+'_availableLogicalUnit2']||'',
+                    logicalUnit3:_af['CTO'+_an+'_availableLogicalUnit3']||'',
+                    logicalUnit4:_af['CTO'+_an+'_availableLogicalUnit4']||'',
+                    logicalUnit5:_af['CTO'+_an+'_availableLogicalUnit5']||'',
+                    logicalUnit6:_af['CTO'+_an+'_availableLogicalUnit6']||'',
+                    accessId:_currentAccessId,
+                    autoSelected:true,
+                    ctoN:_an,
+                    totalCtos:_iiaD.ctos.length
+                  };
+                  _cuShowPendingCtoBadge();
+                }
+              }
+            }catch(_iiaErr){/* si falla el fetch, continúa con body vacío */}
+          }
+          if(_atrfPendingCto){
+            _ctoPayload={
+              ctoCode:     _atrfPendingCto.ctoCode||'',
+              ctoType:     _atrfPendingCto.ctoType||'',
+              regionCode:  _atrfPendingCto.regionCode||'',
+              siteCode:    _atrfPendingCto.siteCode||'',
+              ctoFunction: _atrfPendingCto.ctoFunction||'',
+              cableCode:   _atrfPendingCto.cableCode||'',
+              logicalUnit: _atrfPendingCto.logicalUnit||'',
+            };
+          }
         }
         var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify(Object.assign({func:fn,vno:vno,
