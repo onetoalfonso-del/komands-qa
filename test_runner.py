@@ -8047,118 +8047,111 @@ def _coreuse_parse_flujos(html: str, access_id: str) -> dict:
 
 def _coreuse_parse_iia_fiber(html: str) -> dict:
     """
-    Parsea el HTML de CoreUse para extraer datos IIA.
-    Nombres de campo confirmados del portal real:
-      - "Fiber change options" → "Sí" (con tilde)
-      - CTO{n}_type, CTO{n}_CODE / CTO{n}_code, CTO{n}_OLT_Name,
-        CTO{n}_SLOT, CTO{n}_PON, CTO{n}_TECHNOLOGY,
-        CTO{n}_connectorizationType, CTO{n}_spec_model, CTO{n}_spec_manufacturer,
-        ADDR_CTO{n}_siteCode, ADDR_CTO{n}_cityCode,
-        CTO{n}_ADDR_coordinateX, CTO{n}_ADDR_coordinateY,
-        CTO{n}_CABLE / CTO{n}_cable_code, CTO{n}_cable_function,
-        CTO{n}_availableLogicalUnit1..N
+    Parsea el HTML de CoreUse para extraer datos IIA (Assured Intervention).
+    Nombres de campo exactos confirmados — max 6 CTOs, 6 LU por CTO:
+      CTO{n}_type, CTO{n}_CODE,
+      ADDR_CTO{n}_siteCode, ADDR_CTO{n}_cityCode,
+      CTO{n}_CABLE, CTO{n}_cable_function,
+      CTO{n}_availableLogicalUnit1..6
+    Fiber: "Fiber change options" → "Sí"
     """
-    # ── Paso 1: extraer TODOS los strings del RSC en orden de aparición ──────
-    # El portal CoreUse es Next.js — los datos van en el RSC payload como strings
-    # en campos "children", "text", "label", "value", etc. (posiblemente escaped)
-    _rsc_all: list[str] = []
-    # Doble-barra (RSC inside JSON)
-    _rsc_all += re.findall(r'\\\\"([^\\\\"]{1,400})\\\\"', html)
-    # Simple-barra
-    _rsc_all += re.findall(r'\\"([^\\"]{1,400})\\"', html)
-    # JSON literal (sin escape) — fallback
-    _rsc_all += re.findall(r'"([^"]{1,400})"', html)
+    # Conjunto completo de labels conocidos (exactos, case-sensitive)
+    _FC_LABEL   = "Fiber change options"
+    _CTO_FIELDS = ["type", "CODE",
+                   "CABLE", "cable_function"] + \
+                  [f"availableLogicalUnit{lu}" for lu in range(1, 7)]
+    _ADDR_FIELDS = ["siteCode", "cityCode"]
 
-    # Deduplicar manteniendo orden (prioridad: aparición más temprana)
+    _ALL_LABELS: set[str] = {_FC_LABEL}
+    for n in range(1, 7):
+        for f in _CTO_FIELDS:
+            _ALL_LABELS.add(f"CTO{n}_{f}")
+        for f in _ADDR_FIELDS:
+            _ALL_LABELS.add(f"ADDR_CTO{n}_{f}")
+
+    # ── Extraer strings del RSC en orden de aparición ────────────────────────
+    # Intenta los 3 niveles de escape del payload Next.js
+    _raw: list[str] = []
+    for pat in [r'\\\\"([^\\\\"]{1,400})\\\\"',    # doble-barra
+                r'\\"([^\\"]{1,400})\\"',            # simple-barra
+                r'"([^"]{1,400})"']:                 # JSON literal
+        _raw = re.findall(pat, html)
+        if _raw:
+            break
+
+    # Deduplicar preservando orden (primera aparición gana)
     _seen: set[str] = set()
     _ordered: list[str] = []
-    for _s in _rsc_all:
-        _sc = _s.strip()
-        if _sc and _sc not in _seen:
-            _seen.add(_sc)
-            _ordered.append(_sc)
+    for s in _raw:
+        sc = s.strip()
+        if sc and sc not in _seen:
+            _seen.add(sc)
+            _ordered.append(sc)
 
-    # ── Paso 2: pattern para reconocer labels de campo CTO ───────────────────
-    # Patrones reales confirmados del portal
-    _FIELD_RE = re.compile(
-        r'^(?:'
-        r'(?:ADDR_)?CTO\d+[_ ](?:ADDR[_ ])?'   # CTO1_*, ADDR_CTO1_*, CTO1_ADDR_*
-        r'|CTO\d+_ADDR_'                         # CTO1_ADDR_coordinateX
-        r'|Fiber\s+change\s+options?'            # "Fiber change options"
-        r')',
-        re.I
-    )
-
-    # ── Paso 3: pareo label → siguiente valor no-label ────────────────────────
-    _kv_raw: dict[str, str] = {}  # clave original → valor
+    # ── Pareo label → valor ───────────────────────────────────────────────────
+    # Para cada label conocido, el siguiente string no-label es el valor
+    _kv: dict[str, str] = {}
     for i, token in enumerate(_ordered):
-        if _FIELD_RE.match(token):
-            for j in range(i + 1, min(i + 8, len(_ordered))):
-                cand = _ordered[j]
-                # Saltear si parece otro label de campo o header de sección
-                if _FIELD_RE.match(cand):
-                    break
-                # Saltear strings de 1 carácter, números de sección o keywords UI
-                if len(cand) < 1 or cand in ('CTO 1','CTO 2','CTO 3','CTO 4','CTO 5',
-                                              'Port 1','Port 2','Port 3',
-                                              'Fiber Change Options','Otros campos'):
-                    continue
-                _kv_raw[token] = cand
+        if token in _ALL_LABELS:
+            for j in range(i + 1, min(i + 6, len(_ordered))):
+                cand = _ordered[j].strip()
+                if not cand or cand in _ALL_LABELS:
+                    break  # encontramos otro label → no hay valor intermedio
+                _kv[token] = cand
                 break
 
-    # ── Paso 4: fallback — pares JSON directos "KEY":"VALUE" en el HTML ──────
-    _FC_KEYS_RE = re.compile(
-        r'CTO\d|fiber.change|availableLogical|cable_function|siteCode|cityCode'
-        r'|cable_code|connectorizationType|spec_model|spec_manufacturer|OLT_Name'
-        r'|coordinateX|coordinateY',
-        re.I
-    )
-    for k, v in re.findall(r'"([^"\n]{2,80})"\s*:\s*"([^"\n]{0,300})"', html):
-        if _FC_KEYS_RE.search(k) and k not in _kv_raw:
-            _kv_raw[k.strip()] = v.strip()
+    # Fallback: buscar pares JSON directos "CTO{n}_CODE":"14/42(11)" en el HTML
+    for label in _ALL_LABELS:
+        if label not in _kv:
+            _m = re.search(
+                r'"' + re.escape(label) + r'"\s*:\s*"([^"]{0,300})"', html
+            )
+            if _m:
+                _kv[label] = _m.group(1).strip()
+            else:
+                # Buscar el label como string RSC seguido del valor en el HTML
+                _m2 = re.search(
+                    re.escape(label) + r'[\\\"]{1,4}.*?[\\\"]{1,4}([^\\\"]{1,200})[\\\"]{1,4}',
+                    html
+                )
+                if _m2:
+                    cand = _m2.group(1).strip()
+                    if cand and cand not in _ALL_LABELS:
+                        _kv[label] = cand
 
-    # ── Paso 5: FIBER CHANGE OPTIONS ─────────────────────────────────────────
-    # Valor real del portal: "Sí" (con tilde)
-    fiber_allowed = False
-    for raw_k, raw_v in _kv_raw.items():
-        if re.match(r'^fiber\s*change\s*options?$', raw_k, re.I):
-            fiber_allowed = raw_v.strip().lower() in ('sí', 'si', 'yes', '1', 'true')
-            break
-    # Fallback en HTML crudo (busca "Sí" o "SI" cerca de "fiber change")
+    # ── Fiber change ──────────────────────────────────────────────────────────
+    _fc_raw = _kv.get(_FC_LABEL, "").strip()
+    fiber_allowed = _fc_raw.lower() in ("sí", "si", "yes", "1", "true")
     if not fiber_allowed:
-        _m = re.search(
-            r'fiber[\s_-]?change[\s_-]?options?[^<"\]{0,120}?(Sí|SI|Yes|YES|1)\b',
-            html, re.I
-        )
-        if _m:
+        # Fallback HTML directo
+        _mfc = re.search(r'fiber\s*change\s*options?\s*[\\\"<]{0,6}\s*(Sí|Si|SI|Yes)', html, re.I)
+        if _mfc:
             fiber_allowed = True
 
-    # ── Paso 6: agrupar por CTO número ───────────────────────────────────────
-    # Acepta cualquier variante conocida: CTO{n}_*, ADDR_CTO{n}_*, CTO{n}_ADDR_*
-    _CTO_GROUP_RE = re.compile(
-        r'^(ADDR_)?CTO\s*(\d+)[_ ](ADDR[_ ])?(.+)$', re.I
-    )
-    ctos_dict: dict[int, dict[str, str]] = {}
-    for raw_k, raw_v in _kv_raw.items():
-        _m = _CTO_GROUP_RE.match(raw_k)
-        if _m:
-            n = int(_m.group(2))
-            # Guardar con clave original (case preservado) para mostrar en UI
-            ctos_dict.setdefault(n, {})[raw_k] = raw_v
-
-    ctos = [{"cto_n": n, "fields": fields}
-            for n, fields in sorted(ctos_dict.items()) if fields]
+    # ── Construir CTOs ────────────────────────────────────────────────────────
+    ctos = []
+    for n in range(1, 7):
+        fields: dict[str, str] = {}
+        for f in _CTO_FIELDS:
+            key = f"CTO{n}_{f}"
+            if key in _kv:
+                fields[key] = _kv[key]
+        for f in _ADDR_FIELDS:
+            key = f"ADDR_CTO{n}_{f}"
+            if key in _kv:
+                fields[key] = _kv[key]
+        if fields:
+            ctos.append({"cto_n": n, "fields": fields})
 
     debug_note = (
-        f"KV extraídos: {len(_kv_raw)} · CTOs detectados: {len(ctos)} · "
-        f"Fiber allowed: {fiber_allowed}"
-        + (" · Si CTOs=0 revisa pestaña Raw y reporta nombres reales" if not ctos else "")
+        f"KV extraídos: {len(_kv)} · CTOs: {len(ctos)} · Fiber: {fiber_allowed}"
+        + (" · Si CTOs=0 revisa pestaña Raw" if not ctos else "")
     )
 
     return {
         "fiber_change_allowed": fiber_allowed,
         "ctos": ctos,
-        "raw_kv": dict(sorted(_kv_raw.items())),
+        "raw_kv": dict(sorted(_kv.items())),
         "debug_note": debug_note,
     }
 
@@ -15989,38 +15982,19 @@ function _cuOpenIiaFiberDetail(accessId){
         ctos.forEach(function(cto){
           var n=cto.cto_n;
           var f=cto.fields||{};
-          // Lookup case-insensitive porque los nombres reales mezclan mayúsculas/minúsculas
-          // Ej: CTO1_CODE, CTO5_code, CTO1_CABLE, CTO5_cable_code
-          var _fkeys=Object.keys(f);
-          function _fg(){
-            // Acepta múltiples sufijos alternativos (orden de prioridad)
-            var suffixes=Array.prototype.slice.call(arguments);
-            for(var si=0;si<suffixes.length;si++){
-              var sfx=suffixes[si].toLowerCase();
-              for(var ki=0;ki<_fkeys.length;ki++){
-                if(_fkeys[ki].toLowerCase()===('cto'+n+'_'+sfx)||
-                   _fkeys[ki].toLowerCase()===('addr_cto'+n+'_'+sfx)||
-                   _fkeys[ki].toLowerCase()===('cto'+n+'_addr_'+sfx)){
-                  return f[_fkeys[ki]];
-                }
-              }
-            }
-            return '';
-          }
-          // Nombres reales confirmados del portal (con variantes por CTO)
-          var code=_fg('code');              // CTO1_CODE, CTO5_code
-          var type=_fg('type');              // CTO1_type
-          var regionCode=_fg('citycode');    // ADDR_CTO1_cityCode
-          var siteCode=_fg('sitecode');      // ADDR_CTO1_siteCode
-          var ctoFn=_fg('cable_function');   // CTO1_cable_function
-          var cableCode=_fg('cable','cable_code'); // CTO1_CABLE, CTO5_cable_code
-          // Logical units: hasta 6 confirmadas en CTO5
-          var lu1=_fg('availablelogicalunit1');
-          var lu2=_fg('availablelogicalunit2');
-          var lu3=_fg('availablelogicalunit3');
-          var lu4=_fg('availablelogicalunit4');
-          var lu5=_fg('availablelogicalunit5');
-          var lu6=_fg('availablelogicalunit6');
+          // Nombres de campo exactos confirmados — lookup directo
+          var code     =f['CTO'+n+'_CODE']||'';
+          var type     =f['CTO'+n+'_type']||'';
+          var regionCode=f['ADDR_CTO'+n+'_cityCode']||'';
+          var siteCode =f['ADDR_CTO'+n+'_siteCode']||'';
+          var cableCode=f['CTO'+n+'_CABLE']||'';
+          var ctoFn    =f['CTO'+n+'_cable_function']||'';
+          var lu1=f['CTO'+n+'_availableLogicalUnit1']||'';
+          var lu2=f['CTO'+n+'_availableLogicalUnit2']||'';
+          var lu3=f['CTO'+n+'_availableLogicalUnit3']||'';
+          var lu4=f['CTO'+n+'_availableLogicalUnit4']||'';
+          var lu5=f['CTO'+n+'_availableLogicalUnit5']||'';
+          var lu6=f['CTO'+n+'_availableLogicalUnit6']||'';
           var allLus=[lu1,lu2,lu3,lu4,lu5,lu6].filter(Boolean);
           var ctoData={ctoCode:code,ctoType:type,regionCode:regionCode,siteCode:siteCode,
             ctoFunction:ctoFn,cableCode:cableCode,logicalUnit:lu1,
