@@ -16928,7 +16928,16 @@ async function _atrf_runSelected(){
               if(_iiaR.ok){
                 var _iiaD=await _iiaR.json();
                 if(_iiaD.fiber_change_allowed&&_iiaD.ctos&&_iiaD.ctos.length>0){
-                  var _autoCto=_iiaD.ctos[0];
+                  // Estrategia: elegir la CTO con más LUs disponibles (más opciones de reintento)
+                  var _autoCto=(function(_cl){
+                    var _b=_cl[0],_bn=0;
+                    _cl.forEach(function(_c){
+                      var _n=_c.cto_n,_f=_c.fields||{},_cnt=0;
+                      for(var _i=1;_i<=6;_i++)if(_f['CTO'+_n+'_availableLogicalUnit'+_i])_cnt++;
+                      if(_cnt>_bn){_bn=_cnt;_b=_c;}
+                    });
+                    return _b;
+                  })(_iiaD.ctos);
                   var _an=_autoCto.cto_n;
                   var _af=_autoCto.fields||{};
                   _atrfPendingCto={
@@ -16996,6 +17005,38 @@ async function _atrf_runSelected(){
             res_s=rd.res||_atrf_buildSimRes(fn,q.cfg,pass);
             if(rd.error&&!rd.req)res_s='Error: '+rd.error;
             httpCode=rd.httpCode||0;newmanOut=rd.newmanOut||'';
+          }
+        }
+        // Cambio de Fibra: si LU inicial falla, reintentar automáticamente con LU2..LU6
+        if(fn==='Cambio de Fibra'&&!pass&&_atrfPendingCto){
+          var _cfLus=[
+            _atrfPendingCto.logicalUnit2||'',
+            _atrfPendingCto.logicalUnit3||'',
+            _atrfPendingCto.logicalUnit4||'',
+            _atrfPendingCto.logicalUnit5||'',
+            _atrfPendingCto.logicalUnit6||''
+          ].filter(Boolean);
+          for(var _lri=0;_lri<_cfLus.length&&!pass;_lri++){
+            if(prog)prog.textContent='🔄 Fibra: probando LU'+(_lri+2)+'…';
+            var _rBody=Object.assign({func:fn,vno:vno,
+              direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
+              serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
+              scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
+              newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
+              newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
+              serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
+              serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},
+              _ctoPayload,{logicalUnit:_cfLus[_lri]});
+            var _rResp=await fetch('/api/atrf/run-step',{method:'POST',
+              headers:{'Content-Type':'application/json'},body:JSON.stringify(_rBody)});
+            if(_rResp.status===501){pass=Math.random()>0.25;break;}
+            var _rRd=await _rResp.json();
+            if(_rRd.mode!=='direct'){
+              pass=!!_rRd.pass;rd=_rRd;
+              req_s=_rRd.req||req_s;
+              res_s=(_rRd.res||res_s)+'  // (LU'+(_lri+2)+' auto-retry)';
+              httpCode=_rRd.httpCode||0;
+            }
           }
         }
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
