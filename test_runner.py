@@ -8047,66 +8047,104 @@ def _coreuse_parse_flujos(html: str, access_id: str) -> dict:
 
 def _coreuse_parse_iia_fiber(html: str) -> dict:
     """
-    Parsea el HTML de CoreUse para extraer datos de IIA:
-    - FIBER CHANGE OPTIONS (SI/NO)
-    - Campos CTO{N}: type, code, cable, function, logical units, etc.
-    Retorna: {fiber_change_allowed: bool, ctos: [{cto_n, fields:{...}}], port_data:{...}}
+    Parsea el HTML de CoreUse para extraer datos de IIA.
+    Usa múltiples estrategias porque el formato real del RSC puede variar.
+    Siempre retorna raw_kv para depuración si los CTOs no se detectan.
+    Retorna: {fiber_change_allowed, ctos, port_data, raw_kv, debug_note}
     """
-    # Extraer todos los pares clave-valor del RSC payload
-    # Formatos posibles: "KEY\\":\"VALUE\\"  o  "KEY":"VALUE"
-    _kv_all = {}
-    for k, v in re.findall(r'"([A-Z][A-Z0-9_ ]{2,39})\\":\\"([^\\"]{0,300})\\"', html):
-        _kv_all[k.strip()] = v.strip()
-    for k, v in re.findall(r'"([A-Z][A-Z0-9_ ]{2,39})":"([^"]{0,300})"', html):
-        _kv_all[k.strip()] = v.strip()
+    # ── Estrategia 1: pares "KEY\\":\\"VALUE\\" en RSC escaped ──────────────
+    _kv_all: dict[str, str] = {}
+    # RSC escaped doble-barra
+    for k, v in re.findall(r'"([A-Za-z][A-Za-z0-9_ ]{1,49})\\\\":\\\\"([^\\\\"]{0,300})\\\\"', html):
+        _kv_all[k.strip().upper()] = v.strip()
+    # RSC escaped simple-barra
+    for k, v in re.findall(r'"([A-Za-z][A-Za-z0-9_ ]{1,49})\\":\\"([^\\"]{0,300})\\"', html):
+        _kv_all[k.strip().upper()] = v.strip()
+    # JSON literal sin escape
+    for k, v in re.findall(r'"([A-Za-z][A-Za-z0-9_ ]{1,49})"\s*:\s*"([^"]{0,300})"', html):
+        _kv_all[k.strip().upper()] = v.strip()
 
-    # FIBER CHANGE OPTIONS
+    # ── Estrategia 2: label/text/value consecutivos en RSC ───────────────────
+    # A veces el RSC serializa {"label":"CTO1_CODE","value":"14/42(11)"}
+    # Extraemos todas las strings RSC en orden y buscamos pares (nombre, valor)
+    _all_strings = re.findall(
+        r'"(?:children|text|title|label|name|key|value|content|description)(?:\\\\|\\)?"(?:\\\\|\\)?:\s*(?:\\\\|\\)?"([^\\"]{1,300})(?:\\\\|\\)?"',
+        html
+    )
+    # Buscar strings que parezcan nombres de campo CTO seguidas por un valor
+    _pat_cto_key = re.compile(
+        r'^((?:ADDR_)?CTO\d+[_ ](?:TYPE|OLT_NAME|SLOT|TECHNOLOGY|CONNECTORIZATION[_ ]?TYPE|'
+        r'SPEC_?MODEL|SPEC_?MANUFACTURER|PON|CABLE_?FUNCTION|CABLE|'
+        r'AVAILABLELOGICALUNIT\d?|CODE)|'
+        r'ADDR_CTO\d+_?(?:SITECODE|CITYCODE|COORDINATEX|COORDINATEY)|'
+        r'FIBER[_ ]CHANGE[_ ]OPTIONS?|FIBER_CHANGE_OPTIONS?)$',
+        re.I
+    )
+    for i, s in enumerate(_all_strings):
+        if _pat_cto_key.match(s.strip()) and i + 1 < len(_all_strings):
+            _kv_all[s.strip().upper().replace(' ', '_')] = _all_strings[i + 1].strip()
+
+    # ── Estrategia 3: tabla HTML clásica  th/td ──────────────────────────────
+    for k, v in re.findall(r'<th[^>]*>([^<]{2,60})</th>\s*<td[^>]*>([^<]{0,200})</td>', html, re.I):
+        _k = k.strip().upper().replace(' ', '_')
+        if re.match(r'(CTO|ADDR_CTO|FIBER_CHANGE|PUERTO)', _k):
+            _kv_all[_k] = v.strip()
+
+    # ── Estrategia 4: data-* attributes  data-field="CTO1_CODE" data-value="…" ──
+    for k, v in re.findall(r'data-field="([^"]{2,60})"\s+data-value="([^"]{0,200})"', html, re.I):
+        _kv_all[k.strip().upper().replace(' ', '_')] = v.strip()
+    for k, v in re.findall(r'data-key="([^"]{2,60})"\s+data-val="([^"]{0,200})"', html, re.I):
+        _kv_all[k.strip().upper().replace(' ', '_')] = v.strip()
+
+    # ── FIBER CHANGE OPTIONS ─────────────────────────────────────────────────
     _fc_val = ""
-    for _key in ["FIBER CHANGE OPTIONS", "FIBER_CHANGE_OPTIONS", "FiberChangeOptions"]:
+    _fc_keys = ["FIBER_CHANGE_OPTIONS", "FIBER_CHANGE_OPTION", "FIBER CHANGE OPTIONS",
+                "FIBERCHANGEOPTIONS", "CAMBIO_DE_FIBRA", "CAMBIO DE FIBRA"]
+    for _key in _fc_keys:
         if _key in _kv_all:
             _fc_val = _kv_all[_key].upper()
             break
     if not _fc_val:
-        # búsqueda en HTML crudo (badge "SI" cercano a "fiber change")
-        _m = re.search(r'fiber.change.options[^<]{0,80}(SI|NO)\b', html, re.I)
+        _m = re.search(r'fiber[\s_-]?change[\s_-]?options?[^<\\"]{0,80}?(SI|NO)\b', html, re.I)
         if _m:
             _fc_val = _m.group(1).upper()
     fiber_allowed = (_fc_val == "SI")
 
-    # Port data (PUERTO_X campos)
-    port_data = {}
-    for k, v in _kv_all.items():
-        if re.match(r'PUERTO\d', k, re.I):
-            port_data[k] = v
+    # ── Port data ────────────────────────────────────────────────────────────
+    port_data = {k: v for k, v in _kv_all.items() if re.match(r'PUERTO\d', k)}
 
-    # Campos CTO — soporta hasta 8 CTOs
-    _CTO_FIELDS = [
-        "TYPE","OLT_NAME","SLOT","TECHNOLOGY","CONNECTORIZATION_TYPE",
-        "CONNECTORIZATION TYPE","SPEC_MODEL","SPEC_MANUFACTURER","PON","CABLE",
-        "CABLE_FUNCTION","AVAILABLELOGICALUNIT1","AVAILABLELOGICALUNIT2","AVAILABLELOGICALUNIT3",
-        "CODE",
-    ]
-    _ADDR_FIELDS = ["SITECODE","COORDINATEX","COORDINATEY","CITYCODE","SITECODE"]
+    # ── Campos CTO ──────────────────────────────────────────────────────────
+    # Buscamos también directamente en _kv_all cualquier clave que empiece con CTO\d o ADDR_CTO\d
+    ctos_dict: dict[int, dict[str, str]] = {}
+    for raw_k, raw_v in _kv_all.items():
+        # Normalizar: CTO1_CODE, CTO 1 CODE → CTO1_CODE
+        _m = re.match(r'^(ADDR_)?CTO\s?(\d+)[_\s](.+)$', raw_k, re.I)
+        if _m:
+            addr_prefix = "ADDR_" if _m.group(1) else ""
+            n = int(_m.group(2))
+            suffix = _m.group(3).strip().replace(' ', '_')
+            norm_key = f"{addr_prefix}CTO{n}_{suffix}"
+            ctos_dict.setdefault(n, {})[norm_key] = raw_v
 
-    ctos = []
-    for n in range(1, 9):
-        fields = {}
-        # CTO{n}_FIELD
-        for f in _CTO_FIELDS:
-            for variant in [f"CTO{n}_{f}", f"CTO{n} {f}"]:
-                if variant in _kv_all:
-                    fields[f"CTO{n}_{f.replace(' ','_')}"] = _kv_all[variant]
-                    break
-        # ADDR_CTO{n}_FIELD
-        for f in _ADDR_FIELDS:
-            for variant in [f"ADDR_CTO{n}_{f}", f"ADDR CTO{n} {f}", f"ADDR_CTO{n} {f}"]:
-                if variant in _kv_all:
-                    fields[f"ADDR_CTO{n}_{f}"] = _kv_all[variant]
-                    break
-        if fields:
-            ctos.append({"cto_n": n, "fields": fields})
+    ctos = [{"cto_n": n, "fields": fields}
+            for n, fields in sorted(ctos_dict.items()) if fields]
 
-    return {"fiber_change_allowed": fiber_allowed, "ctos": ctos, "port_data": port_data}
+    # Nota de debug si no se encontró nada esperado
+    debug_note = ""
+    if not ctos and not fiber_allowed:
+        debug_note = (
+            f"Parser no encontró campos CTO ni FIBER CHANGE OPTIONS. "
+            f"Total KV extraídos: {len(_kv_all)}. "
+            "Revisa pestaña 'Raw' para ver qué sí se encontró y reporta los nombres reales."
+        )
+
+    return {
+        "fiber_change_allowed": fiber_allowed,
+        "ctos": ctos,
+        "port_data": port_data,
+        "raw_kv": dict(sorted(_kv_all.items())),  # todo lo extraído, para debug
+        "debug_note": debug_note,
+    }
 
 
 @app.get("/api/coreuse/iia-detail")
@@ -15881,83 +15919,153 @@ function _cuOpenIiaFiberDetail(accessId){
 
       var fcAllowed=d.fiber_change_allowed;
       var ctos=d.ctos||[];
-      var html='';
+      var rawKv=d.raw_kv||{};
+      var debugNote=d.debug_note||'';
 
+      // Pestañas CTO / Raw
+      var tabHtml='<div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid var(--brd)">'
+        +'<button id="cu-iia-tab-cto" onclick="_cuIiaTab(\'cto\')" '
+        +'style="padding:6px 14px;border:none;border-bottom:2px solid var(--atrf-accent,#00c8d4);'
+        +'background:none;color:var(--atrf-accent,#00c8d4);cursor:pointer;font-size:.78rem;font-weight:600">CTOs</button>'
+        +'<button id="cu-iia-tab-raw" onclick="_cuIiaTab(\'raw\')" '
+        +'style="padding:6px 14px;border:none;border-bottom:2px solid transparent;'
+        +'background:none;color:var(--txt3);cursor:pointer;font-size:.78rem">Raw (debug)</button>'
+        +'<a href="'+escH(d.coreuse_url||'')+'" target="_blank" '
+        +'style="margin-left:auto;align-self:center;font-size:.7rem;color:var(--txt3);'
+        +'text-decoration:none;padding:3px 8px;border:1px solid var(--brd);border-radius:4px">↗ CoreUse</a>'
+        +'</div>';
+
+      // Panel CTO
+      var ctoHtml='';
       // Banner FIBER CHANGE OPTIONS
-      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;'
+      ctoHtml+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;'
         +'padding:10px 14px;border-radius:6px;background:rgba(0,0,0,.06);border:1px solid var(--brd)">'
         +'<span style="font-size:.72rem;font-weight:700;letter-spacing:.06em;color:var(--txt3)">FIBER CHANGE OPTIONS</span>'
         +'<span style="padding:3px 10px;border-radius:4px;font-size:.8rem;font-weight:700;'
         +(fcAllowed?'background:#16a34a;color:#fff':'background:#dc2626;color:#fff')
         +'">'+( fcAllowed?'SI':'NO')+'</span>'
-        +(fcAllowed?'<span style="font-size:.72rem;color:var(--txt3)">Selecciona una CTO diferente a la actual y haz clic en "Usar para Cambio de Fibra"</span>':'')
+        +(fcAllowed?'<span style="font-size:.72rem;color:var(--txt3)">Selecciona una CTO diferente a la actual</span>':'')
         +'</div>';
 
+      if(debugNote){
+        ctoHtml+='<div style="margin-bottom:10px;padding:8px 12px;border-radius:5px;'
+          +'background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);'
+          +'font-size:.73rem;color:#b45309">⚠ '+escH(debugNote)+'</div>';
+      }
+
       if(!fcAllowed){
-        html+='<div style="color:var(--txt3);font-size:.8rem;text-align:center;padding:24px">Cambio de fibra no disponible para este acceso.</div>';
-        body.innerHTML=html;return;
-      }
-      if(!ctos.length){
-        html+='<div style="color:var(--txt3);font-size:.8rem;text-align:center;padding:24px">No se encontraron datos CTO en la respuesta de CoreUse.<br>Verifica el registro en <a href="'+escH(d.coreuse_url||'')+'" target="_blank" style="color:var(--atrf-accent,#00c8d4)">CoreUse ↗</a></div>';
-        body.innerHTML=html;return;
-      }
-
-      // Render CTOs
-      var _FIELD_LABELS={
-        'TYPE':'CTO Type','OLT_NAME':'OLT Name','SLOT':'Slot','TECHNOLOGY':'Tecnología',
-        'CONNECTORIZATION_TYPE':'Tipo Conectorización','CONNECTORIZATION TYPE':'Tipo Conectorización',
-        'SPEC_MODEL':'Modelo','SPEC_MANUFACTURER':'Fabricante','PON':'PON',
-        'CABLE':'Cable Code (u_cable_code)','CABLE_FUNCTION':'Cable Function (u_function)',
-        'AVAILABLELOGICALUNIT1':'Logical Unit 1 (u_logical_unit)','AVAILABLELOGICALUNIT2':'Logical Unit 2',
-        'AVAILABLELOGICALUNIT3':'Logical Unit 3','CODE':'CTO Code (u_cto_code)',
-      };
-      ctos.forEach(function(cto){
-        var n=cto.cto_n;
-        var f=cto.fields||{};
-        var code=f['CTO'+n+'_CODE']||'';
-        var type=f['CTO'+n+'_TYPE']||'';
-        var regionCode=f['ADDR_CTO'+n+'_CITYCODE']||'';
-        var siteCode=f['ADDR_CTO'+n+'_SITECODE']||'';
-        var ctoFn=f['CTO'+n+'_CABLE_FUNCTION']||'';
-        var cableCode=f['CTO'+n+'_CABLE']||'';
-        var lu1=f['CTO'+n+'_AVAILABLELOGICALUNIT1']||'';
-        var lu2=f['CTO'+n+'_AVAILABLELOGICALUNIT2']||'';
-        var lu3=f['CTO'+n+'_AVAILABLELOGICALUNIT3']||'';
-        var ctoData={ctoCode:code,ctoType:type,regionCode:regionCode,siteCode:siteCode,
-          ctoFunction:ctoFn,cableCode:cableCode,logicalUnit:lu1,
-          logicalUnit2:lu2,logicalUnit3:lu3};
-        var ctoJson=JSON.stringify(ctoData);
-        html+='<div style="border:1px solid var(--brd);border-radius:8px;margin-bottom:12px;overflow:hidden">'
-          +'<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;'
-          +'background:rgba(0,200,212,.07);border-bottom:1px solid var(--brd)">'
-          +'<span style="font-size:.78rem;font-weight:700;color:var(--txt)">CTO '+n+'</span>'
-          +(code?'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:3px;padding:1px 7px;color:var(--atrf-accent,#00c8d4)">'+escH(code)+'</code>':'')
-          +'<div style="flex:1"></div>'
-          +'<button onclick="_cuSelectCto(\''+escH(accessId)+'\','+ctoJson+',this)" '
-          +'style="padding:4px 12px;border:1px solid var(--atrf-accent,#00c8d4);border-radius:5px;'
-          +'background:rgba(0,200,212,.1);color:var(--atrf-accent,#00c8d4);cursor:pointer;font-size:.75rem;font-weight:600">'
-          +'Usar para Cambio de Fibra</button>'
-          +'</div>'
-          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">';
-        var entries=Object.entries(f);
-        entries.forEach(function(kv,ki){
-          var fk=kv[0].replace(new RegExp('^CTO'+n+'_'),'').replace(new RegExp('^ADDR_CTO'+n+'_'),'ADDR_');
-          var label=_FIELD_LABELS[fk]||kv[0];
-          var bg=ki%2===0?'':'background:rgba(0,0,0,.03)';
-          html+='<div style="padding:5px 12px;border-bottom:1px solid var(--brd);'+bg+'">'
-            +'<div style="font-size:.6rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">'+escH(label)+'</div>'
-            +'<div style="font-size:.75rem;color:var(--txt);font-family:var(--atrf-mono,monospace)">'+escH(kv[1]||'—')+'</div>'
-            +'</div>';
+        ctoHtml+='<div style="color:var(--txt3);font-size:.8rem;text-align:center;padding:16px">Cambio de fibra no disponible para este acceso.</div>';
+      } else if(!ctos.length){
+        ctoHtml+='<div style="color:var(--txt3);font-size:.8rem;padding:12px">'
+          +'No se detectaron campos CTO — revisa la pestaña <b>Raw</b> para ver qué extrajo el parser '
+          +'y reporta los nombres reales de los campos.</div>';
+      } else {
+        var _FIELD_LABELS={
+          'TYPE':'CTO Type','OLT_NAME':'OLT Name','SLOT':'Slot','TECHNOLOGY':'Tecnología',
+          'CONNECTORIZATION_TYPE':'Tipo Conectorización','CONNECTORIZATION_TYPE':'Tipo Conectorización',
+          'SPEC_MODEL':'Modelo','SPEC_MANUFACTURER':'Fabricante','PON':'PON',
+          'CABLE':'Cable Code (u_cable_code)','CABLE_FUNCTION':'Cable Function (u_function)',
+          'AVAILABLELOGICALUNIT1':'Logical Unit 1 (u_logical_unit)','AVAILABLELOGICALUNIT2':'Logical Unit 2',
+          'AVAILABLELOGICALUNIT3':'Logical Unit 3','CODE':'CTO Code (u_cto_code)',
+          'CITYCODE':'Region Code (u_region_code)','SITECODE':'Site Code (u_site_code)',
+          'COORDINATEX':'Coord X','COORDINATEY':'Coord Y',
+        };
+        ctos.forEach(function(cto){
+          var n=cto.cto_n;
+          var f=cto.fields||{};
+          // Buscar campos con o sin prefijo numérico (el backend ya normaliza a CTO{n}_*)
+          function _fg(base){
+            return f['CTO'+n+'_'+base]||f['ADDR_CTO'+n+'_'+base]||'';
+          }
+          var code=_fg('CODE');
+          var type=_fg('TYPE');
+          var regionCode=_fg('CITYCODE')||f['ADDR_CTO'+n+'_CITYCODE']||'';
+          var siteCode=_fg('SITECODE')||f['ADDR_CTO'+n+'_SITECODE']||'';
+          var ctoFn=_fg('CABLE_FUNCTION');
+          var cableCode=_fg('CABLE');
+          var lu1=_fg('AVAILABLELOGICALUNIT1');
+          var lu2=_fg('AVAILABLELOGICALUNIT2');
+          var lu3=_fg('AVAILABLELOGICALUNIT3');
+          var ctoData={ctoCode:code,ctoType:type,regionCode:regionCode,siteCode:siteCode,
+            ctoFunction:ctoFn,cableCode:cableCode,logicalUnit:lu1,
+            logicalUnit2:lu2,logicalUnit3:lu3};
+          var ctoJson=JSON.stringify(ctoData);
+          ctoHtml+='<div style="border:1px solid var(--brd);border-radius:8px;margin-bottom:12px;overflow:hidden">'
+            +'<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;'
+            +'background:rgba(0,200,212,.07);border-bottom:1px solid var(--brd)">'
+            +'<span style="font-size:.78rem;font-weight:700;color:var(--txt)">CTO '+n+'</span>'
+            +(code?'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:3px;padding:1px 7px;color:var(--atrf-accent,#00c8d4)">'+escH(code)+'</code>':'')
+            +'<div style="flex:1"></div>'
+            +'<button onclick="_cuSelectCto(\''+escH(accessId)+'\','+ctoJson+',this)" '
+            +'style="padding:4px 12px;border:1px solid var(--atrf-accent,#00c8d4);border-radius:5px;'
+            +'background:rgba(0,200,212,.1);color:var(--atrf-accent,#00c8d4);cursor:pointer;font-size:.75rem;font-weight:600">'
+            +'Usar para Cambio de Fibra</button>'
+            +'</div>'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">';
+          Object.entries(f).forEach(function(kv,ki){
+            var suffix=kv[0].replace(new RegExp('^(?:ADDR_)?CTO'+n+'_'),'');
+            var label=_FIELD_LABELS[suffix]||kv[0];
+            var bg=ki%2===0?'':'background:rgba(0,0,0,.03)';
+            ctoHtml+='<div style="padding:5px 12px;border-bottom:1px solid var(--brd);'+bg+'">'
+              +'<div style="font-size:.6rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em">'+escH(label)+'</div>'
+              +'<div style="font-size:.75rem;color:var(--txt);font-family:var(--atrf-mono,monospace)">'+escH(kv[1]||'—')+'</div>'
+              +'</div>';
+          });
+          ctoHtml+='</div></div>';
         });
-        html+='</div></div>';
-      });
+      }
 
-      body.innerHTML=html;
+      // Panel Raw (todos los KV extraídos)
+      var rawEntries=Object.entries(rawKv);
+      var rawHtml='<div style="font-size:.72rem;color:var(--txt3);margin-bottom:8px">'
+        +rawEntries.length+' pares clave-valor extraídos del HTML de CoreUse. '
+        +'Si los campos CTO no aparecen arriba, busca aquí los nombres reales y repórtalos.'
+        +'</div>';
+      if(!rawEntries.length){
+        rawHtml+='<div style="color:var(--txt3);font-size:.8rem;padding:16px;text-align:center">'
+          +'No se extrajo ningún par. El parser no reconoció el formato del HTML.<br>'
+          +'<a href="'+escH(d.coreuse_url||'')+'" target="_blank" style="color:var(--atrf-accent,#00c8d4)">Abre CoreUse directamente ↗</a>'
+          +'</div>';
+      } else {
+        rawHtml+='<div style="display:grid;grid-template-columns:220px 1fr;font-size:.7rem;border:1px solid var(--brd);border-radius:6px;overflow:hidden">'
+          +'<div style="padding:4px 8px;background:rgba(0,0,0,.06);font-weight:600;border-bottom:1px solid var(--brd)">Campo</div>'
+          +'<div style="padding:4px 8px;background:rgba(0,0,0,.06);font-weight:600;border-bottom:1px solid var(--brd)">Valor</div>';
+        rawEntries.forEach(function(kv,i){
+          var bg=i%2===0?'':'background:rgba(0,0,0,.03)';
+          var isCto=/(CTO\d|FIBER_CHANGE|PUERTO\d)/.test(kv[0]);
+          rawHtml+='<div style="padding:3px 8px;border-bottom:1px solid var(--brd);'+bg
+            +(isCto?';color:var(--atrf-accent,#00c8d4);font-weight:600':'')+'">'+escH(kv[0])+'</div>'
+            +'<div style="padding:3px 8px;border-bottom:1px solid var(--brd);font-family:monospace;'+bg+'">'+escH(kv[1])+'</div>';
+        });
+        rawHtml+='</div>';
+      }
+
+      body.innerHTML=tabHtml
+        +'<div id="cu-iia-panel-cto">'+ctoHtml+'</div>'
+        +'<div id="cu-iia-panel-raw" style="display:none">'+rawHtml+'</div>';
     })
     .catch(function(e){
       var b=document.getElementById('cu-iia-body');
       if(b)b.innerHTML='<div style="color:var(--err);font-size:.8rem">Error: '+escH(String(e))+'</div>';
     });
+}
+
+function _cuIiaTab(t){
+  var ctoBtn=document.getElementById('cu-iia-tab-cto');
+  var rawBtn=document.getElementById('cu-iia-tab-raw');
+  var ctoPanel=document.getElementById('cu-iia-panel-cto');
+  var rawPanel=document.getElementById('cu-iia-panel-raw');
+  if(!ctoPanel||!rawPanel)return;
+  var _accent='var(--atrf-accent,#00c8d4)';
+  if(t==='cto'){
+    ctoPanel.style.display='';rawPanel.style.display='none';
+    if(ctoBtn){ctoBtn.style.borderBottomColor=_accent;ctoBtn.style.color=_accent;ctoBtn.style.fontWeight='600';}
+    if(rawBtn){rawBtn.style.borderBottomColor='transparent';rawBtn.style.color='var(--txt3)';rawBtn.style.fontWeight='';}
+  }else{
+    ctoPanel.style.display='none';rawPanel.style.display='';
+    if(rawBtn){rawBtn.style.borderBottomColor=_accent;rawBtn.style.color=_accent;rawBtn.style.fontWeight='600';}
+    if(ctoBtn){ctoBtn.style.borderBottomColor='transparent';ctoBtn.style.color='var(--txt3)';ctoBtn.style.fontWeight='';}
+  }
 }
 
 function _cuSelectCto(accessId,ctoData,btn){
