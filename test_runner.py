@@ -10,6 +10,7 @@ Prerequisito: pip install fastapi "uvicorn[standard]"
 """
 
 import asyncio
+import asyncio as _aio
 import json
 import os
 import queue as _queue
@@ -1334,6 +1335,38 @@ CREATE TABLE IF NOT EXISTS qa_access_ids (
     ts          BIGINT,
     updated_at  TIMESTAMPTZ  DEFAULT NOW()
 );
+ALTER TABLE qa_access_ids ADD COLUMN IF NOT EXISTS cu_state      VARCHAR(30);
+ALTER TABLE qa_access_ids ADD COLUMN IF NOT EXISTS cu_detail     TEXT;
+ALTER TABLE qa_access_ids ADD COLUMN IF NOT EXISTS cu_checked_at BIGINT;
+CREATE TABLE IF NOT EXISTS qa_aid_events (
+    id              BIGSERIAL PRIMARY KEY,
+    access_id       VARCHAR(200) NOT NULL,
+    ts              BIGINT,
+    run_key         VARCHAR(100),
+    source          VARCHAR(20)  DEFAULT 'manual',
+    seq_name        VARCHAR(300),
+    user_email      VARCHAR(200),
+    vno             VARCHAR(10),
+    vno_lbl         VARCHAR(100),
+    func            VARCHAR(200),
+    tc              VARCHAR(50),
+    mode            VARCHAR(20),
+    http_code       INTEGER,
+    return_code     VARCHAR(50),
+    return_desc     TEXT,
+    api_pass        BOOLEAN,
+    final_pass      BOOLEAN,
+    coreuse_status  VARCHAR(30),
+    coreuse_msg     TEXT,
+    coreuse_attempts INTEGER,
+    coreuse_checked VARCHAR(20),
+    duration_ms     INTEGER,
+    extra_json      TEXT,
+    req             TEXT,
+    res             TEXT,
+    created_at      TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_qa_aid_events_aid ON qa_aid_events (access_id, ts);
 CREATE TABLE IF NOT EXISTS qa_config (
     key        VARCHAR(100) PRIMARY KEY,
     value      TEXT NOT NULL DEFAULT '',
@@ -2016,6 +2049,18 @@ async def _agenda_fire_async(schedule_id: int):
                 _live["done"].append({"func": fn, "pass": step_r["pass"],
                                       "http": step_r.get("http", 0),
                                       "error": step_r.get("error", "")})
+            # Trazabilidad por AID (la agenda no consulta CoreUse)
+            await _aid_event_save({
+                "access_id": step_r.get("accessId") or prev_access_id,
+                "run_key": f"sched-{run_id}", "source": "agenda",
+                "seq_name": sched.get("name", ""), "vno": vno, "func": fn,
+                "http_code": step_r.get("http", 0),
+                "api_pass": step_r["pass"], "final_pass": step_r["pass"],
+                "coreuse_checked": "no",
+                "duration_ms": step_r["duration_ms"],
+                "extra": {"error": step_r.get("error") or "", "apim408": step_r.get("apim408", False)},
+                "req": step_r.get("req", ""), "res": step_r.get("res", ""),
+            })
             return step_r
 
         # ── FASE 1: Secuencial — Factibilidad → Asignación ───────────────────
@@ -2045,6 +2090,13 @@ async def _agenda_fire_async(schedule_id: int):
                     for _fn2 in ia_phase[_i + 1:]:
                         _res.append({"func": _fn2, "pass": False,
                                      "error": "⊘ Saltado: Inicio IA falló", "duration_ms": 0})
+                        await _aid_event_save({
+                            "access_id": prev_access_id, "run_key": f"sched-{run_id}",
+                            "source": "agenda", "seq_name": sched.get("name", ""),
+                            "vno": vno, "func": _fn2, "api_pass": False, "final_pass": False,
+                            "coreuse_checked": "no", "duration_ms": 0,
+                            "extra": {"error": "⊘ Saltado: Inicio IA falló"},
+                        })
                     break
             return _res
 
@@ -7873,6 +7925,11 @@ async def api_coreuse_poll(request: Request):
     # Intento 1 → esperar 10s (captura pasos rápidos: IIA, CIA, FIA, consultas)
     # Intentos 2-20 → esperar 18s c/u → máximo total ~5.9 min (cubre Activación de 4 min)
     _MAX_ATTEMPTS  = 20
+    # max_attempts=1 → chequeo informativo único (pasos fallidos en API)
+    try:
+        _MAX_ATTEMPTS = max(1, min(int(body.get("max_attempts") or 20), 20))
+    except (TypeError, ValueError):
+        pass
     _FIRST_WAIT_S  = 10
     _NORMAL_WAIT_S = 18
 
@@ -7900,6 +7957,8 @@ async def api_coreuse_poll(request: Request):
     # Después de _MAX_ATTEMPTS intentos sin resultado → fallo
     # Regla: éxito requiere que CoreUse confirme code 0 explícitamente.
     # Si no aparece nada → ambiente caído u otro problema → marcar como error.
+    if _MAX_ATTEMPTS == 1:
+        return JSONResponse(result)
     if result.get("status") in ("pending", "not_found", "error"):
         result["status"]  = "failure"
         result["message"] = f"CoreUse no registró resultado tras {_MAX_ATTEMPTS} intentos (ambiente caído u otro problema)"
@@ -8270,6 +8329,525 @@ async def api_access_tracking():
             "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={r['access_id']}",
         })
     return JSONResponse(result)
+
+
+# ─── Trazabilidad por Access ID (tabla qa_aid_events) ────────────────────────
+# Un evento por paso ejecutado, guardado apenas termina el paso (manual o agenda).
+
+_AID_TEXT_MAX = 60000   # límite de req/res guardados por evento
+
+def _aid_extract_return(res_text: str) -> tuple:
+    """Extrae u_return_code / u_return_code_desc del response (JSON o texto)."""
+    if not res_text:
+        return "", ""
+    try:
+        d = json.loads(res_text)
+        if isinstance(d, dict):
+            d = d.get("result", d) if isinstance(d.get("result", d), dict) else d
+            return (str(d.get("u_return_code", "") or ""),
+                    str(d.get("u_return_code_desc", "") or d.get("u_breaking_point", "") or ""))
+    except Exception:
+        pass
+    m  = re.search(r'"u_return_code"\s*:\s*"?([^",}\s]+)', res_text)
+    md = re.search(r'"u_return_code_desc"\s*:\s*"([^"]*)"', res_text)
+    return (m.group(1) if m else "", md.group(1) if md else "")
+
+
+def _aid_diagnose(ev: dict) -> dict:
+    """Clasifica dónde se cortó el paso: API, CoreUse o punta a punta OK."""
+    http   = ev.get("http_code") or 0
+    rc     = str(ev.get("return_code") or "")
+    cu     = ev.get("coreuse_status") or ""
+    err    = (ev.get("extra") or {}).get("error") or ""
+    if err.startswith("⊘"):
+        return {"code": "skipped", "label": "Paso saltado", "detail": err}
+    if ev.get("api_pass") is False:
+        why = f"HTTP {http}" if http else "Sin respuesta HTTP"
+        if rc and rc != "0":
+            why += f" · u_return_code {rc}"
+        if ev.get("return_desc"):
+            why += f" · {ev['return_desc']}"
+        if err:
+            why += f" · {err}"
+        if cu == "success":
+            return {"code": "api_fail_cu_ok", "label": "API falló pero CoreUse registró éxito",
+                    "detail": why + " — ServiceNow sí procesó la solicitud"}
+        if cu == "failure":
+            return {"code": "api_fail", "label": "API rechazó la solicitud",
+                    "detail": why + f" — CoreUse: {ev.get('coreuse_msg') or 'fallido'}"}
+        return {"code": "api_fail", "label": "API rechazó la solicitud", "detail": why}
+    if cu == "success":
+        return {"code": "ok", "label": "OK punta a punta", "detail": ev.get("coreuse_msg") or "API y CoreUse OK"}
+    if cu == "failure":
+        msg = ev.get("coreuse_msg") or ""
+        if "no registró" in msg or "intentos" in msg:
+            return {"code": "cu_missing", "label": "API OK, CoreUse no registró el flujo", "detail": msg}
+        return {"code": "cu_fail", "label": "API OK, CoreUse registró error", "detail": msg}
+    if ev.get("final_pass"):
+        return {"code": "ok_api", "label": "OK (API, sin verificación CoreUse)",
+                "detail": "Funcionalidad sin registro en CoreUse" if ev.get("coreuse_checked") == "no_aplica"
+                          else "CoreUse no consultado"}
+    return {"code": "fail", "label": "Falló", "detail": err or (f"HTTP {http}" if http else "")}
+
+
+async def _aid_event_save(ev: dict):
+    """Inserta un evento de trazabilidad. Nunca lanza excepción (no debe romper la ejecución)."""
+    aid = (ev.get("access_id") or "").strip()
+    if not aid:
+        return
+    pool = await _db()
+    if not pool:
+        return
+    req_s = str(ev.get("req") or "")[:_AID_TEXT_MAX]
+    res_s = str(ev.get("res") or "")[:_AID_TEXT_MAX]
+    rc, rdesc = ev.get("return_code"), ev.get("return_desc")
+    if rc is None and rdesc is None:
+        rc, rdesc = _aid_extract_return(res_s)
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO qa_aid_events
+                  (access_id, ts, run_key, source, seq_name, user_email, vno, vno_lbl, func, tc, mode,
+                   http_code, return_code, return_desc, api_pass, final_pass,
+                   coreuse_status, coreuse_msg, coreuse_attempts, coreuse_checked,
+                   duration_ms, extra_json, req, res)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+            """,
+                aid, int(ev.get("ts") or _time_lib.time() * 1000), str(ev.get("run_key") or "")[:100],
+                str(ev.get("source") or "manual")[:20], str(ev.get("seq_name") or "")[:300],
+                str(ev.get("user_email") or "")[:200], str(ev.get("vno") or "")[:10],
+                str(ev.get("vno_lbl") or "")[:100], str(ev.get("func") or "")[:200],
+                str(ev.get("tc") or "")[:50], str(ev.get("mode") or "")[:20],
+                int(ev.get("http_code") or 0), str(rc or "")[:50], str(rdesc or ""),
+                ev.get("api_pass"), ev.get("final_pass"),
+                str(ev.get("coreuse_status") or "")[:30], str(ev.get("coreuse_msg") or ""),
+                int(ev.get("coreuse_attempts") or 0), str(ev.get("coreuse_checked") or "")[:20],
+                int(ev.get("duration_ms") or 0), json.dumps(ev.get("extra") or {}, ensure_ascii=False),
+                req_s, res_s)
+    except Exception as exc:
+        print(f"[aid-events] error guardando evento {aid}: {exc}")
+
+
+@app.post("/api/aid-events")
+async def api_aid_events_post(request: Request):
+    body = await request.json()
+    payload = await _get_auth(request)
+    if payload and not body.get("user_email"):
+        body["user_email"] = payload.get("email", "")
+    await _aid_event_save(body)
+    return {"ok": True}
+
+
+@app.get("/api/aid-trace/list")
+async def api_aid_trace_list(q: str = "", limit: int = 100):
+    """AIDs con eventos registrados, más recientes primero (filtro opcional por texto)."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        args, where = [], ""
+        if q.strip():
+            args.append(f"%{q.strip()}%")
+            where = "WHERE access_id ILIKE $1"
+        args.append(min(max(limit, 1), 500))
+        rows = await pool.fetch(f"""
+            SELECT access_id,
+                   MAX(vno_lbl)  AS vno_lbl,
+                   COUNT(*)      AS total,
+                   COUNT(*) FILTER (WHERE final_pass) AS ok,
+                   MIN(ts)       AS first_ts,
+                   MAX(ts)       AS last_ts,
+                   (ARRAY_AGG(func ORDER BY ts DESC))[1]       AS last_func,
+                   (ARRAY_AGG(final_pass ORDER BY ts DESC))[1] AS last_pass
+            FROM qa_aid_events {where}
+            GROUP BY access_id
+            ORDER BY MAX(ts) DESC
+            LIMIT ${len(args)}
+        """, *args)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return [{
+        "access_id": r["access_id"], "vno_lbl": r["vno_lbl"] or "",
+        "total": r["total"], "ok": r["ok"], "fail": r["total"] - r["ok"],
+        "first_ts": r["first_ts"] or 0, "last_ts": r["last_ts"] or 0,
+        "last_func": r["last_func"] or "", "last_pass": bool(r["last_pass"]),
+    } for r in rows]
+
+
+@app.get("/api/aid-trace")
+async def api_aid_trace(access_id: str = ""):
+    """Línea de tiempo completa de un Access ID con diagnóstico por paso."""
+    access_id = access_id.strip()
+    if not access_id:
+        return JSONResponse({"error": "access_id requerido"}, status_code=400)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    try:
+        rows = await pool.fetch(
+            "SELECT * FROM qa_aid_events WHERE access_id=$1 ORDER BY ts ASC, id ASC", access_id)
+        st = await pool.fetchrow(
+            "SELECT state, last_op, last_result FROM qa_access_ids WHERE access_id=$1", access_id)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    events = []
+    for r in rows:
+        ev = dict(r)
+        ev.pop("created_at", None)
+        try: ev["extra"] = json.loads(ev.pop("extra_json") or "{}")
+        except Exception: ev["extra"] = {}
+        ev["diag"] = _aid_diagnose(ev)
+        events.append(ev)
+    return {
+        "access_id": access_id,
+        "state": (st["state"] if st else "") or "",
+        "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={access_id}",
+        "events": events,
+    }
+
+
+# ─── Inventario de Access IDs: estado runner vs estado real en CoreUse ───────
+
+def _coreuse_fetch_html(access_id: str) -> tuple:
+    """GET flujos-qa del access_id con desbloqueo/re-login. Retorna (html, error)."""
+    global _coreuse_session
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return None, "CoreUse no configurado (sin env vars)"
+    with _coreuse_lock:
+        s = _coreuse_get_session()
+        if not s:
+            return None, "No se pudo autenticar en CoreUse"
+        try:
+            def _get(sess):
+                return sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                                verify=False, timeout=15, allow_redirects=True)
+            r = _get(s)
+            if "/desbloqueo" in r.url:
+                if not _coreuse_unlock(s, r.url):
+                    _coreuse_session = None
+                    s = _coreuse_login()
+                    if not s:
+                        return None, "CoreUse bloqueado y re-login falló"
+                r = _get(s)
+            if "/login" in r.url:
+                _coreuse_session = None
+                s = _coreuse_login()
+                if not s:
+                    return None, "Re-login CoreUse fallido"
+                r = _get(s)
+            return r.text, None
+        except Exception as e:
+            return None, str(e)
+
+
+_CU_STATUS_LABEL_RE = re.compile(r'(status|state|estado)', re.I)
+
+_CU_STRUCT_TOKENS = {"children", "className", "style", "div", "span", "td", "tr", "th", "table",
+                     "tbody", "thead", "p", "a", "b", "button", "href", "key", "id", "type", "title"}
+
+def _coreuse_value_tokens(html: str) -> list:
+    """Valores de texto del payload RSC de Next.js (lo que va tras ":"), en orden de aparición."""
+    for pat in [r'\\\\":\\\\"([^\\\\"]{1,200})\\\\"',   # doble-barra
+                r'\\":\\"([^\\"]{1,200})\\"',               # simple-barra
+                r'":"([^"]{1,200})"']:                             # JSON literal
+        vals = [v.strip() for v in re.findall(pat, html)]
+        vals = [v for v in vals if v and v not in _CU_STRUCT_TOKENS
+                and not v.startswith(("$", "static/", "/_next", "http"))]
+        if vals:
+            return vals
+    # Fallback: texto visible del HTML renderizado
+    txt = re.sub(r'<script.*?</script>|<style.*?</style>', ' ', html, flags=re.S | re.I)
+    return [t.strip() for t in re.split(r'<[^>]+>', txt) if t.strip()]
+
+def _coreuse_resource_state(html: str, access_id: str) -> dict:
+    """
+    Determina si el acceso está liberado (InStock) según la página de CoreUse.
+    Retorna {state: instock|en_uso|sin_datos|desconocido, values: [...], evidence: [...]}
+    - instock   : aparece el valor InStock / In Stock
+    - en_uso    : hay campos de estado con otro valor (p.ej. InService, Active)
+    - sin_datos : CoreUse no tiene registros para el access_id
+    - desconocido: hay datos pero no se identificó un campo de estado
+    """
+    hl = html.lower()
+    if not ("flujos ejecutados" in hl or "recursos" in hl or access_id in html):
+        return {"state": "sin_datos", "values": [], "evidence": ["Access ID sin registros en CoreUse"]}
+
+    tokens = _coreuse_value_tokens(html)
+
+    def _is_instock(v: str) -> bool:
+        return re.sub(r'[\s_\-]', '', v).lower() == "instock"
+
+    evidence, values = [], []
+    # Pares label de estado → valor siguiente
+    for i, tok in enumerate(tokens[:-1]):
+        if len(tok) <= 60 and _CU_STATUS_LABEL_RE.search(tok) and not tok.startswith(("http", "$", "_")):
+            val = tokens[i + 1]
+            if len(val) <= 60 and not _CU_STATUS_LABEL_RE.search(val):
+                pair = f"{tok}: {val}"
+                if pair not in evidence:
+                    evidence.append(pair)
+                    values.append(val)
+    instock_hit = any(_is_instock(t) for t in tokens) or bool(re.search(r'\bin[\s_\-]?stock\b', hl))
+    if instock_hit:
+        if not any(_is_instock(v) for v in values):
+            m = re.search(r'.{0,80}in[\s_\-]?stock.{0,40}', html, re.I)
+            if m:
+                evidence.append("…" + re.sub(r'<[^>]+>', ' ', m.group(0)).strip() + "…")
+        return {"state": "instock", "values": values, "evidence": evidence[:12]}
+    if values:
+        return {"state": "en_uso", "values": values, "evidence": evidence[:12]}
+    return {"state": "desconocido", "values": [], "evidence": ["No se encontró campo de estado en la página"]}
+
+
+async def _aid_cu_verify(access_id: str) -> dict:
+    """Consulta CoreUse y guarda el resultado en qa_access_ids (InStock → dado_de_baja)."""
+    loop = _aio.get_event_loop()
+    html, err = await loop.run_in_executor(None, lambda: _coreuse_fetch_html(access_id))
+    now_ms = int(_time_lib.time() * 1000)
+    if err:
+        res = {"state": "error", "values": [], "evidence": [err]}
+    else:
+        res = await loop.run_in_executor(None, lambda: _coreuse_resource_state(html, access_id))
+    res["checked_at"] = now_ms
+    pool = await _db()
+    if pool and res["state"] != "error":
+        try:
+            detail = json.dumps({"values": res["values"], "evidence": res["evidence"]}, ensure_ascii=False)
+            async with pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO qa_access_ids (access_id, vno, state, last_op, last_result, ts,
+                                               cu_state, cu_detail, cu_checked_at)
+                    VALUES ($1, $2, CASE WHEN $3='instock' THEN 'dado_de_baja' ELSE 'activo' END,
+                            'Verificación CoreUse', 'ok', $4, $3, $5, $4)
+                    ON CONFLICT (access_id) DO UPDATE SET
+                        cu_state = $3, cu_detail = $5, cu_checked_at = $4,
+                        state = CASE WHEN $3='instock' THEN 'dado_de_baja' ELSE qa_access_ids.state END,
+                        updated_at = NOW()
+                """, access_id, access_id[:2], res["state"], now_ms, detail)
+        except Exception as exc:
+            print(f"[aid-inventory] error guardando verificación {access_id}: {exc}")
+    return res
+
+
+@app.get("/api/aid-inventory")
+async def api_aid_inventory():
+    """
+    Todos los Access IDs creados por el runner, uniendo:
+    qa_access_ids, qa_aid_events, qa_executions (ATRF) y qa_sched_runs (Agenda).
+    """
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    inv: dict = {}
+
+    def _add(aid, src, ts=0, vno=""):
+        aid = (aid or "").strip()
+        if not aid or len(aid) > 200 or " " in aid:
+            return
+        it = inv.setdefault(aid, {"access_id": aid, "vno": vno or aid[:2], "sources": set(),
+                                  "first_ts": 0, "last_ts": 0, "ops": 0})
+        it["sources"].add(src)
+        ts = int(ts or 0)
+        if ts:
+            it["first_ts"] = min(it["first_ts"] or ts, ts)
+            it["last_ts"] = max(it["last_ts"], ts)
+        if vno and not it["vno"]:
+            it["vno"] = vno
+
+    try:
+        for r in await pool.fetch("SELECT access_id, vno, ts FROM qa_access_ids"):
+            _add(r["access_id"], "tracking", r["ts"], r["vno"])
+        for r in await pool.fetch(
+                "SELECT access_id, MAX(vno) AS vno, MIN(ts) AS t0, MAX(ts) AS t1, COUNT(*) AS n "
+                "FROM qa_aid_events GROUP BY access_id"):
+            _add(r["access_id"], "trazabilidad", r["t0"], r["vno"])
+            _add(r["access_id"], "trazabilidad", r["t1"], r["vno"])
+            if r["access_id"] in inv:
+                inv[r["access_id"]]["ops"] = r["n"]
+        for r in await pool.fetch(
+                "SELECT direccion, MAX(vno) AS vno, MIN(ts) AS t0, MAX(ts) AS t1 FROM qa_executions "
+                "WHERE suite_id='atrf' AND direccion<>'' GROUP BY direccion"):
+            _add(r["direccion"], "historial", r["t0"], r["vno"])
+            _add(r["direccion"], "historial", r["t1"], r["vno"])
+        for r in await pool.fetch(
+                "SELECT vno, started_at, steps_json FROM qa_sched_runs "
+                "WHERE steps_json IS NOT NULL ORDER BY id DESC LIMIT 1000"):
+            try:
+                _steps = json.loads(r["steps_json"] or "[]")
+            except Exception:
+                continue
+            _t = int(r["started_at"].timestamp() * 1000) if r["started_at"] else 0
+            for _aid in {st.get("accessId") for st in _steps if isinstance(st, dict) and st.get("accessId")}:
+                _add(_aid, "agenda", _t, r["vno"])
+        trk = {r["access_id"]: dict(r) for r in await pool.fetch(
+            "SELECT access_id, vno_lbl, state, last_op, last_result, ts, cu_state, cu_detail, cu_checked_at "
+            "FROM qa_access_ids")}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    out = []
+    for aid, it in inv.items():
+        t = trk.get(aid) or {}
+        try: cu_det = json.loads(t.get("cu_detail") or "{}")
+        except Exception: cu_det = {}
+        out.append({
+            "access_id": aid,
+            "vno": it["vno"],
+            "vno_lbl": t.get("vno_lbl") or it["vno"],
+            "sources": sorted(it["sources"]),
+            "first_ts": it["first_ts"], "last_ts": max(it["last_ts"], t.get("ts") or 0),
+            "ops": it["ops"],
+            "state": t.get("state") or "desconocido",
+            "last_op": t.get("last_op") or "",
+            "last_result": t.get("last_result") or "",
+            "cu_state": t.get("cu_state") or "",
+            "cu_values": cu_det.get("values") or [],
+            "cu_evidence": cu_det.get("evidence") or [],
+            "cu_checked_at": t.get("cu_checked_at") or 0,
+            "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={aid}",
+        })
+    out.sort(key=lambda x: x["last_ts"] or 0, reverse=True)
+    return out
+
+
+@app.post("/api/aid-inventory/verify")
+async def api_aid_inventory_verify(request: Request):
+    """Verifica en CoreUse un Access ID (el frontend itera para verificaciones masivas)."""
+    body = await request.json()
+    aid = (body.get("access_id") or "").strip()
+    if not aid:
+        return JSONResponse({"error": "access_id requerido"}, status_code=400)
+    res = await _aid_cu_verify(aid)
+    res["access_id"] = aid
+    return res
+
+
+@app.get("/api/aid-inventory/raw")
+async def api_aid_inventory_raw(access_id: str = ""):
+    """Debug: tokens extraídos de CoreUse para ajustar el parser de estado."""
+    if not access_id:
+        return JSONResponse({"error": "access_id requerido"}, status_code=400)
+    loop = _aio.get_event_loop()
+    html, err = await loop.run_in_executor(None, lambda: _coreuse_fetch_html(access_id))
+    if err:
+        return JSONResponse({"error": err}, status_code=500)
+    seen, uniq = set(), []
+    for t in _coreuse_value_tokens(html):
+        if t not in seen:
+            seen.add(t); uniq.append(t)
+    return {"access_id": access_id, "tokens": uniq[:800], "parsed": _coreuse_resource_state(html, access_id)}
+
+
+# Jobs de cierre en memoria {job_id: {...}}
+_aid_close_jobs: dict = {}
+
+@app.post("/api/aid-inventory/close")
+async def api_aid_inventory_close(request: Request):
+    """
+    Cierra Access IDs: Cancelación OOSS + Baja Total (activos) o solo Baja (cancelados),
+    vía /api/atrf/run-step, y luego re-verifica InStock en CoreUse.
+    Body: {access_ids: [...], service_type: 'FTTH'|'SSAA'}
+    """
+    import uuid as _uid
+    body = await request.json()
+    aids = []
+    for a in body.get("access_ids") or []:
+        a = str(a).strip()
+        if a and a not in aids:
+            aids.append(a)
+    if not aids:
+        return JSONResponse({"error": "Sin access IDs"}, status_code=400)
+    svc_type = body.get("service_type") or "FTTH"
+    payload = await _get_auth(request)
+    user_email = (payload or {}).get("email", "")
+    job_id = _uid.uuid4().hex[:12]
+    job = {"id": job_id, "total": len(aids), "done": 0, "running": True,
+           "items": {a: {"access_id": a, "status": "pendiente", "steps": [], "cu_state": ""} for a in aids}}
+    _aid_close_jobs[job_id] = job
+    _aio.create_task(_aid_close_run(job, aids, svc_type, user_email))
+    return {"job_id": job_id}
+
+
+@app.get("/api/aid-inventory/close/{job_id}")
+async def api_aid_inventory_close_status(job_id: str):
+    job = _aid_close_jobs.get(job_id)
+    if not job:
+        return JSONResponse({"error": "job no encontrado"}, status_code=404)
+    return {**job, "items": list(job["items"].values())}
+
+
+async def _aid_close_run(job: dict, aids: list, svc_type: str, user_email: str):
+    import urllib.request as _ur2
+    base_url = f"http://localhost:{_AGENDA_PORT}"
+    pool = await _db()
+    states = {}
+    if pool:
+        try:
+            for r in await pool.fetch("SELECT access_id, state FROM qa_access_ids WHERE access_id = ANY($1)", aids):
+                states[r["access_id"]] = r["state"]
+        except Exception:
+            pass
+    run_key = f"close-{job['id']}"
+    sem = _aio.Semaphore(3)
+
+    def _post_step(body: dict) -> dict:
+        req = _ur2.Request(f"{base_url}/api/atrf/run-step", data=json.dumps(body).encode("utf-8"),
+                           headers={"Content-Type": "application/json"}, method="POST")
+        with _ur2.urlopen(req, timeout=120) as rsp:
+            return json.loads(rsp.read())
+
+    async def _close_one(aid: str):
+        async with sem:
+            it = job["items"][aid]
+            vno = aid[:2]
+            funcs = (["Baja Total de Servicio"] if states.get(aid) == "cancelado"
+                     else ["Cancelación Orden de Servicio", "Baja Total de Servicio"])
+            it["status"] = "ejecutando"
+            loop = _aio.get_running_loop()
+            for fn in funcs:
+                t0 = _time_lib.time()
+                body = {"func": fn, "vno": vno, "accessId": aid, "serviceType": svc_type}
+                try:
+                    r = await loop.run_in_executor(None, lambda b=body: _post_step(b))
+                except Exception as ex:
+                    r = {"pass": False, "error": str(ex)}
+                ok = bool(r.get("pass"))
+                it["steps"].append({"func": fn, "pass": ok, "http": r.get("httpCode", 0),
+                                    "error": r.get("error", "")})
+                await _aid_event_save({
+                    "access_id": aid, "run_key": run_key, "source": "cierre",
+                    "seq_name": "Cierre desde Inventario AID", "user_email": user_email,
+                    "vno": vno, "func": fn, "http_code": r.get("httpCode", 0),
+                    "api_pass": ok, "final_pass": ok, "coreuse_checked": "no",
+                    "duration_ms": int((_time_lib.time() - t0) * 1000),
+                    "extra": {"error": r.get("error") or ""},
+                    "req": r.get("req", ""), "res": r.get("res", ""),
+                })
+                if pool and ok:
+                    try:
+                        await pool.execute("""
+                            UPDATE qa_access_ids SET state=$2, last_op=$3, last_result='ok', ts=$4, updated_at=NOW()
+                            WHERE access_id=$1""", aid,
+                            "dado_de_baja" if fn == "Baja Total de Servicio" else "cancelado",
+                            fn, int(_time_lib.time() * 1000))
+                    except Exception:
+                        pass
+            # Re-verificar InStock: CoreUse tarda ~2 min en reflejar la baja
+            it["status"] = "verificando"
+            cu = {"state": ""}
+            for attempt in range(8):
+                await _aio.sleep(20 if attempt else 15)
+                cu = await _aid_cu_verify(aid)
+                if cu["state"] == "instock":
+                    break
+            it["cu_state"] = cu["state"]
+            it["status"] = "cerrado" if cu["state"] == "instock" else "revisar"
+            job["done"] += 1
+
+    try:
+        await _aio.gather(*[_close_one(a) for a in aids])
+    finally:
+        job["running"] = False
 
 
 @app.delete("/api/historial/{rec_id}")
@@ -9487,6 +10065,8 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
     <button class="hist-btn" id="dashboard-btn" onclick="showDashboard()">&#128200;<span class="hist-lbl">&nbsp; Dashboard</span></button>
     <button class="hist-btn" id="codigos-btn" onclick="showCodigos()">&#128214;<span class="hist-lbl">&nbsp; C&#xF3;digos de Retorno</span></button>
     <button class="hist-btn" id="hist-btn" onclick="showHistorial()">&#128203;<span class="hist-lbl">&nbsp; Historial de Pruebas</span></button>
+    <button class="hist-btn" id="inv-btn" onclick="showInventario()">&#128273;<span class="hist-lbl">&nbsp; Inventario AID</span></button>
+    <button class="hist-btn" id="traza-btn" onclick="showTrazabilidad()">&#128269;<span class="hist-lbl">&nbsp; Trazabilidad AID</span></button>
     <button class="hist-btn" id="agenda-btn" onclick="showAgenda()">&#128197;<span class="hist-lbl">&nbsp; Agenda</span></button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;<span class="hist-lbl">&nbsp; Settings</span></button>
   </aside>
@@ -9746,6 +10326,51 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
             </div>
           </div>
         </div>
+      </div>
+    </div>
+    <!-- Vista Inventario AID -->
+    <div id="inv-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;background:var(--card)">
+        <input id="inv-search" type="text" placeholder="Buscar Access ID..." oninput="_invRender()"
+          style="padding:5px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:220px;flex-shrink:0">
+        <select id="inv-filter" onchange="_invRender()"
+          style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
+          <option value="pendientes">Pendientes de cerrar</option>
+          <option value="todos">Todos</option>
+          <option value="instock">Cerrados (InStock)</option>
+          <option value="sin_verificar">Sin verificar en CoreUse</option>
+          <option value="inconsistentes">Inconsistentes (runner dice cerrado, CoreUse no)</option>
+        </select>
+        <select id="inv-vno" onchange="_invRender()"
+          style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
+          <option value="">Todos los VNO</option>
+          <option value="00">TCH</option><option value="02">KAO</option><option value="03">B1/Entel</option><option value="05">DTV</option>
+        </select>
+        <button onclick="_invLoad()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer">&#x21bb; Actualizar</button>
+        <div style="flex:1"></div>
+        <span id="inv-sel-count" style="font-size:.7rem;color:var(--txt2)"></span>
+        <button id="inv-verify-btn" onclick="_invVerifySelected()" style="padding:4px 12px;border-radius:5px;border:1px solid var(--acc);background:var(--card);color:var(--acc);font-size:.73rem;font-weight:700;cursor:pointer">&#128269; Verificar en CoreUse</button>
+        <select id="inv-svc" title="u_service_type para el cierre" style="padding:5px 6px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.73rem">
+          <option value="FTTH">FTTH</option><option value="SSAA">SSAA</option>
+        </select>
+        <button id="inv-close-btn" onclick="_invCloseSelected()" style="padding:4px 12px;border-radius:5px;border:none;background:var(--err);color:#fff;font-size:.73rem;font-weight:700;cursor:pointer">&#10006; Cerrar seleccionados</button>
+      </div>
+      <div id="inv-summary" style="padding:8px 16px;border-bottom:1px solid var(--brd);display:flex;gap:16px;flex-wrap:wrap;font-size:.72rem;color:var(--txt2);flex-shrink:0"></div>
+      <div id="inv-progress" style="display:none;padding:6px 16px;border-bottom:1px solid var(--brd);font-size:.72rem;color:var(--acc);flex-shrink:0"></div>
+      <div id="inv-body" style="flex:1;overflow:auto"></div>
+    </div>
+    <!-- Vista Trazabilidad AID -->
+    <div id="traza-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;background:var(--card)">
+        <input id="tr-search" type="text" placeholder="Buscar Access ID..." oninput="_trSearchDebounced()" onkeydown="if(event.key==='Enter'){_trOpen(this.value.trim());}"
+          style="padding:5px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:260px;flex-shrink:0">
+        <button onclick="_trOpen(document.getElementById('tr-search').value.trim())" style="padding:4px 12px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.73rem;font-weight:700;cursor:pointer">Ver traza</button>
+        <button onclick="_trLoadList()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer">&#x21bb; Actualizar</button>
+        <span id="tr-count" style="font-size:.7rem;color:var(--txt2);margin-left:auto"></span>
+      </div>
+      <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+        <div id="tr-list" style="width:300px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--brd)"></div>
+        <div id="tr-detail" style="flex:1;overflow-y:auto;padding:14px 18px;min-width:0"></div>
       </div>
     </div>
     <!-- Vista C&#xF3;digos de Retorno -->
@@ -10502,9 +11127,11 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view"}[mode]||"std-view";
+  var _ib=document.getElementById('inv-btn');if(_ib&&mode!=='inventario')_ib.classList.remove('active');
+  var _tb=document.getElementById('traza-btn');if(_tb&&mode!=='traza')_tb.classList.remove('active');
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -14532,6 +15159,7 @@ function _renderDashboard(d,cont){
   h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--brd)">';
   h+='<span style="font-size:.75rem;font-weight:700;color:var(--txt)">🔑 Estado Access IDs</span>';
   h+='<span id="dash-access-summary" style="font-size:.7rem;color:var(--txt2);flex:1"></span>';
+  h+='<button onclick="showInventario()" style="padding:3px 10px;border-radius:5px;border:1px solid var(--acc);background:var(--bg);color:var(--acc);font-size:.7rem;cursor:pointer">Ver inventario completo →</button>';
   h+='<button onclick="_dashLoadAccessTracking()" style="padding:3px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.7rem;cursor:pointer">&#8635; Actualizar</button>';
   h+='</div>';
   h+='<div id="dash-access-body" style="padding:10px 14px;font-size:.75rem;color:var(--txt2)">Cargando…</div>';
@@ -15866,12 +16494,12 @@ function _dashOpenCoreUseModal(accessId){
         var bg=i%2===1?'background:rgba(0,0,0,.04)':'';
         var _isIia=f.operation&&f.operation.toLowerCase().includes('assured');
         var _iiaBtn=_isIia
-          ?'<button onclick="_cuOpenIiaFiberDetail(\''+escHtml(accessId)+'\')" '
+          ?'<button onclick="_cuOpenIiaFiberDetail(\\''+escHtml(accessId)+'\\')" '
             +'title="Ver datos IIA: Fiber Change Options y CTOs disponibles" '
             +'style="margin-left:6px;padding:1px 6px;font-size:.7rem;border:1px solid var(--brd);'
             +'border-radius:4px;background:rgba(0,200,212,.1);color:var(--atrf-accent,#00c8d4);'
-            +'cursor:pointer;flex-shrink:0" onmouseenter="this.style.background=\'rgba(0,200,212,.25)\'" '
-            +'onmouseleave="this.style.background=\'rgba(0,200,212,.1)\'">ⓘ CTO</button>':' ';
+            +'cursor:pointer;flex-shrink:0" onmouseenter="this.style.background=\\'rgba(0,200,212,.25)\\'" '
+            +'onmouseleave="this.style.background=\\'rgba(0,200,212,.1)\\'">ⓘ CTO</button>':' ';
         html+='<div style="display:grid;grid-template-columns:130px 180px 1fr 110px 90px;align-items:center;'
           +'gap:8px;padding:10px 18px;border-bottom:1px solid var(--brd);'+bg+'">'
           +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;padding-top:1px">'+escHtml(f.date||'---')+'</span>'
@@ -15933,10 +16561,10 @@ function _cuOpenIiaFiberDetail(accessId){
 
       // Pestañas CTO / Raw
       var tabHtml='<div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid var(--brd)">'
-        +'<button id="cu-iia-tab-cto" onclick="_cuIiaTab(\'cto\')" '
+        +'<button id="cu-iia-tab-cto" onclick="_cuIiaTab(\\'cto\\')" '
         +'style="padding:6px 14px;border:none;border-bottom:2px solid var(--atrf-accent,#00c8d4);'
         +'background:none;color:var(--atrf-accent,#00c8d4);cursor:pointer;font-size:.78rem;font-weight:600">CTOs</button>'
-        +'<button id="cu-iia-tab-raw" onclick="_cuIiaTab(\'raw\')" '
+        +'<button id="cu-iia-tab-raw" onclick="_cuIiaTab(\\'raw\\')" '
         +'style="padding:6px 14px;border:none;border-bottom:2px solid transparent;'
         +'background:none;color:var(--txt3);cursor:pointer;font-size:.78rem">Raw (debug)</button>'
         +'<a href="'+escH(d.coreuse_url||'')+'" target="_blank" '
@@ -16010,7 +16638,7 @@ function _cuOpenIiaFiberDetail(accessId){
             +(code?'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:3px;padding:1px 7px;color:var(--atrf-accent,#00c8d4)">'+escH(code)+'</code>':'')
             +luBadge
             +'<div style="flex:1"></div>'
-            +'<button onclick="_cuSelectCto(\''+escH(accessId)+'\','+ctoJson+',this)" '
+            +'<button onclick="_cuSelectCto(\\''+escH(accessId)+'\\','+ctoJson+',this)" '
             +'style="padding:4px 12px;border:1px solid var(--atrf-accent,#00c8d4);border-radius:5px;'
             +'background:rgba(0,200,212,.1);color:var(--atrf-accent,#00c8d4);cursor:pointer;font-size:.75rem;font-weight:600">'
             +'Usar para Cambio de Fibra</button>'
@@ -16874,6 +17502,7 @@ async function _atrf_runSelected(){
     var stEl=document.getElementById('atrf-qst-'+qi);
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
     q.tcResults=[];
+    q._traceRun='m'+Date.now()+'-'+qi;
     var vno=q.cfg&&q.cfg.vno||'';
     var _currentAccessId=q.cfg.accessId||'';
     // ── Grupos de dependencia (misma lógica que el scheduler Python) ──────────
@@ -16916,7 +17545,7 @@ async function _atrf_runSelected(){
       q.runningFns.add(fn);_atrf_refreshDetail(qi);
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
-      var _t0=Date.now();
+      var _t0=Date.now();var _trLuTry=0;
       try{
         // Para Cambio de Fibra: auto-fetch CTO desde CoreUse IIA si no hay selección manual
         var _ctoPayload={};
@@ -17018,6 +17647,7 @@ async function _atrf_runSelected(){
           ].filter(Boolean);
           for(var _lri=0;_lri<_cfLus.length&&!pass;_lri++){
             if(prog)prog.textContent='🔄 Fibra: probando LU'+(_lri+2)+'…';
+            _trLuTry=_lri+2;
             var _rBody=Object.assign({func:fn,vno:vno,
               direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
               serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
@@ -17041,6 +17671,7 @@ async function _atrf_runSelected(){
         }
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
+      var _trApiPass=pass,_trCu={status:'',msg:'',attempts:0,checked:'no'};
       // Guardar estado de envío async inmediato
       if(rd&&rd.asyncSubmitted!==undefined)_sr.asyncSubmitted=rd.asyncSubmitted;
       if(rd&&rd.noAccessId)_sr.noAccessId=true;
@@ -17062,8 +17693,41 @@ async function _atrf_runSelected(){
               _sr.coreuse_msg=_cuD.message||'';_sr.coreuse_url=_cuD.url||'';_sr.coreuse_attempts=_cuD.attempts||0;
               pass=_sr.pass;
             }
+            _trCu={status:_cuD.status||'',msg:_cuD.message||'',attempts:_cuD.attempts||0,checked:'completo'};
           }
-        }catch(_cuE){}
+        }catch(_cuE){_trCu.msg='Error consultando CoreUse: '+String(_cuE);}
+      } else if(_cuEligible&&_currentAccessId&&!pass){
+        // Paso fallido en API: un chequeo rápido informativo en CoreUse (no cambia el resultado)
+        if(prog)prog.textContent='🔍 CoreUse (chequeo rápido): '+fn+'…';
+        try{
+          var _cuQ=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({access_id:_currentAccessId,func_name:fn,max_attempts:1})});
+          if(_cuQ.ok){var _cuQD=await _cuQ.json();
+            _trCu={status:_cuQD.status||'',msg:_cuQD.message||'',attempts:_cuQD.attempts||0,checked:'rapido'};
+            _sr.coreuse_info=_trCu.msg;
+          }
+        }catch(_cuQE){}
+      } else if(!_cuEligible){
+        _trCu.checked='no_aplica';
+      }
+      if(_currentAccessId){
+        fetch('/api/aid-events',{method:'POST',headers:_authHdr(),body:JSON.stringify({
+          access_id:_currentAccessId,ts:_t0,run_key:q._traceRun||'',source:'manual',
+          seq_name:q.name||'',vno:vno,vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,
+          func:fn,tc:tc,mode:_asyncMode?'async':'sync',http_code:httpCode||0,
+          api_pass:_trApiPass,final_pass:pass,
+          coreuse_status:_trCu.status,coreuse_msg:_trCu.msg,coreuse_attempts:_trCu.attempts,coreuse_checked:_trCu.checked,
+          duration_ms:Date.now()-_t0,
+          extra:{
+            apim408:!!_is408,
+            asyncSubmitted:(rd&&rd.asyncSubmitted!==undefined)?rd.asyncSubmitted:null,
+            noAccessId:!!_sr.noAccessId,
+            accessIdFromResponse:(rd&&rd.accessId)||'',
+            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:_atrfPendingCto.ctoCode||'',lu:_atrfPendingCto.logicalUnit||'',auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
+            error:_sr.error||''
+          },
+          req:req_s,res:res_s
+        })}).catch(function(){});
       }
       // Delay post-paso: solo si el paso pasó Y no hubo CoreUse poll.
       // Si CoreUse corrió, ya esperó a que el sistema procesara — el delay es redundante.
@@ -17095,9 +17759,19 @@ async function _atrf_runSelected(){
       var _res=[];var _iaFailed=false;
       for(var _mi=0;_mi<_mIaPhase.length;_mi++){
         if(_iaFailed){
-          _res.push({func:_mIaPhase[_mi].fn,tc:(_ATRF_TC_MAP[_mIaPhase[_mi].fn]||{})[vno]||'',
+          var _skFn=_mIaPhase[_mi].fn,_skTc=(_ATRF_TC_MAP[_skFn]||{})[vno]||'';
+          _res.push({func:_skFn,tc:_skTc,
             label:_mIaPhase[_mi].label,pass:false,req:'',res:'',httpCode:0,newmanOut:'',
             duration_ms:0,error:'⊘ Saltado: Inicio IA falló'});
+          if(_currentAccessId){
+            fetch('/api/aid-events',{method:'POST',headers:_authHdr(),body:JSON.stringify({
+              access_id:_currentAccessId,ts:Date.now(),run_key:q._traceRun||'',source:'manual',
+              seq_name:q.name||'',vno:vno,vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,
+              func:_skFn,tc:_skTc,mode:_asyncMode?'async':'sync',
+              api_pass:false,final_pass:false,coreuse_checked:'no',duration_ms:0,
+              extra:{error:'⊘ Saltado: Inicio IA falló'}
+            })}).catch(function(){});
+          }
           continue;
         }
         var _r=await _mDoStep(_mIaPhase[_mi]);
@@ -17554,6 +18228,378 @@ function showCodigos(){
   var cb=document.getElementById('codigos-btn');if(cb)cb.classList.add('active');
   setTop('','C\xf3digos de Retorno','');
   _loadCodigos();
+}
+
+// ── Inventario de Access IDs (runner vs CoreUse) ─────────────────────────
+var _invData=[], _invSel={}, _invBusy=false;
+var _INV_RUN_ST={activo:{c:'#EF4444',l:'🔴 Activo'},cancelado:{c:'#F59E0B',l:'🟡 Cancelado'},dado_de_baja:{c:'#22C55E',l:'🟢 Dado de baja'},desconocido:{c:'#888',l:'⚪ Sin estado'}};
+var _INV_CU_ST={instock:{c:'#22C55E',l:'✅ InStock'},en_uso:{c:'#EF4444',l:'⛔ En uso'},sin_datos:{c:'#888',l:'∅ Sin datos'},desconocido:{c:'#F59E0B',l:'❓ No identificado'},error:{c:'#F59E0B',l:'⚠ Error'},'':{c:'#888',l:'— Sin verificar'}};
+var _INV_VNO_LBL={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
+
+function showInventario(){
+  _dashStopRefresh();
+  switchView('inventario');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var ib=document.getElementById('inv-btn');if(ib)ib.classList.add('active');
+  setTop('','Inventario AID','Access IDs creados · estado runner vs CoreUse');
+  _invLoad();
+}
+function _invLoad(){
+  var body=document.getElementById('inv-body');
+  body.innerHTML='<div style="padding:20px;color:var(--txt2);font-size:.8rem">Cargando inventario…</div>';
+  fetch('/api/aid-inventory',{headers:_authHdr()}).then(function(r){return r.json();}).then(function(d){
+    if(!Array.isArray(d)){body.innerHTML='<div style="padding:20px;color:var(--err);font-size:.8rem">'+_trEsc(d.error||'Error')+'</div>';return;}
+    _invData=d;
+    var keep={};d.forEach(function(x){if(_invSel[x.access_id])keep[x.access_id]=1;});_invSel=keep;
+    _invRender();
+  }).catch(function(e){body.innerHTML='<div style="padding:20px;color:var(--err);font-size:.8rem">Error: '+_trEsc(e)+'</div>';});
+}
+function _invFiltered(){
+  var q=((document.getElementById('inv-search')||{}).value||'').trim().toLowerCase();
+  var f=(document.getElementById('inv-filter')||{}).value||'pendientes';
+  var v=(document.getElementById('inv-vno')||{}).value||'';
+  return _invData.filter(function(x){
+    if(q&&x.access_id.toLowerCase().indexOf(q)<0)return false;
+    if(v&&x.vno!==v)return false;
+    if(f==='pendientes')return x.cu_state!=='instock';
+    if(f==='instock')return x.cu_state==='instock';
+    if(f==='sin_verificar')return !x.cu_state;
+    if(f==='inconsistentes')return x.state==='dado_de_baja'&&x.cu_state&&x.cu_state!=='instock';
+    return true;
+  });
+}
+function _invRender(){
+  var all=_invData;
+  var cnt={total:all.length,instock:0,en_uso:0,sinv:0,otro:0};
+  all.forEach(function(x){if(x.cu_state==='instock')cnt.instock++;else if(x.cu_state==='en_uso')cnt.en_uso++;else if(!x.cu_state)cnt.sinv++;else cnt.otro++;});
+  document.getElementById('inv-summary').innerHTML=
+    '<span><b style="color:var(--txt)">'+cnt.total+'</b> AIDs creados</span>'
+    +'<span style="color:#22C55E">✅ '+cnt.instock+' InStock (cerrados)</span>'
+    +'<span style="color:#EF4444">⛔ '+cnt.en_uso+' en uso</span>'
+    +'<span>— '+cnt.sinv+' sin verificar</span>'
+    +(cnt.otro?'<span style="color:#F59E0B">❓ '+cnt.otro+' sin datos / no identificado</span>':'');
+  var rows=_invFiltered();
+  var nSel=Object.keys(_invSel).length;
+  document.getElementById('inv-sel-count').textContent=nSel?nSel+' seleccionado'+(nSel>1?'s':''):'';
+  if(!rows.length){document.getElementById('inv-body').innerHTML='<div style="padding:24px;color:var(--txt2);font-size:.8rem;text-align:center">No hay Access IDs para este filtro.</div>';return;}
+  var allSel=rows.every(function(x){return _invSel[x.access_id];});
+  var th='padding:6px 8px;text-align:left;font-weight:600;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--brd)';
+  var td='padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top';
+  var h='<table id="inv-tbl" style="width:100%;border-collapse:collapse;font-size:.72rem">'
+    +'<thead><tr style="font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3)">'
+    +'<th style="'+th+';width:28px"><input type="checkbox" data-act="selall" '+(allSel?'checked':'')+'></th>'
+    +'<th style="'+th+'">Access ID</th><th style="'+th+'">VNO</th><th style="'+th+'">Estado runner</th>'
+    +'<th style="'+th+'">Estado CoreUse</th><th style="'+th+'">Última operación</th><th style="'+th+'">Última actividad</th>'
+    +'<th style="'+th+'">Fuentes</th><th style="'+th+'"></th></tr></thead><tbody>';
+  rows.forEach(function(x){
+    var a=_trEsc(x.access_id);
+    var rs=_INV_RUN_ST[x.state]||_INV_RUN_ST.desconocido;
+    var cs=_INV_CU_ST[x.cu_state||'']||_INV_CU_ST.desconocido;
+    var incons=x.state==='dado_de_baja'&&x.cu_state&&x.cu_state!=='instock';
+    var ev=(x.cu_evidence||[]).join(' | ');
+    h+='<tr data-aid="'+a+'"'+(incons?' style="background:rgba(239,68,68,.06)"':'')+'>'
+      +'<td style="'+td+'"><input type="checkbox" data-act="sel" '+(_invSel[x.access_id]?'checked':'')+'></td>'
+      +'<td style="'+td+';font-family:var(--mono);white-space:nowrap"><a href="'+_trEsc(x.coreuse_url)+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:none" title="Abrir en CoreUse">'+a+' ↗</a></td>'
+      +'<td style="'+td+'">'+_trEsc(_INV_VNO_LBL[x.vno]||x.vno_lbl||x.vno)+'</td>'
+      +'<td style="'+td+'"><span style="padding:2px 8px;border-radius:10px;background:'+rs.c+'22;color:'+rs.c+';font-weight:600;white-space:nowrap">'+rs.l+'</span></td>'
+      +'<td style="'+td+'"><span title="'+_trEsc(ev)+'" style="padding:2px 8px;border-radius:10px;background:'+cs.c+'22;color:'+cs.c+';font-weight:600;white-space:nowrap">'+cs.l+'</span>'
+      +((x.cu_values||[]).length&&x.cu_state!=='instock'?'<div style="font-size:.64rem;color:var(--txt2);margin-top:3px">'+_trEsc(x.cu_values.slice(0,3).join(' · '))+'</div>':'')
+      +(x.cu_checked_at?'<div style="font-size:.62rem;color:var(--txt3);margin-top:2px">'+_trFmtTs(x.cu_checked_at)+'</div>':'')
+      +(incons?'<div style="font-size:.62rem;color:#EF4444;margin-top:2px">Runner: dado de baja · CoreUse: no InStock</div>':'')
+      +'</td>'
+      +'<td style="'+td+';color:var(--txt2)">'+_trEsc(x.last_op||'—')+(x.last_result?' '+(x.last_result==='ok'?'✅':'❌'):'')+'</td>'
+      +'<td style="'+td+';color:var(--txt3);white-space:nowrap">'+_trFmtTs(x.last_ts)+'</td>'
+      +'<td style="'+td+';color:var(--txt3)">'+_trEsc((x.sources||[]).join(', '))+'</td>'
+      +'<td style="'+td+';white-space:nowrap">'
+      +'<button data-act="traza" title="Ver trazabilidad" style="padding:2px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">📜</button> '
+      +'<button data-act="verify" title="Verificar en CoreUse" style="padding:2px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🔍</button> '
+      +'<button data-act="raw" title="Ver lo que lee el runner de CoreUse (debug)" style="padding:2px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🧪</button> '
+      +'</td></tr>';
+  });
+  h+='</tbody></table>';
+  var body=document.getElementById('inv-body');
+  body.innerHTML=h;
+  document.getElementById('inv-tbl').addEventListener('click',_invTblClick);
+}
+function _invTblClick(e){
+  var t=e.target.closest('[data-act]');if(!t)return;
+  var act=t.dataset.act;
+  if(act==='selall'){
+    var on=t.checked;_invFiltered().forEach(function(x){if(on)_invSel[x.access_id]=1;else delete _invSel[x.access_id];});
+    _invRender();return;
+  }
+  var tr=t.closest('tr[data-aid]');if(!tr)return;
+  var aid=tr.dataset.aid;
+  if(act==='sel'){if(t.checked)_invSel[aid]=1;else delete _invSel[aid];_invRender();return;}
+  if(act==='traza'){e.preventDefault();showTrazabilidad(aid);return;}
+  if(act==='verify'){_invVerifyList([aid]);return;}
+  if(act==='raw'){_invShowRaw(aid);return;}
+}
+function _invProgress(msg){
+  var p=document.getElementById('inv-progress');
+  if(!p)return;
+  if(msg){p.style.display='';p.innerHTML=msg;}else{p.style.display='none';p.innerHTML='';}
+}
+async function _invVerifySelected(){
+  var list=Object.keys(_invSel);
+  if(!list.length){
+    list=_invFiltered().map(function(x){return x.access_id;});
+    if(!list.length)return;
+    if(!confirm('No hay seleccionados. ¿Verificar en CoreUse los '+list.length+' Access IDs del filtro actual?'))return;
+  }
+  _invVerifyList(list);
+}
+async function _invVerifyList(list){
+  if(_invBusy){showToast&&showToast('Hay una operación en curso','err');return;}
+  _invBusy=true;
+  var ok=0;
+  for(var i=0;i<list.length;i++){
+    _invProgress('🔍 Verificando en CoreUse '+(i+1)+'/'+list.length+' · '+_trEsc(list[i])+'…');
+    try{
+      var r=await fetch('/api/aid-inventory/verify',{method:'POST',headers:_authHdr(),body:JSON.stringify({access_id:list[i]})});
+      var d=await r.json();
+      var x=_invData.find(function(y){return y.access_id===list[i];});
+      if(x&&d.state){
+        x.cu_state=d.state;x.cu_values=d.values||[];x.cu_evidence=d.evidence||[];x.cu_checked_at=d.checked_at||Date.now();
+        if(d.state==='instock')x.state='dado_de_baja';
+      }
+      if(d.state==='instock')ok++;
+    }catch(e){}
+    if(i%5===4||i===list.length-1)_invRender();
+  }
+  _invBusy=false;
+  _invProgress('');
+  if(typeof showToast==='function')showToast('Verificación terminada: '+ok+'/'+list.length+' en InStock','ok');
+}
+async function _invCloseSelected(){
+  var list=Object.keys(_invSel);
+  if(!list.length){if(typeof showToast==='function')showToast('Selecciona los Access IDs a cerrar','err');return;}
+  var already=list.filter(function(a){var x=_invData.find(function(y){return y.access_id===a;});return x&&x.cu_state==='instock';});
+  if(already.length&&confirm(already.length+' ya están InStock en CoreUse. ¿Excluirlos del cierre?')){
+    list=list.filter(function(a){return already.indexOf(a)<0;});
+    if(!list.length)return;
+  }
+  var svc=(document.getElementById('inv-svc')||{}).value||'FTTH';
+  if(!confirm('Se ejecutará en ServiceNow para '+list.length+' Access ID'+(list.length>1?'s':'')+':\\n\\n· Activos: Cancelación OOSS + Baja Total\\n· Cancelados: solo Baja Total\\n· u_service_type: '+svc+'\\n\\nLuego se re-verifica InStock en CoreUse (~2-3 min). ¿Continuar?'))return;
+  if(_invBusy){if(typeof showToast==='function')showToast('Hay una operación en curso','err');return;}
+  _invBusy=true;
+  try{
+    var r=await fetch('/api/aid-inventory/close',{method:'POST',headers:_authHdr(),body:JSON.stringify({access_ids:list,service_type:svc})});
+    var d=await r.json();
+    if(!d.job_id){_invBusy=false;_invProgress('');if(typeof showToast==='function')showToast(d.error||'Error iniciando cierre','err');return;}
+    _invPollJob(d.job_id);
+  }catch(e){_invBusy=false;_invProgress('');if(typeof showToast==='function')showToast('Error: '+e,'err');}
+}
+function _invPollJob(jobId){
+  fetch('/api/aid-inventory/close/'+jobId,{headers:_authHdr()}).then(function(r){return r.json();}).then(function(j){
+    if(j.error){_invBusy=false;_invProgress('⚠ '+_trEsc(j.error));return;}
+    var lbl={pendiente:'⏳',ejecutando:'▶',verificando:'🔍',cerrado:'✅',revisar:'⚠️'};
+    var items=j.items||[];
+    var html='<b>Cierre en curso: '+j.done+'/'+j.total+'</b> &nbsp; '+items.map(function(it){
+      var st=(it.steps||[]).map(function(s){return (s.pass?'✓':'✗')+' '+(s.func==='Baja Total de Servicio'?'Baja':'Cancel OOSS');}).join(' ');
+      return '<span style="margin-right:12px;white-space:nowrap">'+(lbl[it.status]||'')+' '+_trEsc(it.access_id)+(st?' <span style="color:var(--txt2)">('+st+')</span>':'')+'</span>';
+    }).join('');
+    _invProgress(html);
+    if(j.running){setTimeout(function(){_invPollJob(jobId);},4000);return;}
+    _invBusy=false;
+    var cerr=items.filter(function(it){return it.status==='cerrado';}).length;
+    _invProgress('<b>Cierre terminado:</b> '+cerr+'/'+items.length+' confirmados InStock'+(cerr<items.length?' · los marcados ⚠️ requieren revisión (abrir trazabilidad)':'')+' &nbsp; <a href="#" onclick="_invProgress(&quot;&quot;);return false" style="color:var(--txt2)">cerrar</a>');
+    _invSel={};
+    _invLoad();
+  }).catch(function(){setTimeout(function(){_invPollJob(jobId);},6000);});
+}
+function _invShowRaw(aid){
+  var ex=document.getElementById('inv-raw-modal');if(ex)ex.remove();
+  var mo=document.createElement('div');
+  mo.id='inv-raw-modal';
+  mo.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  mo.innerHTML='<div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;width:min(820px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--brd)"><b style="font-size:.82rem;color:var(--txt)">Lectura CoreUse (debug)</b><code style="font-size:.7rem;color:var(--txt2)">'+_trEsc(aid)+'</code><div style="flex:1"></div><button id="inv-raw-x" style="background:none;border:none;color:var(--txt3);font-size:20px;cursor:pointer">×</button></div>'
+    +'<div id="inv-raw-body" style="overflow:auto;padding:12px 16px;font-size:.72rem;color:var(--txt2)">Consultando CoreUse…</div></div>';
+  mo.addEventListener('click',function(e){if(e.target===mo)mo.remove();});
+  document.body.appendChild(mo);
+  document.getElementById('inv-raw-x').onclick=function(){mo.remove();};
+  fetch('/api/aid-inventory/raw?access_id='+encodeURIComponent(aid),{headers:_authHdr()}).then(function(r){return r.json();}).then(function(d){
+    var b=document.getElementById('inv-raw-body');if(!b)return;
+    if(d.error){b.innerHTML='<span style="color:var(--err)">'+_trEsc(d.error)+'</span>';return;}
+    var p=d.parsed||{};
+    b.innerHTML='<div style="margin-bottom:8px">Resultado del parser: <b style="color:var(--txt)">'+_trEsc(p.state)+'</b></div>'
+      +'<div style="margin-bottom:4px">Evidencia:</div><pre style="background:var(--bg);border:1px solid var(--brd);border-radius:5px;padding:8px;white-space:pre-wrap;margin:0 0 10px">'+_trEsc((p.evidence||[]).join('\\n'))+'</pre>'
+      +'<div style="margin-bottom:4px">Textos extraídos de la página ('+(d.tokens||[]).length+'):</div><pre style="background:var(--bg);border:1px solid var(--brd);border-radius:5px;padding:8px;white-space:pre-wrap;margin:0;max-height:50vh;overflow:auto">'+_trEsc((d.tokens||[]).join('\\n'))+'</pre>';
+  }).catch(function(e){var b=document.getElementById('inv-raw-body');if(b)b.innerHTML='Error: '+_trEsc(e);});
+}
+
+// ── Trazabilidad por Access ID ────────────────────────────────────────────
+var _trCurrent=null, _trSearchTimer=null;
+var _TR_DIAG_STYLE={
+  ok:            {c:'var(--ok)',   i:'✅'},
+  ok_api:        {c:'var(--acc)',  i:'☑️'},
+  api_fail_cu_ok:{c:'var(--warn)', i:'⚠️'},
+  cu_missing:    {c:'var(--warn)', i:'⚠️'},
+  cu_fail:       {c:'var(--err)',  i:'❌'},
+  api_fail:      {c:'var(--err)',  i:'❌'},
+  fail:          {c:'var(--err)',  i:'❌'},
+  skipped:       {c:'var(--txt3)', i:'⊘'}
+};
+function _trEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _trFmtTs(ts){if(!ts)return '—';var d=new Date(Number(ts));return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL');}
+function _trFmtDur(ms){ms=Number(ms)||0;return ms>=60000?(ms/60000).toFixed(1)+' min':(ms/1000).toFixed(1)+' s';}
+function _trPretty(t){if(!t)return '';try{return JSON.stringify(JSON.parse(t),null,2);}catch(e){return String(t);}}
+
+function showTrazabilidad(aid){
+  _dashStopRefresh();
+  switchView('traza');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var tb=document.getElementById('traza-btn');if(tb)tb.classList.add('active');
+  setTop('','Trazabilidad AID','Línea de tiempo por Access ID · API + CoreUse');
+  _trLoadList();
+  if(aid){document.getElementById('tr-search').value=aid;_trOpen(aid);}
+  else if(!_trCurrent){document.getElementById('tr-detail').innerHTML='<div style="color:var(--txt2);font-size:.8rem;padding:30px;text-align:center">Selecciona un Access ID de la lista o búscalo arriba.</div>';}
+}
+function _trSearchDebounced(){
+  if(_trSearchTimer)clearTimeout(_trSearchTimer);
+  _trSearchTimer=setTimeout(_trLoadList,300);
+}
+function _trLoadList(){
+  var q=(document.getElementById('tr-search')||{}).value||'';
+  var box=document.getElementById('tr-list');
+  fetch('/api/aid-trace/list?q='+encodeURIComponent(q.trim()),{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(rows){
+      if(!Array.isArray(rows)){box.innerHTML='<div style="padding:14px;color:var(--err);font-size:.75rem">'+_trEsc(rows.error||'Error')+'</div>';return;}
+      document.getElementById('tr-count').textContent=rows.length+' Access ID'+(rows.length===1?'':'s');
+      if(!rows.length){box.innerHTML='<div style="padding:14px;color:var(--txt2);font-size:.75rem">Sin eventos registrados todavía. Se registran desde la próxima ejecución.</div>';return;}
+      box.innerHTML=rows.map(function(r){
+        var sel=_trCurrent&&_trCurrent.access_id===r.access_id;
+        return '<div onclick="_trOpen(this.dataset.aid)" data-aid="'+_trEsc(r.access_id)+'" style="padding:9px 12px;border-bottom:1px solid var(--brd);cursor:pointer;'+(sel?'background:var(--accd);':'')+'">'
+          +'<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--mono);font-size:.74rem;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+_trEsc(r.access_id)+'</span>'
+          +'<span style="font-size:.65rem;color:var(--txt2)">'+_trEsc(r.vno_lbl)+'</span></div>'
+          +'<div style="font-size:.66rem;color:var(--txt2);margin-top:3px;display:flex;gap:8px">'
+          +'<span style="color:var(--ok)">✔ '+r.ok+'</span><span style="color:'+(r.fail?'var(--err)':'var(--txt3)')+'">✖ '+r.fail+'</span>'
+          +'<span style="margin-left:auto">'+_trFmtTs(r.last_ts)+'</span></div>'
+          +'<div style="font-size:.65rem;color:var(--txt3);margin-top:2px">Último: '+_trEsc(r.last_func)+' '+(r.last_pass?'✅':'❌')+'</div>'
+          +'</div>';
+      }).join('');
+    }).catch(function(e){box.innerHTML='<div style="padding:14px;color:var(--err);font-size:.75rem">Error: '+_trEsc(e)+'</div>';});
+}
+function _trOpen(aid){
+  if(!aid)return;
+  var det=document.getElementById('tr-detail');
+  det.innerHTML='<div style="color:var(--txt2);font-size:.8rem;padding:20px">Cargando traza de '+_trEsc(aid)+'…</div>';
+  fetch('/api/aid-trace?access_id='+encodeURIComponent(aid),{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){det.innerHTML='<div style="color:var(--err);font-size:.8rem;padding:20px">'+_trEsc(d.error)+'</div>';return;}
+      _trCurrent=d;
+      _trRender();
+      _trLoadList();
+      _trLoadCoreuse(aid);
+    }).catch(function(e){det.innerHTML='<div style="color:var(--err);font-size:.8rem;padding:20px">Error: '+_trEsc(e)+'</div>';});
+}
+function _trRender(){
+  var d=_trCurrent;if(!d)return;
+  var ev=d.events||[];
+  var ok=ev.filter(function(e){return e.final_pass;}).length;
+  var h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+    +'<a href="'+_trEsc(d.coreuse_url)+'" target="_blank" rel="noopener" title="Abrir en CoreUse" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--acc);text-decoration:none">'+_trEsc(d.access_id)+' ↗</a>'
+    +(d.state?'<span style="font-size:.68rem;padding:2px 8px;border-radius:10px;border:1px solid var(--brd);color:var(--txt2)">Estado: '+_trEsc(d.state)+'</span>':'')
+    +'<span style="font-size:.7rem;color:var(--ok)">✔ '+ok+' OK</span>'
+    +'<span style="font-size:.7rem;color:'+(ev.length-ok?'var(--err)':'var(--txt3)')+'">✖ '+(ev.length-ok)+' con problema</span>'
+    +'<div style="flex:1"></div>'
+    +'<a href="'+_trEsc(d.coreuse_url)+'" target="_blank" style="font-size:.72rem;color:var(--acc);text-decoration:none">Abrir en CoreUse →</a>'
+    +'<button onclick="_trExport()" style="padding:3px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.7rem;cursor:pointer">⬇ Exportar JSON</button>'
+    +'</div>';
+  if(!ev.length){
+    h+='<div style="color:var(--txt2);font-size:.78rem;padding:10px 0">No hay eventos registrados para este Access ID en el runner.</div>';
+  }
+  // Agrupar por ejecución (run_key)
+  var groups=[],gmap={};
+  ev.forEach(function(e,idx){
+    var k=e.run_key||('single-'+idx);
+    if(!gmap[k]){gmap[k]={key:k,seq:e.seq_name,source:e.source,user:e.user_email,ts:e.ts,items:[]};groups.push(gmap[k]);}
+    gmap[k].items.push({e:e,idx:idx});
+  });
+  groups.forEach(function(g){
+    h+='<div style="margin:14px 0 6px;display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--txt2)">'
+      +'<span style="font-weight:700;color:var(--txt)">'+_trEsc(g.seq||'Ejecución')+'</span>'
+      +'<span style="padding:1px 6px;border-radius:4px;border:1px solid var(--brd)">'+(g.source==='agenda'?'📅 Agenda':'▶ Manual')+'</span>'
+      +(g.user?'<span>'+_trEsc(g.user)+'</span>':'')
+      +'<span style="margin-left:auto">'+_trFmtTs(g.ts)+'</span></div>';
+    g.items.forEach(function(it){h+=_trEventCard(it.e,it.idx);});
+  });
+  h+='<div style="margin-top:22px;border-top:1px solid var(--brd);padding-top:12px">'
+    +'<div style="font-size:.78rem;font-weight:700;color:var(--txt);margin-bottom:8px">Flujos registrados en CoreUse (en vivo)</div>'
+    +'<div id="tr-coreuse" style="font-size:.74rem;color:var(--txt2)">Consultando CoreUse…</div></div>';
+  document.getElementById('tr-detail').innerHTML=h;
+}
+function _trEventCard(e,idx){
+  var dg=e.diag||{};var st=_TR_DIAG_STYLE[dg.code]||{c:'var(--txt2)',i:'•'};
+  var x=e.extra||{};
+  var chips=[];
+  if(e.tc)chips.push(e.tc);
+  if(e.mode)chips.push(e.mode==='async'?'Asíncrono':'Síncrono');
+  chips.push('HTTP '+(e.http_code||'—'));
+  if(e.return_code)chips.push('u_return_code '+e.return_code);
+  chips.push(_trFmtDur(e.duration_ms));
+  if(x.apim408)chips.push('APIM 408');
+  if(x.cto&&x.cto.code)chips.push('CTO '+x.cto.code+(x.cto.lu?' · LU '+x.cto.lu:'')+(x.cto.luRetry?' (reintento LU'+x.cto.luRetry+')':''));
+  var cuTxt={completo:'CoreUse',rapido:'CoreUse (chequeo rápido)',no_aplica:'CoreUse: no aplica',no:'CoreUse: no consultado'}[e.coreuse_checked]||'CoreUse';
+  var cuLine='';
+  if(e.coreuse_checked==='completo'||e.coreuse_checked==='rapido'){
+    cuLine=cuTxt+': <b>'+_trEsc(e.coreuse_status||'—')+'</b>'+(e.coreuse_attempts?' · '+e.coreuse_attempts+' intento(s)':'')+(e.coreuse_msg?' · '+_trEsc(e.coreuse_msg):'');
+  } else cuLine=cuTxt;
+  return '<div style="border:1px solid var(--brd);border-left:3px solid '+st.c+';border-radius:6px;margin-bottom:6px;background:var(--card)">'
+    +'<div onclick="_trToggle('+idx+')" style="padding:8px 12px;cursor:pointer">'
+    +'<div style="display:flex;align-items:center;gap:8px">'
+    +'<span style="font-size:.85rem">'+st.i+'</span>'
+    +'<span style="font-size:.8rem;font-weight:700;color:var(--txt)">'+_trEsc(e.func)+'</span>'
+    +'<span style="font-size:.72rem;color:'+st.c+';font-weight:600">'+_trEsc(dg.label||'')+'</span>'
+    +'<span style="margin-left:auto;font-size:.68rem;color:var(--txt3)">'+_trFmtTs(e.ts)+'</span></div>'
+    +(dg.detail?'<div style="font-size:.71rem;color:var(--txt2);margin-top:3px">'+_trEsc(dg.detail)+'</div>':'')
+    +'<div style="font-size:.67rem;color:var(--txt3);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 10px">'+chips.map(function(c){return '<span>'+_trEsc(c)+'</span>';}).join('')+'</div>'
+    +'<div style="font-size:.67rem;color:var(--txt2);margin-top:3px">'+cuLine+'</div>'
+    +(e.return_desc?'<div style="font-size:.67rem;color:var(--txt2);margin-top:2px">Descripción: '+_trEsc(e.return_desc)+'</div>':'')
+    +'</div>'
+    +'<div id="tr-ev-'+idx+'" style="display:none;border-top:1px solid var(--brd);padding:8px 12px">'
+    +'<div style="font-size:.68rem;color:var(--txt2);margin-bottom:3px">Request</div>'
+    +'<pre style="margin:0 0 8px;max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--brd);border-radius:5px;padding:8px;font-size:.68rem;white-space:pre-wrap;word-break:break-all">'+_trEsc(_trPretty(e.req)||'—')+'</pre>'
+    +'<div style="font-size:.68rem;color:var(--txt2);margin-bottom:3px">Response</div>'
+    +'<pre style="margin:0;max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--brd);border-radius:5px;padding:8px;font-size:.68rem;white-space:pre-wrap;word-break:break-all">'+_trEsc(_trPretty(e.res)||'—')+'</pre>'
+    +'</div></div>';
+}
+function _trToggle(idx){var el=document.getElementById('tr-ev-'+idx);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function _trLoadCoreuse(aid){
+  fetch('/api/coreuse/detail?access_id='+encodeURIComponent(aid),{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var box=document.getElementById('tr-coreuse');
+      if(!box||!_trCurrent||_trCurrent.access_id!==aid)return;
+      if(d.error){box.innerHTML='<span style="color:var(--warn)">No se pudo consultar CoreUse: '+_trEsc(d.error)+'</span>';return;}
+      _trCurrent.coreuse=d;
+      var fl=d.flujos||[];
+      if(!fl.length){box.innerHTML='CoreUse no muestra flujos para este Access ID'+(d.count?' (encabezado indica '+d.count+')':'')+'.';return;}
+      box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.72rem">'
+        +'<tr style="color:var(--txt2);text-align:left"><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Fecha</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Operación</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Código</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Resultado</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Orden</th></tr>'
+        +fl.map(function(f){
+          var okc=String(f.code)==='0';
+          return '<tr><td style="padding:4px 6px;border-bottom:1px solid var(--brd);white-space:nowrap">'+_trEsc(f.date)+'</td>'
+            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd);color:var(--txt)">'+_trEsc(f.operation)+'</td>'
+            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd);color:'+(okc?'var(--ok)':'var(--err)')+';font-weight:700">'+_trEsc(f.code)+'</td>'
+            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd)">'+_trEsc(f.result)+'</td>'
+            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd);font-family:var(--mono)">'+_trEsc(f.order)+'</td></tr>';
+        }).join('')+'</table>';
+    }).catch(function(e){var box=document.getElementById('tr-coreuse');if(box)box.innerHTML='<span style="color:var(--warn)">Error CoreUse: '+_trEsc(e)+'</span>';});
+}
+function _trExport(){
+  if(!_trCurrent)return;
+  var blob=new Blob([JSON.stringify(_trCurrent,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='traza_'+_trCurrent.access_id+'_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
 }
 </script>
 <!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
