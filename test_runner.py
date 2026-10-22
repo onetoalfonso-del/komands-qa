@@ -1015,7 +1015,7 @@ def _apply_params(cmd: list, overrides: dict) -> list:
 
 # ─── FastAPI ──────────────────────────────────────────────────────────────────
 try:
-    from fastapi import FastAPI, Request, HTTPException
+    from fastapi import FastAPI, Request, HTTPException, Query
     from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
     import uvicorn
 except ImportError:
@@ -8487,7 +8487,7 @@ async def api_aid_trace(access_id: str = ""):
         rows = await pool.fetch(
             "SELECT * FROM qa_aid_events WHERE access_id=$1 ORDER BY ts ASC, id ASC", access_id)
         st = await pool.fetchrow(
-            "SELECT state, last_op, last_result FROM qa_access_ids WHERE access_id=$1", access_id)
+            "SELECT state, last_op, last_result, cu_state, cu_checked_at FROM qa_access_ids WHERE access_id=$1", access_id)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
     events = []
@@ -8501,6 +8501,8 @@ async def api_aid_trace(access_id: str = ""):
     return {
         "access_id": access_id,
         "state": (st["state"] if st else "") or "",
+        "cu_state": (st["cu_state"] if st else "") or "",
+        "cu_checked_at": (st["cu_checked_at"] if st else 0) or 0,
         "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={access_id}",
         "events": events,
     }
@@ -8736,6 +8738,341 @@ async def api_aid_inventory_raw(access_id: str = ""):
         if t not in seen:
             seen.add(t); uniq.append(t)
     return {"access_id": access_id, "tokens": uniq[:800], "parsed": _coreuse_resource_state(html, access_id)}
+
+
+# ─── Trazabilidad con filtros + Dashboard de calidad ─────────────────────────
+
+_AID_EV_COLS = ("id, access_id, ts, run_key, source, seq_name, user_email, vno, vno_lbl, func, tc, mode, "
+                "http_code, return_code, return_desc, api_pass, final_pass, coreuse_status, coreuse_msg, "
+                "coreuse_attempts, coreuse_checked, duration_ms, extra_json")
+
+_RANGE_MS = {"24h": 86_400_000, "7d": 7 * 86_400_000, "30d": 30 * 86_400_000, "90d": 90 * 86_400_000}
+
+# Funcionalidad del runner → flujo del catálogo qa_return_codes
+_FUNC_TO_RC_FLOW = {
+    "Factibilidad": "Factibilidad", "Asignación": "Asignación", "Activación": "Activación",
+    "Baja Total de Servicio": "Baja de Acceso", "Cambio de Fibra": "Cambio de Fibra",
+    "Cancelación Intervención Asegurada": "Cancelación de Intervención",
+    "Cancelación Orden de Servicio": "Cancelación de Orden",
+    "Finalización Intervención Asegurada": "Finalización Intervención",
+    "Inicio Intervención Asegurada": "Intervención Asegurada",
+    "Modificación de Dispositivo": "Modificación de Equipo",
+    "Modificación de Acceso": "Modificación de Registro",
+    "Consulta Estado Vecino (GET)": "Consulta Estado Vecinos",
+    "Consulta Estado Vecino (POST)": "Consulta Estado Vecinos",
+    "RetrieveAccess": "Retrieve Access", "RetrieveAccess ONT": "Retrieve Access",
+}
+
+# Tiempo esperado (min) hasta confirmación, según tiempos reales observados por paso
+_FUNC_EXPECTED_MIN = {
+    "Factibilidad": 2, "Asignación": 1, "Activación": 4,
+    "Inicio Intervención Asegurada": 1, "Cancelación Intervención Asegurada": 1,
+    "Finalización Intervención Asegurada": 1, "Cambio de Pelo": 1,
+    "Modificación de Acceso": 1, "Modificación de Dispositivo": 1,
+    "Cancelación Orden de Servicio": 2, "Baja Total de Servicio": 2,
+}
+
+_DASH_VNOS = [("00", "TCH"), ("02", "KAO"), ("03", "B1/Entel"), ("05", "DTV")]
+
+
+def _range_bounds(range_: str, t_from: int = 0, t_to: int = 0) -> tuple:
+    now = int(_time_lib.time() * 1000)
+    if t_from:
+        return int(t_from), int(t_to or now)
+    span = _RANGE_MS.get(range_ or "7d", _RANGE_MS["7d"])
+    return now - span, now
+
+
+async def _aid_events_query(pool, t0: int, t1: int, vno: str = "", func: str = "", code: str = "",
+                            source: str = "", q: str = "", run_key: str = "", access_id: str = "") -> list:
+    conds, args = ["ts >= $1", "ts <= $2"], [t0, t1]
+    for col, val in (("vno", vno), ("func", func), ("return_code", code), ("source", source),
+                     ("run_key", run_key), ("access_id", access_id)):
+        if val:
+            args.append(val)
+            conds.append(f"{col} = ${len(args)}")
+    if q:
+        args.append(f"%{q}%")
+        conds.append(f"access_id ILIKE ${len(args)}")
+    rows = await pool.fetch(
+        f"SELECT {_AID_EV_COLS} FROM qa_aid_events WHERE {' AND '.join(conds)} ORDER BY ts ASC, id ASC", *args)
+    out = []
+    for r in rows:
+        ev = dict(r)
+        try: ev["extra"] = json.loads(ev.pop("extra_json") or "{}")
+        except Exception: ev["extra"] = {}
+        ev["diag"] = _aid_diagnose(ev)
+        out.append(ev)
+    return out
+
+
+def _pctl(vals: list, p: float) -> float:
+    if not vals:
+        return 0.0
+    s = sorted(vals)
+    k = (len(s) - 1) * p
+    lo = int(k)
+    hi = min(lo + 1, len(s) - 1)
+    return s[lo] + (s[hi] - s[lo]) * (k - lo)
+
+
+@app.get("/api/aid-steps")
+async def api_aid_steps(rng: str = Query("7d", alias="range"), t_from: int = 0, t_to: int = 0, vno: str = "", func: str = "",
+                        diag: str = "", code: str = "", source: str = "", result: str = "", q: str = "",
+                        run_key: str = "", sort: str = "recent", limit: int = 100, offset: int = 0):
+    """Pasos ejecutados con filtros (vista 'Pasos' de Trazabilidad)."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    t0, t1 = _range_bounds(rng, t_from, t_to)
+    try:
+        evs = await _aid_events_query(pool, t0, t1, vno, func, code, source, q.strip(), run_key)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    summary: dict = {}
+    for e in evs:
+        summary[e["diag"]["code"]] = summary.get(e["diag"]["code"], 0) + 1
+    if diag:
+        wanted = set(diag.split(","))
+        evs = [e for e in evs if e["diag"]["code"] in wanted]
+    if result == "ok":
+        evs = [e for e in evs if e["final_pass"]]
+    elif result == "fail":
+        evs = [e for e in evs if not e["final_pass"]]
+    if sort == "slow":
+        evs.sort(key=lambda e: e.get("duration_ms") or 0, reverse=True)
+    else:
+        evs.sort(key=lambda e: (e.get("ts") or 0, e["id"]), reverse=True)
+    total = len(evs)
+    limit = min(max(limit, 1), 500)
+    return {"total": total, "summary": summary, "t0": t0, "t1": t1, "coreuse_base": _COREUSE_BASE,
+            "rows": evs[offset:offset + limit]}
+
+
+@app.get("/api/aid-event/{ev_id}")
+async def api_aid_event(ev_id: int):
+    """Detalle completo de un paso (incluye request/response)."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    r = await pool.fetchrow("SELECT * FROM qa_aid_events WHERE id=$1", ev_id)
+    if not r:
+        return JSONResponse({"error": "no encontrado"}, status_code=404)
+    ev = dict(r)
+    ev.pop("created_at", None)
+    try: ev["extra"] = json.loads(ev.pop("extra_json") or "{}")
+    except Exception: ev["extra"] = {}
+    ev["diag"] = _aid_diagnose(ev)
+    return ev
+
+
+def _aid_group_sequences(evs: list) -> list:
+    seqs: dict = {}
+    for e in evs:
+        k = e.get("run_key") or f"ev-{e['id']}"
+        s = seqs.get(k)
+        if not s:
+            s = seqs[k] = {"run_key": k, "seq_name": e.get("seq_name") or "", "source": e.get("source") or "",
+                           "vno": e.get("vno") or "", "user_email": e.get("user_email") or "",
+                           "t0": e["ts"], "t1": e["ts"], "steps": 0, "ok": 0, "access_ids": [],
+                           "first_fail": None}
+        s["t0"] = min(s["t0"], e["ts"]); s["t1"] = max(s["t1"], e["ts"])
+        s["steps"] += 1
+        if e["final_pass"]:
+            s["ok"] += 1
+        elif not s["first_fail"]:
+            s["first_fail"] = {"id": e["id"], "func": e["func"], "diag": e["diag"]["label"], "access_id": e["access_id"]}
+        if e["access_id"] not in s["access_ids"]:
+            s["access_ids"].append(e["access_id"])
+    out = []
+    for s in seqs.values():
+        s["fail"] = s["steps"] - s["ok"]
+        s["result"] = "ok" if s["fail"] == 0 else "fail"
+        out.append(s)
+    out.sort(key=lambda s: s["t1"], reverse=True)
+    return out
+
+
+@app.get("/api/aid-sequences")
+async def api_aid_sequences(rng: str = Query("7d", alias="range"), t_from: int = 0, t_to: int = 0, vno: str = "",
+                            result: str = "", source: str = ""):
+    """Secuencias ejecutadas (una por run_key) — vista 'Secuencias' de Trazabilidad."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    t0, t1 = _range_bounds(rng, t_from, t_to)
+    try:
+        evs = await _aid_events_query(pool, t0, t1, vno=vno, source=source)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    seqs = [s for s in _aid_group_sequences(evs) if s["source"] != "cierre"]
+    if result in ("ok", "fail"):
+        seqs = [s for s in seqs if s["result"] == result]
+    return {"total": len(seqs), "rows": seqs[:300]}
+
+
+@app.get("/api/dashboard2")
+async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
+    """Métricas del Dashboard de calidad: salud, dónde se rompe, regresiones, tiempos, higiene."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    t0, t1 = _range_bounds(rng)
+    span = t1 - t0
+    try:
+        evs = await _aid_events_query(pool, t0, t1, vno=vno)
+        prev = await _aid_events_query(pool, t0 - span, t0 - 1, vno=vno)
+        rc_rows = await pool.fetch("SELECT flow, code, cls, description FROM qa_return_codes ORDER BY sort_order")
+        ag_rows = await pool.fetch(
+            "SELECT DISTINCT ON (vno) id, vno, status, started_at, passed_steps, failed_steps "
+            "FROM qa_sched_runs ORDER BY vno, id DESC")
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    work = [e for e in evs if e.get("source") != "cierre"]
+    work_prev = [e for e in prev if e.get("source") != "cierre"]
+
+    def _rate(lst):
+        return round(sum(1 for e in lst if e["final_pass"]) / len(lst) * 100) if lst else None
+
+    # 1 · Salud por VNO
+    agenda = {r["vno"]: r for r in ag_rows}
+    n_b = 12
+    health = []
+    for code_v, lbl in _DASH_VNOS:
+        lst = [e for e in work if e.get("vno") == code_v]
+        pl = [e for e in work_prev if e.get("vno") == code_v]
+        spark = []
+        for b in range(n_b):
+            b0, b1 = t0 + span * b // n_b, t0 + span * (b + 1) // n_b
+            spark.append(_rate([e for e in lst if b0 <= e["ts"] < b1]))
+        ag = agenda.get(code_v)
+        health.append({
+            "vno": code_v, "label": lbl, "steps": len(lst), "rate": _rate(lst), "prev_rate": _rate(pl),
+            "spark": spark,
+            "agenda": ({"run_key": f"sched-{ag['id']}", "status": ag["status"],
+                        "ts": int(ag["started_at"].timestamp() * 1000) if ag["started_at"] else 0,
+                        "passed": ag["passed_steps"], "failed": ag["failed_steps"]} if ag else None),
+        })
+    cu_checked = [e for e in work if e.get("coreuse_checked") in ("completo", "rapido")]
+    cu_bad = [e for e in cu_checked if e["diag"]["code"] == "cu_missing"
+              or (e.get("coreuse_status") or "") in ("error", "timeout", "not_found", "pending")]
+    coreuse = {"checked": len(cu_checked), "unavailable": len(cu_bad),
+               "rate": round((1 - len(cu_bad) / len(cu_checked)) * 100) if cu_checked else None}
+
+    # Secuencias por VNO
+    seqs = [s for s in _aid_group_sequences(work)]
+    seq_vno = []
+    for code_v, lbl in _DASH_VNOS:
+        ss = [s for s in seqs if s["vno"] == code_v]
+        seq_vno.append({"vno": code_v, "label": lbl,
+                        "ok": sum(1 for s in ss if s["result"] == "ok"),
+                        "fail": sum(1 for s in ss if s["result"] == "fail"),
+                        "manual": sum(1 for s in ss if s["source"] == "manual"),
+                        "agenda": sum(1 for s in ss if s["source"] == "agenda")})
+
+    # 2 · Dónde se rompe
+    bad = [e for e in work if not e["final_pass"]]
+    layers: dict = {}
+    for e in bad:
+        c = e["diag"]["code"]
+        c = c if c in ("api_fail", "cu_missing", "cu_fail", "skipped") else "otro"
+        layers[c] = layers.get(c, 0) + 1
+    rc_map: dict = {}
+    for r in rc_rows:
+        rc_map.setdefault((r["flow"], str(r["code"])), {"cls": r["cls"], "desc": r["description"]})
+    codes: dict = {}
+    for e in work:
+        rc = str(e.get("return_code") or "")
+        if not rc or rc == "0" or e["final_pass"]:
+            continue
+        k = (rc, e["func"])
+        c = codes.setdefault(k, {"code": rc, "func": e["func"], "n": 0, "desc": e.get("return_desc") or ""})
+        c["n"] += 1
+        if not c["desc"] and e.get("return_desc"):
+            c["desc"] = e["return_desc"]
+    top_codes = []
+    for c in sorted(codes.values(), key=lambda x: x["n"], reverse=True)[:8]:
+        cat = rc_map.get((_FUNC_TO_RC_FLOW.get(c["func"], c["func"]), c["code"]))
+        top_codes.append({**c, "cls": cat["cls"] if cat else "", "desc": (cat["desc"] if cat else "") or c["desc"]})
+
+    # 3 · Matriz, regresiones, flaky
+    funcs_present = [f for f in ATRF_FUNCS_REAL if any(e["func"] == f for e in work)]
+    funcs_present += sorted({e["func"] for e in work} - set(funcs_present))
+    matrix, regressions, flaky = [], [], []
+    for f in funcs_present:
+        cells = []
+        for code_v, lbl in _DASH_VNOS:
+            lst = [e for e in work if e["func"] == f and e.get("vno") == code_v]
+            if not lst:
+                cells.append({"vno": code_v, "n": 0, "rate": None})
+                continue
+            last = lst[-1]
+            cells.append({"vno": code_v, "n": len(lst), "rate": _rate(lst), "last_pass": bool(last["final_pass"]),
+                          "last_id": last["id"], "last_aid": last["access_id"]})
+            streak = 0
+            for e in reversed(lst):
+                if e["final_pass"]:
+                    break
+                streak += 1
+            before = lst[:len(lst) - streak]
+            b_rate = _rate(before)
+            if streak >= 2 and before and b_rate is not None and b_rate >= 80:
+                regressions.append({"func": f, "vno": code_v, "label": lbl, "streak": streak, "before_rate": b_rate,
+                                    "since": lst[len(lst) - streak]["ts"], "last_id": last["id"],
+                                    "access_id": last["access_id"], "code": last.get("return_code") or "",
+                                    "diag": last["diag"]["label"]})
+            elif len(lst) >= 5:
+                tail = lst[-10:]
+                flips = sum(1 for a, b in zip(tail, tail[1:]) if bool(a["final_pass"]) != bool(b["final_pass"]))
+                if flips >= 3:
+                    flaky.append({"func": f, "vno": code_v, "label": lbl, "flips": flips,
+                                  "seq": [bool(e["final_pass"]) for e in lst[-8:]],
+                                  "access_id": last["access_id"], "last_id": last["id"]})
+        matrix.append({"func": f, "cells": cells})
+    regressions.sort(key=lambda r: r["streak"], reverse=True)
+
+    # 4 · Tiempos
+    times = []
+    for f in funcs_present:
+        durs = [(e.get("duration_ms") or 0) / 60000 for e in work if e["func"] == f and e["final_pass"]
+                and (e.get("duration_ms") or 0) > 0]
+        if not durs:
+            continue
+        times.append({"func": f, "n": len(durs), "p50": round(_pctl(durs, .5), 2), "p95": round(_pctl(durs, .95), 2),
+                      "expected": _FUNC_EXPECTED_MIN.get(f)})
+    times.sort(key=lambda t: t["n"], reverse=True)
+
+    # 5 · Higiene (inventario)
+    hyg = {"open": 0, "lt1d": 0, "d1to7": 0, "gt7d": 0, "inconsistent": 0, "unverified": 0, "total": 0}
+    try:
+        inv = await api_aid_inventory()
+        if isinstance(inv, list):
+            now = int(_time_lib.time() * 1000)
+            hyg["total"] = len(inv)
+            for it in inv:
+                if vno and it["vno"] != vno:
+                    continue
+                if it["state"] == "dado_de_baja" and it["cu_state"] and it["cu_state"] != "instock":
+                    hyg["inconsistent"] += 1
+                if not it["cu_state"]:
+                    hyg["unverified"] += 1
+                if it["cu_state"] == "instock":
+                    continue
+                hyg["open"] += 1
+                age = now - (it["first_ts"] or it["last_ts"] or now)
+                if age < 86_400_000: hyg["lt1d"] += 1
+                elif age < 7 * 86_400_000: hyg["d1to7"] += 1
+                else: hyg["gt7d"] += 1
+    except Exception as exc:
+        print(f"[dashboard2] higiene: {exc}")
+
+    return {
+        "range": rng, "t0": t0, "t1": t1, "steps": len(work), "ok": sum(1 for e in work if e["final_pass"]),
+        "health": health, "coreuse": coreuse, "seq_vno": seq_vno, "sequences": len(seqs),
+        "layers": layers, "bad": len(bad), "top_codes": top_codes,
+        "matrix": matrix, "regressions": regressions[:6], "flaky": flaky[:6],
+        "times": times[:10], "hygiene": hyg,
+    }
 
 
 # Jobs de cierre en memoria {job_id: {...}}
@@ -9967,6 +10304,113 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-vno-multi-note{font-size:10px;font-family:var(--atrf-mono);color:var(--atrf-text2);margin-top:4px;display:none}
 .atrf-vno-multi-note.show{display:block}
 </style>
+<style>
+/* ── Dashboard de calidad + Trazabilidad (qx-) ───────────────────────────── */
+:root{--qx-pur:#B57BFF;--qx-purd:rgba(181,123,255,.14);--qx-warnd:rgba(255,179,71,.13);--qx-mut:#7C88AE;--qx-r:12px}
+body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,114,0,.10);--qx-mut:#6B7895}
+.qx-page{width:100%;max-width:1440px;margin:0 auto;padding:22px 26px 48px;box-sizing:border-box;display:flex;flex-direction:column;gap:26px;font-family:var(--sans);color:var(--txt)}
+.qx-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+.qx-kicker{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);font-weight:700}
+.qx-title{margin:2px 0 0;font-size:1.45rem;font-weight:700;letter-spacing:-.01em}
+.qx-sub{font-size:.78rem;color:var(--txt2);margin-top:3px}
+.qx-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.qx-seg{display:inline-flex;border:1px solid var(--brd);border-radius:9px;overflow:hidden;background:var(--card)}
+.qx-seg button{background:transparent;border:none;color:var(--txt2);font:500 .78rem var(--sans);padding:8px 14px;cursor:pointer;min-height:36px}
+.qx-seg button+button{border-left:1px solid var(--brd)}
+.qx-seg button.on{background:var(--accd);color:var(--acc);font-weight:700}
+.qx-sel,.qx-inp{background:var(--card);color:var(--txt);border:1px solid var(--brd);border-radius:9px;padding:8px 10px;font:500 .78rem var(--sans);min-height:36px;box-sizing:border-box}
+.qx-sel.on,.qx-inp.on{border-color:var(--acc)}
+.qx-upd{font-size:.68rem;color:var(--txt2);font-family:var(--mono)}
+.qx-sec{display:flex;flex-direction:column;gap:12px}
+.qx-sec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.qx-sec-n{font-family:var(--mono);font-size:.72rem;color:var(--acc);font-weight:700}
+.qx-sec-h h2{margin:0;font-size:1.02rem;font-weight:700}
+.qx-sec-d{font-size:.75rem;color:var(--txt2)}
+.qx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.qx-row{display:flex;flex-wrap:wrap;gap:12px}
+.qx-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--qx-r);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0;box-sizing:border-box}
+.qx-card-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.qx-card-t{font-weight:700;font-size:.86rem}
+.qx-big{font-family:var(--mono);font-size:2rem;font-weight:700;line-height:1.05;text-decoration:none;cursor:pointer}
+.qx-big:hover{text-decoration:underline}
+.qx-muted{font-size:.72rem;color:var(--txt2)}
+.qx-pill{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--brdl);color:var(--txt2)}
+.qx-pill.ok{background:var(--okd);color:var(--ok)}
+.qx-pill.err{background:var(--errd);color:var(--err)}
+.qx-pill.warn{background:var(--qx-warnd);color:var(--warn)}
+.qx-pill.pur{background:var(--qx-purd);color:var(--qx-pur)}
+.qx-pill.acc{background:var(--accd);color:var(--acc)}
+.qx-ok{color:var(--ok)}.qx-err{color:var(--err)}.qx-warn{color:var(--warn)}.qx-pur{color:var(--qx-pur)}.qx-acc{color:var(--acc)}.qx-mut{color:var(--qx-mut)}
+.qx-link{font-size:.72rem;font-weight:700;color:var(--acc);text-decoration:none;cursor:pointer;background:none;border:none;padding:0;font-family:var(--sans);text-align:left}
+.qx-link:hover{text-decoration:underline}
+.qx-foot{border-top:1px solid var(--brd);padding-top:10px;margin-top:2px}
+.qx-spark{display:flex;gap:3px;align-items:flex-end;height:30px}
+.qx-spark span{flex:1;border-radius:2px;min-height:3px;background:var(--brd)}
+.qx-stack{display:flex;height:16px;border-radius:6px;overflow:hidden;background:var(--brdl)}
+.qx-stack span{display:block;height:100%;cursor:pointer}
+.qx-seqbar{display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--brdl)}
+.qx-seqbar a{display:flex;align-items:center;padding-left:8px;box-sizing:border-box;font:700 .7rem var(--mono);color:#0D1220;text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden}
+.qx-seqbar a:hover{filter:brightness(1.12)}
+.qx-legend{display:flex;flex-direction:column;gap:2px}
+.qx-legend a{display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--txt);text-decoration:none;padding:6px 8px;border-radius:8px;cursor:pointer}
+.qx-legend a:hover{background:var(--brdl)}
+.qx-sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.qx-tbl{width:100%;border-collapse:collapse;font-size:.76rem}
+.qx-tbl th{text-align:left;font-weight:600;color:var(--txt2);font-size:.68rem;padding:8px 10px;border-bottom:1px solid var(--brd);white-space:nowrap;position:sticky;top:0;background:var(--card)}
+.qx-tbl td{padding:9px 10px;border-bottom:1px solid var(--brdl);vertical-align:top}
+.qx-tbl tr.click{cursor:pointer}
+.qx-tbl tr.click:hover td{background:var(--brdl)}
+.qx-tbl tr.open td{background:var(--accd)}
+.qx-mono{font-family:var(--mono)}
+.qx-scroll{overflow-x:auto}
+.qx-matrix{display:grid;gap:6px;font-size:.76rem;min-width:560px}
+.qx-mh{color:var(--txt2);font-size:.68rem;text-align:center;padding:2px 0}
+.qx-mf{display:flex;align-items:center;padding-right:8px}
+.qx-cell{display:block;border-radius:7px;padding:8px 0;text-align:center;font:700 .76rem var(--mono);text-decoration:none;cursor:pointer;transition:transform .08s}
+.qx-cell:hover{transform:scale(1.04)}
+.qx-cell.none{background:var(--brdl);color:var(--txt3);cursor:default}
+.qx-cell.none:hover{transform:none}
+.qx-reg{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:9px;background:var(--errd);text-decoration:none;cursor:pointer;border:1px solid transparent}
+.qx-reg:hover{border-color:var(--errb)}
+.qx-reg b{font-size:.8rem;color:var(--err)}
+.qx-reg span{font-size:.7rem;color:var(--txt2)}
+.qx-trow{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 120px;gap:12px;align-items:center;font-size:.78rem}
+.qx-track{position:relative;height:16px;background:var(--brdl);border-radius:5px}
+.qx-track .p95{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--txt3)}
+.qx-track .p50{position:absolute;left:0;top:4px;bottom:4px;border-radius:3px;background:var(--acc)}
+.qx-track .exp{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt)}
+.qx-tile{background:var(--brdl);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:3px;text-decoration:none;cursor:pointer;border:1px solid transparent}
+.qx-tile:hover{border-color:var(--acc)}
+.qx-tile b{font:700 1.3rem var(--mono);color:var(--txt)}.qx-tile b.qx-warn{color:var(--warn)}.qx-tile b.qx-err{color:var(--err)}
+.qx-tile span{font-size:.7rem;color:var(--txt2)}
+.qx-banner{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:var(--accd);color:var(--txt);font-size:.78rem;border:1px solid var(--brd)}
+.qx-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--brd);background:var(--card);color:var(--txt);font:600 .76rem var(--sans);text-decoration:none;cursor:pointer}
+.qx-btn:hover{border-color:var(--acc);color:var(--acc)}
+.qx-btn.pri{background:var(--acc);border-color:var(--acc);color:#04161A}
+.qx-btn.pri:hover{filter:brightness(1.08);color:#04161A}
+.qx-chip{display:inline-flex;align-items:center;gap:6px;background:var(--accd);color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:4px 10px;font:600 .7rem var(--sans);cursor:pointer}
+.qx-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.qx-filters label{display:flex;flex-direction:column;gap:4px;font-size:.68rem;color:var(--txt2)}
+.qx-stat{background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:1px;flex:1 1 140px;cursor:pointer;text-align:left;font-family:var(--sans)}
+.qx-stat:hover{border-color:var(--acc)}
+.qx-stat b{font:700 1.25rem var(--mono)}
+.qx-stat span{font-size:.68rem;color:var(--txt2)}
+.qx-pre{margin:0;background:var(--term);border:1px solid var(--brd);border-radius:8px;padding:10px;font:.7rem/1.5 var(--mono);color:var(--txt);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto}
+.qx-tl{display:flex;gap:14px}
+.qx-tl-rail{display:flex;flex-direction:column;align-items:center;width:20px;flex-shrink:0}
+.qx-tl-dot{width:13px;height:13px;border-radius:50%;margin-top:17px;box-shadow:0 0 0 4px var(--bg)}
+.qx-tl-line{flex:1;width:2px;background:var(--brd)}
+.qx-tl-card{flex:1;min-width:0;background:var(--card);border:1px solid var(--brd);border-radius:11px;padding:12px 15px;margin-bottom:6px;display:flex;flex-direction:column;gap:5px;cursor:pointer}
+.qx-tl-card:hover{border-color:var(--acc)}
+.qx-tl-card.focus{box-shadow:0 0 0 2px var(--acc)}
+.qx-crumb{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.75rem}
+.qx-crumb span.sep{color:var(--txt3)}
+.qx-tabs{display:inline-flex;border:1px solid var(--brd);border-radius:9px;overflow:hidden;background:var(--card)}
+.qx-tabs button{background:transparent;border:none;color:var(--txt2);font:600 .8rem var(--sans);padding:9px 18px;cursor:pointer}
+.qx-tabs button+button{border-left:1px solid var(--brd)}
+.qx-tabs button.on{background:var(--accd);color:var(--acc)}
+.qx-empty{padding:28px;text-align:center;color:var(--txt2);font-size:.8rem}
+</style>
 </head>
 <body class="light">
 <!-- ── Auth screen ─────────────────────────────────────────────── -->
@@ -10340,6 +10784,9 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
           <option value="instock">Cerrados (InStock)</option>
           <option value="sin_verificar">Sin verificar en CoreUse</option>
           <option value="inconsistentes">Inconsistentes (runner dice cerrado, CoreUse no)</option>
+          <option value="age_lt1">Abiertos · menos de 1 día</option>
+          <option value="age_1_7">Abiertos · 1 a 7 días</option>
+          <option value="age_gt7">Abiertos · más de 7 días</option>
         </select>
         <select id="inv-vno" onchange="_invRender()"
           style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
@@ -10360,17 +10807,32 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
       <div id="inv-body" style="flex:1;overflow:auto"></div>
     </div>
     <!-- Vista Trazabilidad AID -->
-    <div id="traza-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
-      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;background:var(--card)">
-        <input id="tr-search" type="text" placeholder="Buscar Access ID..." oninput="_trSearchDebounced()" onkeydown="if(event.key==='Enter'){_trOpen(this.value.trim());}"
-          style="padding:5px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:260px;flex-shrink:0">
-        <button onclick="_trOpen(document.getElementById('tr-search').value.trim())" style="padding:4px 12px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.73rem;font-weight:700;cursor:pointer">Ver traza</button>
-        <button onclick="_trLoadList()" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.73rem;cursor:pointer">&#x21bb; Actualizar</button>
-        <span id="tr-count" style="font-size:.7rem;color:var(--txt2);margin-left:auto"></span>
-      </div>
-      <div style="display:flex;flex:1;overflow:hidden;min-height:0">
-        <div id="tr-list" style="width:300px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--brd)"></div>
-        <div id="tr-detail" style="flex:1;overflow-y:auto;padding:14px 18px;min-width:0"></div>
+    <div id="traza-view" style="display:none;flex-direction:column;flex:1;overflow:auto;min-width:0">
+      <div class="qx-page" style="gap:16px">
+        <div class="qx-head">
+          <div>
+            <div id="tr-crumb" class="qx-crumb" style="display:none;margin-bottom:6px"></div>
+            <h1 class="qx-title">Trazabilidad AID</h1>
+            <div class="qx-sub">Cada paso ejecutado con su diagnóstico: API, ServiceNow y CoreUse</div>
+          </div>
+          <div class="qx-tabs" role="tablist" aria-label="Vista">
+            <button id="tr-tab-steps" role="tab" onclick="_trTab('steps')">Pasos</button>
+            <button id="tr-tab-seqs" role="tab" onclick="_trTab('seqs')">Secuencias</button>
+            <button id="tr-tab-aid" role="tab" onclick="_trTab('aid')">Por AID</button>
+          </div>
+        </div>
+        <div id="tr-pane-steps" style="display:flex;flex-direction:column;gap:12px"></div>
+        <div id="tr-pane-seqs" style="display:none;flex-direction:column;gap:12px"></div>
+        <div id="tr-pane-aid" style="display:none">
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+            <div class="qx-card" style="flex:0 1 300px;padding:12px 12px 0;gap:8px;max-height:calc(100vh - 210px);overflow:hidden;min-width:240px">
+              <input id="tr-search" class="qx-inp" type="text" placeholder="Buscar Access ID..." aria-label="Buscar Access ID" oninput="_trSearchDebounced()" onkeydown="if(event.key==='Enter'){_trOpenAid(this.value.trim(),{keepSearch:true});}">
+              <span id="tr-count" class="qx-muted"></span>
+              <div id="tr-list" style="overflow-y:auto;margin:0 -12px;flex:1"></div>
+            </div>
+            <div id="tr-detail" style="flex:999 1 600px;min-width:0"></div>
+          </div>
+        </div>
       </div>
     </div>
     <!-- Vista C&#xF3;digos de Retorno -->
@@ -15055,7 +15517,7 @@ function _dashClick(el){
   if(goto==='hist') showHistorial();
   else showHistorialFiltered(val);
 }
-function loadDashboard(){
+function _loadDashboardOld(){
   var cont=document.getElementById('dash-content');
   if(!cont)return;
   cont.innerHTML='<div style="padding:40px;text-align:center;color:var(--txt2);font-size:.8rem">Cargando…</div>';
@@ -18236,8 +18698,9 @@ var _INV_RUN_ST={activo:{c:'#EF4444',l:'🔴 Activo'},cancelado:{c:'#F59E0B',l:'
 var _INV_CU_ST={instock:{c:'#22C55E',l:'✅ InStock'},en_uso:{c:'#EF4444',l:'⛔ En uso'},sin_datos:{c:'#888',l:'∅ Sin datos'},desconocido:{c:'#F59E0B',l:'❓ No identificado'},error:{c:'#F59E0B',l:'⚠ Error'},'':{c:'#888',l:'— Sin verificar'}};
 var _INV_VNO_LBL={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
 
-function showInventario(){
+function showInventario(filter){
   _dashStopRefresh();
+  if(filter){var _fsel=document.getElementById('inv-filter');if(_fsel)_fsel.value=filter;}
   switchView('inventario');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
   ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
@@ -18266,6 +18729,13 @@ function _invFiltered(){
     if(f==='instock')return x.cu_state==='instock';
     if(f==='sin_verificar')return !x.cu_state;
     if(f==='inconsistentes')return x.state==='dado_de_baja'&&x.cu_state&&x.cu_state!=='instock';
+    if(f.indexOf('age_')===0){
+      if(x.cu_state==='instock')return false;
+      var _age=Date.now()-(x.first_ts||x.last_ts||Date.now()),_d=86400000;
+      if(f==='age_lt1')return _age<_d;
+      if(f==='age_1_7')return _age>=_d&&_age<7*_d;
+      return _age>=7*_d;
+    }
     return true;
   });
 }
@@ -18430,176 +18900,613 @@ function _invShowRaw(aid){
   }).catch(function(e){var b=document.getElementById('inv-raw-body');if(b)b.innerHTML='Error: '+_trEsc(e);});
 }
 
-// ── Trazabilidad por Access ID ────────────────────────────────────────────
-var _trCurrent=null, _trSearchTimer=null;
-var _TR_DIAG_STYLE={
-  ok:            {c:'var(--ok)',   i:'✅'},
-  ok_api:        {c:'var(--acc)',  i:'☑️'},
-  api_fail_cu_ok:{c:'var(--warn)', i:'⚠️'},
-  cu_missing:    {c:'var(--warn)', i:'⚠️'},
-  cu_fail:       {c:'var(--err)',  i:'❌'},
-  api_fail:      {c:'var(--err)',  i:'❌'},
-  fail:          {c:'var(--err)',  i:'❌'},
-  skipped:       {c:'var(--txt3)', i:'⊘'}
+// ── Trazabilidad por Access ID + Dashboard de calidad ──────────────────────
+// Navegación: cada número del Dashboard es un enlace a la traza que lo explica.
+var _trCurrent=null, _trSearchTimer=null, _qxLinks=[], _trBackTo=null, _trOpenEv={};
+var _trState={tab:'steps',f:{range:'7d'},sf:{range:'7d'},from:'',offset:0,rows:[],total:0,openId:null,cuBase:''};
+var _QX_VNO={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
+var _QX_DIAG={
+  ok:{p:'ok',c:'var(--ok)',l:'OK punta a punta'},
+  ok_api:{p:'acc',c:'var(--acc)',l:'OK (sin registro CoreUse)'},
+  api_fail:{p:'err',c:'var(--err)',l:'API rechazó'},
+  fail:{p:'err',c:'var(--err)',l:'Falló'},
+  cu_missing:{p:'warn',c:'var(--warn)',l:'CoreUse no registró'},
+  api_fail_cu_ok:{p:'warn',c:'var(--warn)',l:'API falló, CoreUse OK'},
+  cu_fail:{p:'pur',c:'var(--qx-pur)',l:'CoreUse registró error'},
+  skipped:{p:'',c:'var(--qx-mut)',l:'Saltado'},
+  otro:{p:'err',c:'var(--err)',l:'Otro'}
 };
-function _trEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function _trFmtTs(ts){if(!ts)return '—';var d=new Date(Number(ts));return d.toLocaleDateString('es-CL')+' '+d.toLocaleTimeString('es-CL');}
-function _trFmtDur(ms){ms=Number(ms)||0;return ms>=60000?(ms/60000).toFixed(1)+' min':(ms/1000).toFixed(1)+' s';}
-function _trPretty(t){if(!t)return '';try{return JSON.stringify(JSON.parse(t),null,2);}catch(e){return String(t);}}
+var _QX_SRC={manual:'Manual',agenda:'Agenda',cierre:'Cierre'};
+var _QX_AG={pass:'OK',fail:'falló',partial:'parcial',running:'en curso'};
+var _QX_RUN_ST={activo:['err','Runner: activo'],cancelado:['warn','Runner: cancelado'],dado_de_baja:['ok','Runner: dado de baja']};
+var _QX_CU_ST={instock:['ok','CoreUse: InStock'],en_uso:['err','CoreUse: en uso'],sin_datos:['','CoreUse: sin datos'],desconocido:['warn','CoreUse: no identificado'],error:['warn','CoreUse: error']};
+var _TR_DIAG_STYLE=_QX_DIAG;
 
-function showTrazabilidad(aid){
+function _trEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _trFmtTs(ts){if(!ts)return '—';var d=new Date(Number(ts));return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});}
+function _trFmtHm(ts){if(!ts)return '—';return new Date(Number(ts)).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function _trFmtDur(ms){ms=Number(ms)||0;if(ms<1000)return ms+' ms';return ms>=60000?(ms/60000).toFixed(1).replace('.',',')+' min':(ms/1000).toFixed(1).replace('.',',')+' s';}
+function _trPretty(t){if(!t)return '';try{return JSON.stringify(JSON.parse(t),null,2);}catch(e){return String(t);}}
+function _qxTone(p){return p==null?'mut':p>=90?'ok':p>=70?'warn':'err';}
+function _qxNL(){return String.fromCharCode(10);}
+function _qxL(t){_qxLinks.push(t);return _qxLinks.length-1;}
+function _qxA(t,html,cls,title,style){return '<a href="#" class="'+(cls||'qx-link')+'"'+(style?' style="'+style+'"':'')+(title?' title="'+_trEsc(title)+'"':'')+' onclick="_qxGo('+_qxL(t)+');return false">'+html+'</a>';}
+function _qxGo(i){
+  var t=_qxLinks[i];if(!t)return;
+  if(t.back!==false&&document.getElementById('dashboard-view').style.display!=='none')_trBackTo={label:'Dashboard',act:'dash'};
+  if(t.t==='steps'||t.t==='seqs'){_qxShowTraza();_trSetFilters(t.t,t.f||{},t.from||'');}
+  else if(t.t==='aid'){_qxShowTraza();_trOpenAid(t.aid,{from:t.from,ev:t.ev,run:t.run});}
+  else if(t.t==='inv'){showInventario(t.filter);}
+  else if(t.t==='codes'){showCodigos();setTimeout(function(){var s=document.getElementById('rc-search');if(s){s.value=t.code||'';if(typeof _rcFilter==='function')_rcFilter();}},500);}
+}
+function _qxCopy(txt){
+  try{navigator.clipboard.writeText(txt).then(function(){if(typeof showToast==='function')showToast('Copiado al portapapeles','ok');});}
+  catch(e){window.prompt('Copiar:',txt);}
+}
+
+// ═══ DASHBOARD ═══════════════════════════════════════════════════════════
+var _qxDash={range:'24h',vno:''};
+function loadDashboard(){_qxDashLoad();}
+function _qxDashSet(k,v){_qxDash[k]=v;_qxDashLoad(true);}
+function _qxDashLoad(force){
+  var cont=document.getElementById('dash-content');if(!cont)return;
+  var dv=document.getElementById('dashboard-view');if(dv)dv.style.padding='0';
+  if(force||!cont.dataset.qx){cont.innerHTML='<div class="qx-empty">Cargando dashboard…</div>';cont.dataset.qx='1';}
+  fetch('/api/dashboard2?range='+_qxDash.range+'&vno='+encodeURIComponent(_qxDash.vno),{headers:_authHdr()})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.error){cont.innerHTML='<div class="qx-empty qx-err">'+_trEsc(d.error)+'</div>';return;}
+      _qxDashRender(d,cont);
+    }).catch(function(e){cont.innerHTML='<div class="qx-empty qx-err">Error: '+_trEsc(e)+'</div>';});
+}
+function _qxSecH(n,t,d){return '<div class="qx-sec-h"><span class="qx-sec-n">'+n+'</span><h2>'+t+'</h2>'+(d?'<span class="qx-sec-d">'+d+'</span>':'')+'</div>';}
+function _qxDashRender(d,cont){
+  _qxLinks=[];
+  var R=_qxDash.range, RL={'24h':'últimas 24 h','7d':'últimos 7 días','30d':'últimos 30 días'}[R]||R;
+  var base={range:R};if(_qxDash.vno)base.vno=_qxDash.vno;
+  function F(x){var o={},k;for(k in base)o[k]=base[k];for(k in x)if(x[k]!==''&&x[k]!=null)o[k]=x[k];return o;}
+  var h='<div class="qx-page">';
+  // Encabezado
+  h+='<div class="qx-head"><div><div class="qx-kicker">QA Automation · OnnetFibra</div>'
+    +'<h1 class="qx-title">Calidad del ambiente</h1>'
+    +'<div class="qx-sub">'+d.steps+' pasos y '+d.sequences+' secuencias en '+RL+' · éxito punta a punta = API OK y CoreUse confirmó</div></div>'
+    +'<div class="qx-tools"><div class="qx-seg">'
+    +[['24h','24 h'],['7d','7 días'],['30d','30 días']].map(function(x){return '<button class="'+(x[0]===R?'on':'')+'" onclick="_qxDashSet(&quot;range&quot;,&quot;'+x[0]+'&quot;)">'+x[1]+'</button>';}).join('')
+    +'</div><select class="qx-sel'+(_qxDash.vno?' on':'')+'" aria-label="VNO" onchange="_qxDashSet(&quot;vno&quot;,this.value)">'
+    +[['','Todos los VNO'],['00','TCH'],['02','KAO'],['03','B1/Entel'],['05','DTV']].map(function(x){return '<option value="'+x[0]+'"'+(x[0]===_qxDash.vno?' selected':'')+'>'+x[1]+'</option>';}).join('')
+    +'</select><button class="qx-btn" onclick="_qxDashLoad(true)">&#x21bb; Actualizar</button>'
+    +'<span class="qx-upd">'+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})+'</span></div></div>';
+  if(!d.steps){
+    h+='<div class="qx-banner"><b>Aún no hay pasos registrados en este rango.</b> La Trazabilidad se llena con cada ejecución (manual, Agenda o cierre) desde esta versión del runner.</div>';
+  }
+  // ── 01 Salud ──
+  h+='<section class="qx-sec">'+_qxSecH('01','¿El ambiente está sano?','Tasa de pasos OK punta a punta por VNO · '+RL)+'<div class="qx-grid">';
+  (d.health||[]).forEach(function(v){
+    var t=_qxTone(v.rate),st={ok:'Sano',warn:'Atención',err:'Crítico',mut:'Sin datos'}[t];
+    var delta=(v.rate!=null&&v.prev_rate!=null)?v.rate-v.prev_rate:null;
+    var dTxt=delta==null?'sin período anterior':delta===0?'sin cambio vs período anterior':(delta>0?'+':'')+delta+' pts vs período anterior';
+    var bars=(v.spark||[]).map(function(p){var c=p==null?'var(--brd)':p>=90?'var(--ok)':p>=70?'var(--warn)':'var(--err)';return '<span style="height:'+(p==null?10:Math.max(12,p))+'%;background:'+c+';opacity:'+(p==null?'.45':'.9')+'"></span>';}).join('');
+    var ag='Agenda: sin ejecuciones';
+    if(v.agenda){var agl='Agenda '+new Date(v.agenda.ts).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})+' '+(_QX_AG[v.agenda.status]||v.agenda.status)+' →';
+      ag=_qxA({t:'steps',f:{range:'30d',run_key:v.agenda.run_key},from:'Última Agenda · '+v.label},agl,'qx-link','Ver los pasos de esa ejecución');}
+    h+='<div class="qx-card"><div class="qx-card-h"><span class="qx-card-t">'+v.label+'</span><span class="qx-pill '+t+'">'+st+'</span></div>'
+      +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+      +(v.rate==null?'<span class="qx-big qx-mut" style="cursor:default">—</span>':_qxA({t:'steps',f:F({vno:v.vno,result:v.rate<100?'fail':''}),from:'Salud · '+v.label},v.rate+'%','qx-big qx-'+t,'Ver pasos con problema de '+v.label))
+      +'<span class="qx-muted">'+dTxt+'</span></div>'
+      +'<div class="qx-spark" aria-hidden="true">'+bars+'</div>'
+      +'<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.72rem">'
+      +_qxA({t:'steps',f:F({vno:v.vno}),from:'Salud · '+v.label},v.steps+' pasos','qx-link','Ver todos los pasos')+ag+'</div>'
+      +'<div class="qx-foot">'+_qxA({t:'steps',f:F({vno:v.vno,result:'fail'}),from:'Salud · '+v.label},'→ Pasos con problema')+'</div></div>';
+  });
+  var cu=d.coreuse||{},ct=_qxTone(cu.rate);
+  h+='<div class="qx-card"><div class="qx-card-h"><span class="qx-card-t">CoreUse</span><span class="qx-pill '+ct+'">'+({ok:'Disponible',warn:'Degradado',err:'Con problemas',mut:'Sin datos'}[ct])+'</span></div>'
+    +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+    +(cu.rate==null?'<span class="qx-big qx-mut" style="cursor:default">—</span>':_qxA({t:'steps',f:F({diag:'cu_missing'}),from:'Disponibilidad CoreUse'},cu.rate+'%','qx-big qx-'+ct))
+    +'<span class="qx-muted">consultas con respuesta</span></div>'
+    +'<div class="qx-muted" style="line-height:1.5">'+(cu.unavailable||0)+' de '+(cu.checked||0)+' consultas sin registro o con timeout. Si sube, la falla es del ambiente, no de la prueba.</div>'
+    +'<div class="qx-foot">'+_qxA({t:'steps',f:F({diag:'cu_missing'}),from:'Disponibilidad CoreUse'},'→ CoreUse no registró')+'</div></div>';
+  h+='</div>';
+  // Secuencias por VNO
+  var sv=d.seq_vno||[],maxT=1;sv.forEach(function(s){maxT=Math.max(maxT,s.ok+s.fail);});
+  h+='<div class="qx-card"><div class="qx-card-h"><span class="qx-card-t">Secuencias ejecutadas por VNO</span><span class="qx-muted">Exitosa = todos sus pasos OK punta a punta · '+d.sequences+' secuencias</span></div>'
+    +'<div style="display:flex;gap:16px;font-size:.7rem;color:var(--txt2)"><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--ok)"></span>Exitosas</span><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--err)"></span>Fallidas</span></div>';
+  sv.forEach(function(s){
+    var tot=s.ok+s.fail,p=tot?Math.round(s.ok/tot*100):null,t=_qxTone(p);
+    h+='<div style="display:grid;grid-template-columns:80px minmax(0,1fr) 220px;gap:14px;align-items:center;font-size:.78rem">'
+      +'<b>'+s.label+'</b><div class="qx-seqbar" role="img" aria-label="'+s.label+': '+s.ok+' exitosas, '+s.fail+' fallidas">'
+      +(s.ok?_qxA({t:'seqs',f:F({vno:s.vno,result:'ok'}),from:'Secuencias exitosas · '+s.label},String(s.ok),'','Ver secuencias exitosas','width:'+(s.ok/maxT*100)+'%;background:var(--ok)'):'')
+      +(s.fail?_qxA({t:'seqs',f:F({vno:s.vno,result:'fail'}),from:'Secuencias fallidas · '+s.label},String(s.fail),'','Ver secuencias fallidas','width:'+(s.fail/maxT*100)+'%;background:var(--err)'):'')
+      +'</div><div style="display:flex;gap:12px;justify-content:flex-end;font-family:var(--mono);font-size:.72rem">'
+      +(tot?'<b class="qx-'+t+'">'+p+'% OK</b><span class="qx-muted">'+s.manual+' manual · '+s.agenda+' agenda</span>':'<span class="qx-muted">sin secuencias</span>')+'</div></div>';
+  });
+  h+='</div></section>';
+  // ── 02 Dónde se rompe ──
+  var L=d.layers||{},LO=[['api_fail','API rechazó la solicitud','api_fail'],['cu_missing','API OK, CoreUse no registró el flujo','cu_missing'],['cu_fail','API OK, CoreUse registró error','cu_fail'],['skipped','Saltados por dependencia (Inicio IA)','skipped'],['otro','Otros','fail']];
+  var bad=d.bad||0;
+  h+='<section class="qx-sec">'+_qxSecH('02','¿Dónde se rompe?','Pasos con problema según el diagnóstico de Trazabilidad')+'<div class="qx-row">';
+  h+='<div class="qx-card" style="flex:1 1 420px"><div class="qx-card-h"><span class="qx-card-t">Fallas por capa</span><span class="qx-muted qx-mono">'+bad+' pasos con problema de '+d.steps+'</span></div>';
+  if(!bad){h+='<div class="qx-empty">Sin pasos con problema en el período.</div>';}
+  else{
+    h+='<div class="qx-stack" role="img" aria-label="Distribución de fallas por capa">';
+    LO.forEach(function(x){var n=L[x[0]]||0;if(n)h+=_qxA({t:'steps',f:F({diag:x[2]}),from:'Fallas por capa · '+x[1]},'','',x[1]+': '+n,'display:block;width:'+(n/bad*100)+'%;background:'+(_QX_DIAG[x[0]]||_QX_DIAG.otro).c);});
+    h+='</div><div class="qx-legend">';
+    LO.forEach(function(x){var n=L[x[0]]||0;if(!n)return;
+      h+=_qxA({t:'steps',f:F({diag:x[2]}),from:'Fallas por capa · '+x[1]},'<span class="qx-sw" style="background:'+(_QX_DIAG[x[0]]||_QX_DIAG.otro).c+'"></span><span style="flex:1">'+x[1]+'</span><span class="qx-mono qx-muted">'+n+'</span><span class="qx-mono" style="width:44px;text-align:right">'+Math.round(n/bad*100)+'%</span><span class="qx-acc">→</span>','');});
+    h+='</div>';
+    var cuN=(L.cu_missing||0)+(L.cu_fail||0),apiN=L.api_fail||0,ins='';
+    if(cuN/bad>=0.5)ins='La mayoría de los problemas vienen de CoreUse/ServiceNow, no de la API: conviene escalar a Onnet antes de revisar las pruebas.';
+    else if(apiN/bad>=0.5)ins='La mayoría los rechaza la API: revisar datos de entrada y códigos de retorno funcionales.';
+    if(ins)h+='<div class="qx-muted qx-foot" style="line-height:1.5">'+ins+'</div>';
+  }
+  h+='</div>';
+  // Top códigos
+  var tc=d.top_codes||[];
+  h+='<div class="qx-card" style="flex:1.3 1 520px"><div class="qx-card-h"><span class="qx-card-t">Top códigos de retorno</span><span class="qx-muted">cruzado con el catálogo de Códigos de Retorno</span></div>';
+  if(!tc.length)h+='<div class="qx-empty">Sin códigos de error en el período.</div>';
+  else{
+    h+='<div class="qx-scroll"><table class="qx-tbl" style="min-width:480px"><thead><tr><th>Código</th><th>Descripción</th><th>Funcionalidad</th><th>Tipo</th><th style="text-align:right">Veces</th></tr></thead><tbody>';
+    tc.forEach(function(c){
+      var cls=c.cls==='Sistémico'?'warn':c.cls==='Funcional'?'acc':'';
+      var tgt={t:'steps',f:F({code:c.code,func:c.func}),from:'Código '+c.code+' · '+c.func};
+      h+='<tr><td class="qx-mono"><b>'+_qxA(tgt,_trEsc(c.code)+' →')+'</b></td><td>'+_trEsc(c.desc||'—')+'</td><td class="qx-muted">'+_trEsc(c.func)+'</td>'
+        +'<td>'+(c.cls?_qxA({t:'codes',code:c.code},'<span class="qx-pill '+cls+'">'+_trEsc(c.cls)+'</span>','','Ver en Códigos de Retorno'):'<span class="qx-pill">Sin catálogo</span>')+'</td>'
+        +'<td style="text-align:right" class="qx-mono">'+_qxA(tgt,String(c.n))+'</td></tr>';
+    });
+    h+='</tbody></table></div><div class="qx-muted">Sistémico = problema del ambiente u Onnet · Funcional = revisar datos de la prueba</div>';
+  }
+  h+='</div></div></section>';
+  // ── 03 Regresiones ──
+  var M=d.matrix||[];
+  h+='<section class="qx-sec">'+_qxSecH('03','¿Qué se rompió que antes funcionaba?','Tasa de éxito por funcionalidad y VNO · borde rojo = la última ejecución falló')+'<div class="qx-row">';
+  h+='<div class="qx-card" style="flex:2 1 620px"><div class="qx-scroll">';
+  if(!M.length)h+='<div class="qx-empty">Sin datos en el período.</div>';
+  else{
+    h+='<div class="qx-matrix" style="grid-template-columns:minmax(160px,230px) repeat(4,minmax(78px,1fr))"><div class="qx-mh" style="text-align:left">Funcionalidad</div>'
+      +['TCH','KAO','B1/Entel','DTV'].map(function(x){return '<div class="qx-mh">'+x+'</div>';}).join('');
+    M.forEach(function(m){
+      h+='<div class="qx-mf">'+_trEsc(m.func)+'</div>';
+      m.cells.forEach(function(c){
+        if(c.rate==null){h+='<span class="qx-cell none">—</span>';return;}
+        var t=_qxTone(c.rate),bg={ok:'var(--okd)',warn:'var(--qx-warnd)',err:'var(--errd)'}[t],fg={ok:'var(--ok)',warn:'var(--warn)',err:'var(--err)'}[t];
+        h+=_qxA({t:'steps',f:F({func:m.func,vno:c.vno}),from:'Matriz · '+m.func+' × '+_QX_VNO[c.vno]},c.rate+'%','qx-cell',c.n+' ejecuciones · última: '+(c.last_pass?'OK':'falló'),
+          'background:'+bg+';color:'+fg+(c.last_pass?'':';box-shadow:inset 0 0 0 2px var(--err)'));
+      });
+    });
+    h+='</div>';
+  }
+  h+='</div><div class="qx-foot">'+_qxA({t:'steps',f:F({result:'fail'}),from:'Matriz'},'→ Clic en una celda: pasos de esa funcionalidad × VNO')+'</div></div>';
+  h+='<div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:12px">';
+  h+='<div class="qx-card"><span class="qx-card-t">Regresiones detectadas</span>';
+  var RG=d.regressions||[];
+  if(!RG.length)h+='<div class="qx-muted">Sin regresiones: ninguna funcionalidad que andaba bien está fallando seguido.</div>';
+  RG.forEach(function(r){
+    h+=_qxA({t:'aid',aid:r.access_id,ev:r.last_id,from:'Regresión · '+r.func+' × '+r.label},
+      '<b>'+_trEsc(r.func)+' · '+r.label+' →</b><span>'+r.streak+' fallas seguidas desde '+_trFmtTs(r.since)+' · antes '+r.before_rate+'%'+(r.code&&r.code!=='0'?' · código '+_trEsc(r.code):'')+'</span><span>'+_trEsc(r.diag)+'</span>','qx-reg');
+  });
+  h+='</div><div class="qx-card"><span class="qx-card-t">Inestables (flaky)</span>';
+  var FL=d.flaky||[];
+  if(!FL.length)h+='<div class="qx-muted">Ninguna prueba alterna OK y falla en el período.</div>';
+  FL.forEach(function(f){
+    var seq=f.seq.map(function(b){return b?'<span class="qx-ok">✓</span>':'<span class="qx-err">✗</span>';}).join('');
+    h+='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.78rem">'
+      +_qxA({t:'aid',aid:f.access_id,ev:f.last_id,from:'Inestable · '+f.func+' × '+f.label},_trEsc(f.func)+' · '+f.label,'qx-link','Abrir la última ejecución')
+      +_qxA({t:'steps',f:F({func:f.func,vno:f.vno}),from:'Inestable · '+f.func+' × '+f.label},seq,'qx-mono','Comparar ejecuciones OK vs falla','letter-spacing:2px;text-decoration:none')+'</div>';
+  });
+  h+='<div class="qx-muted">Alternan OK y falla con los mismos datos</div></div></div></div></section>';
+  // ── 04 Tiempos ── y ── 05 Higiene ──
+  var T=d.times||[],sc=10;T.forEach(function(t){sc=Math.max(sc,t.p95,t.expected||0);});sc=Math.ceil(sc);
+  h+='<div class="qx-row" style="gap:12px 16px">';
+  h+='<section class="qx-sec" style="flex:1.4 1 540px;min-width:0">'+_qxSecH('04','¿ServiceNow cumple los tiempos?','')+'<div class="qx-card">'
+    +'<div style="display:flex;gap:16px;font-size:.7rem;color:var(--txt2);flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--acc);height:8px"></span>p50</span><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--txt3);height:8px"></span>p95</span><span style="display:flex;align-items:center;gap:6px"><span style="width:2px;height:12px;background:var(--txt)"></span>esperado</span></div>';
+  if(!T.length)h+='<div class="qx-empty">Sin pasos OK con duración registrada.</div>';
+  T.forEach(function(t){
+    var late=t.expected&&t.p95>t.expected*1.5;
+    h+='<div class="qx-trow">'+_qxA({t:'steps',f:F({func:t.func,result:'ok',sort:'slow'}),from:'Tiempos · '+t.func},_trEsc(t.func),'qx-link','Ver los pasos más lentos','color:var(--txt);font-weight:500;font-size:.78rem')
+      +'<div class="qx-track" title="'+t.n+' pasos"><div class="p95" style="width:'+(t.p95/sc*100)+'%"></div><div class="p50" style="width:'+(t.p50/sc*100)+'%"></div>'
+      +(t.expected?'<div class="exp" style="left:'+(t.expected/sc*100)+'%"></div>':'')+'</div>'
+      +'<span class="qx-mono" style="font-size:.7rem;text-align:right;color:'+(late?'var(--err)':'var(--txt2)')+'">'+String(t.p50).replace('.',',')+' / '+String(t.p95).replace('.',',')+' min</span></div>';
+  });
+  h+='<div class="qx-muted">Duración del paso hasta su confirmación · escala 0 a '+sc+' min · rojo = p95 supera 1,5 veces lo esperado</div></div></section>';
+  var Y=d.hygiene||{};
+  h+='<section class="qx-sec" style="flex:1 1 360px;min-width:0">'+_qxSecH('05','¿Dejamos basura en el ambiente?','')+'<div class="qx-card">'
+    +'<div style="display:flex;align-items:baseline;gap:10px">'+_qxA({t:'inv',filter:'pendientes'},String(Y.open||0),'qx-big '+((Y.open||0)?'qx-err':'qx-ok'))+'<span class="qx-muted">AIDs abiertos (no InStock en CoreUse) de '+(Y.total||0)+' creados</span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'
+    +_qxA({t:'inv',filter:'age_lt1'},'<b>'+(Y.lt1d||0)+'</b><span>menos de 1 día</span>','qx-tile')
+    +_qxA({t:'inv',filter:'age_1_7'},'<b class="qx-warn">'+(Y.d1to7||0)+'</b><span>1 a 7 días</span>','qx-tile')
+    +_qxA({t:'inv',filter:'age_gt7'},'<b class="qx-err">'+(Y.gt7d||0)+'</b><span>más de 7 días</span>','qx-tile')+'</div>'
+    +_qxA({t:'inv',filter:'inconsistentes'},'<b>'+(Y.inconsistent||0)+' inconsistentes</b><span>runner: dado de baja · CoreUse: no InStock</span>','qx-reg')
+    +_qxA({t:'inv',filter:'sin_verificar'},(Y.unverified||0)+' sin verificar en CoreUse →')
+    +'<div>'+_qxA({t:'inv',filter:'pendientes'},'Ir al Inventario AID','qx-btn')+'</div></div></section></div>';
+  h+='</div>';
+  cont.innerHTML=h;
+}
+
+// ═══ TRAZABILIDAD ════════════════════════════════════════════════════════
+function _qxShowTraza(){
   _dashStopRefresh();
   switchView('traza');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','inv-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
   var tb=document.getElementById('traza-btn');if(tb)tb.classList.add('active');
-  setTop('','Trazabilidad AID','Línea de tiempo por Access ID · API + CoreUse');
-  _trLoadList();
-  if(aid){document.getElementById('tr-search').value=aid;_trOpen(aid);}
-  else if(!_trCurrent){document.getElementById('tr-detail').innerHTML='<div style="color:var(--txt2);font-size:.8rem;padding:30px;text-align:center">Selecciona un Access ID de la lista o búscalo arriba.</div>';}
+  setTop('','Trazabilidad AID','Pasos · secuencias · línea de tiempo por Access ID');
 }
-function _trSearchDebounced(){
-  if(_trSearchTimer)clearTimeout(_trSearchTimer);
-  _trSearchTimer=setTimeout(_trLoadList,300);
+function showTrazabilidad(aid){
+  var fromSidebar=!aid&&document.getElementById('inv-view').style.display==='none';
+  if(aid)_trBackTo={label:'Inventario',act:'inv'};
+  else if(fromSidebar)_trBackTo=null;
+  _qxShowTraza();
+  if(aid){_trOpenAid(aid,{from:'Inventario AID'});return;}
+  _trTab(_trState.tab||'steps');
 }
+function _trGoBack(){
+  var b=_trBackTo;if(!b)return;
+  if(b.act==='dash')showDashboard();
+  else if(b.act==='inv')showInventario();
+  else{_trBackTo=b.prev||null;_trTab(b.act,true);}
+}
+function _trCrumb(){
+  var el=document.getElementById('tr-crumb');if(!el)return;
+  var h='';
+  if(_trBackTo)h+='<a href="#" class="qx-link" onclick="_trGoBack();return false">← '+_trEsc(_trBackTo.label)+'</a>';
+  if(_trState.from)h+=(h?'<span class="sep">/</span>':'')+'<span class="qx-muted">Llegaste desde <b style="color:var(--txt)">'+_trEsc(_trState.from)+'</b></span>';
+  el.innerHTML=h;el.style.display=h?'':'none';
+}
+function _trTab(tab,keepFrom){
+  _trState.tab=tab;
+  if(!keepFrom&&tab==='aid')_trState.from='';
+  ['steps','seqs','aid'].forEach(function(x){
+    var b=document.getElementById('tr-tab-'+x);if(b)b.classList.toggle('on',x===tab);
+    var p=document.getElementById('tr-pane-'+x);if(p)p.style.display=x===tab?'':'none';
+  });
+  _trCrumb();
+  if(tab==='steps'){_trRenderFilters('steps');_trLoadSteps();}
+  else if(tab==='seqs'){_trRenderFilters('seqs');_trLoadSeqs();}
+  else{_trLoadList();if(!_trCurrent)document.getElementById('tr-detail').innerHTML='<div class="qx-card"><div class="qx-empty">Selecciona un Access ID de la lista o búscalo arriba.</div></div>';}
+}
+function _trSetFilters(tab,f,from){
+  var o={range:'7d'};for(var k in f)o[k]=f[k];
+  if(tab==='seqs')_trState.sf=o;else _trState.f=o;
+  _trState.from=from||'';_trState.openId=null;
+  _trTab(tab,true);
+}
+var _TR_FDEF={
+  range:{l:'Rango',o:[['24h','Últimas 24 h'],['7d','Últimos 7 días'],['30d','Últimos 30 días'],['90d','Últimos 90 días']]},
+  vno:{l:'VNO',o:[['','Todos'],['00','TCH'],['02','KAO'],['03','B1/Entel'],['05','DTV']]},
+  func:{l:'Funcionalidad',o:null},
+  diag:{l:'Diagnóstico',o:[['','Todos'],['ok','OK punta a punta'],['ok_api','OK sin registro CoreUse'],['api_fail','API rechazó'],['cu_missing','CoreUse no registró'],['cu_fail','CoreUse registró error'],['api_fail_cu_ok','API falló, CoreUse OK'],['skipped','Saltados'],['fail','Otros fallos']]},
+  source:{l:'Origen',o:[['','Todos'],['manual','Manual'],['agenda','Agenda'],['cierre','Cierre']]},
+  result:{l:'Resultado',o:[['','Todos'],['ok','OK'],['fail','Con problema']]},
+  sort:{l:'Orden',o:[['recent','Más recientes'],['slow','Más lentos']]},
+  code:{l:'Código de retorno',txt:'ej: 30'},
+  q:{l:'Access ID',txt:'Buscar…'}
+};
+function _trFLabel(k,v){
+  var d=_TR_FDEF[k];if(!d)return k+': '+v;
+  if(d.o){for(var i=0;i<d.o.length;i++)if(d.o[i][0]===v)return (k==='range'?'':d.l+': ')+d.o[i][1];}
+  if(k==='run_key')return 'Ejecución: '+v;
+  return d.l+': '+v;
+}
+function _trRenderFilters(tab){
+  var pane=document.getElementById('tr-pane-'+tab);if(!pane)return;
+  var f=tab==='seqs'?_trState.sf:_trState.f;
+  var keys=tab==='seqs'?['range','vno','result','source']:['range','vno','func','diag','code','source','result','q','sort'];
+  var fdef=_TR_FDEF;
+  fdef.func.o=[['','Todas']].concat((typeof _ATRF_FUNCS!=='undefined'?_ATRF_FUNCS:[]).map(function(x){return [x,x];}));
+  var h='<div class="qx-card"><div class="qx-filters">';
+  keys.forEach(function(k){
+    var d=fdef[k],v=f[k]||'',on=v&&!(k==='range'&&v==='7d')&&!(k==='sort'&&v==='recent');
+    h+='<label>'+d.l;
+    if(d.o){h+='<select class="qx-sel'+(on?' on':'')+'" onchange="_trF(&quot;'+tab+'&quot;,&quot;'+k+'&quot;,this.value)">'
+      +d.o.map(function(o){return '<option value="'+_trEsc(o[0])+'"'+(o[0]===v||(!v&&o[0]===(k==='range'?'7d':k==='sort'?'recent':''))?' selected':'')+'>'+_trEsc(o[1])+'</option>';}).join('')+'</select>';}
+    else h+='<input class="qx-inp'+(on?' on':'')+'" value="'+_trEsc(v)+'" placeholder="'+_trEsc(d.txt)+'" onchange="_trF(&quot;'+tab+'&quot;,&quot;'+k+'&quot;,this.value.trim())">';
+    h+='</label>';
+  });
+  h+='</div>';
+  var chips=Object.keys(f).filter(function(k){return f[k]&&!(k==='range'&&f[k]==='7d')&&!(k==='sort'&&f[k]==='recent');});
+  if(chips.length){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--brd);padding-top:12px">';
+    chips.forEach(function(k){h+='<button class="qx-chip" aria-label="Quitar filtro" onclick="_trF(&quot;'+tab+'&quot;,&quot;'+k+'&quot;,&quot;&quot;)">'+_trEsc(_trFLabel(k,f[k]))+' <span aria-hidden="true">×</span></button>';});
+    h+='<button class="qx-link" style="color:var(--txt2)" onclick="_trClearF(&quot;'+tab+'&quot;)">Limpiar filtros</button></div>';
+  }
+  h+='</div><div id="tr-'+tab+'-stats" class="qx-row" style="gap:10px"></div><div id="tr-'+tab+'-body"></div>';
+  pane.innerHTML=h;
+}
+function _trF(tab,k,v){
+  var f=tab==='seqs'?_trState.sf:_trState.f;
+  if(v)f[k]=v;else if(k==='range')f[k]='7d';else delete f[k];
+  _trState.from='';_trState.openId=null;_trCrumb();
+  _trRenderFilters(tab);
+  if(tab==='seqs')_trLoadSeqs();else _trLoadSteps();
+}
+function _trClearF(tab){if(tab==='seqs')_trState.sf={range:'7d'};else _trState.f={range:'7d'};_trF(tab,'range','7d');}
+function _trQs(f,extra){
+  var p=[];for(var k in f)if(f[k])p.push(encodeURIComponent(k)+'='+encodeURIComponent(f[k]));
+  for(var k2 in (extra||{}))p.push(k2+'='+encodeURIComponent(extra[k2]));
+  return p.join('&');
+}
+function _trLoadSteps(more){
+  var body=document.getElementById('tr-steps-body');if(!body)return;
+  if(!more){_trState.offset=0;_trState.rows=[];body.innerHTML='<div class="qx-card"><div class="qx-empty">Cargando pasos…</div></div>';}
+  fetch('/api/aid-steps?'+_trQs(_trState.f,{limit:100,offset:_trState.offset}),{headers:_authHdr()})
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.error){body.innerHTML='<div class="qx-card"><div class="qx-empty qx-err">'+_trEsc(d.error)+'</div></div>';return;}
+      _trState.cuBase=d.coreuse_base||_trState.cuBase;
+      _trState.rows=_trState.rows.concat(d.rows||[]);_trState.total=d.total||0;_trState.offset=_trState.rows.length;
+      _trRenderStats(d.summary||{});
+      _trRenderSteps();
+    }).catch(function(e){body.innerHTML='<div class="qx-card"><div class="qx-empty qx-err">Error: '+_trEsc(e)+'</div></div>';});
+}
+function _trRenderStats(sm){
+  var el=document.getElementById('tr-steps-stats');if(!el)return;
+  var tot=0;for(var k in sm)tot+=sm[k];
+  var okN=(sm.ok||0)+(sm.ok_api||0);
+  var items=[['',tot,'pasos en el filtro','var(--txt)'],['ok',okN,'OK','var(--ok)'],['cu_fail',sm.cu_fail||0,'CoreUse registró error','var(--qx-pur)'],['cu_missing',sm.cu_missing||0,'CoreUse no registró','var(--warn)'],['api_fail',sm.api_fail||0,'API rechazó','var(--err)']];
+  if(sm.skipped)items.push(['skipped',sm.skipped,'saltados','var(--qx-mut)']);
+  el.innerHTML=items.map(function(x){return '<button class="qx-stat" onclick="_trF(&quot;steps&quot;,&quot;diag&quot;,&quot;'+x[0]+'&quot;)"><b style="color:'+x[3]+'">'+x[1]+'</b><span>'+x[2]+'</span></button>';}).join('');
+}
+function _trCuLink(aid,label){
+  var u=(_trState.cuBase||'')+'/flujos-qa?access='+encodeURIComponent(aid);
+  return '<a href="'+_trEsc(u)+'" target="_blank" rel="noopener" class="qx-link" title="Abrir en CoreUse" onclick="event.stopPropagation()">'+(label||'↗')+'</a>';
+}
+function _trDiagPill(dg){var s=_QX_DIAG[(dg||{}).code]||_QX_DIAG.otro;return '<span class="qx-pill '+s.p+'">'+_trEsc((dg||{}).label||s.l)+'</span>';}
+function _trCuTxt(e){
+  if(e.coreuse_checked==='no_aplica')return 'no aplica';
+  if(e.coreuse_checked==='no'||!e.coreuse_checked)return 'no consultado';
+  return (e.coreuse_status||'—')+(e.coreuse_attempts?' · '+e.coreuse_attempts+' int.':'')+(e.coreuse_checked==='rapido'?' (rápido)':'');
+}
+function _trRenderSteps(){
+  var body=document.getElementById('tr-steps-body');if(!body)return;
+  var rows=_trState.rows;
+  if(!rows.length){body.innerHTML='<div class="qx-card"><div class="qx-empty">No hay pasos para estos filtros.</div></div>';return;}
+  var h='<div class="qx-card" style="padding:0;overflow:hidden"><div class="qx-scroll"><table class="qx-tbl" style="min-width:1100px"><thead><tr>'
+    +'<th>Fecha</th><th>Access ID</th><th>Funcionalidad</th><th>Diagnóstico</th><th>HTTP</th><th>Código</th><th>CoreUse</th><th style="text-align:right">Duración</th><th>Secuencia</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(e){
+    var open=_trState.openId===e.id;
+    h+='<tr class="click'+(open?' open':'')+'" onclick="_trToggleStep('+e.id+')">'
+      +'<td class="qx-mono" style="white-space:nowrap;font-size:.7rem">'+_trFmtTs(e.ts)+'</td>'
+      +'<td style="white-space:nowrap"><a href="#" class="qx-link qx-mono" onclick="event.stopPropagation();_trOpenFromSteps(&quot;'+_trEsc(e.access_id)+'&quot;,'+e.id+');return false">'+_trEsc(e.access_id)+'</a> '+_trCuLink(e.access_id)+'</td>'
+      +'<td>'+_trEsc(e.func)+'<div class="qx-muted">'+_trEsc(_QX_VNO[e.vno]||e.vno)+(e.tc?' · '+_trEsc(e.tc):'')+'</div></td>'
+      +'<td>'+_trDiagPill(e.diag)+'</td>'
+      +'<td class="qx-mono">'+(e.http_code||'—')+'</td>'
+      +'<td class="qx-mono">'+_trEsc(e.return_code||'—')+'</td>'
+      +'<td class="qx-muted">'+_trEsc(_trCuTxt(e))+'</td>'
+      +'<td class="qx-mono" style="text-align:right;white-space:nowrap">'+_trFmtDur(e.duration_ms)+'</td>'
+      +'<td class="qx-muted">'+_trEsc(_QX_SRC[e.source]||e.source)+(e.seq_name?' · '+_trEsc(e.seq_name):'')+'</td>'
+      +'<td style="white-space:nowrap"><a href="#" class="qx-link" onclick="event.stopPropagation();_trOpenFromSteps(&quot;'+_trEsc(e.access_id)+'&quot;,'+e.id+');return false">Línea de tiempo →</a></td></tr>';
+    if(open)h+='<tr><td colspan="10" style="background:var(--brdl);padding:14px 16px"><div id="tr-step-det">Cargando detalle…</div></td></tr>';
+  });
+  h+='</tbody></table></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 16px;border-top:1px solid var(--brd)">'
+    +'<span class="qx-muted">Mostrando '+rows.length+' de '+_trState.total+' pasos · '+(_trState.f.sort==='slow'?'más lentos primero':'más recientes primero')+'</span><div class="qx-tools">'
+    +(rows.length<_trState.total?'<button class="qx-btn" onclick="_trLoadSteps(true)">Cargar más</button>':'')
+    +'<button class="qx-btn" onclick="_trExportCsv()">Exportar CSV</button></div></div></div>';
+  body.innerHTML=h;
+  if(_trState.openId)_trLoadStepDetail(_trState.openId);
+}
+function _trToggleStep(id){_trState.openId=_trState.openId===id?null:id;_trRenderSteps();}
+function _trLoadStepDetail(id){
+  fetch('/api/aid-event/'+id,{headers:_authHdr()}).then(function(r){return r.json();}).then(function(e){
+    var box=document.getElementById('tr-step-det');if(!box)return;
+    if(e.error){box.innerHTML='<span class="qx-err">'+_trEsc(e.error)+'</span>';return;}
+    box.innerHTML=_trStepDetailHtml(e,true);
+  });
+}
+function _trStepDetailHtml(e,withOpen){
+  var dg=e.diag||{},s=_QX_DIAG[dg.code]||_QX_DIAG.otro,x=e.extra||{};
+  var meta=[e.mode==='async'?'Asíncrono':e.mode==='sync'?'Síncrono':'',e.user_email?'Usuario '+e.user_email:'',_QX_SRC[e.source]?'Origen '+_QX_SRC[e.source]:'',e.tc||'',
+    x.cto&&x.cto.code?'CTO '+x.cto.code+(x.cto.lu?' · LU '+x.cto.lu:'')+(x.cto.luRetry?' (reintento LU'+x.cto.luRetry+')':''):'',x.apim408?'APIM 408':''].filter(Boolean);
+  var h='<div style="display:flex;flex-wrap:wrap;gap:14px">'
+    +'<div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:8px">'
+    +'<b style="color:'+s.c+';font-size:.82rem">'+_trEsc(dg.label||'')+'</b>'
+    +(dg.detail?'<div style="font-size:.78rem;line-height:1.5">'+_trEsc(dg.detail)+'</div>':'')
+    +(e.coreuse_msg?'<div style="padding:9px 12px;border-radius:8px;background:'+(s.p==='pur'?'var(--qx-purd)':s.p==='warn'?'var(--qx-warnd)':'var(--accd)')+';font-size:.74rem"><b>CoreUse</b> · '+_trEsc(_trCuTxt(e))+'<div style="margin-top:3px">'+_trEsc(e.coreuse_msg)+'</div></div>':'')
+    +(e.return_desc?'<div class="qx-muted">Descripción: '+_trEsc(e.return_desc)+'</div>':'')
+    +'<div style="display:flex;flex-wrap:wrap;gap:4px 14px" class="qx-muted">'+meta.map(function(m){return '<span>'+_trEsc(m)+'</span>';}).join('')+'</div></div>'
+    +'<div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:6px"><span class="qx-muted">Request</span><pre class="qx-pre" style="max-height:200px">'+_trEsc(_trPretty(e.req)||'—')+'</pre></div>'
+    +'<div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:6px"><span class="qx-muted">Response · HTTP '+(e.http_code||'—')+'</span><pre class="qx-pre" style="max-height:200px">'+_trEsc(_trPretty(e.res)||'—')+'</pre></div></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:12px">';
+  if(withOpen)h+='<a href="#" class="qx-link" onclick="_trOpenFromSteps(&quot;'+_trEsc(e.access_id)+'&quot;,'+e.id+');return false">Abrir línea de tiempo del AID →</a>';
+  if(e.return_code&&e.return_code!=='0'){
+    h+='<a href="#" class="qx-link" onclick="_trBackTo=null;_trSetFilters(&quot;steps&quot;,{code:&quot;'+_trEsc(e.return_code)+'&quot;},&quot;Código '+_trEsc(e.return_code)+'&quot;);return false">Otros pasos con código '+_trEsc(e.return_code)+'</a>';
+    h+='<a href="#" class="qx-link" onclick="_qxGo('+_qxL({t:'codes',code:e.return_code,back:false})+');return false">Código '+_trEsc(e.return_code)+' en Códigos de Retorno</a>';
+  }
+  h+='<a href="#" class="qx-link" onclick="_trCopyTicket('+e.id+');return false">Copiar para ticket</a>'+_trCuLink(e.access_id,'Abrir en CoreUse ↗')+'</div>';
+  return h;
+}
+var _trEvCache={};
+function _trCopyTicket(id){
+  var go=function(e){
+    var NL=_qxNL(),dg=e.diag||{};
+    var t=['Access ID: '+e.access_id,'VNO: '+(_QX_VNO[e.vno]||e.vno),'Funcionalidad: '+e.func+(e.tc?' ('+e.tc+')':''),'Fecha: '+_trFmtTs(e.ts),
+      'Diagnóstico: '+(dg.label||'')+(dg.detail?' — '+dg.detail:''),'HTTP: '+(e.http_code||'—')+' · u_return_code: '+(e.return_code||'—')+(e.return_desc?' · '+e.return_desc:''),
+      'CoreUse: '+_trCuTxt(e)+(e.coreuse_msg?' · '+e.coreuse_msg:''),'Secuencia: '+(_QX_SRC[e.source]||e.source||'')+(e.seq_name?' · '+e.seq_name:''),'','Request:',_trPretty(e.req)||'—','','Response:',_trPretty(e.res)||'—'].join(NL);
+    _qxCopy(t);
+  };
+  if(_trEvCache[id])return go(_trEvCache[id]);
+  fetch('/api/aid-event/'+id,{headers:_authHdr()}).then(function(r){return r.json();}).then(function(e){_trEvCache[id]=e;go(e);});
+}
+function _trOpenFromSteps(aid,evId){
+  var tab=_trState.tab;
+  _trBackTo={label:tab==='seqs'?'Secuencias':'Pasos',act:tab,prev:_trBackTo};
+  _trOpenAid(aid,{ev:evId,from:_trState.from});
+}
+function _trExportCsv(){
+  fetch('/api/aid-steps?'+_trQs(_trState.f,{limit:500,offset:0}),{headers:_authHdr()}).then(function(r){return r.json();}).then(function(d){
+    var NL=_qxNL(),q=function(v){return '"'+String(v==null?'':v).split('"').join('""')+'"';};
+    var lines=[['fecha','access_id','vno','funcionalidad','tc','diagnostico','detalle','http','u_return_code','descripcion','coreuse','coreuse_msg','duracion_ms','origen','secuencia'].join(',')];
+    (d.rows||[]).forEach(function(e){lines.push([_trFmtTs(e.ts),e.access_id,_QX_VNO[e.vno]||e.vno,e.func,e.tc,(e.diag||{}).label,(e.diag||{}).detail,e.http_code,e.return_code,e.return_desc,_trCuTxt(e),e.coreuse_msg,e.duration_ms,e.source,e.seq_name].map(q).join(','));});
+    var blob=new Blob([String.fromCharCode(65279)+lines.join(NL)],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trazabilidad_pasos_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+  });
+}
+// Secuencias
+function _trLoadSeqs(){
+  var body=document.getElementById('tr-seqs-body');if(!body)return;
+  body.innerHTML='<div class="qx-card"><div class="qx-empty">Cargando secuencias…</div></div>';
+  var st=document.getElementById('tr-seqs-stats');if(st)st.innerHTML='';
+  fetch('/api/aid-sequences?'+_trQs(_trState.sf),{headers:_authHdr()}).then(function(r){return r.json();}).then(function(d){
+    if(d.error){body.innerHTML='<div class="qx-card"><div class="qx-empty qx-err">'+_trEsc(d.error)+'</div></div>';return;}
+    var rows=d.rows||[];
+    var ok=rows.filter(function(s){return s.result==='ok';}).length;
+    if(st)st.innerHTML='<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;&quot;)"><b>'+rows.length+'</b><span>secuencias</span></button>'
+      +'<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;ok&quot;)"><b class="qx-ok">'+ok+'</b><span>exitosas</span></button>'
+      +'<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;fail&quot;)"><b class="qx-err">'+(rows.length-ok)+'</b><span>fallidas</span></button>';
+    if(!rows.length){body.innerHTML='<div class="qx-card"><div class="qx-empty">No hay secuencias para estos filtros.</div></div>';return;}
+    var h='<div class="qx-card" style="padding:0;overflow:hidden"><div class="qx-scroll"><table class="qx-tbl" style="min-width:980px"><thead><tr><th>Inicio</th><th>Secuencia</th><th>VNO</th><th>Access ID</th><th>Pasos</th><th>Resultado</th><th>Primer problema</th><th style="text-align:right">Duración</th></tr></thead><tbody>';
+    rows.forEach(function(s){
+      var aid=s.access_ids[s.access_ids.length-1]||'';
+      h+='<tr class="click" onclick="_trOpenSeq(&quot;'+_trEsc(aid)+'&quot;,&quot;'+_trEsc(s.run_key)+'&quot;)">'
+        +'<td class="qx-mono" style="white-space:nowrap;font-size:.7rem">'+_trFmtTs(s.t0)+'</td>'
+        +'<td><b>'+_trEsc(s.seq_name||'Ejecución')+'</b><div class="qx-muted">'+_trEsc(_QX_SRC[s.source]||s.source)+(s.user_email?' · '+_trEsc(s.user_email):'')+'</div></td>'
+        +'<td>'+_trEsc(_QX_VNO[s.vno]||s.vno)+'</td>'
+        +'<td class="qx-mono" style="font-size:.7rem">'+s.access_ids.map(_trEsc).join('<br>')+'</td>'
+        +'<td style="min-width:140px"><div class="qx-seqbar" style="height:16px"><span style="display:block;width:'+(s.ok/s.steps*100)+'%;background:var(--ok)"></span><span style="display:block;width:'+(s.fail/s.steps*100)+'%;background:var(--err)"></span></div><div class="qx-muted qx-mono" style="margin-top:3px">'+s.ok+'/'+s.steps+' OK</div></td>'
+        +'<td><span class="qx-pill '+(s.result==='ok'?'ok':'err')+'">'+(s.result==='ok'?'Exitosa':'Fallida')+'</span></td>'
+        +'<td class="qx-muted">'+(s.first_fail?_trEsc(s.first_fail.func)+' · '+_trEsc(s.first_fail.diag):'—')+'</td>'
+        +'<td class="qx-mono" style="text-align:right">'+_trFmtDur(s.t1-s.t0)+'</td></tr>';
+    });
+    h+='</tbody></table></div><div class="qx-muted" style="padding:12px 16px;border-top:1px solid var(--brd)">Clic en una secuencia: abre la línea de tiempo del AID en esa ejecución</div></div>';
+    body.innerHTML=h;
+  });
+}
+function _trOpenSeq(aid,run){_trBackTo={label:'Secuencias',act:'seqs',prev:_trBackTo};_trOpenAid(aid,{run:run,from:_trState.from});}
+
+// Por AID: lista + línea de tiempo
+function _trSearchDebounced(){if(_trSearchTimer)clearTimeout(_trSearchTimer);_trSearchTimer=setTimeout(_trLoadList,300);}
 function _trLoadList(){
   var q=(document.getElementById('tr-search')||{}).value||'';
-  var box=document.getElementById('tr-list');
+  var box=document.getElementById('tr-list');if(!box)return;
   fetch('/api/aid-trace/list?q='+encodeURIComponent(q.trim()),{headers:_authHdr()})
     .then(function(r){return r.json();})
     .then(function(rows){
-      if(!Array.isArray(rows)){box.innerHTML='<div style="padding:14px;color:var(--err);font-size:.75rem">'+_trEsc(rows.error||'Error')+'</div>';return;}
-      document.getElementById('tr-count').textContent=rows.length+' Access ID'+(rows.length===1?'':'s');
-      if(!rows.length){box.innerHTML='<div style="padding:14px;color:var(--txt2);font-size:.75rem">Sin eventos registrados todavía. Se registran desde la próxima ejecución.</div>';return;}
+      if(!Array.isArray(rows)){box.innerHTML='<div class="qx-empty qx-err">'+_trEsc(rows.error||'Error')+'</div>';return;}
+      var c=document.getElementById('tr-count');if(c)c.textContent=rows.length+' Access ID'+(rows.length===1?'':'s');
+      if(!rows.length){box.innerHTML='<div class="qx-empty">Sin eventos registrados todavía.</div>';return;}
       box.innerHTML=rows.map(function(r){
         var sel=_trCurrent&&_trCurrent.access_id===r.access_id;
-        return '<div onclick="_trOpen(this.dataset.aid)" data-aid="'+_trEsc(r.access_id)+'" style="padding:9px 12px;border-bottom:1px solid var(--brd);cursor:pointer;'+(sel?'background:var(--accd);':'')+'">'
-          +'<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--mono);font-size:.74rem;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+_trEsc(r.access_id)+'</span>'
-          +'<span style="font-size:.65rem;color:var(--txt2)">'+_trEsc(r.vno_lbl)+'</span></div>'
-          +'<div style="font-size:.66rem;color:var(--txt2);margin-top:3px;display:flex;gap:8px">'
-          +'<span style="color:var(--ok)">✔ '+r.ok+'</span><span style="color:'+(r.fail?'var(--err)':'var(--txt3)')+'">✖ '+r.fail+'</span>'
-          +'<span style="margin-left:auto">'+_trFmtTs(r.last_ts)+'</span></div>'
-          +'<div style="font-size:.65rem;color:var(--txt3);margin-top:2px">Último: '+_trEsc(r.last_func)+' '+(r.last_pass?'✅':'❌')+'</div>'
-          +'</div>';
+        return '<div onclick="_trOpenAid(this.dataset.aid,{})" data-aid="'+_trEsc(r.access_id)+'" style="padding:10px 14px;border-bottom:1px solid var(--brdl);cursor:pointer;'+(sel?'background:var(--accd);box-shadow:inset 3px 0 0 var(--acc);':'')+'">'
+          +'<div style="display:flex;align-items:center;gap:6px"><span class="qx-mono" style="font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+_trEsc(r.access_id)+'</span><span class="qx-muted">'+_trEsc(r.vno_lbl)+'</span></div>'
+          +'<div style="font-size:.66rem;margin-top:4px;display:flex;gap:10px;align-items:center"><span class="qx-ok">✓ '+r.ok+'</span><span class="'+(r.fail?'qx-err':'qx-mut')+'">✗ '+r.fail+'</span><span class="qx-muted" style="margin-left:auto">'+_trFmtTs(r.last_ts)+'</span></div>'
+          +'<div class="qx-muted" style="margin-top:2px;font-size:.66rem">Último: '+_trEsc(r.last_func)+' <span class="'+(r.last_pass?'qx-ok':'qx-err')+'">'+(r.last_pass?'OK':'falló')+'</span></div></div>';
       }).join('');
-    }).catch(function(e){box.innerHTML='<div style="padding:14px;color:var(--err);font-size:.75rem">Error: '+_trEsc(e)+'</div>';});
+    }).catch(function(e){box.innerHTML='<div class="qx-empty qx-err">Error: '+_trEsc(e)+'</div>';});
 }
-function _trOpen(aid){
-  if(!aid)return;
+function _trOpen(aid){_trOpenAid(aid,{});}
+function _trOpenAid(aid,opts){
+  if(!aid)return;opts=opts||{};
+  _trState.tab='aid';
+  if(opts.from!==undefined)_trState.from=opts.from||'';
+  ['steps','seqs','aid'].forEach(function(x){
+    var b=document.getElementById('tr-tab-'+x);if(b)b.classList.toggle('on',x==='aid');
+    var p=document.getElementById('tr-pane-'+x);if(p)p.style.display=x==='aid'?'':'none';
+  });
+  _trCrumb();
+  var s=document.getElementById('tr-search');if(s&&s.value!==aid&&!opts.keepSearch)s.value='';
   var det=document.getElementById('tr-detail');
-  det.innerHTML='<div style="color:var(--txt2);font-size:.8rem;padding:20px">Cargando traza de '+_trEsc(aid)+'…</div>';
+  det.innerHTML='<div class="qx-card"><div class="qx-empty">Cargando traza de '+_trEsc(aid)+'…</div></div>';
   fetch('/api/aid-trace?access_id='+encodeURIComponent(aid),{headers:_authHdr()})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.error){det.innerHTML='<div style="color:var(--err);font-size:.8rem;padding:20px">'+_trEsc(d.error)+'</div>';return;}
-      _trCurrent=d;
+      if(d.error){det.innerHTML='<div class="qx-card"><div class="qx-empty qx-err">'+_trEsc(d.error)+'</div></div>';return;}
+      _trCurrent=d;_trOpenEv={};
+      (d.events||[]).forEach(function(e){if(!e.final_pass)_trOpenEv[e.id]=1;});
+      if(opts.ev)_trOpenEv[opts.ev]=1;
+      _trCurrent._focus=opts.ev||null;_trCurrent._run=opts.run||null;
       _trRender();
       _trLoadList();
       _trLoadCoreuse(aid);
-    }).catch(function(e){det.innerHTML='<div style="color:var(--err);font-size:.8rem;padding:20px">Error: '+_trEsc(e)+'</div>';});
+      setTimeout(function(){
+        var el=opts.ev?document.getElementById('tr-ev-card-'+opts.ev):opts.run?document.getElementById('tr-run-'+opts.run):null;
+        if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+      },60);
+    }).catch(function(e){det.innerHTML='<div class="qx-card"><div class="qx-empty qx-err">Error: '+_trEsc(e)+'</div></div>';});
+}
+function _trGroups(ev){
+  var groups=[],gmap={};
+  ev.forEach(function(e){
+    var k=e.run_key||('single-'+e.id);
+    if(!gmap[k]){gmap[k]={key:k,seq:e.seq_name,source:e.source,user:e.user_email,t0:e.ts,t1:e.ts,items:[],ok:0};groups.push(gmap[k]);}
+    var g=gmap[k];g.items.push(e);g.t1=Math.max(g.t1,e.ts+(e.duration_ms||0));if(e.final_pass)g.ok++;
+  });
+  return groups;
 }
 function _trRender(){
   var d=_trCurrent;if(!d)return;
-  var ev=d.events||[];
-  var ok=ev.filter(function(e){return e.final_pass;}).length;
-  var h='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
-    +'<a href="'+_trEsc(d.coreuse_url)+'" target="_blank" rel="noopener" title="Abrir en CoreUse" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--acc);text-decoration:none">'+_trEsc(d.access_id)+' ↗</a>'
-    +(d.state?'<span style="font-size:.68rem;padding:2px 8px;border-radius:10px;border:1px solid var(--brd);color:var(--txt2)">Estado: '+_trEsc(d.state)+'</span>':'')
-    +'<span style="font-size:.7rem;color:var(--ok)">✔ '+ok+' OK</span>'
-    +'<span style="font-size:.7rem;color:'+(ev.length-ok?'var(--err)':'var(--txt3)')+'">✖ '+(ev.length-ok)+' con problema</span>'
-    +'<div style="flex:1"></div>'
-    +'<a href="'+_trEsc(d.coreuse_url)+'" target="_blank" style="font-size:.72rem;color:var(--acc);text-decoration:none">Abrir en CoreUse →</a>'
-    +'<button onclick="_trExport()" style="padding:3px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);font-size:.7rem;cursor:pointer">⬇ Exportar JSON</button>'
-    +'</div>';
-  if(!ev.length){
-    h+='<div style="color:var(--txt2);font-size:.78rem;padding:10px 0">No hay eventos registrados para este Access ID en el runner.</div>';
-  }
-  // Agrupar por ejecución (run_key)
-  var groups=[],gmap={};
-  ev.forEach(function(e,idx){
-    var k=e.run_key||('single-'+idx);
-    if(!gmap[k]){gmap[k]={key:k,seq:e.seq_name,source:e.source,user:e.user_email,ts:e.ts,items:[]};groups.push(gmap[k]);}
-    gmap[k].items.push({e:e,idx:idx});
-  });
+  var ev=d.events||[],ok=ev.filter(function(e){return e.final_pass;}).length;
+  var vno=ev.length?ev[ev.length-1].vno:'';
+  var rs=_QX_RUN_ST[d.state],cs=_QX_CU_ST[d.cu_state];
+  var h='<div style="display:flex;flex-direction:column;gap:16px">'
+    +'<div class="qx-head" style="align-items:center"><div style="display:flex;flex-direction:column;gap:8px">'
+    +'<a href="'+_trEsc(d.coreuse_url)+'" target="_blank" rel="noopener" title="Abrir en CoreUse" class="qx-mono" style="font-size:1.25rem;font-weight:700;color:var(--acc);text-decoration:none">'+_trEsc(d.access_id)+' ↗</a>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'
+    +(vno?'<span class="qx-pill">'+_trEsc(_QX_VNO[vno]||vno)+'</span>':'')
+    +(rs?'<span class="qx-pill '+rs[0]+'">'+rs[1]+'</span>':'')
+    +(cs?'<span class="qx-pill '+cs[0]+'" title="Verificado '+_trFmtTs(d.cu_checked_at)+'">'+cs[1]+'</span>':'<span class="qx-pill">CoreUse: sin verificar</span>')
+    +'<span class="qx-pill '+(ok===ev.length?'ok':'err')+'">'+ok+' de '+ev.length+' pasos OK</span></div></div>'
+    +'<div class="qx-tools"><a class="qx-btn" href="'+_trEsc(d.coreuse_url)+'" target="_blank" rel="noopener">Abrir en CoreUse</a>'
+    +'<button class="qx-btn" onclick="_trToInventory()">Ver en Inventario</button>'
+    +'<button class="qx-btn pri" onclick="_trExport()">Exportar traza (JSON)</button></div></div>';
+  if(!ev.length)h+='<div class="qx-card"><div class="qx-empty">No hay eventos registrados para este Access ID en el runner.</div></div>';
+  var groups=_trGroups(ev);
+  h+='<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start"><div style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px">';
   groups.forEach(function(g){
-    h+='<div style="margin:14px 0 6px;display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--txt2)">'
-      +'<span style="font-weight:700;color:var(--txt)">'+_trEsc(g.seq||'Ejecución')+'</span>'
-      +'<span style="padding:1px 6px;border-radius:4px;border:1px solid var(--brd)">'+(g.source==='agenda'?'📅 Agenda':'▶ Manual')+'</span>'
-      +(g.user?'<span>'+_trEsc(g.user)+'</span>':'')
-      +'<span style="margin-left:auto">'+_trFmtTs(g.ts)+'</span></div>';
-    g.items.forEach(function(it){h+=_trEventCard(it.e,it.idx);});
+    h+='<div id="tr-run-'+_trEsc(g.key)+'" style="display:flex;flex-direction:column;gap:6px'+(d._run===g.key?';padding:10px;border-radius:12px;box-shadow:0 0 0 2px var(--acc)':'')+'">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin-bottom:4px"><b style="font-size:.9rem">'+_trEsc(g.seq||'Ejecución')+'</b>'
+      +'<span class="qx-pill">'+_trEsc(_QX_SRC[g.source]||g.source||'—')+'</span>'
+      +(g.user?'<span class="qx-muted">'+_trEsc(g.user)+'</span>':'')
+      +'<span class="qx-muted qx-mono">'+_trFmtTs(g.t0)+' → '+_trFmtHm(g.t1)+' · '+_trFmtDur(g.t1-g.t0)+'</span>'
+      +'<span class="qx-muted" style="margin-left:auto">'+g.ok+'/'+g.items.length+' OK</span></div>';
+    g.items.forEach(function(e,i){h+=_trEventCard(e,i===g.items.length-1);});
+    h+='</div>';
   });
-  h+='<div style="margin-top:22px;border-top:1px solid var(--brd);padding-top:12px">'
-    +'<div style="font-size:.78rem;font-weight:700;color:var(--txt);margin-bottom:8px">Flujos registrados en CoreUse (en vivo)</div>'
-    +'<div id="tr-coreuse" style="font-size:.74rem;color:var(--txt2)">Consultando CoreUse…</div></div>';
+  h+='</div><aside style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:12px">'
+    +'<div class="qx-card"><div class="qx-card-h"><span class="qx-card-t">Flujos en CoreUse (en vivo)</span><a href="'+_trEsc(d.coreuse_url)+'" target="_blank" rel="noopener" class="qx-link">↗</a></div><div id="tr-coreuse" class="qx-muted">Consultando CoreUse…</div></div>'
+    +'<div class="qx-card"><span class="qx-card-t">Ejecuciones de este AID</span>'
+    +groups.map(function(g){return '<a href="#" class="qx-tile" style="flex-direction:row;justify-content:space-between;align-items:center;gap:8px" onclick="var el=document.getElementById(&quot;tr-run-'+_trEsc(g.key)+'&quot;);if(el)el.scrollIntoView({behavior:&quot;smooth&quot;});return false">'
+      +'<span style="font-size:.74rem;color:var(--txt)">'+_trEsc(g.seq||'Ejecución')+'<br><span class="qx-muted">'+_trEsc(_QX_SRC[g.source]||'')+' · '+_trFmtTs(g.t0)+'</span></span><b class="'+(g.ok===g.items.length?'qx-ok':'qx-err')+'" style="font-size:.8rem">'+g.ok+'/'+g.items.length+'</b></a>';}).join('')
+    +'</div></aside></div></div>';
   document.getElementById('tr-detail').innerHTML=h;
 }
-function _trEventCard(e,idx){
-  var dg=e.diag||{};var st=_TR_DIAG_STYLE[dg.code]||{c:'var(--txt2)',i:'•'};
-  var x=e.extra||{};
-  var chips=[];
-  if(e.tc)chips.push(e.tc);
-  if(e.mode)chips.push(e.mode==='async'?'Asíncrono':'Síncrono');
-  chips.push('HTTP '+(e.http_code||'—'));
-  if(e.return_code)chips.push('u_return_code '+e.return_code);
-  chips.push(_trFmtDur(e.duration_ms));
-  if(x.apim408)chips.push('APIM 408');
-  if(x.cto&&x.cto.code)chips.push('CTO '+x.cto.code+(x.cto.lu?' · LU '+x.cto.lu:'')+(x.cto.luRetry?' (reintento LU'+x.cto.luRetry+')':''));
-  var cuTxt={completo:'CoreUse',rapido:'CoreUse (chequeo rápido)',no_aplica:'CoreUse: no aplica',no:'CoreUse: no consultado'}[e.coreuse_checked]||'CoreUse';
-  var cuLine='';
-  if(e.coreuse_checked==='completo'||e.coreuse_checked==='rapido'){
-    cuLine=cuTxt+': <b>'+_trEsc(e.coreuse_status||'—')+'</b>'+(e.coreuse_attempts?' · '+e.coreuse_attempts+' intento(s)':'')+(e.coreuse_msg?' · '+_trEsc(e.coreuse_msg):'');
-  } else cuLine=cuTxt;
-  return '<div style="border:1px solid var(--brd);border-left:3px solid '+st.c+';border-radius:6px;margin-bottom:6px;background:var(--card)">'
-    +'<div onclick="_trToggle('+idx+')" style="padding:8px 12px;cursor:pointer">'
-    +'<div style="display:flex;align-items:center;gap:8px">'
-    +'<span style="font-size:.85rem">'+st.i+'</span>'
-    +'<span style="font-size:.8rem;font-weight:700;color:var(--txt)">'+_trEsc(e.func)+'</span>'
-    +'<span style="font-size:.72rem;color:'+st.c+';font-weight:600">'+_trEsc(dg.label||'')+'</span>'
-    +'<span style="margin-left:auto;font-size:.68rem;color:var(--txt3)">'+_trFmtTs(e.ts)+'</span></div>'
-    +(dg.detail?'<div style="font-size:.71rem;color:var(--txt2);margin-top:3px">'+_trEsc(dg.detail)+'</div>':'')
-    +'<div style="font-size:.67rem;color:var(--txt3);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 10px">'+chips.map(function(c){return '<span>'+_trEsc(c)+'</span>';}).join('')+'</div>'
-    +'<div style="font-size:.67rem;color:var(--txt2);margin-top:3px">'+cuLine+'</div>'
-    +(e.return_desc?'<div style="font-size:.67rem;color:var(--txt2);margin-top:2px">Descripción: '+_trEsc(e.return_desc)+'</div>':'')
-    +'</div>'
-    +'<div id="tr-ev-'+idx+'" style="display:none;border-top:1px solid var(--brd);padding:8px 12px">'
-    +'<div style="font-size:.68rem;color:var(--txt2);margin-bottom:3px">Request</div>'
-    +'<pre style="margin:0 0 8px;max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--brd);border-radius:5px;padding:8px;font-size:.68rem;white-space:pre-wrap;word-break:break-all">'+_trEsc(_trPretty(e.req)||'—')+'</pre>'
-    +'<div style="font-size:.68rem;color:var(--txt2);margin-bottom:3px">Response</div>'
-    +'<pre style="margin:0;max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--brd);border-radius:5px;padding:8px;font-size:.68rem;white-space:pre-wrap;word-break:break-all">'+_trEsc(_trPretty(e.res)||'—')+'</pre>'
+function _trEventCard(e,last){
+  var dg=e.diag||{},s=_QX_DIAG[dg.code]||_QX_DIAG.otro,open=!!_trOpenEv[e.id];
+  var meta=[e.tc,'HTTP '+(e.http_code||'—'),e.return_code?'u_return_code '+e.return_code:'','CoreUse: '+_trCuTxt(e)].filter(Boolean);
+  return '<div class="qx-tl"><div class="qx-tl-rail" aria-hidden="true"><div class="qx-tl-dot" style="background:'+s.c+'"></div>'+(last?'':'<div class="qx-tl-line"></div>')+'</div>'
+    +'<div id="tr-ev-card-'+e.id+'" class="qx-tl-card'+(_trCurrent&&_trCurrent._focus===e.id?' focus':'')+'" style="'+(e.final_pass?'':'border-color:'+s.c)+'" onclick="_trToggle('+e.id+')">'
+    +'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px"><b style="font-size:.84rem">'+_trEsc(e.func)+'</b>'+_trDiagPill(dg)
+    +'<span class="qx-muted qx-mono" style="margin-left:auto">'+_trFmtHm(e.ts)+' · '+_trFmtDur(e.duration_ms)+'</span></div>'
+    +(dg.detail?'<div style="font-size:.76rem;color:var(--txt)">'+_trEsc(dg.detail)+'</div>':'')
+    +'<div class="qx-muted qx-mono" style="display:flex;flex-wrap:wrap;gap:3px 14px;font-size:.68rem">'+meta.map(function(m){return '<span>'+_trEsc(m)+'</span>';}).join('')+'</div>'
+    +(open?'<div style="border-top:1px solid var(--brd);margin-top:6px;padding-top:12px;cursor:auto" onclick="event.stopPropagation()">'+_trStepDetailHtml(e,false)+'</div>':'')
     +'</div></div>';
 }
-function _trToggle(idx){var el=document.getElementById('tr-ev-'+idx);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function _trToggle(id){if(_trOpenEv[id])delete _trOpenEv[id];else _trOpenEv[id]=1;_trRender();_trLoadCoreuse(_trCurrent.access_id);}
+function _trToInventory(){showInventario('todos');setTimeout(function(){var s=document.getElementById('inv-search');if(s&&_trCurrent){s.value=_trCurrent.access_id;_invRender();}},400);}
 function _trLoadCoreuse(aid){
+  if(_trCurrent&&_trCurrent.coreuse&&_trCurrent.access_id===aid)return _trPaintCoreuse(_trCurrent.coreuse);
   fetch('/api/coreuse/detail?access_id='+encodeURIComponent(aid),{headers:_authHdr()})
     .then(function(r){return r.json();})
-    .then(function(d){
-      var box=document.getElementById('tr-coreuse');
-      if(!box||!_trCurrent||_trCurrent.access_id!==aid)return;
-      if(d.error){box.innerHTML='<span style="color:var(--warn)">No se pudo consultar CoreUse: '+_trEsc(d.error)+'</span>';return;}
-      _trCurrent.coreuse=d;
-      var fl=d.flujos||[];
-      if(!fl.length){box.innerHTML='CoreUse no muestra flujos para este Access ID'+(d.count?' (encabezado indica '+d.count+')':'')+'.';return;}
-      box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.72rem">'
-        +'<tr style="color:var(--txt2);text-align:left"><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Fecha</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Operación</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Código</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Resultado</th><th style="padding:4px 6px;border-bottom:1px solid var(--brd)">Orden</th></tr>'
-        +fl.map(function(f){
-          var okc=String(f.code)==='0';
-          return '<tr><td style="padding:4px 6px;border-bottom:1px solid var(--brd);white-space:nowrap">'+_trEsc(f.date)+'</td>'
-            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd);color:var(--txt)">'+_trEsc(f.operation)+'</td>'
-            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd);color:'+(okc?'var(--ok)':'var(--err)')+';font-weight:700">'+_trEsc(f.code)+'</td>'
-            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd)">'+_trEsc(f.result)+'</td>'
-            +'<td style="padding:4px 6px;border-bottom:1px solid var(--brd);font-family:var(--mono)">'+_trEsc(f.order)+'</td></tr>';
-        }).join('')+'</table>';
-    }).catch(function(e){var box=document.getElementById('tr-coreuse');if(box)box.innerHTML='<span style="color:var(--warn)">Error CoreUse: '+_trEsc(e)+'</span>';});
+    .then(function(d){if(!_trCurrent||_trCurrent.access_id!==aid)return;_trCurrent.coreuse=d;_trPaintCoreuse(d);})
+    .catch(function(e){var box=document.getElementById('tr-coreuse');if(box)box.innerHTML='<span class="qx-warn">Error CoreUse: '+_trEsc(e)+'</span>';});
+}
+function _trPaintCoreuse(d){
+  var box=document.getElementById('tr-coreuse');if(!box)return;
+  if(d.error){box.innerHTML='<span class="qx-warn">No se pudo consultar CoreUse: '+_trEsc(d.error)+'</span>';return;}
+  var fl=d.flujos||[];
+  if(!fl.length){box.innerHTML='CoreUse no muestra flujos para este Access ID.';return;}
+  box.innerHTML='<table class="qx-tbl"><thead><tr><th>Fecha</th><th>Operación</th><th style="text-align:right">Cód.</th></tr></thead><tbody>'
+    +fl.map(function(f){var okc=String(f.code)==='0'||f.code==='';
+      return '<tr><td class="qx-mono" style="white-space:nowrap;font-size:.68rem">'+_trEsc(f.date)+'</td><td style="color:var(--txt)">'+_trEsc(f.operation)+(f.result?'<div class="qx-muted">'+_trEsc(f.result)+'</div>':'')+'</td>'
+        +'<td class="qx-mono" style="text-align:right;font-weight:700;color:'+(okc?'var(--ok)':'var(--err)')+'">'+_trEsc(f.code===''?'0':f.code)+'</td></tr>';}).join('')
+    +'</tbody></table>';
 }
 function _trExport(){
   if(!_trCurrent)return;
-  var blob=new Blob([JSON.stringify(_trCurrent,null,2)],{type:'application/json'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
+  var c={};for(var k in _trCurrent)if(k.charAt(0)!=='_')c[k]=_trCurrent[k];
+  var blob=new Blob([JSON.stringify(c,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='traza_'+_trCurrent.access_id+'_'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(a);a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
 }
 </script>
 <!-- ── ATRF Modal TC Detail ────────────────────────────────────────────── -->
