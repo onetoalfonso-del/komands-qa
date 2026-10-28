@@ -1174,9 +1174,93 @@ def _coreuse_get_session():
             return _coreuse_login()
         return _coreuse_session
 
-def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
+# Funcionalidad del runner → tabla ServiceNow del flujo en CoreUse (fila "Flujos ejecutados").
+# Confirmadas con CoreUse real: las de _CU_FLOW_CONFIRMED. El resto son nombres probables;
+# si no calzan se usa la fila más nueva posterior al inicio del paso que no sea de otro flujo conocido.
+_CU_FLOW_KEYS = {
+    "Asignación":                         ["u_assignment"],
+    "Activación":                         ["u_registration_activation"],
+    "Modificación de Acceso":             ["u_registration_modification"],
+    "Modificación de Dispositivo":        ["u_device_modification"],
+    "Inicio Intervención Asegurada":      ["u_assured_intervention"],
+    "Cancelación Intervención Asegurada": ["u_intervention_cancellation"],
+    "Baja Total de Servicio":             ["u_access_deregistration"],
+    "RetrieveAccess":                     ["u_retrieve_access"],
+    "Finalización Intervención Asegurada": ["intervention_final", "intervention_clos", "intervention_complet",
+                                            "intervention_end", "intervention_resol"],
+    "Cancelación Orden de Servicio":      ["order_cancel", "service_order", "ooss"],
+    "Reinicio ONT":                       ["restart", "reboot"],
+    "Consulta de Alarmas":                ["alarm"],
+    "Cambio de Pelo":                     ["fiber", "fibre", "hair"],
+}
+_CU_FLOW_CONFIRMED = {"Asignación", "Activación", "Modificación de Acceso", "Modificación de Dispositivo",
+                      "Inicio Intervención Asegurada", "Cancelación Intervención Asegurada",
+                      "Baja Total de Servicio", "RetrieveAccess"}
+_CU_DATE_RE  = re.compile(r'^\d{2}-\d{2}-\d{2}, \d{2}:\d{2}$')
+_CU_TABLE_RE = re.compile(r'^u_[a-z0-9_]+$')
+
+def _cu_is_class(tok: str) -> bool:
+    """Token de clases CSS (Tailwind) del payload RSC, no texto visible."""
+    words = tok.split()
+    return bool(words) and all(re.match(r'^[a-z0-9:\-\[\]\.\(\)/_!%&>*=]+$', w) and
+                               ("-" in w or w in ("flex", "grid", "truncate", "hidden", "block", "uppercase"))
+                               for w in words)
+
+def _cu_flow_rows(html: str) -> list:
+    """Filas de 'Flujos ejecutados': [{date, ts_ms, name, code, msg, table}] en orden de la página."""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/Santiago")
+    except Exception:
+        tz = None
+    import datetime as _dtc
+    rows, cur = [], None
+    for tok in _coreuse_value_tokens(html):
+        if _CU_DATE_RE.match(tok):
+            cur = {"date": tok, "vals": []}
+            continue
+        if cur is None:
+            continue
+        if _CU_TABLE_RE.match(tok):
+            vals = [v for v in cur["vals"] if not _cu_is_class(v)]
+            name = vals[0] if vals else ""
+            code, msg = "", ""
+            for i, v in enumerate(vals[1:], 1):
+                if re.match(r'^-?\d{1,4}$', v):
+                    code = v
+                    rest = [x for x in vals[i + 1:]
+                            if x != "—" and not re.match(r'^(ORD|WO|INC|RITM)\d+$|^[0-9a-f]{32}$', x)]
+                    msg = rest[0] if rest else ""
+                    break
+            ts = 0
+            try:
+                d = _dtc.datetime.strptime(cur["date"], "%d-%m-%y, %H:%M")
+                ts = int((d.replace(tzinfo=tz) if tz else d).timestamp() * 1000)
+            except Exception:
+                pass
+            rows.append({"date": cur["date"], "ts_ms": ts, "name": name, "code": code, "msg": msg, "table": tok})
+            cur = None
+            continue
+        cur["vals"].append(tok)
+    return rows
+
+def _cu_pick_row(rows: list, func_name: str, since_ms=None):
+    """Fila más nueva del flujo de func_name, posterior al inicio del paso (margen 90 s:
+    CoreUse muestra la hora truncada al minuto)."""
+    def _hit(r, keys):
+        t = (r["table"] + " " + r["name"]).lower()
+        return any(k in t for k in keys)
+    recent = [r for r in rows if not since_ms or not r["ts_ms"] or r["ts_ms"] >= int(since_ms) - 90_000]
+    cand = [r for r in recent if _hit(r, _CU_FLOW_KEYS.get(func_name, []))]
+    if not cand and func_name not in _CU_FLOW_CONFIRMED and since_ms:
+        known = [k for f in _CU_FLOW_CONFIRMED for k in _CU_FLOW_KEYS[f]]
+        cand = [r for r in recent if not _hit(r, known)]
+    return max(cand, key=lambda r: r["ts_ms"]) if cand else None
+
+def _poll_coreuse_once(access_id: str, func_name: str, since_ms=None) -> dict:
     """
     Consulta una vez el portal CoreUse para el access_id dado.
+    since_ms: inicio del paso (epoch ms); solo cuentan filas de flujo posteriores.
     Retorna dict con keys: status ('success'|'failure'|'pending'|'not_found'|'error'|'not_applicable'),
     message y url.
     """
@@ -1249,6 +1333,19 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                 else:
                     return {"status": "pending",
                             "message": "Sección Factibilidad aún sin datos en CoreUse", "url": url}
+
+            # ── Lectura determinista por fila de "Flujos ejecutados" ─────────────
+            # Fila = fecha · flujo · código · mensaje · orden · sys_id · tabla (u_...)
+            if func_name in _CU_FLOW_KEYS and "flujos ejecutados" in hl:
+                row = _cu_pick_row(_cu_flow_rows(html), func_name, since_ms)
+                if not row:
+                    return {"status": "pending", "url": url,
+                            "message": f"{func_name}: el flujo aún no aparece en CoreUse"}
+                desc = f"{row['name']} · código {row['code']}" + (f" · {row['msg']}" if row['msg'] else "") \
+                       + f" ({row['date']})"
+                if row["code"] == "0":
+                    return {"status": "success", "message": desc, "url": url}
+                return {"status": "failure", "message": desc, "url": url}
 
             # ── Resto de funcionalidades ──────────────────────────────────────────
             # Estrategia doble:
@@ -7952,6 +8049,7 @@ async def api_coreuse_poll(request: Request):
     body      = await request.json()
     access_id = (body.get("access_id") or "").strip()
     func_name = (body.get("func_name") or "").strip()
+    since_ms  = body.get("since_ms") or None
 
     if not access_id:
         return JSONResponse({"status": "not_applicable", "message": "Sin access ID", "attempts": 0})
@@ -7982,7 +8080,7 @@ async def api_coreuse_poll(request: Request):
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
             r = await loop.run_in_executor(
-                None, lambda: _poll_coreuse_once(access_id, func_name)
+                None, lambda: _poll_coreuse_once(access_id, func_name, since_ms)
             )
         except Exception as exc:
             r = {"status": "error", "message": str(exc)}
@@ -8809,7 +8907,8 @@ async def api_aid_inventory_raw(access_id: str = ""):
     for t in _coreuse_value_tokens(html):
         if t not in seen:
             seen.add(t); uniq.append(t)
-    return {"access_id": access_id, "tokens": uniq[:800], "parsed": _coreuse_resource_state(html, access_id)}
+    return {"access_id": access_id, "flujos": _cu_flow_rows(html), "tokens": uniq[:800],
+            "parsed": _coreuse_resource_state(html, access_id)}
 
 
 # ─── Trazabilidad con filtros + Dashboard de calidad ─────────────────────────
@@ -18332,13 +18431,13 @@ function _atrf_switchView(t){
 var _atrf_qStartTs=0;
 // Polling CoreUse desde el navegador: 1 consulta corta por request (max_attempts=1).
 // Evita que el proxy de Railway corte un request largo (~5 min) y el resultado se pierda.
-async function _atrfCuPoll(aid,fn,maxAtt,prog){
+async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
   var last={status:'pending',message:''},reached=false;
   for(var i=1;i<=maxAtt;i++){
     if(prog)prog.textContent='🔍 CoreUse: '+fn+' (intento '+i+'/'+maxAtt+')…';
     try{
       var r=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1})});
+        body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1,since_ms:since||null})});
       if(r.ok){last=await r.json();}
       else{last={status:'error',message:'HTTP '+r.status+' consultando CoreUse'};}
     }catch(e){last={status:'error',message:'Error de red consultando CoreUse: '+String(e)};}
@@ -18562,7 +18661,7 @@ async function _atrf_runSelected(){
       if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
-          var _cuD=await _atrfCuPoll(_currentAccessId,fn,20,prog);
+          var _cuD=await _atrfCuPoll(_currentAccessId,fn,20,prog,_t0);
           if(_cuD.status==='success'||_cuD.status==='failure'){
             _sr.pass=(_cuD.status==='success');
             _sr.coreuse_msg=_cuD.message||'';_sr.coreuse_url=_cuD.url||'';_sr.coreuse_attempts=_cuD.attempts||0;
@@ -18575,7 +18674,7 @@ async function _atrf_runSelected(){
         if(prog)prog.textContent='🔍 CoreUse (chequeo rápido): '+fn+'…';
         try{
           var _cuQ=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({access_id:_currentAccessId,func_name:fn,max_attempts:1})});
+            body:JSON.stringify({access_id:_currentAccessId,func_name:fn,max_attempts:1,since_ms:_t0})});
           if(_cuQ.ok){var _cuQD=await _cuQ.json();
             _trCu={status:_cuQD.status||'',msg:_cuQD.message||'',attempts:_cuQD.attempts||0,checked:'rapido'};
             _sr.coreuse_info=_trCu.msg;
