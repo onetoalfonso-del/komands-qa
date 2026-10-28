@@ -1076,19 +1076,27 @@ def _coreuse_login():
             "identifier":    (None, _COREUSE_USER),
             "password":      (None, _COREUSE_PASS),
         }
-        s.post(f"{_COREUSE_BASE}/login", files=files, allow_redirects=True, timeout=15)
+        rp = s.post(f"{_COREUSE_BASE}/login", files=files, allow_redirects=True, timeout=15)
         # Verificar que la sesión quedó autenticada (CoreUse responde 200 con el formulario si falla)
         chk = s.get(f"{_COREUSE_BASE}/flujos-qa", verify=False, timeout=15, allow_redirects=True)
         if _cu_is_login(chk):
-            print("[coreuse] login rechazado — revisar COREUSE_USER / COREUSE_PASS")
+            txt = re.sub(r'<script.*?</script>|<style.*?</style>', ' ', rp.text or "", flags=re.S | re.I)
+            msgs = [t.strip() for t in re.split(r'<[^>]+>', txt)
+                    if re.search(r'incorrect|inv[aá]lid|bloquead|intentos|error', t, re.I) and len(t.strip()) < 200]
+            _coreuse_last_login["msg"] = msgs[0] if msgs else "CoreUse volvió a mostrar el login (sin mensaje)"
+            print(f"[coreuse] login rechazado: {_coreuse_last_login['msg']}")
             _coreuse_session = None
             return None
+        _coreuse_last_login["msg"] = "OK"
         _coreuse_session = s
         return s
     except Exception as exc:
+        _coreuse_last_login["msg"] = f"Error de conexión con {_COREUSE_BASE}: {exc}"
         print(f"[coreuse] error en login: {exc}")
         _coreuse_session = None
         return None
+
+_coreuse_last_login = {"msg": ""}
 
 def _cu_is_login(r) -> bool:
     """True si la respuesta es la pantalla de login (por URL o por contenido: CoreUse
@@ -8757,6 +8765,29 @@ async def api_aid_inventory_verify(request: Request):
     res = await _aid_cu_verify(aid)
     res["access_id"] = aid
     return res
+
+
+@app.get("/api/coreuse/login-check")
+async def api_coreuse_login_check():
+    """Diagnóstico del login CoreUse con las env vars del servidor (no expone la clave)."""
+    def _mask(v):
+        return (v[:3] + "***" + v[v.find("@"):]) if "@" in v else (v[:2] + "***" if v else "")
+    def _ws(v):
+        return v != v.strip()
+    global _coreuse_session
+    with _coreuse_lock:
+        _coreuse_session = None
+    loop = _aio.get_event_loop()
+    ok = await loop.run_in_executor(None, _coreuse_login) is not None
+    return {
+        "login_ok": ok,
+        "mensaje_coreuse": _coreuse_last_login.get("msg", ""),
+        "coreuse_url": _COREUSE_BASE,
+        "coreuse_url_es_default": not os.environ.get("COREUSE_URL"),
+        "user": _mask(_COREUSE_USER), "user_largo": len(_COREUSE_USER), "user_espacios_extremos": _ws(_COREUSE_USER),
+        "pass_largo": len(_COREUSE_PASS), "pass_espacios_extremos": _ws(_COREUSE_PASS),
+        "pin_largo": len(_COREUSE_PIN), "pin_espacios_extremos": _ws(_COREUSE_PIN),
+    }
 
 
 @app.get("/api/aid-inventory/raw")
