@@ -1031,7 +1031,7 @@ import ssl as _ssl_mod
 _db_pool: _apg.Pool | None = None
 
 # ─── CoreUse portal — polling resultado real ServiceNow ──────────────────────
-_COREUSE_BASE = os.environ.get("COREUSE_URL", "https://2.24.121.109")
+_COREUSE_BASE = os.environ.get("COREUSE_URL", "https://coreuse.site")
 _COREUSE_USER = os.environ.get("COREUSE_USER", "")
 _COREUSE_PASS = os.environ.get("COREUSE_PASS", "")
 _COREUSE_PIN  = os.environ.get("COREUSE_PIN",  "")   # PIN de 6 dígitos para desbloqueo por inactividad
@@ -1063,6 +1063,12 @@ def _coreuse_login():
         s = _req_cu.Session()
         s.verify = False
         r = s.get(f"{_COREUSE_BASE}/login", timeout=15)
+        # Si CoreUse redirige a otro host (p.ej. IP → coreuse.site), adoptarlo como base:
+        # el POST del login no sobrevive a un 301 (requests lo convierte en GET).
+        _final = re.match(r'(https?://[^/]+)', r.url or "")
+        if _final and _final.group(1).rstrip("/") != _COREUSE_BASE.rstrip("/"):
+            print(f"[coreuse] base redirigida {_COREUSE_BASE} → {_final.group(1)}")
+            globals()["_COREUSE_BASE"] = _final.group(1)
         html = r.text
         ak  = re.search(r'name="\$ACTION_KEY"\s+value="([^"]+)"', html).group(1)
         a10 = re.search(r'name="\$ACTION_1:0"\s+value="([^"]+)"', html).group(1).replace("&quot;", '"')
@@ -17300,7 +17306,7 @@ function _dashOpenCoreUseModal(accessId){
     +'<span id="cu-modal-cnt" style="font-size:.75rem;color:var(--txt3)"></span>'
     +'<code style="font-size:.7rem;background:var(--bg);border:1px solid var(--brd);border-radius:4px;padding:1px 8px;color:var(--txt2)">'+escHtml(accessId)+'</code>'
     +'<div style="flex:1"></div>'
-    +'<a id="cu-modal-lnk" href="https://2.24.121.109" target="_blank" '
+    +'<a id="cu-modal-lnk" href="https://coreuse.site" target="_blank" '
     +'style="font-size:.72rem;color:var(--txt3);text-decoration:none;padding:3px 8px;border:1px solid var(--brd);border-radius:4px">↗ Ver en CoreUse</a>'
     +'<button id="cu-modal-close" style="background:none;border:none;cursor:pointer;color:var(--txt3);font-size:22px;line-height:1;padding:0 0 0 6px">×</button>'
     +'</div>'
