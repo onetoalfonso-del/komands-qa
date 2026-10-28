@@ -1077,11 +1077,26 @@ def _coreuse_login():
             "password":      (None, _COREUSE_PASS),
         }
         s.post(f"{_COREUSE_BASE}/login", files=files, allow_redirects=True, timeout=15)
+        # Verificar que la sesión quedó autenticada (CoreUse responde 200 con el formulario si falla)
+        chk = s.get(f"{_COREUSE_BASE}/flujos-qa", verify=False, timeout=15, allow_redirects=True)
+        if _cu_is_login(chk):
+            print("[coreuse] login rechazado — revisar COREUSE_USER / COREUSE_PASS")
+            _coreuse_session = None
+            return None
         _coreuse_session = s
         return s
-    except Exception:
+    except Exception as exc:
+        print(f"[coreuse] error en login: {exc}")
         _coreuse_session = None
         return None
+
+def _cu_is_login(r) -> bool:
+    """True si la respuesta es la pantalla de login (por URL o por contenido: CoreUse
+    muestra el formulario en la misma URL sin redirigir cuando la sesión venció)."""
+    if "/login" in r.url:
+        return True
+    t = r.text or ""
+    return 'name="identifier"' in t and 'name="password"' in t
 
 def _coreuse_unlock(s, locked_url: str) -> bool:
     """Desbloquea sesión CoreUse bloqueada por inactividad usando COREUSE_PIN."""
@@ -1151,7 +1166,7 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
     with _coreuse_lock:
         s = _coreuse_get_session()
         if not s:
-            return {"status": "error", "message": "No se pudo autenticar en CoreUse"}
+            return {"status": "error", "message": "No se pudo autenticar en CoreUse (revisar COREUSE_USER / COREUSE_PASS)"}
 
         try:
             r = s.get(
@@ -1174,16 +1189,19 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                     verify=False, timeout=15, allow_redirects=True,
                 )
             # Sesión expirada → re-login
-            if "/login" in r.url:
+            if _cu_is_login(r):
                 _coreuse_session = None
                 s = _coreuse_login()
                 if not s:
-                    return {"status": "error", "message": "Re-login CoreUse fallido"}
+                    return {"status": "error", "message": "Re-login CoreUse fallido (revisar COREUSE_USER / COREUSE_PASS)"}
                 r = s.get(
                     f"{_COREUSE_BASE}/flujos-qa",
                     params={"access": access_id},
                     verify=False, timeout=15, allow_redirects=True,
                 )
+                if _cu_is_login(r):
+                    _coreuse_session = None
+                    return {"status": "error", "message": "CoreUse sigue pidiendo login tras re-autenticar"}
 
             html = r.text
             hl   = html.lower()
@@ -8232,7 +8250,7 @@ async def api_coreuse_iia_detail(access_id: str = ""):
         try:
             r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
                       verify=False, timeout=15, allow_redirects=True)
-            if "/login" in r.url:
+            if _cu_is_login(r):
                 _coreuse_session = None
                 s = _coreuse_login()
                 if not s:
@@ -8271,7 +8289,7 @@ async def api_coreuse_detail(access_id: str = ""):
         try:
             r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
                       verify=False, timeout=15, allow_redirects=True)
-            if "/login" in r.url:
+            if _cu_is_login(r):
                 _coreuse_session = None
                 s = _coreuse_login()
                 if not s:
@@ -8534,12 +8552,15 @@ def _coreuse_fetch_html(access_id: str) -> tuple:
                     if not s:
                         return None, "CoreUse bloqueado y re-login falló"
                 r = _get(s)
-            if "/login" in r.url:
+            if _cu_is_login(r):
                 _coreuse_session = None
                 s = _coreuse_login()
                 if not s:
-                    return None, "Re-login CoreUse fallido"
+                    return None, "Re-login CoreUse fallido (revisar COREUSE_USER / COREUSE_PASS)"
                 r = _get(s)
+                if _cu_is_login(r):
+                    _coreuse_session = None
+                    return None, "CoreUse sigue pidiendo login tras re-autenticar"
             return r.text, None
         except Exception as e:
             return None, str(e)
