@@ -1175,27 +1175,24 @@ def _coreuse_get_session():
         return _coreuse_session
 
 # Funcionalidad del runner → tabla ServiceNow del flujo en CoreUse (fila "Flujos ejecutados").
-# Confirmadas con CoreUse real: las de _CU_FLOW_CONFIRMED. El resto son nombres probables;
-# si no calzan se usa la fila más nueva posterior al inicio del paso que no sea de otro flujo conocido.
+# Todas confirmadas con filas reales de CoreUse (28-10-2026). Si una tabla nueva no calza,
+# para funcionalidades fuera de _CU_FLOW_CONFIRMED se usa la fila más nueva posterior al paso.
 _CU_FLOW_KEYS = {
-    "Asignación":                         ["u_assignment"],
-    "Activación":                         ["u_registration_activation"],
-    "Modificación de Acceso":             ["u_registration_modification"],
-    "Modificación de Dispositivo":        ["u_device_modification"],
-    "Inicio Intervención Asegurada":      ["u_assured_intervention"],
-    "Cancelación Intervención Asegurada": ["u_intervention_cancellation"],
-    "Baja Total de Servicio":             ["u_access_deregistration"],
-    "RetrieveAccess":                     ["u_retrieve_access"],
-    "Finalización Intervención Asegurada": ["intervention_final", "intervention_clos", "intervention_complet",
-                                            "intervention_end", "intervention_resol"],
-    "Cancelación Orden de Servicio":      ["order_cancel", "service_order", "ooss"],
-    "Reinicio ONT":                       ["restart", "reboot"],
-    "Consulta de Alarmas":                ["alarm"],
-    "Cambio de Pelo":                     ["fiber", "fibre", "hair"],
+    "Asignación":                          ["u_assignment"],
+    "Activación":                          ["u_registration_activation"],
+    "Modificación de Acceso":              ["u_registration_modification"],
+    "Modificación de Dispositivo":         ["u_device_modification"],
+    "Inicio Intervención Asegurada":       ["u_assured_intervention"],
+    "Cancelación Intervención Asegurada":  ["u_intervention_cancellation"],
+    "Finalización Intervención Asegurada": ["u_intervention_finalization"],
+    "Cancelación Orden de Servicio":       ["u_ooss_cancellation"],
+    "Baja Total de Servicio":              ["u_access_deregistration"],
+    "RetrieveAccess":                      ["u_retrieve_access"],
+    "Reinicio ONT":                        ["u_ont_restart"],
+    "Consulta de Alarmas":                 ["u_retrieve_data_ont"],   # retrieveDataONT/ONTRetrieve
+    "Cambio de Pelo":                      ["u_fiber_change"],        # fullFillment-fiberChange
 }
-_CU_FLOW_CONFIRMED = {"Asignación", "Activación", "Modificación de Acceso", "Modificación de Dispositivo",
-                      "Inicio Intervención Asegurada", "Cancelación Intervención Asegurada",
-                      "Baja Total de Servicio", "RetrieveAccess"}
+_CU_FLOW_CONFIRMED = set(_CU_FLOW_KEYS)
 _CU_DATE_RE  = re.compile(r'^\d{2}-\d{2}-\d{2}, \d{2}:\d{2}$')
 _CU_TABLE_RE = re.compile(r'^u_[a-z0-9_]+$')
 
