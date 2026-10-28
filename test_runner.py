@@ -1098,6 +1098,17 @@ def _cu_is_login(r) -> bool:
     t = r.text or ""
     return 'name="identifier"' in t and 'name="password"' in t
 
+def _cu_is_locked(r) -> bool:
+    """True si CoreUse muestra la pantalla de desbloqueo por inactividad (PIN),
+    ya sea redirigiendo a /desbloqueo o mostrándola en la misma URL."""
+    if "/desbloqueo" in r.url:
+        return True
+    tl = (r.text or "").lower()
+    return "desbloque" in tl and "flujos ejecutados" not in tl and not _cu_is_login(r)
+
+def _cu_lock_url(r) -> str:
+    return r.url if "/desbloqueo" in r.url else f"{_COREUSE_BASE}/desbloqueo?next=%2Fflujos-qa"
+
 def _coreuse_unlock(s, locked_url: str) -> bool:
     """Desbloquea sesión CoreUse bloqueada por inactividad usando COREUSE_PIN."""
     if not _COREUSE_PIN:
@@ -1175,8 +1186,8 @@ def _poll_coreuse_once(access_id: str, func_name: str) -> dict:
                 verify=False, timeout=15, allow_redirects=True,
             )
             # Sesión bloqueada por inactividad → desbloquear con PIN automáticamente
-            if "/desbloqueo" in r.url:
-                unlocked = _coreuse_unlock(s, r.url)
+            if _cu_is_locked(r):
+                unlocked = _coreuse_unlock(s, _cu_lock_url(r))
                 if not unlocked:
                     # Si el desbloqueo falló, forzar re-login completo
                     _coreuse_session = None
@@ -8545,8 +8556,8 @@ def _coreuse_fetch_html(access_id: str) -> tuple:
                 return sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
                                 verify=False, timeout=15, allow_redirects=True)
             r = _get(s)
-            if "/desbloqueo" in r.url:
-                if not _coreuse_unlock(s, r.url):
+            if _cu_is_locked(r):
+                if not _coreuse_unlock(s, _cu_lock_url(r)):
                     _coreuse_session = None
                     s = _coreuse_login()
                     if not s:
