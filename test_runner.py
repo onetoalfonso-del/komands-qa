@@ -8383,6 +8383,9 @@ def _aid_diagnose(ev: dict) -> dict:
         if "no registró" in msg or "intentos" in msg:
             return {"code": "cu_missing", "label": "API OK, CoreUse no registró el flujo", "detail": msg}
         return {"code": "cu_fail", "label": "API OK, CoreUse registró error", "detail": msg}
+    if cu == "error" and ev.get("final_pass"):
+        return {"code": "ok_api", "label": "OK (API), CoreUse no accesible",
+                "detail": ev.get("coreuse_msg") or "No se pudo leer CoreUse"}
     if ev.get("final_pass"):
         return {"code": "ok_api", "label": "OK (API, sin verificación CoreUse)",
                 "detail": "Funcionalidad sin registro en CoreUse" if ev.get("coreuse_checked") == "no_aplica"
@@ -9073,6 +9076,322 @@ async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
         "matrix": matrix, "regressions": regressions[:6], "flaky": flaky[:6],
         "times": times[:10], "hygiene": hyg,
     }
+
+
+# ─── Reporte descargable por secuencia (desde Trazabilidad) ──────────────────
+
+_RPT_CSS = """
+:root{--bg:#0F1222;--card:#171A30;--brd:#272B4A;--brdl:#1F2340;--txt:#E3E7F7;--txt2:#8C95BC;--txt3:#4A5180;
+--acc:#00C8D4;--accd:rgba(0,200,212,.13);--ok:#3DD68C;--okd:rgba(61,214,140,.14);--err:#FF6B6B;--errd:rgba(255,107,107,.13);
+--warn:#FFB347;--warnd:rgba(255,179,71,.13);--pur:#B57BFF;--purd:rgba(181,123,255,.14);--mut:#7C88AE;
+--mono:'Cascadia Code',Consolas,'Courier New',monospace;--sans:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px}
+.page{max-width:1280px;margin:0 auto;padding:28px 28px 60px;display:flex;flex-direction:column;gap:22px}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--brd);padding-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px}.brand img{height:30px}
+.kick{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);font-weight:700}
+h1{margin:4px 0 0;font-size:24px}h2{margin:0;font-size:17px}
+.sub{color:var(--txt2);font-size:12.5px;margin-top:4px}.meta{color:var(--txt2);font-size:12px;text-align:right;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:16px 18px}
+.kpi b{display:block;font:700 30px/1.1 var(--mono)}.kpi span{color:var(--txt2);font-size:12px}
+.ok{color:var(--ok)}.err{color:var(--err)}.warn{color:var(--warn)}.pur{color:var(--pur)}.mut{color:var(--mut)}.acc{color:var(--acc)}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--brdl);color:var(--txt2)}
+.pill.ok{background:var(--okd);color:var(--ok)}.pill.err{background:var(--errd);color:var(--err)}.pill.warn{background:var(--warnd);color:var(--warn)}
+.pill.pur{background:var(--purd);color:var(--pur)}.pill.acc{background:var(--accd);color:var(--acc)}
+.stack{display:flex;height:14px;border-radius:6px;overflow:hidden;background:var(--brdl);margin:10px 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--txt2)}.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;color:var(--txt2);font-weight:600;font-size:11.5px;padding:8px 10px;border-bottom:1px solid var(--brd);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--brdl);vertical-align:top}
+.mono{font-family:var(--mono)}.small{font-size:11.5px;color:var(--txt2)}
+.seq{border:1px solid var(--brd);border-radius:14px;overflow:hidden;background:var(--card);page-break-inside:avoid}
+.seq-h{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--brd)}
+.seq-h .t{font-size:16px;font-weight:700}.seq-h .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.seq.fail{border-color:rgba(255,107,107,.45)}.seq.fail .seq-h{background:var(--errd)}.seq.okk .seq-h{background:var(--okd)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 22px;padding:10px 18px;font-size:12px;color:var(--txt2);border-bottom:1px solid var(--brd)}
+.facts b{color:var(--txt);font-weight:600}
+tr.bad td{background:rgba(255,107,107,.05)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.why{font-size:12px;margin-top:4px;color:var(--txt)}
+details{margin-top:6px}summary{cursor:pointer;color:var(--acc);font-size:11.5px;font-weight:600}
+pre{margin:6px 0 0;background:#0A0C18;border:1px solid var(--brd);border-radius:8px;padding:10px;font:11.5px/1.5 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:340px;overflow:auto;color:#C9D1EC}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.empty{color:var(--txt2);text-align:center;padding:24px}
+.foot{color:var(--txt3);font-size:11.5px;text-align:center;border-top:1px solid var(--brd);padding-top:14px}
+@media (max-width:760px){.two{grid-template-columns:1fr}.meta{text-align:left}}
+@media print{:root{--bg:#fff;--card:#fff;--brd:#D9DEEC;--brdl:#EEF1F8;--txt:#101830;--txt2:#4A5A80;--txt3:#9AAAC8;--acc:#007E87}
+ body{-webkit-print-color-adjust:exact;print-color-adjust:exact}pre{background:#F6F8FC;color:#101830;max-height:none}details{display:block}details>*{display:block}}
+"""
+
+_RPT_DIAG_CLS = {"ok": ("ok", "#3DD68C"), "ok_api": ("acc", "#00C8D4"), "api_fail": ("err", "#FF6B6B"),
+                 "fail": ("err", "#FF6B6B"), "cu_missing": ("warn", "#FFB347"), "api_fail_cu_ok": ("warn", "#FFB347"),
+                 "cu_fail": ("pur", "#B57BFF"), "skipped": ("", "#7C88AE")}
+_RPT_VNO = {"00": "TCH", "02": "KAO", "03": "B1/Entel", "05": "DTV"}
+_RPT_SRC = {"manual": "Manual", "agenda": "Agenda", "cierre": "Cierre"}
+
+
+def _rpt_fmt_ts(ms, with_date=True):
+    if not ms:
+        return "—"
+    import datetime as _dtr
+    try:
+        from zoneinfo import ZoneInfo as _ZIr
+        d = _dtr.datetime.fromtimestamp(ms / 1000, _ZIr("America/Santiago"))
+    except Exception:
+        d = _dtr.datetime.fromtimestamp(ms / 1000)
+    return d.strftime("%d/%m/%Y %H:%M:%S" if with_date else "%H:%M:%S")
+
+
+def _rpt_fmt_dur(ms):
+    ms = int(ms or 0)
+    if ms < 1000:
+        return f"{ms} ms"
+    if ms < 60000:
+        return f"{ms / 1000:.1f} s".replace(".", ",")
+    m, s = divmod(ms // 1000, 60)
+    return f"{m} min {s:02d} s"
+
+
+def _build_seq_report_html(title: str, events: list, aid_states: dict, user: str = "", note: str = "") -> str:
+    """Reporte HTML self-contained: lo que realmente se ejecutó, agrupado por secuencia."""
+    import html as _h, base64 as _b64r
+    E = lambda s: _h.escape(str(s) if s is not None else "")
+
+    def _pj(s):
+        if not s:
+            return "—"
+        try:
+            return json.dumps(json.loads(s), indent=2, ensure_ascii=False)
+        except Exception:
+            return str(s)
+
+    logo = ""
+    try:
+        logo = "data:image/png;base64," + _b64r.b64encode(open(ROOT / "collection QA" / "logo-onnet.png", "rb").read()).decode()
+    except Exception:
+        pass
+
+    seqs = _aid_group_sequences(events)
+    seqs.sort(key=lambda s: s["t0"])
+    by_run: dict = {}
+    for e in events:
+        by_run.setdefault(e.get("run_key") or f"ev-{e['id']}", []).append(e)
+    for k in by_run:
+        by_run[k].sort(key=lambda e: (e["ts"], e["id"]))
+
+    n_seq = len(seqs)
+    ok_seq = sum(1 for s in seqs if s["result"] == "ok")
+    n_steps = len(events)
+    ok_steps = sum(1 for e in events if e["final_pass"])
+    rate = round(ok_steps / n_steps * 100) if n_steps else 0
+    aids = sorted({e["access_id"] for e in events})
+    t_first = min((e["ts"] for e in events), default=0)
+    t_last = max((e["ts"] + (e.get("duration_ms") or 0) for e in events), default=0)
+    bad = [e for e in events if not e["final_pass"]]
+    layers: dict = {}
+    for e in bad:
+        c = e["diag"]["code"]
+        layers[c] = layers.get(c, 0) + 1
+    rate_cls = "ok" if rate >= 90 else "warn" if rate >= 70 else "err"
+    run_ms = 0
+    for s_ in seqs:
+        evs_ = by_run.get(s_["run_key"], [])
+        if evs_:
+            run_ms += max(e["ts"] + (e.get("duration_ms") or 0) for e in evs_) - s_["t0"]
+
+    h = ["<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>",
+         f"<title>{E(title)}</title><style>{_RPT_CSS}</style></head><body><div class='page'>"]
+    # Encabezado
+    h.append("<div class='head'><div><div class='brand'>" + (f"<img src='{logo}' alt='OnnetFibra'>" if logo else "")
+             + "<span class='kick'>QA Automation · OnnetFibra</span></div>"
+             + f"<h1>{E(title)}</h1><div class='sub'>Reporte de ejecución por secuencia · datos de Trazabilidad AID (API + ServiceNow + CoreUse)</div></div>"
+             + f"<div class='meta'>Generado: <b>{_rpt_fmt_ts(int(_time_lib.time() * 1000))}</b><br>"
+             + (f"Por: {E(user)}<br>" if user else "")
+             + f"Período ejecutado: {_rpt_fmt_ts(t_first)} → {_rpt_fmt_ts(t_last, False)}"
+             + (f"<br>{E(note)}" if note else "") + "</div></div>")
+    if not events:
+        h.append("<div class='card empty'>No hay pasos registrados en la Trazabilidad para esta selección.</div>")
+        h.append("</div></body></html>")
+        return "".join(h)
+    # KPIs
+    h.append("<div class='grid'>"
+             f"<div class='card kpi'><b class='{'ok' if ok_seq == n_seq else 'err'}'>{ok_seq}/{n_seq}</b><span>secuencias exitosas</span></div>"
+             f"<div class='card kpi'><b class='{rate_cls}'>{rate}%</b><span>pasos OK punta a punta ({ok_steps} de {n_steps})</span></div>"
+             f"<div class='card kpi'><b>{len(aids)}</b><span>Access ID{'s' if len(aids) != 1 else ''} utilizado{'s' if len(aids) != 1 else ''}</span></div>"
+             f"<div class='card kpi'><b>{_rpt_fmt_dur(run_ms)}</b><span>tiempo de ejecución (suma de secuencias)</span></div></div>")
+    # Fallas por capa + por VNO
+    h.append("<div class='two'>")
+    h.append("<div class='card'><h2>¿Dónde se rompió?</h2>")
+    if not bad:
+        h.append("<div class='small' style='margin-top:10px'>Todos los pasos terminaron OK punta a punta.</div>")
+    else:
+        h.append("<div class='stack'>" + "".join(
+            f"<span style='width:{n / len(bad) * 100:.1f}%;background:{_RPT_DIAG_CLS.get(c, ('', '#FF6B6B'))[1]}'></span>"
+            for c, n in layers.items()) + "</div><div class='legend'>")
+        lbl = {"api_fail": "API rechazó", "cu_missing": "CoreUse no registró", "cu_fail": "CoreUse registró error",
+               "skipped": "Saltados", "api_fail_cu_ok": "API falló, CoreUse OK", "fail": "Otros"}
+        for c, n in layers.items():
+            h.append(f"<span><span class='sw' style='background:{_RPT_DIAG_CLS.get(c, ('', '#FF6B6B'))[1]}'></span>{E(lbl.get(c, c))}: <b>{n}</b></span>")
+        h.append("</div>")
+    h.append("</div><div class='card'><h2>Resultado por VNO</h2><table style='margin-top:8px'><tr><th>VNO</th><th>Secuencias</th><th>Pasos OK</th><th>Tasa</th></tr>")
+    for v in sorted({s["vno"] for s in seqs}):
+        ss = [s for s in seqs if s["vno"] == v]
+        ev_v = [e for e in events if e.get("vno") == v]
+        okv = sum(1 for e in ev_v if e["final_pass"])
+        rv = round(okv / len(ev_v) * 100) if ev_v else 0
+        h.append(f"<tr><td><b>{E(_RPT_VNO.get(v, v))}</b></td><td>{sum(1 for s in ss if s['result'] == 'ok')} OK · "
+                 f"<span class='{'err' if any(s['result'] == 'fail' for s in ss) else 'mut'}'>{sum(1 for s in ss if s['result'] == 'fail')} fallidas</span></td>"
+                 f"<td class='mono'>{okv}/{len(ev_v)}</td><td class='mono {'ok' if rv >= 90 else 'warn' if rv >= 70 else 'err'}'><b>{rv}%</b></td></tr>")
+    h.append("</table></div></div>")
+    # Índice de secuencias
+    h.append("<div class='card'><h2>Secuencias ejecutadas</h2><table style='margin-top:8px'><tr><th>#</th><th>Secuencia</th><th>VNO</th>"
+             "<th>Access ID</th><th>Inicio</th><th>Duración</th><th>Pasos OK</th><th>Resultado</th><th>Primer problema</th></tr>")
+    for i, s in enumerate(seqs, 1):
+        evs = by_run.get(s["run_key"], [])
+        dur = (max(e["ts"] + (e.get("duration_ms") or 0) for e in evs) - s["t0"]) if evs else 0
+        ff = s.get("first_fail")
+        h.append(f"<tr class='{'bad' if s['result'] == 'fail' else ''}'><td class='mono'>{i}</td>"
+                 f"<td><a href='#seq-{i}'><b>{E(s['seq_name'] or 'Ejecución')}</b></a><div class='small'>{E(_RPT_SRC.get(s['source'], s['source']))}"
+                 f"{(' · ' + E(s['user_email'])) if s['user_email'] else ''}</div></td>"
+                 f"<td>{E(_RPT_VNO.get(s['vno'], s['vno']))}</td><td class='mono small'>{'<br>'.join(E(a) for a in s['access_ids'])}</td>"
+                 f"<td class='mono small'>{_rpt_fmt_ts(s['t0'])}</td><td class='mono small'>{_rpt_fmt_dur(dur)}</td>"
+                 f"<td class='mono'>{s['ok']}/{s['steps']}</td>"
+                 f"<td><span class='pill {'ok' if s['result'] == 'ok' else 'err'}'>{'Exitosa' if s['result'] == 'ok' else 'Fallida'}</span></td>"
+                 f"<td class='small'>{(E(ff['func']) + ' · ' + E(ff['diag'])) if ff else '—'}</td></tr>")
+    h.append("</table></div>")
+    # Detalle por secuencia
+    for i, s in enumerate(seqs, 1):
+        evs = by_run.get(s["run_key"], [])
+        t_end = max((e["ts"] + (e.get("duration_ms") or 0) for e in evs), default=s["t1"])
+        okk = s["result"] == "ok"
+        aid_links = " · ".join(
+            f"<a class='mono' href='{E(_COREUSE_BASE)}/flujos-qa?access={E(a)}' target='_blank'>{E(a)} ↗</a>" for a in s["access_ids"])
+        states = []
+        for a in s["access_ids"]:
+            st = aid_states.get(a) or {}
+            if st.get("cu_state"):
+                states.append(f"{E(a)}: CoreUse {'InStock' if st['cu_state'] == 'instock' else E(st['cu_state'])}")
+            elif st.get("state"):
+                states.append(f"{E(a)}: runner {E(st['state'].replace('_', ' '))}")
+        h.append(f"<div class='seq {'okk' if okk else 'fail'}' id='seq-{i}'><div class='seq-h'><span class='mono small'>#{i}</span>"
+                 f"<span class='t'>{E(s['seq_name'] or 'Ejecución')}</span><span class='pill'>{E(_RPT_SRC.get(s['source'], s['source']))}</span>"
+                 f"<span class='pill'>{E(_RPT_VNO.get(s['vno'], s['vno']))}</span>"
+                 f"<span class='r'><span class='mono small'>{s['ok']}/{s['steps']} pasos OK</span>"
+                 f"<span class='pill {'ok' if okk else 'err'}'>{'EXITOSA' if okk else 'FALLIDA'}</span></span></div>"
+                 f"<div class='facts'><span>Access ID: {aid_links}</span><span>Inicio: <b>{_rpt_fmt_ts(s['t0'])}</b></span>"
+                 f"<span>Fin: <b>{_rpt_fmt_ts(t_end, False)}</b></span><span>Duración: <b>{_rpt_fmt_dur(t_end - s['t0'])}</b></span>"
+                 + (f"<span>Usuario: <b>{E(s['user_email'])}</b></span>" if s['user_email'] else "")
+                 + (f"<span>Estado actual: <b>{' · '.join(states)}</b></span>" if states else "") + "</div>")
+        h.append("<table><tr><th>#</th><th>Hora</th><th>Funcionalidad</th><th>Diagnóstico</th><th>HTTP</th>"
+                 "<th>u_return_code</th><th>CoreUse</th><th style='text-align:right'>Duración</th></tr>")
+        for j, e in enumerate(evs, 1):
+            dg = e["diag"]
+            cls, col = _RPT_DIAG_CLS.get(dg["code"], ("err", "#FF6B6B"))
+            chk = e.get("coreuse_checked") or ""
+            cu = ("no aplica" if chk == "no_aplica" else "no consultado" if chk in ("", "no")
+                  else f"{E(e.get('coreuse_status') or '—')}{(' · ' + str(e['coreuse_attempts']) + ' intentos') if e.get('coreuse_attempts') else ''}"
+                  + (" (chequeo rápido)" if chk == "rapido" else ""))
+            x = e.get("extra") or {}
+            extra = []
+            if e.get("mode"):
+                extra.append("Asíncrono" if e["mode"] == "async" else "Síncrono")
+            if x.get("cto") and x["cto"].get("code"):
+                extra.append(f"CTO {x['cto']['code']}" + (f" · LU {x['cto'].get('lu')}" if x['cto'].get('lu') else "")
+                             + (f" (reintento LU{x['cto']['luRetry']})" if x['cto'].get('luRetry') else ""))
+            if x.get("apim408"):
+                extra.append("APIM 408")
+            if x.get("accessIdFromResponse") and x["accessIdFromResponse"] != e["access_id"]:
+                extra.append(f"AID devuelto: {x['accessIdFromResponse']}")
+            failed = not e["final_pass"]
+            h.append(f"<tr class='{'bad' if failed else ''}'><td class='mono small'>{j}</td><td class='mono small'>{_rpt_fmt_ts(e['ts'], False)}</td>"
+                     f"<td><span class='dot' style='background:{col}'></span><b>{E(e['func'])}</b>"
+                     f"<div class='small'>{E(e.get('tc') or '')}{(' · ' + ' · '.join(E(t) for t in extra)) if extra else ''}</div></td>"
+                     f"<td><span class='pill {cls}'>{E(dg['label'])}</span>"
+                     + (f"<div class='why'>{E(dg['detail'])}</div>" if dg.get("detail") and failed else "") + "</td>"
+                     f"<td class='mono'>{e.get('http_code') or '—'}</td>"
+                     f"<td class='mono'>{E(e.get('return_code') or '—')}"
+                     + (f"<div class='small' style='font-family:var(--sans)'>{E(e['return_desc'])}</div>" if e.get("return_desc") else "") + "</td>"
+                     f"<td class='small'>{cu}" + (f"<div class='why'>{E(e['coreuse_msg'])}</div>" if e.get("coreuse_msg") else "") + "</td>"
+                     f"<td class='mono small' style='text-align:right'>{_rpt_fmt_dur(e.get('duration_ms'))}</td></tr>")
+            h.append(f"<tr class='{'bad' if failed else ''}'><td></td><td colspan='7' style='padding-top:0'>"
+                     f"<details{' open' if failed else ''}><summary>Request / Response</summary><div class='two'>"
+                     f"<div><div class='small'>Request</div><pre>{E(_pj(e.get('req')))}</pre></div>"
+                     f"<div><div class='small'>Response · HTTP {e.get('http_code') or '—'}</div><pre>{E(_pj(e.get('res')))}</pre></div>"
+                     "</div></details></td></tr>")
+        h.append("</table></div>")
+    h.append("<div class='foot'>QA Runner OnnetFibra · Éxito punta a punta = la API respondió OK y CoreUse confirmó el flujo "
+             "(o la funcionalidad no registra en CoreUse)</div></div></body></html>")
+    return "".join(h)
+
+
+async def _rpt_events_for(pool, run_keys: list) -> list:
+    rows = await pool.fetch("SELECT * FROM qa_aid_events WHERE run_key = ANY($1) ORDER BY ts ASC, id ASC", run_keys)
+    out = []
+    for r in rows:
+        ev = dict(r)
+        ev.pop("created_at", None)
+        try: ev["extra"] = json.loads(ev.pop("extra_json") or "{}")
+        except Exception: ev["extra"] = {}
+        ev["diag"] = _aid_diagnose(ev)
+        out.append(ev)
+    return out
+
+
+async def _rpt_response(pool, run_keys: list, title: str, user: str, note: str = ""):
+    from fastapi.responses import HTMLResponse
+    evs = await _rpt_events_for(pool, run_keys) if run_keys else []
+    aids = list({e["access_id"] for e in evs})
+    states = {}
+    if aids:
+        for r in await pool.fetch("SELECT access_id, state, cu_state FROM qa_access_ids WHERE access_id = ANY($1)", aids):
+            states[r["access_id"]] = dict(r)
+    html = _build_seq_report_html(title, evs, states, user, note)
+    import datetime as _dtf
+    fname = f"Reporte_Secuencias_{_dtf.datetime.now().strftime('%d%m%Y_%H%M')}.html"
+    return HTMLResponse(content=html, headers={"Content-Disposition": f'attachment; filename="{fname}"',
+                                               "X-Report-Steps": str(len(evs))})
+
+
+@app.post("/api/report/sequences")
+async def api_report_sequences(request: Request):
+    """Reporte de las secuencias indicadas (run_keys de la Trazabilidad)."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    body = await request.json()
+    run_keys = [str(k) for k in (body.get("run_keys") or []) if k][:300]
+    payload = await _get_auth(request)
+    return await _rpt_response(pool, run_keys, body.get("title") or "Reporte de ejecución",
+                               (payload or {}).get("email", ""), body.get("note") or "")
+
+
+@app.get("/api/report/sequences")
+async def api_report_sequences_get(request: Request, rng: str = Query("7d", alias="range"), vno: str = "",
+                                   result: str = "", source: str = "", run_key: str = "", access_id: str = ""):
+    """Reporte por filtro (vista Secuencias de Trazabilidad) o de un AID / ejecución puntual."""
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    if run_key:
+        keys = [k for k in run_key.split(",") if k]
+        note = ""
+    else:
+        t0, t1 = _range_bounds(rng)
+        evs = await _aid_events_query(pool, t0, t1, vno=vno, source=source, access_id=access_id)
+        seqs = [s for s in _aid_group_sequences(evs) if s["source"] != "cierre" or access_id]
+        if result in ("ok", "fail"):
+            seqs = [s for s in seqs if s["result"] == result]
+        keys = [s["run_key"] for s in seqs][:300]
+        parts = [f"Access ID {access_id}" if access_id else {"24h": "Últimas 24 h", "7d": "Últimos 7 días", "30d": "Últimos 30 días", "90d": "Últimos 90 días"}.get(rng, rng)]
+        if vno: parts.append("VNO " + _RPT_VNO.get(vno, vno))
+        if result: parts.append("solo " + ("exitosas" if result == "ok" else "fallidas"))
+        if source: parts.append("origen " + _RPT_SRC.get(source, source))
+        note = "Filtro: " + " · ".join(parts)
+    payload = await _get_auth(request)
+    title = f"Reporte {access_id}" if access_id else "Reporte de ejecución"
+    return await _rpt_response(pool, keys, title, (payload or {}).get("email", ""), note)
 
 
 # Jobs de cierre en memoria {job_id: {...}}
@@ -16498,7 +16817,11 @@ function _atrf_toggleVno(el){
 }
 
 function _atrf_load(){
-  try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
+  // Con una ejecución en curso la cola en memoria es la fuente de verdad:
+  // recargarla desde localStorage la reemplazaría por una copia vieja ("En espera").
+  if(!_atrfRunning){
+    try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
+  }
   _atrf_loadEnvUrls();
   _atrf_loadSchedRuns();
 }
@@ -17938,13 +18261,36 @@ function _atrf_switchView(t){
 }
 
 var _atrf_qStartTs=0;
+// Polling CoreUse desde el navegador: 1 consulta corta por request (max_attempts=1).
+// Evita que el proxy de Railway corte un request largo (~5 min) y el resultado se pierda.
+async function _atrfCuPoll(aid,fn,maxAtt,prog){
+  var last={status:'pending',message:''},reached=false;
+  for(var i=1;i<=maxAtt;i++){
+    if(prog)prog.textContent='🔍 CoreUse: '+fn+' (intento '+i+'/'+maxAtt+')…';
+    try{
+      var r=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1})});
+      if(r.ok){last=await r.json();}
+      else{last={status:'error',message:'HTTP '+r.status+' consultando CoreUse'};}
+    }catch(e){last={status:'error',message:'Error de red consultando CoreUse: '+String(e)};}
+    last.attempts=i;
+    if(last.status!=='error')reached=true;
+    if(last.status==='success'||last.status==='failure'||last.status==='not_applicable')return last;
+    if(i<maxAtt)await new Promise(function(res){setTimeout(res,i===1?10000:18000);});
+  }
+  // Nunca se pudo leer CoreUse (login/bloqueo/red): no se culpa al paso, queda el resultado de la API
+  if(!reached)return {status:'error',attempts:maxAtt,url:last.url||'',
+    message:'CoreUse no accesible tras '+maxAtt+' intentos — '+(last.message||'sin detalle')};
+  return {status:'failure',attempts:maxAtt,url:last.url||'',
+    message:'CoreUse no registró resultado tras '+maxAtt+' intentos · último: '+(last.status||'')+(last.message?' — '+last.message:'')};
+}
 async function _atrf_runSelected(){
   if(_atrfRunning)return;
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
   if(!toRun.length){if(typeof showToast==='function')showToast('No hay secuencias seleccionadas en espera','err');return;}
   _atrfRunning=true;
   _atrf_qStartTs=Date.now();
-  var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='â³ Ejecutando…';btn.disabled=true;}
+  var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='⏳ Ejecutando…';btn.disabled=true;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
   // Cargar delays configurados en Settings
   var _delays={};
@@ -18147,17 +18493,14 @@ async function _atrf_runSelected(){
       if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
-          var _cuR=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({access_id:_currentAccessId,func_name:fn})});
-          if(_cuR.ok){var _cuD=await _cuR.json();
-            if(_cuD.status==='success'||_cuD.status==='failure'){
-              _sr.pass=(_cuD.status==='success');
-              _sr.coreuse_msg=_cuD.message||'';_sr.coreuse_url=_cuD.url||'';_sr.coreuse_attempts=_cuD.attempts||0;
-              pass=_sr.pass;
-            }
-            _trCu={status:_cuD.status||'',msg:_cuD.message||'',attempts:_cuD.attempts||0,checked:'completo'};
+          var _cuD=await _atrfCuPoll(_currentAccessId,fn,20,prog);
+          if(_cuD.status==='success'||_cuD.status==='failure'){
+            _sr.pass=(_cuD.status==='success');
+            _sr.coreuse_msg=_cuD.message||'';_sr.coreuse_url=_cuD.url||'';_sr.coreuse_attempts=_cuD.attempts||0;
+            pass=_sr.pass;
           }
-        }catch(_cuE){_trCu.msg='Error consultando CoreUse: '+String(_cuE);}
+          _trCu={status:_cuD.status||'',msg:_cuD.message||'',attempts:_cuD.attempts||0,checked:'completo'};
+        }catch(_cuE){_trCu={status:'error',msg:'Error consultando CoreUse: '+String(_cuE),attempts:0,checked:'completo'};}
       } else if(_cuEligible&&_currentAccessId&&!pass){
         // Paso fallido en API: un chequeo rápido informativo en CoreUse (no cambia el resultado)
         if(prog)prog.textContent='🔍 CoreUse (chequeo rápido): '+fn+'…';
@@ -18353,7 +18696,13 @@ function _doChangePwd(){
 
 // ── Reportes descargables ─────────────────────────────────────────────────────
 async function _atrf_downloadManualReport(){
-  // Recopilar resultados de todas las secuencias con resultados
+  // Reporte real por secuencia desde Trazabilidad (qa_aid_events)
+  var _rks=_atrfQueue.filter(function(q){return q.tcResults&&q.tcResults.length&&q._traceRun;}).map(function(q){return q._traceRun;});
+  if(_rks.length){
+    var _n=await _qxDownloadReport('/api/report/sequences',{method:'POST',body:JSON.stringify({run_keys:_rks,title:'Reporte de ejecución · '+_rks.length+' secuencia'+(_rks.length>1?'s':'')})});
+    if(_n>0)return;
+  }
+  // Respaldo: secuencias sin Trazabilidad (ejecutadas antes de esta versión)
   var tests=[];
   var startTs=null,endTs=Date.now();
   _atrfQueue.forEach(function(q){
@@ -18380,7 +18729,9 @@ async function _atrf_downloadManualReport(){
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
   }catch(ex){alert('Error generando reporte: '+ex);}
 }
-function _atrf_downloadSchedReport(rid){
+async function _atrf_downloadSchedReport(rid){
+  var _n=await _qxDownloadReport('/api/report/sequences?run_key='+encodeURIComponent('sched-'+rid),{});
+  if(_n>0)return;
   fetch('/api/report/sched-run/'+rid,{headers:_authHdr()})
     .then(function(r){
       if(!r.ok)throw new Error('HTTP '+r.status);
@@ -18939,6 +19290,33 @@ function _qxGo(i){
   else if(t.t==='inv'){showInventario(t.filter);}
   else if(t.t==='codes'){showCodigos();setTimeout(function(){var s=document.getElementById('rc-search');if(s){s.value=t.code||'';if(typeof _rcFilter==='function')_rcFilter();}},500);}
 }
+async function _qxDownloadReport(url,opts){
+  try{
+    var o={headers:_authHdr()};for(var k in (opts||{}))o[k]=opts[k];
+    var r=await fetch(url,o);
+    if(!r.ok){if(typeof showToast==='function')showToast('Error generando reporte: HTTP '+r.status,'err');return -1;}
+    var n=parseInt(r.headers.get('X-Report-Steps')||'0');
+    if(!n)return 0;
+    var html=await r.text();
+    var cd=r.headers.get('Content-Disposition')||'';
+    var m=cd.match(/filename="([^"]+)"/);
+    var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=m?m[1]:'Reporte_Secuencias.html';
+    document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);
+    return n;
+  }catch(e){if(typeof showToast==='function')showToast('Error generando reporte: '+e,'err');return -1;}
+}
+function _trReportSeqs(){
+  _qxDownloadReport('/api/report/sequences?'+_trQs(_trState.sf),{}).then(function(n){
+    if(n===0&&typeof showToast==='function')showToast('No hay secuencias con pasos registrados para este filtro','err');
+  });
+}
+function _trReportAid(){
+  if(!_trCurrent)return;
+  var keys=_trGroups(_trCurrent.events||[]).map(function(g){return g.key;}).filter(function(k){return k.indexOf('single-')!==0;});
+  var url=keys.length?'/api/report/sequences?run_key='+encodeURIComponent(keys.join(',')):'/api/report/sequences?range=90d&access_id='+encodeURIComponent(_trCurrent.access_id);
+  _qxDownloadReport(url,{}).then(function(n){if(n===0&&typeof showToast==='function')showToast('Sin pasos registrados para este AID','err');});
+}
 function _qxCopy(txt){
   try{navigator.clipboard.writeText(txt).then(function(){if(typeof showToast==='function')showToast('Copiado al portapapeles','ok');});}
   catch(e){window.prompt('Copiar:',txt);}
@@ -19351,7 +19729,8 @@ function _trLoadSeqs(){
     var ok=rows.filter(function(s){return s.result==='ok';}).length;
     if(st)st.innerHTML='<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;&quot;)"><b>'+rows.length+'</b><span>secuencias</span></button>'
       +'<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;ok&quot;)"><b class="qx-ok">'+ok+'</b><span>exitosas</span></button>'
-      +'<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;fail&quot;)"><b class="qx-err">'+(rows.length-ok)+'</b><span>fallidas</span></button>';
+      +'<button class="qx-stat" onclick="_trF(&quot;seqs&quot;,&quot;result&quot;,&quot;fail&quot;)"><b class="qx-err">'+(rows.length-ok)+'</b><span>fallidas</span></button>'
+      +'<button class="qx-btn pri" style="align-self:center;margin-left:auto" onclick="_trReportSeqs()">&#128229; Descargar reporte</button>';
     if(!rows.length){body.innerHTML='<div class="qx-card"><div class="qx-empty">No hay secuencias para estos filtros.</div></div>';return;}
     var h='<div class="qx-card" style="padding:0;overflow:hidden"><div class="qx-scroll"><table class="qx-tbl" style="min-width:980px"><thead><tr><th>Inicio</th><th>Secuencia</th><th>VNO</th><th>Access ID</th><th>Pasos</th><th>Resultado</th><th>Primer problema</th><th style="text-align:right">Duración</th></tr></thead><tbody>';
     rows.forEach(function(s){
@@ -19446,7 +19825,8 @@ function _trRender(){
     +'<span class="qx-pill '+(ok===ev.length?'ok':'err')+'">'+ok+' de '+ev.length+' pasos OK</span></div></div>'
     +'<div class="qx-tools"><a class="qx-btn" href="'+_trEsc(d.coreuse_url)+'" target="_blank" rel="noopener">Abrir en CoreUse</a>'
     +'<button class="qx-btn" onclick="_trToInventory()">Ver en Inventario</button>'
-    +'<button class="qx-btn pri" onclick="_trExport()">Exportar traza (JSON)</button></div></div>';
+    +'<button class="qx-btn" onclick="_trExport()">Exportar JSON</button>'
+    +'<button class="qx-btn pri" onclick="_trReportAid()">&#128229; Descargar reporte</button></div></div>';
   if(!ev.length)h+='<div class="qx-card"><div class="qx-empty">No hay eventos registrados para este Access ID en el runner.</div></div>';
   var groups=_trGroups(ev);
   h+='<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start"><div style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px">';
