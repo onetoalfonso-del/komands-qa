@@ -1193,6 +1193,11 @@ _CU_FLOW_KEYS = {
     "Cambio de Pelo":                      ["u_fiber_change"],        # fullFillment-fiberChange
 }
 _CU_FLOW_CONFIRMED = set(_CU_FLOW_KEYS)
+# Mensajes de acuse inicial (fila recién creada, flujo aún procesando en ServiceNow)
+_CU_INTERIM_RE = re.compile(r'en curso|flujo contin[uú]a|operaci[oó]n aceptada', re.I)
+# Flujos cuyo estado final en CoreUse es el mismo acuse (confirmado: FIA queda en
+# "Operación aceptada, el flujo continúa" de forma permanente)
+_CU_ACK_IS_FINAL = {"Finalización Intervención Asegurada"}
 _CU_DATE_RE  = re.compile(r'^\d{2}-\d{2}-\d{2}, \d{2}:\d{2}$')
 _CU_TABLE_RE = re.compile(r'^u_[a-z0-9_]+$')
 
@@ -1341,6 +1346,10 @@ def _poll_coreuse_once(access_id: str, func_name: str, since_ms=None) -> dict:
                 desc = f"{row['name']} · código {row['code']}" + (f" · {row['msg']}" if row['msg'] else "") \
                        + f" ({row['date']})"
                 if row["code"] == "0":
+                    # La fila nace con el acuse de la API ("en curso", "el flujo continúa") y se
+                    # actualiza al terminar. Mientras tenga el acuse, el flujo sigue procesando.
+                    if _CU_INTERIM_RE.search(row["msg"] or "") and func_name not in _CU_ACK_IS_FINAL:
+                        return {"status": "pending", "message": f"En curso en CoreUse: {desc}", "url": url}
                     return {"status": "success", "message": desc, "url": url}
                 return {"status": "failure", "message": desc, "url": url}
 
@@ -16954,6 +16963,7 @@ var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
 var _atrfQueue=[];
 var _atrfRunning=false;
+var _atrfLastRunKeys=[];  // run_keys de la última ejecución (el reporte incluye solo esas)
 var _atrf_schedCalState=null; // {y,m} estado del mini-cal en la pestana Programar
 var _schedRuns=[];
 var _schedRunsTimer=null;
@@ -18454,6 +18464,7 @@ async function _atrf_runSelected(){
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
   if(!toRun.length){if(typeof showToast==='function')showToast('No hay secuencias seleccionadas en espera','err');return;}
   _atrfRunning=true;
+  _atrfLastRunKeys=[];
   _atrf_qStartTs=Date.now();
   var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='⏳ Ejecutando…';btn.disabled=true;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='';
@@ -18476,6 +18487,7 @@ async function _atrf_runSelected(){
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
     q.tcResults=[];
     q._traceRun='m'+Date.now()+'-'+qi;
+    _atrfLastRunKeys.push(q._traceRun);
     var vno=q.cfg&&q.cfg.vno||'';
     var _currentAccessId=q.cfg.accessId||'';
     // ── Grupos de dependencia (misma lógica que el scheduler Python) ──────────
@@ -18862,7 +18874,8 @@ function _doChangePwd(){
 // ── Reportes descargables ─────────────────────────────────────────────────────
 async function _atrf_downloadManualReport(){
   // Reporte real por secuencia desde Trazabilidad (qa_aid_events)
-  var _rks=_atrfQueue.filter(function(q){return q.tcResults&&q.tcResults.length&&q._traceRun;}).map(function(q){return q._traceRun;});
+  // Solo las secuencias de la última ejecución; si no hay (página recargada), las marcadas con resultados
+  var _rks=_atrfLastRunKeys.length?_atrfLastRunKeys.slice():_atrfQueue.filter(function(q){return q.checked&&q.tcResults&&q.tcResults.length&&q._traceRun;}).map(function(q){return q._traceRun;});
   if(_rks.length){
     var _n=await _qxDownloadReport('/api/report/sequences',{method:'POST',body:JSON.stringify({run_keys:_rks,title:'Reporte de ejecución · '+_rks.length+' secuencia'+(_rks.length>1?'s':'')})});
     if(_n>0)return;
