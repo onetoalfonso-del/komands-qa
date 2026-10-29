@@ -2132,7 +2132,9 @@ async def _agenda_fire_async(schedule_id: int):
 
         # Async: Activación entra a la fase secuencial y los pasos que modifican la red van en
         # serie con la cadena IA (en paralelo chocaban en la OLT/ONT); igual que el runner manual.
-        if _sched_async:
+        # ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
+        _POST_ACT = {"Reinicio ONT", "Consulta de Alarmas", "RetrieveAccess ONT", "Diagnóstico de Acceso"}
+        if _sched_async or (_POST_ACT & set(func_names)):
             _SEQ_FIRST_SET = {"Factibilidad", "Asignación", "Activación"}
         _WR_SET = ({"Modificación de Acceso", "Modificación de Dispositivo", "Reinicio ONT", "Cambio de Fibra"}
                    if _sched_async else set())
@@ -18600,7 +18602,9 @@ async function _atrf_runSelected(){
     var _asyncMode=q.cfg&&q.cfg.tex==='Asíncrono';
     // En async: Activación entra al grupo secuencial para que ONTRetrieve/ONTRestart/AccesStatusAsync
     // solo arranquen después de que Activación complete (no en paralelo con ella).
-    var _MSeqSet=new Set(_asyncMode?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
+    // ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
+    var _mPostAct=(q.funcs||[]).some(function(fi){return ["Reinicio ONT","Consulta de Alarmas","RetrieveAccess ONT","Diagnóstico de Acceso"].indexOf(_ATRF_FUNCS[fi])>=0;});
+    var _MSeqSet=new Set((_asyncMode||_mPostAct)?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
     var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo"]);
     var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
     // En async, los pasos que modifican la red van en la misma cadena serial que IA (orden declarado):
