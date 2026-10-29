@@ -1848,7 +1848,7 @@ ATRF_FUNCS_REAL = [
 ]
 ATRF_PRESET_INDEXES = {
     "acotada":  [0, 1, 11, 3, 4, 6],
-    "completa": [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7],
+    "completa": [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 10, 7],
     # Flujos Nokia — equivalentes a lo que el equipo ejecuta manualmente
     "flujo1":   [0, 1, 6],              # Sanity básico: Factibilidad → Asignación → Cancel OOSS
     "flujo2":   [1, 2, 8, 9, 3, 4, 3, 5, 7],  # Sanity completo: Asig → Activ → ModAcceso → DevMod → IIA → CancelIA → IIA → FIA → Baja
@@ -2045,6 +2045,8 @@ async def _agenda_fire_async(schedule_id: int):
         else:
             func_indexes = ATRF_PRESET_INDEXES.get(preset, ATRF_PRESET_INDEXES["acotada"])
             func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
+        # RetrieveAccess ONT se unificó con Consulta de Alarmas (ONTRetrieve): misma API
+        func_names = ["Consulta de Alarmas" if f == "RetrieveAccess ONT" else f for f in func_names]
         vno = sched.get("vno", "02")
         # cfg_extra_json: campos adicionales del formulario ATRF completo
         _cfg_extra = {}
@@ -16973,7 +16975,7 @@ var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervenció
 var _ATRF_GROUPS=[
   {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
   {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,19,7]},
-  {label:'Consultas',color:'#00C8D4',funcs:[11,12,17,13,14,15,18]}
+  {label:'Consultas',color:'#00C8D4',funcs:[11,12,13,14,15,18]}  // 17 RetrieveAccess ONT = misma API que 18 ONTRetrieve
 ];
 var _ATRF_PREREQS={
   0:null,
@@ -17034,6 +17036,8 @@ function _atrf_load(){
   // recargarla desde localStorage la reemplazaría por una copia vieja ("En espera").
   if(!_atrfRunning){
     try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
+    // RetrieveAccess ONT (17) se unificó con ONTRetrieve (18): misma API
+    _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
   }
   _atrf_loadEnvUrls();
   _atrf_loadSchedRuns();
@@ -17893,7 +17897,7 @@ var _ATRF_PRESETS={
   // Acotada: 01-Fact · 02-Asig · 13-ConsultaAcceso · 03-InicioIA · 10-CancelIA · 11-CancelOOSS
   acotada: [0, 1, 11, 3, 4, 6],
   // Completa: flujo venta completo + postventa + consultas (según diagrama fila 2)
-  completa: [0, 1, 3, 2, 11, 13, 8, 17, 15, 16, 9, 5, 10, 7]
+  completa: [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 10, 7]
 };
 function _atrf_setPreset(name){
   var preset=_ATRF_PRESETS[name];
