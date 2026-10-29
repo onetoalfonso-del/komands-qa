@@ -8083,6 +8083,10 @@ async def api_coreuse_poll(request: Request):
     loop   = _aio.get_event_loop()
     result = {"status": "timeout", "message": f"Sin respuesta tras {_MAX_ATTEMPTS} intentos (~6 min)", "attempts": 0}
 
+    # CoreUse actualiza la fila a los 5-10 s: el estado final debe repetirse en 3 lecturas seguidas
+    _STABLE_N, _STABLE_WAIT_S = 3, 6
+    stable_key, stable_n = None, 0
+
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
             r = await loop.run_in_executor(
@@ -8093,9 +8097,19 @@ async def api_coreuse_poll(request: Request):
 
         result = {**r, "attempts": attempt}
 
-        # Resultado definitivo → retornar sin esperar más
-        if result.get("status") in ("success", "failure", "not_applicable"):
+        if result.get("status") == "not_applicable":
             return JSONResponse(result)
+        if result.get("status") in ("success", "failure"):
+            if _MAX_ATTEMPTS == 1:
+                return JSONResponse(result)
+            key = (result.get("status"), result.get("message"))
+            stable_n = stable_n + 1 if key == stable_key else 1
+            stable_key = key
+            if stable_n >= _STABLE_N or attempt == _MAX_ATTEMPTS:
+                return JSONResponse(result)
+            await _aio.sleep(_STABLE_WAIT_S)
+            continue
+        stable_key, stable_n = None, 0
 
         # Aún pendiente o no encontrado → esperar antes del siguiente intento
         if attempt < _MAX_ATTEMPTS:
@@ -18439,9 +18453,10 @@ var _atrf_qStartTs=0;
 // Polling CoreUse desde el navegador: 1 consulta corta por request (max_attempts=1).
 // Evita que el proxy de Railway corte un request largo (~5 min) y el resultado se pierda.
 async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
-  var last={status:'pending',message:''},reached=false;
+  // Estado final debe repetirse en 3 lecturas seguidas (CoreUse actualiza la fila a los 5-10 s)
+  var last={status:'pending',message:''},reached=false,stKey='',stN=0,STABLE=3;
   for(var i=1;i<=maxAtt;i++){
-    if(prog)prog.textContent='🔍 CoreUse: '+fn+' (intento '+i+'/'+maxAtt+')…';
+    if(prog)prog.textContent='🔍 CoreUse: '+fn+(stN?' · confirmando estado ('+stN+'/'+STABLE+')':' (intento '+i+'/'+maxAtt+')')+'…';
     try{
       var r=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1,since_ms:since||null})});
@@ -18450,8 +18465,20 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
     }catch(e){last={status:'error',message:'Error de red consultando CoreUse: '+String(e)};}
     last.attempts=i;
     if(last.status!=='error')reached=true;
-    if(last.status==='success'||last.status==='failure'||last.status==='not_applicable')return last;
+    if(last.status==='not_applicable')return last;
+    if(last.status==='success'||last.status==='failure'){
+      var k=last.status+'|'+(last.message||'');
+      stN=(k===stKey)?stN+1:1;stKey=k;
+      if(stN>=STABLE){last.stable=stN;return last;}
+      if(i<maxAtt)await new Promise(function(res){setTimeout(res,6000);});
+      continue;
+    }
+    stKey='';stN=0;
     if(i<maxAtt)await new Promise(function(res){setTimeout(res,i===1?10000:18000);});
+  }
+  // Se agotaron los intentos con un estado final aún sin confirmar: se usa igual
+  if(last.status==='success'||last.status==='failure'){
+    last.message=(last.message||'')+' (confirmado '+stN+'/'+STABLE+')';return last;
   }
   // Nunca se pudo leer CoreUse (login/bloqueo/red): no se culpa al paso, queda el resultado de la API
   if(!reached)return {status:'error',attempts:maxAtt,url:last.url||'',
