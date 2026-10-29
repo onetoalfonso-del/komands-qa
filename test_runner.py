@@ -17992,7 +17992,7 @@ function _atrf_renderSeq(){
   document.getElementById('atrf-seq-counter').textContent='Secuencia ('+_atrfSel.length+')';
   var clearBtn=document.getElementById('atrf-clear-seq-btn');
   if(clearBtn)clearBtn.style.display=_atrfSel.length?'inline-flex':'none';
-  if(!_atrfSel.length){el.innerHTML='<div class="atrf-seq-empty">â† Selecciona funcionalidades</div>';return;}
+  if(!_atrfSel.length){el.innerHTML='<div class="atrf-seq-empty">← Selecciona funcionalidades</div>';return;}
   el.innerHTML='';
   _atrfSel.forEach(function(fi,pos){
     var d=document.createElement('div');d.className='atrf-seq-item';d.draggable=true;d.dataset.pos=pos;
@@ -20397,7 +20397,7 @@ function _trExport(){
             <span class="atrf-func-pt">Disponibles (<span id="atrf-func-cnt">0</span>)</span>
             <input class="atrf-func-search" type="text" placeholder="Buscar..." oninput="_atrf_filterFuncs(this.value)"/>
           </div>
-          <div style="display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;border-bottom:1px solid var(--atrf-border);background:var(--atrf-surface)">
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('flujo1')" title="Sanity básico Nokia — Flujo 1: Factibilidad → Asignación → Cancel OOSS">🔵 Flujo 1</button>
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('flujo2')" title="Sanity completo Nokia — Flujo 2: Asignación → Activación → ModAcceso → DevMod → IIA → CancelIA → FIA → Baja">🟣 Flujo 2</button>
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('acotada')" title="01 Factibilidad · 02 Asignación · 13 Consulta Acceso · 03 Inicio IA · 10 Cancelación IA · 11 Cancelación OOSS">📋 Regresión Acotada</button>
@@ -20415,7 +20415,7 @@ function _trExport(){
           <div class="atrf-func-ph">
             <span class="atrf-func-pt" id="atrf-seq-counter">Secuencia (0)</span>
           </div>
-          <div id="atrf-seq-list"><div class="atrf-seq-empty">â† Selecciona funcionalidades</div></div>
+          <div id="atrf-seq-list"><div class="atrf-seq-empty">← Selecciona funcionalidades</div></div>
         </div>
       </div>
     </div>
