@@ -2054,6 +2054,8 @@ async def _agenda_fire_async(schedule_id: int):
         if _cfg_extra_raw:
             try: _cfg_extra = _j.loads(_cfg_extra_raw)
             except Exception: pass
+        # Tipo de ejecución elegido en el formulario (Síncrono por defecto)
+        _sched_async = (_cfg_extra.get("tex") or "") == "Asíncrono"
         run_id = await conn.fetchval(
             "INSERT INTO qa_sched_runs (schedule_id, preset, vno, total_steps, status) "
             "VALUES ($1, $2, $3, $4, 'running') RETURNING id",
@@ -2128,13 +2130,19 @@ async def _agenda_fire_async(schedule_id: int):
         _IA_SET           = set(_IA_CHAIN_ORDERED)
         _TEARDOWN_SET     = set(_TEARDOWN_ORDERED)
 
+        # Async: Activación entra a la fase secuencial y los pasos que modifican la red van en
+        # serie con la cadena IA (en paralelo chocaban en la OLT/ONT); igual que el runner manual.
+        if _sched_async:
+            _SEQ_FIRST_SET = {"Factibilidad", "Asignación", "Activación"}
+        _WR_SET = ({"Modificación de Acceso", "Modificación de Dispositivo", "Reinicio ONT", "Cambio de Fibra"}
+                   if _sched_async else set())
         fn_set         = set(func_names)
-        seq_phase      = [f for f in ["Factibilidad", "Asignación"] if f in fn_set]
+        seq_phase      = [f for f in ["Factibilidad", "Asignación", "Activación"] if f in fn_set and f in _SEQ_FIRST_SET]
         # ia_phase preserva orden Y duplicados del input (ej. IIA puede aparecer dos veces)
-        ia_phase       = [f for f in func_names if f in _IA_SET]
+        ia_phase       = [f for f in func_names if f in _IA_SET or f in _WR_SET]
         teardown_phase = [f for f in _TEARDOWN_ORDERED  if f in fn_set]
         indep_phase    = [f for f in func_names
-                          if f not in _IA_SET and f not in _TEARDOWN_SET
+                          if f not in _IA_SET and f not in _WR_SET and f not in _TEARDOWN_SET
                           and f not in _SEQ_FIRST_SET]
 
         # Inicializar progreso en vivo para este run
@@ -2159,8 +2167,10 @@ async def _agenda_fire_async(schedule_id: int):
                 "serviceBa": _cfg_extra.get("ba", True),
                 "serviceVoip": _cfg_extra.get("voip", True),
                 "serviceIptv": _cfg_extra.get("iptv", True),
+                "asyncMode": _sched_async,
             }
             step_r = {"func": fn, "pass": False, "error": None, "duration_ms": 0}
+            _t0_ms = int(_tme.time() * 1000)
             _t0 = _tme.monotonic()
             try:
                 _req_data = _j.dumps(body).encode("utf-8")
@@ -2184,11 +2194,34 @@ async def _agenda_fire_async(schedule_id: int):
                 step_r["apim408"]  = _res.get("apim408", False)
             except Exception as _ex:
                 step_r["error"] = str(_ex)
-            finally:
-                step_r["duration_ms"] = int((_tme.monotonic() - _t0) * 1000)
-            # Delay solo si el paso pasó (si falló no tiene sentido esperar)
+            # Async: la API solo acusa recibo; el resultado real está en CoreUse
+            _api_pass = step_r["pass"]
+            _cu = {"checked": "no"}
+            _cu_aid = step_r.get("accessId") or prev_access_id
+            _cu_elig = (fn not in _COREUSE_NO_POLL) or (fn in _CU_ASYNC_POLL)
+            if _sched_async and _cu_aid and _cu_elig and (_api_pass or step_r.get("apim408")):
+                try:
+                    _cr = await _coreuse_wait_result(_cu_aid, fn, _t0_ms, True, 20)
+                except Exception as _cex:
+                    _cr = {"status": "error", "message": str(_cex), "attempts": 0}
+                _cu = {"checked": "completo", "status": _cr.get("status", ""),
+                       "msg": _cr.get("message", ""), "attempts": _cr.get("attempts", 0)}
+                if _cr.get("status") in ("success", "failure"):
+                    step_r["pass"] = _cr["status"] == "success"
+                elif _cr.get("status") in ("pending", "not_found"):
+                    step_r["pass"] = False
+                    _cu["msg"] = ("CoreUse no registró resultado tras 20 intentos · último: "
+                                  + (_cr.get("message") or _cr.get("status", "")))
+                # error (CoreUse inaccesible): se mantiene el resultado de la API
+                if not step_r["pass"] and not step_r.get("error"):
+                    step_r["error"] = _cu["msg"]
+            elif _sched_async and not _cu_elig:
+                _cu = {"checked": "no_aplica"}
+            step_r["duration_ms"] = int((_tme.monotonic() - _t0) * 1000)
+            # Delay solo si el paso pasó (si falló no tiene sentido esperar).
+            # En async la espera de CoreUse reemplaza los delays fijos.
             _dk  = _SCHED_DELAY_MAP.get(fn)
-            _dms = _sched_delays.get(_dk, 0) if _dk else 0
+            _dms = _sched_delays.get(_dk, 0) if (_dk and not _sched_async) else 0
             if step_r["pass"] and _dms > 0:
                 print(f"[agenda] esperando {_dms}ms post-{fn}…")
                 await _asyncio.sleep(_dms / 1000)
@@ -2201,14 +2234,17 @@ async def _agenda_fire_async(schedule_id: int):
                 _live["done"].append({"func": fn, "pass": step_r["pass"],
                                       "http": step_r.get("http", 0),
                                       "error": step_r.get("error", "")})
-            # Trazabilidad por AID (la agenda no consulta CoreUse)
+            # Trazabilidad por AID (en síncrono la agenda no consulta CoreUse)
             await _aid_event_save({
                 "access_id": step_r.get("accessId") or prev_access_id,
                 "run_key": f"sched-{run_id}", "source": "agenda",
                 "seq_name": sched.get("name", ""), "vno": vno, "func": fn,
+                "mode": "async" if _sched_async else "sync",
                 "http_code": step_r.get("http", 0),
-                "api_pass": step_r["pass"], "final_pass": step_r["pass"],
-                "coreuse_checked": "no",
+                "api_pass": _api_pass, "final_pass": step_r["pass"],
+                "coreuse_checked": _cu.get("checked", "no"),
+                "coreuse_status": _cu.get("status", ""), "coreuse_msg": _cu.get("msg", ""),
+                "coreuse_attempts": _cu.get("attempts", 0),
                 "duration_ms": step_r["duration_ms"],
                 "extra": {"error": step_r.get("error") or "", "apim408": step_r.get("apim408", False)},
                 "req": step_r.get("req", ""), "res": step_r.get("res", ""),
@@ -2237,9 +2273,13 @@ async def _agenda_fire_async(schedule_id: int):
                 _r = await _exec_step(_fn)
                 _res.append(_r)
                 if _fn == "Inicio Intervención Asegurada" and not _r["pass"]:
-                    # Inicio IA falló → marcar el resto del chain como saltados
+                    # Inicio IA falló → marcar el resto de pasos IA como saltados;
+                    # los pasos de red (async) de la cadena se ejecutan igual
                     # Usa _i (índice actual) en vez de .index() para soportar IIA duplicado
                     for _fn2 in ia_phase[_i + 1:]:
+                        if _fn2 not in _IA_SET:
+                            _res.append(await _exec_step(_fn2))
+                            continue
                         _res.append({"func": _fn2, "pass": False,
                                      "error": "⊘ Saltado: Inicio IA falló", "duration_ms": 0})
                         await _aid_event_save({
@@ -2482,7 +2522,7 @@ async def api_schedules_update(sched_id: int, request: Request):
     row = await conn.fetchrow(
         "UPDATE qa_schedules SET name=$1, preset=$2, vno=$3, direccion=$4, address_mcd=$5, "
         "svc_type=$6, speed_plan=$7, amb_url=$8, days_of_week=$9, times_of_day=$10, active=$11, "
-        "cfg_extra_json=$12, funcs_json=$13 "
+        "cfg_extra_json=COALESCE($12, cfg_extra_json), funcs_json=COALESCE($13, funcs_json) "
         "WHERE id=$14 RETURNING *",
         data.get("name","Sin nombre"),
         data.get("preset","acotada"),
@@ -8052,6 +8092,50 @@ async def api_historial_post(request: Request):
 
 
 # ─── CoreUse polling endpoint ─────────────────────────────────────────────────
+async def _coreuse_wait_result(access_id: str, func_name: str, since_ms=None,
+                               async_mode: bool = False, max_attempts: int = 20) -> dict:
+    """Consulta CoreUse hasta tener un estado final estable (éxito 3 lecturas iguales, fallo 5).
+    Usado por /api/coreuse/poll y por la Agenda. Retorna status success|failure|pending|error|not_applicable."""
+    import asyncio as _aio
+    _MAX_ATTEMPTS  = max(1, int(max_attempts or 20))
+    _FIRST_WAIT_S  = 10
+    _NORMAL_WAIT_S = 18
+    loop   = _aio.get_event_loop()
+    result = {"status": "pending", "message": "", "attempts": 0}
+    # CoreUse actualiza la fila a los 5-10 s: el estado final debe repetirse en lecturas seguidas
+    # (éxito 3, fallo 5: un código ≠ 0 puede pasar a 0 segundos después)
+    _STABLE_WAIT_S = 6
+    stable_key, stable_n = None, 0
+    # La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8)
+    for attempt in range(1, _MAX_ATTEMPTS + 9):
+        if attempt > _MAX_ATTEMPTS and not stable_n:
+            break
+        try:
+            r = await loop.run_in_executor(
+                None, lambda: _poll_coreuse_once(access_id, func_name, since_ms, async_mode)
+            )
+        except Exception as exc:
+            r = {"status": "error", "message": str(exc)}
+        result = {**r, "attempts": attempt}
+        if result.get("status") == "not_applicable":
+            return result
+        if result.get("status") in ("success", "failure"):
+            if _MAX_ATTEMPTS == 1:
+                return result
+            key = (result.get("status"), result.get("message"))
+            stable_n = stable_n + 1 if key == stable_key else 1
+            stable_key = key
+            need = 5 if result.get("status") == "failure" else 3
+            if stable_n >= need or attempt == _MAX_ATTEMPTS + 8:
+                return result
+            await _aio.sleep(_STABLE_WAIT_S)
+            continue
+        stable_key, stable_n = None, 0
+        if attempt < _MAX_ATTEMPTS:
+            await _aio.sleep(_FIRST_WAIT_S if attempt == 1 else _NORMAL_WAIT_S)
+    return result
+
+
 @app.post("/api/coreuse/poll")
 async def api_coreuse_poll(request: Request):
     """
@@ -8089,58 +8173,11 @@ async def api_coreuse_poll(request: Request):
         _MAX_ATTEMPTS = max(1, min(int(body.get("max_attempts") or 20), 20))
     except (TypeError, ValueError):
         pass
-    _FIRST_WAIT_S  = 10
-    _NORMAL_WAIT_S = 18
-
-    loop   = _aio.get_event_loop()
-    result = {"status": "timeout", "message": f"Sin respuesta tras {_MAX_ATTEMPTS} intentos (~6 min)", "attempts": 0}
-
-    # CoreUse actualiza la fila a los 5-10 s: el estado final debe repetirse en lecturas seguidas
-    # (éxito 3, fallo 5: un código ≠ 0 puede pasar a 0 segundos después)
-    _STABLE_WAIT_S = 6
-    stable_key, stable_n = None, 0
-
-    # La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8)
-    for attempt in range(1, _MAX_ATTEMPTS + 9):
-        if attempt > _MAX_ATTEMPTS and not stable_n:
-            break
-        try:
-            r = await loop.run_in_executor(
-                None, lambda: _poll_coreuse_once(access_id, func_name, since_ms, async_mode)
-            )
-        except Exception as exc:
-            r = {"status": "error", "message": str(exc)}
-
-        result = {**r, "attempts": attempt}
-
-        if result.get("status") == "not_applicable":
-            return JSONResponse(result)
-        if result.get("status") in ("success", "failure"):
-            if _MAX_ATTEMPTS == 1:
-                return JSONResponse(result)
-            key = (result.get("status"), result.get("message"))
-            stable_n = stable_n + 1 if key == stable_key else 1
-            stable_key = key
-            need = 5 if result.get("status") == "failure" else 3
-            if stable_n >= need or attempt == _MAX_ATTEMPTS + 8:
-                return JSONResponse(result)
-            await _aio.sleep(_STABLE_WAIT_S)
-            continue
-        stable_key, stable_n = None, 0
-
-        # Aún pendiente o no encontrado → esperar antes del siguiente intento
-        if attempt < _MAX_ATTEMPTS:
-            await _aio.sleep(_FIRST_WAIT_S if attempt == 1 else _NORMAL_WAIT_S)
-
-    # Después de _MAX_ATTEMPTS intentos sin resultado → fallo
-    # Regla: éxito requiere que CoreUse confirme code 0 explícitamente.
-    # Si no aparece nada → ambiente caído u otro problema → marcar como error.
-    if _MAX_ATTEMPTS == 1:
-        return JSONResponse(result)
-    if result.get("status") in ("pending", "not_found", "error"):
+    result = await _coreuse_wait_result(access_id, func_name, since_ms, async_mode, _MAX_ATTEMPTS)
+    # Endpoint: tras varios intentos sin estado final → fallo (el navegador usa max_attempts=1)
+    if _MAX_ATTEMPTS > 1 and result.get("status") in ("pending", "not_found"):
         result["status"]  = "failure"
         result["message"] = f"CoreUse no registró resultado tras {_MAX_ATTEMPTS} intentos (ambiente caído u otro problema)"
-
     return JSONResponse(result)
 
 
@@ -15462,7 +15499,7 @@ function _agendaRender(){
         var dot=dotC?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotC+';flex-shrink:0"></span>':'';
         html+='<div data-sid="'+s.id+'" style="border-left:2px solid '+ac+';border-radius:0 4px 4px 0;background:'+ac+'18;padding:5px 6px;'+(s.active?'':'opacity:.4')+'">'
           +'<div style="font-size:.65rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_esc(s.name)+'">'+(dot?dot+' ':'')+_esc(s.name)+'</div>'
-          +'<div style="font-family:monospace;font-size:.6rem;color:var(--txt2);margin-top:1px">'+_esc(tStr+tExtra)+'</div>'
+          +'<div style="font-family:monospace;font-size:.6rem;color:var(--txt2);margin-top:1px">'+_esc(tStr+tExtra)+' · '+_agTexLbl(s)+'</div>'
           +'<div style="display:flex;gap:2px;margin-top:4px">'
           +'<button data-sid="'+s.id+'" data-act="run" class="ag-cb" title="Ejecutar ahora" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.58rem;cursor:pointer">&#9654;</button>'
           +'<button data-sid="'+s.id+'" data-act="edit" class="ag-cb" title="Editar" style="flex:1;padding:2px 0;border-radius:3px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.58rem;cursor:pointer">&#10000;</button>'
@@ -15581,6 +15618,10 @@ function _agendaEdit(id){
   _agendaOpenModal(s);
 }
 
+function _agTexLbl(s){
+  var c={};try{c=JSON.parse((s&&s.cfg_extra_json)||'{}')||{};}catch(e){}
+  return c.tex==='Asíncrono'?'Async':'Sync';
+}
 function _agendaOpenModal(s){
   var DAYS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   var selDays=[];try{selDays=JSON.parse((s&&s.days_of_week)||'[]');}catch(e){}
@@ -18153,7 +18194,7 @@ function _atrf_schedSave(){
   // Determinar preset
   var preset='custom';
   var acotadaStr=JSON.stringify([0,1,11,3,4,6]);
-  var completaStr=JSON.stringify([0,1,3,2,11,13,8,17,15,16,9,5,10,7]);
+  var completaStr=JSON.stringify([0,1,3,2,11,13,8,18,15,16,9,5,10,7]);
   var selStr=JSON.stringify(_atrfSel);
   if(selStr===acotadaStr)preset='acotada';
   else if(selStr===completaStr)preset='completa';
