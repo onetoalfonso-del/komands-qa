@@ -18562,6 +18562,10 @@ async function _atrf_runSelected(){
     var _MSeqSet=new Set(_asyncMode?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
     var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo"]);
     var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
+    // En async, los pasos que modifican la red van en la misma cadena serial que IA (orden declarado):
+    // en paralelo chocaban en la OLT/ONT ("otra operación en curso", "corresponde a otra VNO").
+    // Las consultas (solo lectura) siguen en paralelo.
+    var _MWrSet=new Set(_asyncMode?["Modificación de Acceso","Modificación de Dispositivo","Reinicio ONT","Cambio de Fibra"]:[]);
     // Pre-asignar labels con contador de ocurrencias
     var _mOcc={},_mLabels=[];
     (q.funcs||[]).forEach(function(fi){
@@ -18587,8 +18591,8 @@ async function _atrf_runSelected(){
       else if(_MTdSet.has(_psf.fn)&&_psi<_lastSeqIdx){_mSeqPhase.push(_psf);}  // intercalado antes de última Asig
       else if(_MTdSet.has(_psf.fn)){_mTeardown.push(_psf);}
     }
-    var _mIaPhase=_mAllSteps.filter(function(s){return _MIaSet.has(s.fn);});
-    var _mIndep  =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MTdSet.has(s.fn);});
+    var _mIaPhase=_mAllSteps.filter(function(s){return _MIaSet.has(s.fn)||_MWrSet.has(s.fn);});
+    var _mIndep  =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MWrSet.has(s.fn)&&!_MTdSet.has(s.fn);});
     // Función ejecutora de un solo paso
     async function _mDoStep(s){
       var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
@@ -18806,7 +18810,7 @@ async function _atrf_runSelected(){
     async function _mRunIA(){
       var _res=[];var _iaFailed=false;
       for(var _mi=0;_mi<_mIaPhase.length;_mi++){
-        if(_iaFailed){
+        if(_iaFailed&&_MIaSet.has(_mIaPhase[_mi].fn)){
           var _skFn=_mIaPhase[_mi].fn,_skTc=(_ATRF_TC_MAP[_skFn]||{})[vno]||'';
           _res.push({func:_skFn,tc:_skTc,
             label:_mIaPhase[_mi].label,pass:false,req:'',res:'',httpCode:0,newmanOut:'',
