@@ -7089,6 +7089,8 @@ async def atrf_run_step(request: Request):
             "u_reset_type": "1",
             "u_port": "",
         }
+        if async_mode:
+            req_body_dict.pop("u_port")   # ONTRestartAsync: AID + VNO + u_reset_type
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         _reint_url = (f"{apim_url.rstrip('/')}/fullFillment-oNTRestartAsync/v1/ONTRestartAsync" if async_mode
                       else f"{apim_url.rstrip('/')}/reinicioONT/v1/ONTRestart")
@@ -7634,7 +7636,7 @@ async def atrf_run_step(request: Request):
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         if async_mode:
-            req_body_dict = {"u_access_id_vno": access_id, "u_id_vno": vno}
+            req_body_dict = {"u_access_id_vno": access_id}   # ONTRetrieveAsync: solo AID
         else:
             req_body_dict = {
                 "u_access_id":    access_id,
@@ -18238,7 +18240,9 @@ var _ATRF_ENDPOINT_MAP={
 };
 var _ATRF_ENDPOINT_MAP_ASYNC={
   "RetrieveAccess":                      "fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync",
-  "Diagnóstico de Acceso":               "fullFillment-AccesStatusAsync/v1/AccesStatusAsync"
+  "Diagnóstico de Acceso":               "fullFillment-AccesStatusAsync/v1/AccesStatusAsync",
+  "Reinicio ONT":                        "fullFillment-oNTRestartAsync/v1/ONTRestartAsync",
+  "Consulta de Alarmas":                 "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
