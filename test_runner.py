@@ -8088,7 +8088,10 @@ async def api_coreuse_poll(request: Request):
     _STABLE_WAIT_S = 6
     stable_key, stable_n = None, 0
 
-    for attempt in range(1, _MAX_ATTEMPTS + 1):
+    # La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8)
+    for attempt in range(1, _MAX_ATTEMPTS + 9):
+        if attempt > _MAX_ATTEMPTS and not stable_n:
+            break
         try:
             r = await loop.run_in_executor(
                 None, lambda: _poll_coreuse_once(access_id, func_name, since_ms)
@@ -8107,7 +8110,7 @@ async def api_coreuse_poll(request: Request):
             stable_n = stable_n + 1 if key == stable_key else 1
             stable_key = key
             need = 5 if result.get("status") == "failure" else 3
-            if stable_n >= need or attempt == _MAX_ATTEMPTS:
+            if stable_n >= need or attempt == _MAX_ATTEMPTS + 8:
                 return JSONResponse(result)
             await _aio.sleep(_STABLE_WAIT_S)
             continue
@@ -18461,7 +18464,9 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
   // Estado final debe repetirse en lecturas seguidas (CoreUse actualiza la fila a los 5-10 s):
   // éxito 3 lecturas, fallo 5 (un código ≠ 0 puede pasar a 0 segundos después)
   var last={status:'pending',message:''},reached=false,stKey='',stN=0,STABLE=3;
-  for(var i=1;i<=maxAtt;i++){
+  // La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8 lecturas)
+  for(var i=1;i<=maxAtt+8;i++){
+    if(i>maxAtt&&!stN)break;
     if(prog)prog.textContent='🔍 CoreUse: '+fn+(stN?' · confirmando estado ('+stN+'/'+STABLE+')':' (intento '+i+'/'+maxAtt+')')+'…';
     try{
       var r=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -18476,7 +18481,7 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
       var k=last.status+'|'+(last.message||'');
       stN=(k===stKey)?stN+1:1;stKey=k;STABLE=last.status==='failure'?5:3;
       if(stN>=STABLE){last.stable=stN;return last;}
-      if(i<maxAtt)await new Promise(function(res){setTimeout(res,6000);});
+      if(i<maxAtt+8)await new Promise(function(res){setTimeout(res,6000);});
       continue;
     }
     stKey='';stN=0;
