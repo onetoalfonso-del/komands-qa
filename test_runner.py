@@ -1192,9 +1192,10 @@ _CU_FLOW_KEYS = {
     "Consulta de Alarmas":                 ["u_retrieve_data_ont"],   # retrieveDataONT/ONTRetrieve
     "Cambio de Pelo":                      ["u_fiber_change"],        # fullFillment-fiberChange
     "Diagnóstico de Acceso":               ["u_access_status"],       # AccesStatusAsync ("Access Status")
+    "RetrieveAccess ONT":                  ["u_retrieve_data_ont"],   # async → ONTRetrieveAsync
 }
 # Consultas sin polling en modo síncrono, pero que en asíncrono sí dejan fila en CoreUse
-_CU_ASYNC_POLL = {"Diagnóstico de Acceso"}
+_CU_ASYNC_POLL = {"Diagnóstico de Acceso", "RetrieveAccess ONT"}
 _CU_FLOW_CONFIRMED = set(_CU_FLOW_KEYS)
 # Mensajes de acuse inicial (fila recién creada, flujo aún procesando en ServiceNow)
 _CU_INTERIM_RE = re.compile(r'en curso|flujo contin[uú]a|operaci[oó]n aceptada', re.I)
@@ -7552,7 +7553,8 @@ async def atrf_run_step(request: Request):
         return JSONResponse(_resp)
 
     # ── RetrieveAccess ONT ────────────────────────────────────────────────────
-    if func_name == "RetrieveAccess ONT":
+    # En async RetrieveAccess ONT = ONTRetrieveAsync (mismo endpoint que Consulta de Alarmas, abajo)
+    if func_name == "RetrieveAccess ONT" and not async_mode:
         env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         try:
             env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
@@ -7611,7 +7613,7 @@ async def atrf_run_step(request: Request):
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
     # ── Consulta de Alarmas (ConsultaDataONT) ─────────────────────────────────
-    if func_name == "Consulta de Alarmas":
+    if func_name == "Consulta de Alarmas" or (func_name == "RetrieveAccess ONT" and async_mode):
         env_file = QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"])
         try:
             env_data = _j.load(open(QA_DIR / env_file, encoding="utf-8"))
@@ -18251,6 +18253,7 @@ var _ATRF_ENDPOINT_MAP_ASYNC={
   "RetrieveAccess":                      "fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync",
   "Diagnóstico de Acceso":               "fullFillment-AccesStatusAsync/v1/AccesStatusAsync",
   "Reinicio ONT":                        "fullFillment-oNTRestartAsync/v1/ONTRestartAsync",
+  "RetrieveAccess ONT":                  "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync",
   "Consulta de Alarmas":                 "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync"
 };
 function _atrf_prettyJson(s){
@@ -18725,7 +18728,7 @@ async function _atrf_runSelected(){
       var _is408=rd&&rd.apim408;
       // En modo async: RetrieveAccess, Reinicio ONT y Consulta de Alarmas SÍ tienen registro CoreUse
       // Diagnóstico de Acceso (AccesStatusAsync) en async sí deja fila "Access Status" en CoreUse
-      var _cuEligible=(!_COREUSE_NO_POLL[fn]||(_asyncMode&&fn==='Diagnóstico de Acceso'))&&!_sr.noAccessId;
+      var _cuEligible=(!_COREUSE_NO_POLL[fn]||(_asyncMode&&(fn==='Diagnóstico de Acceso'||fn==='RetrieveAccess ONT')))&&!_sr.noAccessId;
       if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
