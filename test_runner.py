@@ -7504,13 +7504,13 @@ async def atrf_run_step(request: Request):
                 token = _j.loads(r.read()).get("access_token", "")
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
-        req_body_dict = {
-            "u_id_vno": vno,
-            "u_access_id_vno": access_id,
-            "u_flag_scope": "2",
-        }
+        _ra_async = async_mode or use_pre
+        # Async (retrieveAccessAsync) solo recibe AID + VNO; la síncrona además u_flag_scope
+        req_body_dict = {"u_access_id_vno": access_id, "u_id_vno": vno}
+        if not _ra_async:
+            req_body_dict["u_flag_scope"] = "2"
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        if async_mode or use_pre:
+        if _ra_async:
             _ra_url = f"{apim_url.rstrip('/')}/fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync"
         else:
             _ra_url = f"{apim_url.rstrip('/')}/provisioning/v1/retrieve-access"
@@ -18225,6 +18225,9 @@ var _ATRF_ENDPOINT_MAP={
   "Consulta de Alarmas":                 "retrieveDataONT/v1/ONTRetrieve",
   "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
 };
+var _ATRF_ENDPOINT_MAP_ASYNC={
+  "RetrieveAccess":                      "fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync"
+};
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
   try{return JSON.stringify(JSON.parse(s),null,2);}catch(e){return s;}
@@ -18247,7 +18250,7 @@ function _atrf_openTcModal(qi,idx){
   var badge=document.getElementById('atrf-tc-modal-badge');
   badge.textContent=r.pass?'✓ Pasó':'✗ Falló';
   badge.className='atrf-badge '+(r.pass?'atrf-badge-ok':'atrf-badge-err');
-  document.getElementById('atrf-tc-modal-endpoint').textContent=_ATRF_ENDPOINT_MAP[r.func]||'/api/'+r.func;
+  document.getElementById('atrf-tc-modal-endpoint').textContent=((q.cfg&&q.cfg.tex==='Asíncrono'&&_ATRF_ENDPOINT_MAP_ASYNC[r.func])||_ATRF_ENDPOINT_MAP[r.func])||'/api/'+r.func;
   var stBadge=document.getElementById('atrf-tc-status-badge');
   var code=r.httpCode||(r.pass?200:500);
   stBadge.textContent=code?String(code):'';
