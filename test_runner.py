@@ -1852,6 +1852,7 @@ ATRF_PRESET_INDEXES = {
     # Flujos Nokia — equivalentes a lo que el equipo ejecuta manualmente
     "flujo1":   [0, 1, 6],              # Sanity básico: Factibilidad → Asignación → Cancel OOSS
     "flujo2":   [1, 2, 8, 9, 3, 4, 3, 5, 7],  # Sanity completo: Asig → Activ → ModAcceso → DevMod → IIA → CancelIA → IIA → FIA → Baja
+    "sanity":   [0, 1, 12, 2, 3, 4, 3, 16, 13, 15, 18, 8, 9, 5, 7],
 }
 
 async def _agenda_load_from_db():
@@ -17944,7 +17945,10 @@ var _ATRF_PRESETS={
   // Acotada: 01-Fact · 02-Asig · 13-ConsultaAcceso · 03-InicioIA · 10-CancelIA · 11-CancelOOSS
   acotada: [0, 1, 11, 3, 4, 6],
   // Completa: flujo venta completo + postventa + consultas (según diagrama fila 2)
-  completa: [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 10, 7]
+  completa: [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 10, 7],
+  // Sanity: Fact → Asig → RetrieveAccess → Activ → IIA → CancelIA → IIA → ONTRestart → EstadoVecino
+  //         → AccesStatus → ONTRetrieve → ModAcceso → ModDisp → FIA → Baja
+  sanity: [0, 1, 12, 2, 3, 4, 3, 16, 13, 15, 18, 8, 9, 5, 7]
 };
 function _atrf_setPreset(name){
   var preset=_ATRF_PRESETS[name];
@@ -18204,6 +18208,7 @@ function _atrf_schedSave(){
   var selStr=JSON.stringify(_atrfSel);
   if(selStr===acotadaStr)preset='acotada';
   else if(selStr===completaStr)preset='completa';
+  else if(selStr===JSON.stringify(_ATRF_PRESETS.sanity))preset='sanity';
   var payload={
     name: name+(vnos.length>1?' [VNO '+vno+']':''),
     preset: preset,
@@ -20397,6 +20402,7 @@ function _trExport(){
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('flujo2')" title="Sanity completo Nokia — Flujo 2: Asignación → Activación → ModAcceso → DevMod → IIA → CancelIA → FIA → Baja">🟣 Flujo 2</button>
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('acotada')" title="01 Factibilidad · 02 Asignación · 13 Consulta Acceso · 03 Inicio IA · 10 Cancelación IA · 11 Cancelación OOSS">📋 Regresión Acotada</button>
             <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('completa')" title="Flujo completo: Factibilidad → Baja + IA + Modificaciones + Consultas">📋 Regresión Completa</button>
+            <button class="atrf-btn atrf-btn-sm" style="flex:1;font-size:10px;background:var(--atrf-surface2);border:1px solid var(--atrf-border)" onclick="_atrf_setPreset('sanity')" title="Sanity: Factibilidad → Asignación → RetrieveAccess → Activación → Inicio IA → Cancelación IA → Inicio IA → ONTRestart → Estado Vecino → AccesStatus → ONTRetrieve → Mod Acceso → Mod Dispositivo → Finalización IA → Baja">✅ Sanity</button>
           </div>
           <div class="atrf-func-scroll" id="atrf-func-catalog"></div>
           <div id="atrf-prereq-tip" style="display:none;border-top:2px solid #3D7FFF;padding:10px 12px;background:var(--atrf-surface2);flex-direction:row;align-items:flex-start;gap:8px;font-size:11px;color:var(--atrf-text2);font-family:var(--atrf-font);line-height:1.5">
