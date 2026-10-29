@@ -7145,7 +7145,11 @@ async def atrf_run_step(request: Request):
                 data=_j.dumps(req_body_dict).encode("utf-8"),
                 headers={"Authorization": f"Bearer {token}",
                          "Content-Type": "application/json",
-                         "vnoId": vno})
+                         "Accept": "application/json",
+                         "vnoId": vno,
+                         # ONTRestart toma la VNO de este header (sin él responde
+                         # "El Access ID solicitado corresponde a otra VNO")
+                         "u_vno_id": vno})
             _ctx2 = _sl.create_default_context()
             _ctx2.check_hostname = False; _ctx2.verify_mode = _sl.CERT_NONE
             with _ur.urlopen(_api_req, context=_ctx2, timeout=90) as _r:
