@@ -1191,7 +1191,10 @@ _CU_FLOW_KEYS = {
     "Reinicio ONT":                        ["u_ont_restart"],
     "Consulta de Alarmas":                 ["u_retrieve_data_ont"],   # retrieveDataONT/ONTRetrieve
     "Cambio de Pelo":                      ["u_fiber_change"],        # fullFillment-fiberChange
+    "Diagnóstico de Acceso":               ["u_access_status"],       # AccesStatusAsync ("Access Status")
 }
+# Consultas sin polling en modo síncrono, pero que en asíncrono sí dejan fila en CoreUse
+_CU_ASYNC_POLL = {"Diagnóstico de Acceso"}
 _CU_FLOW_CONFIRMED = set(_CU_FLOW_KEYS)
 # Mensajes de acuse inicial (fila recién creada, flujo aún procesando en ServiceNow)
 _CU_INTERIM_RE = re.compile(r'en curso|flujo contin[uú]a|operaci[oó]n aceptada', re.I)
@@ -1259,7 +1262,7 @@ def _cu_pick_row(rows: list, func_name: str, since_ms=None):
         cand = [r for r in recent if not _hit(r, known)]
     return max(cand, key=lambda r: r["ts_ms"]) if cand else None
 
-def _poll_coreuse_once(access_id: str, func_name: str, since_ms=None) -> dict:
+def _poll_coreuse_once(access_id: str, func_name: str, since_ms=None, async_mode=False) -> dict:
     """
     Consulta una vez el portal CoreUse para el access_id dado.
     since_ms: inicio del paso (epoch ms); solo cuentan filas de flujo posteriores.
@@ -1269,7 +1272,7 @@ def _poll_coreuse_once(access_id: str, func_name: str, since_ms=None) -> dict:
     global _coreuse_session
     if not _COREUSE_AVAILABLE or not _COREUSE_USER:
         return {"status": "not_applicable", "message": "CoreUse no configurado (sin env vars)"}
-    if func_name in _COREUSE_NO_POLL:
+    if func_name in _COREUSE_NO_POLL and not (async_mode and func_name in _CU_ASYNC_POLL):
         return {"status": "not_applicable", "message": "Consultas no requieren polling CoreUse"}
 
     # Lock global: requests.Session no es thread-safe para uso concurrente.
@@ -7145,6 +7148,8 @@ async def atrf_run_step(request: Request):
         except Exception as te:
             return JSONResponse({"pass": False, "error": f"token: {te}", "req": "", "res": ""})
         req_body_dict = {"u_access_id_vno": access_id}
+        if async_mode:
+            req_body_dict["u_id_vno"] = vno
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         _diag_url = (f"{apim_url.rstrip('/')}/fullFillment-AccesStatusAsync/v1/AccesStatusAsync" if async_mode
                      else f"{apim_url.rstrip('/')}/diagnosticoAcceso/v1/AccesStatus")
@@ -8056,10 +8061,11 @@ async def api_coreuse_poll(request: Request):
     access_id = (body.get("access_id") or "").strip()
     func_name = (body.get("func_name") or "").strip()
     since_ms  = body.get("since_ms") or None
+    async_mode = bool(body.get("async_mode"))
 
     if not access_id:
         return JSONResponse({"status": "not_applicable", "message": "Sin access ID", "attempts": 0})
-    if func_name in _COREUSE_NO_POLL:
+    if func_name in _COREUSE_NO_POLL and not (async_mode and func_name in _CU_ASYNC_POLL):
         return JSONResponse({"status": "not_applicable",
                              "message": "Consultas no requieren polling CoreUse", "attempts": 0})
     if not _COREUSE_AVAILABLE or not _COREUSE_USER:
@@ -8094,7 +8100,7 @@ async def api_coreuse_poll(request: Request):
             break
         try:
             r = await loop.run_in_executor(
-                None, lambda: _poll_coreuse_once(access_id, func_name, since_ms)
+                None, lambda: _poll_coreuse_once(access_id, func_name, since_ms, async_mode)
             )
         except Exception as exc:
             r = {"status": "error", "message": str(exc)}
@@ -18231,7 +18237,8 @@ var _ATRF_ENDPOINT_MAP={
   "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
 };
 var _ATRF_ENDPOINT_MAP_ASYNC={
-  "RetrieveAccess":                      "fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync"
+  "RetrieveAccess":                      "fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync",
+  "Diagnóstico de Acceso":               "fullFillment-AccesStatusAsync/v1/AccesStatusAsync"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
@@ -18460,7 +18467,7 @@ function _atrf_switchView(t){
 var _atrf_qStartTs=0;
 // Polling CoreUse desde el navegador: 1 consulta corta por request (max_attempts=1).
 // Evita que el proxy de Railway corte un request largo (~5 min) y el resultado se pierda.
-async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
+async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
   // Estado final debe repetirse en lecturas seguidas (CoreUse actualiza la fila a los 5-10 s):
   // éxito 3 lecturas, fallo 5 (un código ≠ 0 puede pasar a 0 segundos después)
   var last={status:'pending',message:''},reached=false,stKey='',stN=0,STABLE=3;
@@ -18470,7 +18477,7 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since){
     if(prog)prog.textContent='🔍 CoreUse: '+fn+(stN?' · confirmando estado ('+stN+'/'+STABLE+')':' (intento '+i+'/'+maxAtt+')')+'…';
     try{
       var r=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1,since_ms:since||null})});
+        body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1,since_ms:since||null,async_mode:!!isAsync})});
       if(r.ok){last=await r.json();}
       else{last={status:'error',message:'HTTP '+r.status+' consultando CoreUse'};}
     }catch(e){last={status:'error',message:'Error de red consultando CoreUse: '+String(e)};}
@@ -18704,11 +18711,12 @@ async function _atrf_runSelected(){
       // También corre para 408 (APIM timeout): la solicitud pudo llegar a ServiceNow igual.
       var _is408=rd&&rd.apim408;
       // En modo async: RetrieveAccess, Reinicio ONT y Consulta de Alarmas SÍ tienen registro CoreUse
-      var _cuEligible=!_COREUSE_NO_POLL[fn]&&!_sr.noAccessId;
+      // Diagnóstico de Acceso (AccesStatusAsync) en async sí deja fila "Access Status" en CoreUse
+      var _cuEligible=(!_COREUSE_NO_POLL[fn]||(_asyncMode&&fn==='Diagnóstico de Acceso'))&&!_sr.noAccessId;
       if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
-          var _cuD=await _atrfCuPoll(_currentAccessId,fn,20,prog,_t0);
+          var _cuD=await _atrfCuPoll(_currentAccessId,fn,20,prog,_t0,_asyncMode);
           if(_cuD.status==='success'||_cuD.status==='failure'){
             _sr.pass=(_cuD.status==='success');
             _sr.coreuse_msg=_cuD.message||'';_sr.coreuse_url=_cuD.url||'';_sr.coreuse_attempts=_cuD.attempts||0;
@@ -18721,7 +18729,7 @@ async function _atrf_runSelected(){
         if(prog)prog.textContent='🔍 CoreUse (chequeo rápido): '+fn+'…';
         try{
           var _cuQ=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({access_id:_currentAccessId,func_name:fn,max_attempts:1,since_ms:_t0})});
+            body:JSON.stringify({access_id:_currentAccessId,func_name:fn,max_attempts:1,since_ms:_t0,async_mode:_asyncMode})});
           if(_cuQ.ok){var _cuQD=await _cuQ.json();
             _trCu={status:_cuQD.status||'',msg:_cuQD.message||'',attempts:_cuQD.attempts||0,checked:'rapido'};
             _sr.coreuse_info=_trCu.msg;
