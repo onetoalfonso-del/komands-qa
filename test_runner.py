@@ -9355,6 +9355,12 @@ def _rpt_fmt_dur(ms):
     return f"{m} min {s:02d} s"
 
 
+# Nombre visible = nombre de la API (Postman); igual que _ATRF_FN_LABEL del frontend
+_FN_LABEL = {"Reinicio ONT": "ONTRestart", "Consulta de Alarmas": "ONTRetrieve", "Diagnóstico de Acceso": "AccesStatus"}
+
+def _fn_lbl(fn: str) -> str:
+    return f"{_FN_LABEL[fn]} ({fn})" if fn in _FN_LABEL else (fn or "")
+
 def _build_seq_report_html(title: str, events: list, aid_states: dict, user: str = "", note: str = "") -> str:
     """Reporte HTML self-contained: lo que realmente se ejecutó, agrupado por secuencia."""
     import html as _h, base64 as _b64r
@@ -9460,7 +9466,7 @@ def _build_seq_report_html(title: str, events: list, aid_states: dict, user: str
                  f"<td class='mono small'>{_rpt_fmt_ts(s['t0'])}</td><td class='mono small'>{_rpt_fmt_dur(dur)}</td>"
                  f"<td class='mono'>{s['ok']}/{s['steps']}</td>"
                  f"<td><span class='pill {'ok' if s['result'] == 'ok' else 'err'}'>{'Exitosa' if s['result'] == 'ok' else 'Fallida'}</span></td>"
-                 f"<td class='small'>{(E(ff['func']) + ' · ' + E(ff['diag'])) if ff else '—'}</td></tr>")
+                 f"<td class='small'>{(E(_fn_lbl(ff['func'])) + ' · ' + E(ff['diag'])) if ff else '—'}</td></tr>")
     h.append("</table></div>")
     # Detalle por secuencia
     for i, s in enumerate(seqs, 1):
@@ -9507,7 +9513,7 @@ def _build_seq_report_html(title: str, events: list, aid_states: dict, user: str
                 extra.append(f"AID devuelto: {x['accessIdFromResponse']}")
             failed = not e["final_pass"]
             h.append(f"<tr class='{'bad' if failed else ''}'><td class='mono small'>{j}</td><td class='mono small'>{_rpt_fmt_ts(e['ts'], False)}</td>"
-                     f"<td><span class='dot' style='background:{col}'></span><b>{E(e['func'])}</b>"
+                     f"<td><span class='dot' style='background:{col}'></span><b>{E(_fn_lbl(e['func']))}</b>"
                      f"<div class='small'>{E(e.get('tc') or '')}{(' · ' + ' · '.join(E(t) for t in extra)) if extra else ''}</div></td>"
                      f"<td><span class='pill {cls}'>{E(dg['label'])}</span>"
                      + (f"<div class='why'>{E(dg['detail'])}</div>" if dg.get("detail") and failed else "") + "</td>"
@@ -16958,6 +16964,9 @@ var _ATRF_DELAY_MAP={
   "Modificación de Dispositivo":   "delay_post_dm_ms",
   "Cancelación Orden de Servicio": "delay_post_cancel_ms",
 };
+// Nombre visible = nombre de la API (Postman). La clave interna en español no cambia (historial, CoreUse, CPs)
+var _ATRF_FN_LABEL={"Reinicio ONT":"ONTRestart","Consulta de Alarmas":"ONTRetrieve","Diagnóstico de Acceso":"AccesStatus"};
+function _fnLbl(fn){var a=_ATRF_FN_LABEL[fn];return a?a+' ('+fn+')':(fn||'');}
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas","Cambio de Fibra"];
 var _ATRF_GROUPS=[
   {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
@@ -17285,7 +17294,7 @@ function _atrf_syncCb(){
 
 function _atrf_buildDetailHtml(qi){
   var q=_atrfQueue[qi];
-  var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_ATRF_FUNCS[fi]||fi)+'</span>';}).join('');
+  var chips=(q.funcs||[]).map(function(fi){return '<span class="atrf-chip">'+esc(_fnLbl(_ATRF_FUNCS[fi])||fi)+'</span>';}).join('');
   var tcHtml='';
   if(q.status==='ejecutando'&&q._stepMeta){
     // Estado mixto: hechos (pass/fail) + en ejecución (amarillo) + pendientes
@@ -17844,7 +17853,7 @@ function _atrf_renderCatalog(){
     var grpItems=[];
     grp.funcs.forEach(function(i){
       var f=_ATRF_FUNCS[i];
-      if(filter&&!f.toLowerCase().includes(filter))return;
+      if(filter&&!_fnLbl(f).toLowerCase().includes(filter))return;
       grpItems.push({i:i,f:f});
     });
     if(!grpItems.length)return;
@@ -17860,7 +17869,7 @@ function _atrf_renderCatalog(){
         ?'<span class="atrf-func-cb on" style="font-size:10px;min-width:18px;text-align:center">'+cnt+'×</span>'
         :'<span class="atrf-func-cb'+(on?' on':'')+'"></span>';
       var d=document.createElement('div');d.className='atrf-func-item'+(on?' selected':'');
-      d.innerHTML='<span class="atrf-func-idx">'+String(item.i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+item.f+'</span>'+cbHtml;
+      d.innerHTML='<span class="atrf-func-idx">'+String(item.i+1).padStart(2,'0')+'</span><span class="atrf-func-name">'+_fnLbl(item.f)+'</span>'+cbHtml;
       d.onclick=function(){_atrf_toggleFunc(item.i);};
       el.appendChild(d);
     });
@@ -17930,7 +17939,7 @@ function _atrf_renderSeq(){
   el.innerHTML='';
   _atrfSel.forEach(function(fi,pos){
     var d=document.createElement('div');d.className='atrf-seq-item';d.draggable=true;d.dataset.pos=pos;
-    d.innerHTML='<span class="atrf-drag-handle">⠿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_ATRF_FUNCS[fi]||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">×</button>';
+    d.innerHTML='<span class="atrf-drag-handle">⠿</span><span class="atrf-seq-pos">'+(pos+1)+'</span><span class="atrf-seq-name">'+(_fnLbl(_ATRF_FUNCS[fi])||fi)+'</span><button class="atrf-seq-del" onclick="_atrf_removeSeq('+pos+')">×</button>';
     d.ondragstart=function(e){_atrfDragSrc=pos;e.dataTransfer.effectAllowed='move';d.style.opacity='.4';};
     d.ondragend=function(){d.style.opacity='1';document.querySelectorAll('#atrf-seq-list .atrf-seq-item').forEach(function(x){x.classList.remove('drag-over');});};
     d.ondragover=function(e){e.preventDefault();d.classList.add('drag-over');};
@@ -18260,7 +18269,7 @@ function _atrf_openTcModal(qi,idx){
   var q=_atrfQueue[qi];if(!q||!q.tcResults)return;
   var r=q.tcResults[idx];if(!r)return;
   document.getElementById('atrf-tc-modal-title').textContent=r.tc;
-  document.getElementById('atrf-tc-modal-func').textContent=r.func;
+  document.getElementById('atrf-tc-modal-func').textContent=_fnLbl(r.func);
   var vnoLabel=_ATRF_TC_VNO_LABEL[(q.cfg&&q.cfg.vno)||'']||((q.cfg&&q.cfg.vno)||'—');
   document.getElementById('atrf-tc-modal-vno').textContent=vnoLabel;
   var badge=document.getElementById('atrf-tc-modal-badge');
@@ -18453,7 +18462,7 @@ function _atrf_openView(qi,_noReset){
     } else {
       hoverStyle=' class="atrf-view-func-item"';
     }
-    return '<div'+hoverStyle+rowStyle+clickAttr+'><span class="atrf-view-func-pos">'+(i+1)+'</span>'+tcSpan+'<span style="flex:1">'+esc(fn)+'</span>'+badge+'</div>';
+    return '<div'+hoverStyle+rowStyle+clickAttr+'><span class="atrf-view-func-pos">'+(i+1)+'</span>'+tcSpan+'<span style="flex:1">'+esc(_fnLbl(fn))+'</span>'+badge+'</div>';
   }).join('');
   // Al abrir en ejecución o con resultados, mostrar directamente el tab de resultados
   if(hasResults||q.status==='ejecutando')_atrf_switchView('funcs');
@@ -18478,7 +18487,7 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
   // La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8 lecturas)
   for(var i=1;i<=maxAtt+8;i++){
     if(i>maxAtt&&!stN)break;
-    if(prog)prog.textContent='🔍 CoreUse: '+fn+(stN?' · confirmando estado ('+stN+'/'+STABLE+')':' (intento '+i+'/'+maxAtt+')')+'…';
+    if(prog)prog.textContent='🔍 CoreUse: '+_fnLbl(fn)+(stN?' · confirmando estado ('+stN+'/'+STABLE+')':' (intento '+i+'/'+maxAtt+')')+'…';
     try{
       var r=await fetch('/api/coreuse/poll',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({access_id:aid,func_name:fn,max_attempts:1,since_ms:since||null,async_mode:!!isAsync})});
@@ -19654,7 +19663,7 @@ function _qxDashRender(d,cont){
     tc.forEach(function(c){
       var cls=c.cls==='Sistémico'?'warn':c.cls==='Funcional'?'acc':'';
       var tgt={t:'steps',f:F({code:c.code,func:c.func}),from:'Código '+c.code+' · '+c.func};
-      h+='<tr><td class="qx-mono"><b>'+_qxA(tgt,_trEsc(c.code)+' →')+'</b></td><td>'+_trEsc(c.desc||'—')+'</td><td class="qx-muted">'+_trEsc(c.func)+'</td>'
+      h+='<tr><td class="qx-mono"><b>'+_qxA(tgt,_trEsc(c.code)+' →')+'</b></td><td>'+_trEsc(c.desc||'—')+'</td><td class="qx-muted">'+_trEsc(_fnLbl(c.func))+'</td>'
         +'<td>'+(c.cls?_qxA({t:'codes',code:c.code},'<span class="qx-pill '+cls+'">'+_trEsc(c.cls)+'</span>','','Ver en Códigos de Retorno'):'<span class="qx-pill">Sin catálogo</span>')+'</td>'
         +'<td style="text-align:right" class="qx-mono">'+_qxA(tgt,String(c.n))+'</td></tr>';
     });
@@ -19670,7 +19679,7 @@ function _qxDashRender(d,cont){
     h+='<div class="qx-matrix" style="grid-template-columns:minmax(160px,230px) repeat(4,minmax(78px,1fr))"><div class="qx-mh" style="text-align:left">Funcionalidad</div>'
       +['TCH','KAO','B1/Entel','DTV'].map(function(x){return '<div class="qx-mh">'+x+'</div>';}).join('');
     M.forEach(function(m){
-      h+='<div class="qx-mf">'+_trEsc(m.func)+'</div>';
+      h+='<div class="qx-mf">'+_trEsc(_fnLbl(m.func))+'</div>';
       m.cells.forEach(function(c){
         if(c.rate==null){h+='<span class="qx-cell none">—</span>';return;}
         var t=_qxTone(c.rate),bg={ok:'var(--okd)',warn:'var(--qx-warnd)',err:'var(--errd)'}[t],fg={ok:'var(--ok)',warn:'var(--warn)',err:'var(--err)'}[t];
@@ -19871,7 +19880,7 @@ function _trRenderSteps(){
     h+='<tr class="click'+(open?' open':'')+'" onclick="_trToggleStep('+e.id+')">'
       +'<td class="qx-mono" style="white-space:nowrap;font-size:.7rem">'+_trFmtTs(e.ts)+'</td>'
       +'<td style="white-space:nowrap"><a href="#" class="qx-link qx-mono" onclick="event.stopPropagation();_trOpenFromSteps(&quot;'+_trEsc(e.access_id)+'&quot;,'+e.id+');return false">'+_trEsc(e.access_id)+'</a> '+_trCuLink(e.access_id)+'</td>'
-      +'<td>'+_trEsc(e.func)+'<div class="qx-muted">'+_trEsc(_QX_VNO[e.vno]||e.vno)+(e.tc?' · '+_trEsc(e.tc):'')+'</div></td>'
+      +'<td>'+_trEsc(_fnLbl(e.func))+'<div class="qx-muted">'+_trEsc(_QX_VNO[e.vno]||e.vno)+(e.tc?' · '+_trEsc(e.tc):'')+'</div></td>'
       +'<td>'+_trDiagPill(e.diag)+'</td>'
       +'<td class="qx-mono">'+(e.http_code||'—')+'</td>'
       +'<td class="qx-mono">'+_trEsc(e.return_code||'—')+'</td>'
@@ -20081,7 +20090,7 @@ function _trEventCard(e,last){
   var meta=[e.tc,'HTTP '+(e.http_code||'—'),e.return_code?'u_return_code '+e.return_code:'','CoreUse: '+_trCuTxt(e)].filter(Boolean);
   return '<div class="qx-tl"><div class="qx-tl-rail" aria-hidden="true"><div class="qx-tl-dot" style="background:'+s.c+'"></div>'+(last?'':'<div class="qx-tl-line"></div>')+'</div>'
     +'<div id="tr-ev-card-'+e.id+'" class="qx-tl-card'+(_trCurrent&&_trCurrent._focus===e.id?' focus':'')+'" style="'+(e.final_pass?'':'border-color:'+s.c)+'" onclick="_trToggle('+e.id+')">'
-    +'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px"><b style="font-size:.84rem">'+_trEsc(e.func)+'</b>'+_trDiagPill(dg)
+    +'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px"><b style="font-size:.84rem">'+_trEsc(_fnLbl(e.func))+'</b>'+_trDiagPill(dg)
     +'<span class="qx-muted qx-mono" style="margin-left:auto">'+_trFmtHm(e.ts)+' · '+_trFmtDur(e.duration_ms)+'</span></div>'
     +(dg.detail?'<div style="font-size:.76rem;color:var(--txt)">'+_trEsc(dg.detail)+'</div>':'')
     +'<div class="qx-muted qx-mono" style="display:flex;flex-wrap:wrap;gap:3px 14px;font-size:.68rem">'+meta.map(function(m){return '<span>'+_trEsc(m)+'</span>';}).join('')+'</div>'
