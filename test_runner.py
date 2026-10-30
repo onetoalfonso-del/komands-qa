@@ -1181,6 +1181,8 @@ _CU_FLOW_KEYS = {
     "Asignación":                          ["u_assignment"],
     "Activación":                          ["u_registration_activation"],
     "Modificación de Acceso":              ["u_registration_modification"],
+    "Bloqueo de Servicio (BL)":            ["u_registration_modification"],   # DTV: registrationModification BL
+    "Desbloqueo de Servicio (DBL)":        ["u_registration_modification"],   # DTV: registrationModification DBL
     "Modificación de Dispositivo":         ["u_device_modification"],
     "Inicio Intervención Asegurada":       ["u_assured_intervention"],
     "Cancelación Intervención Asegurada":  ["u_intervention_cancellation"],
@@ -1853,7 +1855,8 @@ ATRF_FUNCS_REAL = [
     "Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess",
     "Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)",
     "Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT",
-    "Consulta de Alarmas"
+    "Consulta de Alarmas","Cambio de Fibra",
+    "Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"
 ]
 ATRF_PRESET_INDEXES = {
     "acotada":  [0, 1, 11, 3, 4, 6],
@@ -2146,8 +2149,13 @@ async def _agenda_fire_async(schedule_id: int):
         _POST_ACT = {"Reinicio ONT", "Consulta de Alarmas", "RetrieveAccess ONT", "Diagnóstico de Acceso"}
         if _sched_async or (_POST_ACT & set(func_names)):
             _SEQ_FIRST_SET = {"Factibilidad", "Asignación", "Activación"}
+        _BLK_SET = {"Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)"}
         _WR_SET = ({"Modificación de Acceso", "Modificación de Dispositivo", "Reinicio ONT", "Cambio de Fibra"}
                    if _sched_async else set())
+        # DTV BL → DBL → M: deben ir en el orden de la secuencia, nunca en paralelo
+        if _BLK_SET & set(func_names):
+            _WR_SET = _WR_SET | _BLK_SET | {"Modificación de Acceso"}
+        _blk_state = {"mod_ok": False}
         fn_set         = set(func_names)
         seq_phase      = [f for f in ["Factibilidad", "Asignación", "Activación"] if f in fn_set and f in _SEQ_FIRST_SET]
         # ia_phase preserva orden Y duplicados del input (ej. IIA puede aparecer dos veces)
@@ -2176,6 +2184,8 @@ async def _agenda_fire_async(schedule_id: int):
                 "serialNumber": _cfg_extra.get("sn", ""),
                 "newSerialNumber": _cfg_extra.get("nsn", ""),
                 "newSpeedPlan": _cfg_extra.get("nplan", ""),
+                # BL/DBL sobre el plan vigente: el nuevo si ya pasó la Modificación de Acceso
+                "blPlan": (_cfg_extra.get("nplan", "") if _blk_state["mod_ok"] else "") or sched.get("speed_plan", "600/600"),
                 "serviceBa": _cfg_extra.get("ba", True),
                 "serviceVoip": _cfg_extra.get("voip", True),
                 "serviceIptv": _cfg_extra.get("iptv", True),
@@ -2230,6 +2240,8 @@ async def _agenda_fire_async(schedule_id: int):
             elif _sched_async and not _cu_elig:
                 _cu = {"checked": "no_aplica"}
             step_r["duration_ms"] = int((_tme.monotonic() - _t0) * 1000)
+            if fn == "Modificación de Acceso" and step_r["pass"]:
+                _blk_state["mod_ok"] = True
             # Delay solo si el paso pasó (si falló no tiene sentido esperar).
             # En async la espera de CoreUse reemplaza los delays fijos.
             _dk  = _SCHED_DELAY_MAP.get(fn)
@@ -7047,7 +7059,9 @@ async def atrf_run_step(request: Request):
                              "vno": vno, "func": func_name, "httpCode": _http_code})
 
     # ── Modificación de Acceso ────────────────────────────────────────────────
-    if func_name == "Modificación de Acceso":
+    if func_name in ("Modificación de Acceso", "Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)"):
+        # DTV: la misma API acepta u_operation_type BL (bloqueo) / DBL (desbloqueo) sobre el plan vigente
+        _mod_op = {"Bloqueo de Servicio (BL)": "BL", "Desbloqueo de Servicio (DBL)": "DBL"}.get(func_name, "M")
         use_pre  = "epreapi" in (amb_url or "")
         env_file = (PRE_VNO_ENV_MAP.get(vno, PRE_VNO_ENV_MAP["02"]) if use_pre
                     else QA_VNO_ENV_MAP.get(vno, QA_VNO_ENV_MAP["02"]))
@@ -7077,8 +7091,9 @@ async def atrf_run_step(request: Request):
         req_body_dict = {
             "u_id_vno": vno,
             "u_access_id_vno": access_id,
-            "u_operation_type": "M",
-            "u_speed_plan": new_speed_plan or speed_plan,
+            "u_operation_type": _mod_op,
+            "u_speed_plan": ((body.get("blPlan") or speed_plan) if _mod_op != "M"
+                             else (new_speed_plan or speed_plan)),
             "u_service_ba": service_ba,
             "u_service_voip": service_voip,
             "u_service_iptv": service_iptv,
@@ -9072,6 +9087,8 @@ _FUNC_TO_RC_FLOW = {
     "Inicio Intervención Asegurada": "Intervención Asegurada",
     "Modificación de Dispositivo": "Modificación de Equipo",
     "Modificación de Acceso": "Modificación de Registro",
+    "Bloqueo de Servicio (BL)": "Modificación de Registro",
+    "Desbloqueo de Servicio (DBL)": "Modificación de Registro",
     "Consulta Estado Vecino (GET)": "Consulta Estado Vecinos",
     "Consulta Estado Vecino (POST)": "Consulta Estado Vecinos",
     "RetrieveAccess": "Retrieve Access", "RetrieveAccess ONT": "Retrieve Access",
@@ -9083,6 +9100,7 @@ _FUNC_EXPECTED_MIN = {
     "Inicio Intervención Asegurada": 1, "Cancelación Intervención Asegurada": 1,
     "Finalización Intervención Asegurada": 1, "Cambio de Pelo": 1,
     "Modificación de Acceso": 1, "Modificación de Dispositivo": 1,
+    "Bloqueo de Servicio (BL)": 1, "Desbloqueo de Servicio (DBL)": 1,
     "Cancelación Orden de Servicio": 2, "Baja Total de Servicio": 2,
 }
 
@@ -17068,7 +17086,10 @@ var _ATRF_TC_MAP={
   "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"},
   "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"},
   "Consulta de Alarmas":                 {"03":"CP43","02":"CP43","05":"CP43","00":"CP43"},
-  "Cambio de Fibra":                     {"03":"CF-03","02":"CF-02","05":"CF-05","00":"CF-00"}
+  "Cambio de Fibra":                     {"03":"CF-03","02":"CF-02","05":"CF-05","00":"CF-00"},
+  // Solo DTV (otras VNO no tienen CP → el paso no se ejecuta)
+  "Bloqueo de Servicio (BL)":            {"05":"BL-05"},
+  "Desbloqueo de Servicio (DBL)":        {"05":"DBL-05"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
 var _ATRF_DELAY_MAP={
@@ -17081,10 +17102,10 @@ var _ATRF_DELAY_MAP={
 // Nombre visible = nombre de la API (Postman). La clave interna en español no cambia (historial, CoreUse, CPs)
 var _ATRF_FN_LABEL={"Reinicio ONT":"ONTRestart","Consulta de Alarmas":"ONTRetrieve","Diagnóstico de Acceso":"AccesStatus"};
 function _fnLbl(fn){var a=_ATRF_FN_LABEL[fn];return a?a+' ('+fn+')':(fn||'');}
-var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas","Cambio de Fibra"];
+var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas","Cambio de Fibra","Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"];
 var _ATRF_GROUPS=[
   {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
-  {label:'Postventa',color:'#FFB347',funcs:[8,9,10,16,19,7]},
+  {label:'Postventa',color:'#FFB347',funcs:[8,20,21,9,10,16,19,7]},
   {label:'Consultas',color:'#00C8D4',funcs:[11,12,13,14,15,18]}  // 17 RetrieveAccess ONT = misma API que 18 ONTRetrieve
 ];
 var _ATRF_PREREQS={
@@ -17107,7 +17128,9 @@ var _ATRF_PREREQS={
   14:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
   15:{c:'#00C8D4',t:'Solo necesita un Access ID válido. El diagnóstico puede ejecutarse en cualquier estado del acceso.'},
   18:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna alarmas activas del ONT.'},
-  19:{c:'#FFB347',t:'El Access ID debe estar activo. Requiere serial ONT actual y nuevo (solo disponible en modo Asíncrono). Después de la Asignación se puede ejecutar EstadoVecino; después de la Activación se pueden ejecutar ONTRetrieve, ONTRestart y Diagnóstico.'}
+  19:{c:'#FFB347',t:'El Access ID debe estar activo. Requiere serial ONT actual y nuevo (solo disponible en modo Asíncrono). Después de la Asignación se puede ejecutar EstadoVecino; después de la Activación se pueden ejecutar ONTRetrieve, ONTRestart y Diagnóstico.'},
+  20:{c:'#FFB347',t:'Solo DTV. Modificación de Acceso con u_operation_type "BL": bloquea el plan vigente (Plan, o Nuevo plan si ya pasó la Modificación). Orden sugerido: BL → DBL → Modificación de Acceso.'},
+  21:{c:'#FFB347',t:'Solo DTV. Modificación de Acceso con u_operation_type "DBL": desbloquea el plan vigente. Se ejecuta en serie con BL y la Modificación de Acceso, en el orden de la secuencia.'}
 };
 var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
@@ -18427,7 +18450,9 @@ var _ATRF_ENDPOINT_MAP={
   "Baja Total de Servicio":              "fullFillment-unsubcription/v1/accessDeregistration",
   "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation",
   "Consulta de Alarmas":                 "retrieveDataONT/v1/ONTRetrieve",
-  "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
+  "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync",
+  "Bloqueo de Servicio (BL)":            "fullFillment-modification/v1/registrationModification",
+  "Desbloqueo de Servicio (DBL)":        "fullFillment-modification/v1/registrationModification"
 };
 var _ATRF_ENDPOINT_MAP_ASYNC={
   "RetrieveAccess":                      "fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync",
@@ -18744,6 +18769,11 @@ async function _atrf_runSelected(){
     // en paralelo chocaban en la OLT/ONT ("otra operación en curso", "corresponde a otra VNO").
     // Las consultas (solo lectura) siguen en paralelo.
     var _MWrSet=new Set(_asyncMode?["Modificación de Acceso","Modificación de Dispositivo","Reinicio ONT","Cambio de Fibra"]:[]);
+    // DTV BL → DBL → M: siempre en serie y en el orden de la secuencia (también en síncrono)
+    var _MBlk=["Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"];
+    if(_mAllSteps.some(function(s){return _MBlk.indexOf(s.fn)>=0;})){
+      _MBlk.concat(["Modificación de Acceso"]).forEach(function(f){_MWrSet.add(f);});
+    }
     // Pre-asignar labels con contador de ocurrencias
     var _mOcc={},_mLabels=[];
     (q.funcs||[]).forEach(function(fi){
@@ -18772,6 +18802,9 @@ async function _atrf_runSelected(){
     var _mIaPhase=_mAllSteps.filter(function(s){return _MIaSet.has(s.fn)||_MWrSet.has(s.fn);});
     var _mIndep  =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MWrSet.has(s.fn)&&!_MTdSet.has(s.fn);});
     // Función ejecutora de un solo paso
+    // BL/DBL actúan sobre el plan vigente: el nuevo si ya pasó la Modificación de Acceso
+    var _mModOk=false;
+    function _mBlPlan(){return (_mModOk&&q.cfg.nplan)?q.cfg.nplan:(q.cfg.plan||'');}
     async function _mDoStep(s){
       var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
       q.runningFns.add(fn);_atrf_refreshDetail(qi);
@@ -18843,6 +18876,7 @@ async function _atrf_runSelected(){
             scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
             newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
+            blPlan:_mBlPlan(),
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload))});
         if(resp.status===501){
@@ -18978,6 +19012,7 @@ async function _atrf_runSelected(){
         }).catch(function(){});
       }
       q.runningFns.delete(fn);
+      if(fn==='Modificación de Acceso'&&_sr&&_sr.pass)_mModOk=true;
       return _sr;
     }
     // ── FASE 1: Secuencial (Factibilidad → [Cancelación] → Asignación) ───────
