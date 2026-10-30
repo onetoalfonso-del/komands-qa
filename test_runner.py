@@ -2146,7 +2146,8 @@ async def _agenda_fire_async(schedule_id: int):
         # Async: Activación entra a la fase secuencial y los pasos que modifican la red van en
         # serie con la cadena IA (en paralelo chocaban en la OLT/ONT); igual que el runner manual.
         # ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
-        _POST_ACT = {"Reinicio ONT", "Consulta de Alarmas", "RetrieveAccess ONT", "Diagnóstico de Acceso"}
+        _POST_ACT = {"Reinicio ONT", "Consulta de Alarmas", "RetrieveAccess ONT", "Diagnóstico de Acceso",
+                     "Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)"}
         if _sched_async or (_POST_ACT & set(func_names)):
             _SEQ_FIRST_SET = {"Factibilidad", "Asignación", "Activación"}
         _BLK_SET = {"Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)"}
@@ -11247,7 +11248,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
             </label>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
-            <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected()">&#9654; Ejecutar seleccionadas</button>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected().catch(_atrf_runCrash)">&#9654; Ejecutar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm" id="atrf-dl-report-btn" onclick="_atrf_downloadManualReport()" style="display:none;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)">&#128229; Descargar Reporte</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
           </div>
@@ -17171,6 +17172,7 @@ function _atrf_load(){
     try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
     // RetrieveAccess ONT (17) se unificó con ONTRetrieve (18): misma API
     _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
+    _atrf_unstick();
     _atrf_pullSeqs();
   }
   _atrf_loadEnvUrls();
@@ -17206,7 +17208,7 @@ function _atrf_pullSeqs(){
       _atrfSynced={};srv.forEach(function(q){_atrfSynced[q.uid]=_atrf_hash(JSON.stringify(q));});
       _atrfQueue=srv.concat(pend);
       _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
-      _atrf_norm();
+      _atrf_norm();_atrf_unstick();
       _atrfQueue.sort(function(a,b){return (a.pos||0)-(b.pos||0);});
       try{localStorage.setItem('atrf-queue-owner',me);}catch(e){}
       _atrf_saveSnap();
@@ -18725,6 +18727,22 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
   return {status:'failure',attempts:maxAtt,url:last.url||'',
     message:'CoreUse no registró resultado tras '+maxAtt+' intentos · último: '+(last.status||'')+(last.message?' — '+last.message:'')};
 }
+// Si la ejecución se cae por un error de JS, no dejar la cola pegada en "Ejecutando"
+function _atrf_runCrash(e){
+  try{console.error('[atrf] ejecución interrumpida',e);}catch(_e){}
+  _atrfRunning=false;
+  var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
+  var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='none';
+  _atrfQueue.forEach(function(q){if(q.status==='ejecutando'){q.status='error';q.runningFns=null;}});
+  _atrf_save();_atrf_renderQueue();
+  if(typeof showToast==='function')showToast('Ejecución interrumpida por un error: '+((e&&e.message)||e),'err');
+}
+// Secuencias que quedaron en "Ejecutando" (pestaña cerrada o recargada a mitad de la ejecución)
+// vuelven a "En espera" para poder ejecutarlas de nuevo.
+function _atrf_unstick(){
+  if(_atrfRunning)return;
+  _atrfQueue.forEach(function(q){if(q.status==='ejecutando'){q.status='espera';q.tcResults=[];q.runningFns=null;q._stepMeta=null;}});
+}
 async function _atrf_runSelected(){
   if(_atrfRunning)return;
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
@@ -18761,7 +18779,7 @@ async function _atrf_runSelected(){
     // En async: Activación entra al grupo secuencial para que ONTRetrieve/ONTRestart/AccesStatusAsync
     // solo arranquen después de que Activación complete (no en paralelo con ella).
     // ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
-    var _mPostAct=(q.funcs||[]).some(function(fi){return ["Reinicio ONT","Consulta de Alarmas","RetrieveAccess ONT","Diagnóstico de Acceso"].indexOf(_ATRF_FUNCS[fi])>=0;});
+    var _mPostAct=(q.funcs||[]).some(function(fi){return ["Reinicio ONT","Consulta de Alarmas","RetrieveAccess ONT","Diagnóstico de Acceso","Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"].indexOf(_ATRF_FUNCS[fi])>=0;});
     var _MSeqSet=new Set((_asyncMode||_mPostAct)?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
     var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo"]);
     var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
@@ -18771,7 +18789,7 @@ async function _atrf_runSelected(){
     var _MWrSet=new Set(_asyncMode?["Modificación de Acceso","Modificación de Dispositivo","Reinicio ONT","Cambio de Fibra"]:[]);
     // DTV BL → DBL → M: siempre en serie y en el orden de la secuencia (también en síncrono)
     var _MBlk=["Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"];
-    if(_mAllSteps.some(function(s){return _MBlk.indexOf(s.fn)>=0;})){
+    if((q.funcs||[]).some(function(fi){return _MBlk.indexOf(_ATRF_FUNCS[fi])>=0;})){
       _MBlk.concat(["Modificación de Acceso"]).forEach(function(f){_MWrSet.add(f);});
     }
     // Pre-asignar labels con contador de ocurrencias
