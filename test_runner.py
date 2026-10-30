@@ -1601,6 +1601,15 @@ CREATE TABLE IF NOT EXISTS qa_sched_runs (
     status       VARCHAR(20) DEFAULT 'running',
     steps_json   TEXT
 );
+-- Secuencias del runner FullFillment por usuario (antes solo en localStorage del navegador)
+CREATE TABLE IF NOT EXISTS qa_atrf_seqs (
+    user_email  TEXT NOT NULL,
+    uid         TEXT NOT NULL,
+    pos         BIGINT DEFAULT 0,
+    data_json   TEXT NOT NULL,
+    updated_at  TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_email, uid)
+);
 CREATE TABLE IF NOT EXISTS qa_return_codes (
     id          BIGSERIAL PRIMARY KEY,
     flow        TEXT NOT NULL,
@@ -8660,6 +8669,59 @@ async def api_aid_events_post(request: Request):
     if payload and not body.get("user_email"):
         body["user_email"] = payload.get("email", "")
     await _aid_event_save(body)
+    return {"ok": True}
+
+
+# ── Secuencias del runner por usuario (mismas en web y celular) ──────────────
+@app.get("/api/atrf/seqs")
+async def api_atrf_seqs_get(request: Request):
+    payload = await _get_auth(request)
+    email = (payload or {}).get("email", "")
+    if not email:
+        return JSONResponse({"error": "No autenticado"}, status_code=401)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    rows = await pool.fetch(
+        "SELECT uid, pos, data_json FROM qa_atrf_seqs WHERE user_email=$1 ORDER BY pos, updated_at",
+        email)
+    out = []
+    for r in rows:
+        try:
+            out.append({"uid": r["uid"], "pos": r["pos"], "data": json.loads(r["data_json"])})
+        except Exception:
+            pass
+    return {"items": out}
+
+
+@app.post("/api/atrf/seqs/sync")
+async def api_atrf_seqs_sync(request: Request):
+    """Cambios incrementales: upsert de secuencias modificadas y borrado de las eliminadas."""
+    payload = await _get_auth(request)
+    email = (payload or {}).get("email", "")
+    if not email:
+        return JSONResponse({"error": "No autenticado"}, status_code=401)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    body = await request.json()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            for it in body.get("upsert") or []:
+                uid = str(it.get("uid") or "")[:64]
+                if not uid:
+                    continue
+                await conn.execute(
+                    "INSERT INTO qa_atrf_seqs (user_email, uid, pos, data_json, updated_at) "
+                    "VALUES ($1,$2,$3,$4,NOW()) ON CONFLICT (user_email, uid) DO UPDATE "
+                    "SET pos=EXCLUDED.pos, data_json=EXCLUDED.data_json, updated_at=NOW()",
+                    email, uid, int(it.get("pos") or 0),
+                    json.dumps(it.get("data") or {}, ensure_ascii=False))
+            _del = [str(u)[:64] for u in (body.get("delete") or []) if u]
+            if _del:
+                await conn.execute(
+                    "DELETE FROM qa_atrf_seqs WHERE user_email=$1 AND uid = ANY($2::text[])",
+                    email, _del)
     return {"ok": True}
 
 
@@ -17086,11 +17148,73 @@ function _atrf_load(){
     try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
     // RetrieveAccess ONT (17) se unificó con ONTRetrieve (18): misma API
     _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
+    _atrf_pullSeqs();
   }
   _atrf_loadEnvUrls();
   _atrf_loadSchedRuns();
 }
-function _atrf_save(){localStorage.setItem('atrf-queue',JSON.stringify(_atrfQueue));}
+// ── Secuencias en el servidor por usuario (mismas en web y celular) ──────────
+// localStorage queda como caché; _atrfSynced guarda uid → hash de lo último enviado
+// para mandar solo los cambios.
+var _atrfSynced={},_atrfSyncT=null;
+function _atrf_me(){return (currentUser&&currentUser.email)||'';}
+function _atrf_hash(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return h.toString(36)+':'+s.length;}
+function _atrf_saveSnap(){try{localStorage.setItem('atrf-synced:'+_atrf_me(),JSON.stringify(_atrfSynced));}catch(e){}}
+function _atrf_norm(){
+  var base=Date.now()*1000;
+  _atrfQueue.forEach(function(q,i){
+    if(!q.uid)q.uid='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+    if(!q.pos)q.pos=base+i;
+  });
+}
+function _atrf_pullSeqs(){
+  if(!_authToken||!_atrf_me())return;
+  fetch('/api/atrf/seqs',{headers:_authHdr()})
+    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(function(d){
+      if(_atrfRunning)return;
+      var me=_atrf_me(),owner='',snap={};
+      try{owner=localStorage.getItem('atrf-queue-owner')||'';snap=JSON.parse(localStorage.getItem('atrf-synced:'+me)||'{}')||{};}catch(e){}
+      var srv=(d.items||[]).map(function(it){var q=it.data||{};q.uid=it.uid;q.pos=it.pos;return q;});
+      var have={};srv.forEach(function(q){have[q.uid]=1;});
+      // Locales que nunca llegaron al servidor (primera vez o sin conexión) se suben;
+      // las que sí se sincronizaron y ya no están se borraron en otro dispositivo.
+      var pend=(owner&&owner!==me)?[]:_atrfQueue.filter(function(q){return !q.uid||(!have[q.uid]&&!snap[q.uid]);});
+      _atrfSynced={};srv.forEach(function(q){_atrfSynced[q.uid]=_atrf_hash(JSON.stringify(q));});
+      _atrfQueue=srv.concat(pend);
+      _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
+      _atrf_norm();
+      _atrfQueue.sort(function(a,b){return (a.pos||0)-(b.pos||0);});
+      try{localStorage.setItem('atrf-queue-owner',me);}catch(e){}
+      _atrf_saveSnap();
+      _atrfQPage=Math.max(0,Math.min(_atrfQPage,Math.ceil(_atrfQueue.length/_ATRF_PAGE)-1));
+      _atrf_renderQueue();_atrf_save();
+    })
+    .catch(function(){});
+}
+function _atrf_sync(){
+  if(!_authToken||!_atrf_me())return;
+  var up=[],cur={};
+  _atrfQueue.forEach(function(q){
+    var h=_atrf_hash(JSON.stringify(q));cur[q.uid]=h;
+    if(_atrfSynced[q.uid]!==h)up.push({uid:q.uid,pos:q.pos,data:q});
+  });
+  var del=Object.keys(_atrfSynced).filter(function(u){return !(u in cur);});
+  if(!up.length&&!del.length)return;
+  fetch('/api/atrf/seqs/sync',{method:'POST',headers:_authHdr(),body:JSON.stringify({upsert:up,'delete':del})})
+    .then(function(r){
+      if(!r.ok)throw new Error(r.status);
+      up.forEach(function(it){_atrfSynced[it.uid]=cur[it.uid];});
+      del.forEach(function(u){delete _atrfSynced[u];});
+      _atrf_saveSnap();
+    })
+    .catch(function(){});
+}
+function _atrf_save(){
+  _atrf_norm();
+  try{localStorage.setItem('atrf-queue',JSON.stringify(_atrfQueue));localStorage.setItem('atrf-queue-owner',_atrf_me());}catch(e){}
+  clearTimeout(_atrfSyncT);_atrfSyncT=setTimeout(_atrf_sync,800);
+}
 
 function _atrf_loadSchedRuns(){
   fetch('/api/sched-runs/recent?limit=30',{headers:_authHdr()})
