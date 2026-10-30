@@ -19046,6 +19046,7 @@ async function _atrf_runSelected(){
           _res.push({func:_skFn,tc:_skTc,
             label:_mIaPhase[_mi].label,pass:false,req:'',res:'',httpCode:0,newmanOut:'',
             duration_ms:0,error:'⊘ Saltado: Inicio IA falló'});
+          _mDone(_res[_res.length-1]);
           if(_currentAccessId){
             fetch('/api/aid-events',{method:'POST',headers:_authHdr(),body:JSON.stringify({
               access_id:_currentAccessId,ts:Date.now(),run_key:q._traceRun||'',source:'manual',
@@ -19058,17 +19059,18 @@ async function _atrf_runSelected(){
           continue;
         }
         var _r=await _mDoStep(_mIaPhase[_mi]);
-        if(_r){_res.push(_r);if(_mIaPhase[_mi].fn==="Inicio Intervención Asegurada"&&!_r.pass)_iaFailed=true;}
+        if(_r){_res.push(_r);_mDone(_r);if(_mIaPhase[_mi].fn==="Inicio Intervención Asegurada"&&!_r.pass)_iaFailed=true;}
       }
       return _res;
     }
     async function _mRunIndep(){
       if(!_mIndep.length)return[];
-      return Promise.all(_mIndep.map(function(s){return _mDoStep(s);}));
+      return Promise.all(_mIndep.map(function(s){return _mDoStep(s).then(function(r){_mDone(r);return r;});}));
     }
-    var _mPar=await Promise.all([_mRunIA(),_mRunIndep()]);
-    _mPar[0].forEach(function(r){if(r)q.tcResults.push(r);});
-    _mPar[1].forEach(function(r){if(r)q.tcResults.push(r);});
+    // Cada resultado se muestra apenas termina su paso (antes la fase entera esperaba a la cadena IA
+    // y los pasos ya terminados seguían apareciendo como pendientes)
+    function _mDone(r){if(r){q.tcResults.push(r);_atrf_refreshDetail(qi);}}
+    await Promise.all([_mRunIA(),_mRunIndep()]);
     _atrf_refreshDetail(qi);
     // ── FASE 3: Teardown secuencial (Cancel OOSS → Baja) ───────────────────
     for(var _mt=0;_mt<_mTeardown.length;_mt++){
