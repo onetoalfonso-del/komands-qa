@@ -1860,7 +1860,7 @@ ATRF_FUNCS_REAL = [
 ]
 ATRF_PRESET_INDEXES = {
     "acotada":  [0, 1, 11, 3, 4, 6],
-    "completa": [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 10, 7],
+    "completa": [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 19, 7],
     # Flujos Nokia — equivalentes a lo que el equipo ejecuta manualmente
     "flujo1":   [0, 1, 6],              # Sanity básico: Factibilidad → Asignación → Cancel OOSS
     "flujo2":   [1, 2, 8, 9, 3, 4, 3, 5, 7],  # Sanity completo: Asig → Activ → ModAcceso → DevMod → IIA → CancelIA → IIA → FIA → Baja
@@ -2060,6 +2060,8 @@ async def _agenda_fire_async(schedule_id: int):
             func_names = [ATRF_FUNCS_REAL[i] for i in func_indexes if i < len(ATRF_FUNCS_REAL)]
         # RetrieveAccess ONT se unificó con Consulta de Alarmas (ONTRetrieve): misma API
         func_names = ["Consulta de Alarmas" if f == "RetrieveAccess ONT" else f for f in func_names]
+        # Cambio de Pelo nunca tuvo implementación: es la misma API Fiber Change que Cambio de Fibra
+        func_names = ["Cambio de Fibra" if f == "Cambio de Pelo" else f for f in func_names]
         vno = sched.get("vno", "02")
         # cfg_extra_json: campos adicionales del formulario ATRF completo
         _cfg_extra = {}
@@ -2138,7 +2140,7 @@ async def _agenda_fire_async(schedule_id: int):
         _IA_CHAIN_ORDERED = ["Inicio Intervención Asegurada",
                              "Cancelación Intervención Asegurada",
                              "Finalización Intervención Asegurada",
-                             "Cambio de Pelo"]
+                             "Cambio de Pelo", "Cambio de Fibra"]
         _TEARDOWN_ORDERED = ["Cancelación Orden de Servicio", "Baja Total de Servicio"]
         _IA_SET           = set(_IA_CHAIN_ORDERED)
         _TEARDOWN_SET     = set(_TEARDOWN_ORDERED)
@@ -7805,7 +7807,9 @@ async def atrf_run_step(request: Request):
             "u_logical_unit":  logical_unit,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        _cf_url = f"{apim_url.rstrip('/')}/fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
+        # Misma API Fiber Change: síncrona (fiberChange) o asíncrona (FiberChangeAsync)
+        _cf_url = (f"{apim_url.rstrip('/')}/fullFillment-FiberChangeAsync/v1/fiberChangeAsync" if async_mode
+                   else f"{apim_url.rstrip('/')}/fullFillment-fiberChange/v1/fiberChange")
         _pass = False; _res_body = ""; _http_code = 0
         try:
             _api_req = _ur.Request(_cf_url,
@@ -17087,7 +17091,7 @@ var _ATRF_TC_MAP={
   "Cancelación Orden de Servicio":       {"03":"CP70","02":"CP71","05":"CP72","00":"CP72"},
   "GET Consulta de Acceso":              {"03":"CP11","02":"CP14","05":"CP14","00":"CP14"},
   "Consulta de Alarmas":                 {"03":"CP43","02":"CP43","05":"CP43","00":"CP43"},
-  "Cambio de Fibra":                     {"03":"CF-03","02":"CF-02","05":"CF-05","00":"CF-00"},
+  "Cambio de Fibra":                     {"03":"CP27","02":"CP30","05":"CP31","00":"CP31"},
   // Solo DTV (otras VNO no tienen CP → el paso no se ejecuta)
   "Bloqueo de Servicio (BL)":            {"05":"BL-05"},
   "Desbloqueo de Servicio (DBL)":        {"05":"DBL-05"}
@@ -17101,12 +17105,15 @@ var _ATRF_DELAY_MAP={
   "Cancelación Orden de Servicio": "delay_post_cancel_ms",
 };
 // Nombre visible = nombre de la API (Postman). La clave interna en español no cambia (historial, CoreUse, CPs)
-var _ATRF_FN_LABEL={"Reinicio ONT":"ONTRestart","Consulta de Alarmas":"ONTRetrieve","Diagnóstico de Acceso":"AccesStatus"};
+var _ATRF_FN_LABEL={"Cambio de Fibra":"FiberChange","Reinicio ONT":"ONTRestart","Consulta de Alarmas":"ONTRetrieve","Diagnóstico de Acceso":"AccesStatus"};
 function _fnLbl(fn){var a=_ATRF_FN_LABEL[fn];return a?a+' ('+fn+')':(fn||'');}
 var _ATRF_FUNCS=["Factibilidad","Asignación","Activación","Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cancelación Orden de Servicio","Baja Total de Servicio","Modificación de Acceso","Modificación de Dispositivo","Cambio de Pelo","GET Consulta de Acceso","RetrieveAccess","Consulta Estado Vecino (GET)","Consulta Estado Vecino (POST)","Diagnóstico de Acceso","Reinicio ONT","RetrieveAccess ONT","Consulta de Alarmas","Cambio de Fibra","Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"];
+// Funcionalidades unificadas (misma API): 17 RetrieveAccess ONT → 18 ONTRetrieve,
+// 10 Cambio de Pelo → 19 Cambio de Fibra (Fiber Change)
+function _atrf_fiMap(fi){return fi===17?18:(fi===10?19:fi);}
 var _ATRF_GROUPS=[
   {label:'Ventas',color:'#3D7FFF',funcs:[0,1,3,2,5,4,6]},
-  {label:'Postventa',color:'#FFB347',funcs:[8,20,21,9,10,16,19,7]},
+  {label:'Postventa',color:'#FFB347',funcs:[8,20,21,9,16,19,7]},  // 10 Cambio de Pelo = misma API que 19
   {label:'Consultas',color:'#00C8D4',funcs:[11,12,13,14,15,18]}  // 17 RetrieveAccess ONT = misma API que 18 ONTRetrieve
 ];
 var _ATRF_PREREQS={
@@ -17129,7 +17136,7 @@ var _ATRF_PREREQS={
   14:{c:'#00C8D4',t:'Necesita un Access ID activo con vecinos en el mismo puerto PON.'},
   15:{c:'#00C8D4',t:'Solo necesita un Access ID válido. El diagnóstico puede ejecutarse en cualquier estado del acceso.'},
   18:{c:'#00C8D4',t:'Solo necesita un Access ID válido. Retorna alarmas activas del ONT.'},
-  19:{c:'#FFB347',t:'El Access ID debe estar activo. Requiere serial ONT actual y nuevo (solo disponible en modo Asíncrono). Después de la Asignación se puede ejecutar EstadoVecino; después de la Activación se pueden ejecutar ONTRetrieve, ONTRestart y Diagnóstico.'},
+  19:{c:'#FFB347',t:'Fiber Change (antes también "Cambio de Pelo", misma API): fiberChange en Síncrono, FiberChangeAsync en Asíncrono. Requiere Inicio IA previo (ticket de intervención); toma la CTO desde la IIA en CoreUse. Después de la Asignación se puede ejecutar EstadoVecino; después de la Activación se pueden ejecutar ONTRetrieve, ONTRestart y Diagnóstico.'},
   20:{c:'#FFB347',t:'Solo DTV. Modificación de Acceso con u_operation_type "BL": bloquea el plan vigente (Plan, o Nuevo plan si ya pasó la Modificación). Orden sugerido: BL → DBL → Modificación de Acceso.'},
   21:{c:'#FFB347',t:'Solo DTV. Modificación de Acceso con u_operation_type "DBL": desbloquea el plan vigente. Se ejecuta en serie con BL y la Modificación de Acceso, en el orden de la secuencia.'}
 };
@@ -17171,7 +17178,7 @@ function _atrf_load(){
   if(!_atrfRunning){
     try{_atrfQueue=JSON.parse(localStorage.getItem('atrf-queue')||'[]');}catch(e){_atrfQueue=[];}
     // RetrieveAccess ONT (17) se unificó con ONTRetrieve (18): misma API
-    _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
+    _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(_atrf_fiMap);});
     _atrf_unstick();
     _atrf_pullSeqs();
   }
@@ -17207,7 +17214,7 @@ function _atrf_pullSeqs(){
       var pend=(owner&&owner!==me)?[]:_atrfQueue.filter(function(q){return !q.uid||(!have[q.uid]&&!snap[q.uid]);});
       _atrfSynced={};srv.forEach(function(q){_atrfSynced[q.uid]=_atrf_hash(JSON.stringify(q));});
       _atrfQueue=srv.concat(pend);
-      _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(function(fi){return fi===17?18:fi;});});
+      _atrfQueue.forEach(function(q){if(q.funcs)q.funcs=q.funcs.map(_atrf_fiMap);});
       _atrf_norm();_atrf_unstick();
       _atrfQueue.sort(function(a,b){return (a.pos||0)-(b.pos||0);});
       try{localStorage.setItem('atrf-queue-owner',me);}catch(e){}
@@ -18094,7 +18101,7 @@ var _ATRF_PRESETS={
   // Acotada: 01-Fact · 02-Asig · 13-ConsultaAcceso · 03-InicioIA · 10-CancelIA · 11-CancelOOSS
   acotada: [0, 1, 11, 3, 4, 6],
   // Completa: flujo venta completo + postventa + consultas (según diagrama fila 2)
-  completa: [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 10, 7],
+  completa: [0, 1, 3, 2, 11, 13, 8, 18, 15, 16, 9, 5, 19, 7],
   // Sanity: Fact → Asig → RetrieveAccess → Activ → IIA → CancelIA → IIA → ONTRestart → EstadoVecino
   //         → AccesStatus → ONTRetrieve → ModAcceso → ModDisp → FIA → Baja
   sanity: [0, 1, 12, 2, 3, 4, 3, 16, 13, 15, 18, 8, 9, 5, 7]
@@ -18353,7 +18360,7 @@ function _atrf_schedSave(){
   // Determinar preset
   var preset='custom';
   var acotadaStr=JSON.stringify([0,1,11,3,4,6]);
-  var completaStr=JSON.stringify([0,1,3,2,11,13,8,18,15,16,9,5,10,7]);
+  var completaStr=JSON.stringify([0,1,3,2,11,13,8,18,15,16,9,5,19,7]);
   var selStr=JSON.stringify(_atrfSel);
   if(selStr===acotadaStr)preset='acotada';
   else if(selStr===completaStr)preset='completa';
@@ -18452,7 +18459,7 @@ var _ATRF_ENDPOINT_MAP={
   "Baja Total de Servicio":              "fullFillment-unsubcription/v1/accessDeregistration",
   "Cancelación Orden de Servicio":       "fullFillment-cancelServiceOrder/v1/oossCancellation",
   "Consulta de Alarmas":                 "retrieveDataONT/v1/ONTRetrieve",
-  "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync",
+  "Cambio de Fibra":                     "fullFillment-fiberChange/v1/fiberChange",
   "Bloqueo de Servicio (BL)":            "fullFillment-modification/v1/registrationModification",
   "Desbloqueo de Servicio (DBL)":        "fullFillment-modification/v1/registrationModification"
 };
@@ -18461,7 +18468,8 @@ var _ATRF_ENDPOINT_MAP_ASYNC={
   "Diagnóstico de Acceso":               "fullFillment-AccesStatusAsync/v1/AccesStatusAsync",
   "Reinicio ONT":                        "fullFillment-oNTRestartAsync/v1/ONTRestartAsync",
   "RetrieveAccess ONT":                  "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync",
-  "Consulta de Alarmas":                 "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync"
+  "Consulta de Alarmas":                 "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync",
+  "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
 };
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
@@ -18781,7 +18789,7 @@ async function _atrf_runSelected(){
     // ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
     var _mPostAct=(q.funcs||[]).some(function(fi){return ["Reinicio ONT","Consulta de Alarmas","RetrieveAccess ONT","Diagnóstico de Acceso","Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"].indexOf(_ATRF_FUNCS[fi])>=0;});
     var _MSeqSet=new Set((_asyncMode||_mPostAct)?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
-    var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo"]);
+    var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo","Cambio de Fibra"]);
     var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
     // En async, los pasos que modifican la red van en la misma cadena serial que IA (orden declarado):
     // en paralelo chocaban en la OLT/ONT ("otra operación en curso", "corresponde a otra VNO").
@@ -18898,8 +18906,10 @@ async function _atrf_runSelected(){
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload))});
         if(resp.status===501){
-          var p2=Math.random()>0.25;
-          pass=p2;req_s=_atrf_buildSimReq(fn,q.cfg);res_s=_atrf_buildSimRes(fn,q.cfg,p2)+'  // (simulado)';
+          // Sin implementación en el servidor: falla visible (antes se simulaba un resultado al azar)
+          pass=false;req_s=_atrf_buildSimReq(fn,q.cfg);
+          res_s='Funcionalidad "'+fn+'" no implementada en el servidor: la API no se llamó.';
+          rd={noAccessId:true};
         } else {
           rd=await resp.json();
           if(rd.mode==='direct'){
