@@ -8562,6 +8562,58 @@ def _cu_iia_from_kv(kv: dict) -> dict:
     return synth
 
 
+@app.get("/api/coreuse/row-detail")
+async def api_coreuse_row_detail(access_id: str = "", table: str = ""):
+    """Detalle (botón ⓘ) de la fila más reciente cuyo nombre de tabla contiene `table`."""
+    if not access_id or not table:
+        return JSONResponse({"error": "access_id y table requeridos"}, status_code=400)
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return JSONResponse({"error": "CoreUse no configurado"}, status_code=503)
+
+    def _fetch():
+        global _coreuse_session
+        with _coreuse_lock:
+            s = _coreuse_get_session()
+            if not s:
+                return None, "No se pudo autenticar en CoreUse"
+            try:
+                def _get(sess):
+                    return sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                                    verify=False, timeout=15, allow_redirects=True)
+                r = _get(s)
+                if _cu_is_locked(r):
+                    if not _coreuse_unlock(s, _cu_lock_url(r)):
+                        _coreuse_session = None
+                        s = _coreuse_login()
+                        if not s:
+                            return None, "CoreUse bloqueado y re-login falló"
+                    r = _get(s)
+                if _cu_is_login(r):
+                    _coreuse_session = None
+                    s = _coreuse_login()
+                    if not s:
+                        return None, "Re-login CoreUse fallido"
+                    r = _get(s)
+                rows = [x for x in _cu_flow_rows(r.text) if table in x["table"] and x.get("sys_id")]
+                out = []
+                for row in sorted(rows, key=lambda x: x["ts_ms"] or 0, reverse=True)[:3]:
+                    st, txt = _cu_row_detail(s, access_id, row["sys_id"], row["table"])
+                    kv = _cu_flatten_kv(txt) if st == 200 else {}
+                    out.append({"date": row["date"], "name": row["name"], "code": row["code"],
+                                "msg": row["msg"], "table": row["table"], "action_http": st,
+                                "fields": {k: v for k, v in kv.items()
+                                           if k.startswith("u_") and v not in ("", "null")}})
+                return out, None
+            except Exception as e:
+                return None, str(e)
+
+    loop = _aio.get_event_loop()
+    out, err = await loop.run_in_executor(None, _fetch)
+    if err:
+        return JSONResponse({"error": err}, status_code=500)
+    return JSONResponse({"access_id": access_id, "rows": out})
+
+
 @app.get("/api/coreuse/iia-detail")
 async def api_coreuse_iia_detail(access_id: str = ""):
     """Extrae datos de IIA: FIBER CHANGE OPTIONS y campos CTO para Cambio de Fibra."""
