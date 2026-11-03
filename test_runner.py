@@ -19045,7 +19045,7 @@ async function _atrf_runSelected(){
       q.runningFns.add(fn);_atrf_refreshDetail(qi);
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
-      var _t0=Date.now();var _trLuTry=0;
+      var _t0=Date.now();var _trLuTry=0,_cfUsed=null;
       try{
         // Para Cambio de Fibra: auto-fetch CTO desde CoreUse IIA si no hay selección manual
         var _ctoPayload={};
@@ -19067,14 +19067,26 @@ async function _atrf_runSelected(){
                       if(_v&&String(_v)!==_curLu)_o.push(String(_v));}
                     return _o;
                   };
-                  var _autoCto=null;
-                  _iiaD.ctos.forEach(function(_c){
-                    if(!_autoCto&&_curCto&&(_c.fields||{})['CTO'+_c.cto_n+'_CODE']===_curCto&&_luOf(_c).length)_autoCto=_c;
+                  // Orden de preferencia: 1) otra CTO y otra LU (más LU libres primero),
+                  // 2) misma CTO actual con otra LU. Los reintentos recorren esta lista.
+                  var _isCur=function(_c){return !!_curCto&&(_c.fields||{})['CTO'+_c.cto_n+'_CODE']===_curCto;};
+                  var _ord=_iiaD.ctos.filter(function(_c){return _luOf(_c).length;}).slice().sort(function(a,b){
+                    var _ca=_isCur(a)?1:0,_cb=_isCur(b)?1:0;
+                    return _ca!==_cb?_ca-_cb:_luOf(b).length-_luOf(a).length;
                   });
-                  if(!_autoCto){
-                    var _bn=-1;
-                    _iiaD.ctos.forEach(function(_c){var _k=_luOf(_c).length;if(_k>_bn){_bn=_k;_autoCto=_c;}});
-                  }
+                  if(!_ord.length)_ord=[_iiaD.ctos[0]];
+                  var _mk=function(_c,_lu){var _n=_c.cto_n,_f=_c.fields||{};
+                    return {ctoN:_n,ctoCode:_f['CTO'+_n+'_CODE']||'',ctoType:_f['CTO'+_n+'_type']||'',
+                      regionCode:_f['ADDR_CTO'+_n+'_cityCode']||'',siteCode:_f['ADDR_CTO'+_n+'_siteCode']||'',
+                      ctoFunction:_f['CTO'+_n+'_cable_function']||'',cableCode:_f['CTO'+_n+'_CABLE']||'',
+                      logicalUnit:_lu};};
+                  // Intercalado: 1ª LU de cada otra CTO → misma CTO con otra LU → resto de LU por ronda
+                  var _oth=_ord.filter(function(_c){return !_isCur(_c);}),_same=_ord.filter(_isCur);
+                  var _cands=[];
+                  _oth.forEach(function(_c){_cands.push(_mk(_c,_luOf(_c)[0]));});
+                  _same.forEach(function(_c){_luOf(_c).forEach(function(_lu){_cands.push(_mk(_c,_lu));});});
+                  for(var _r=1;_r<8;_r++)_oth.forEach(function(_c){var _l=_luOf(_c)[_r];if(_l)_cands.push(_mk(_c,_l));});
+                  var _autoCto=_ord[0];
                   var _an=_autoCto.cto_n;
                   var _af=_autoCto.fields||{};
                   var _lus=_luOf(_autoCto);
@@ -19093,7 +19105,7 @@ async function _atrf_runSelected(){
                     logicalUnit6:_lus[5]||'',
                     logicalUnit7:_lus[6]||'',
                     logicalUnit8:_lus[7]||'',
-                    curCto:_curCto,curLu:_curLu,
+                    curCto:_curCto,curLu:_curLu,cands:_cands,
                     accessId:_currentAccessId,
                     autoSelected:true,
                     ctoN:_an,
@@ -19151,20 +19163,19 @@ async function _atrf_runSelected(){
             httpCode=rd.httpCode||0;newmanOut=rd.newmanOut||'';
           }
         }
-        // Cambio de Fibra: si LU inicial falla, reintentar automáticamente con LU2..LU8
+        // Cambio de Fibra: si la opción inicial falla, reintentar con las siguientes
+        // (auto: lista de candidatos CTO+LU; manual: LU2..LU8 de la CTO elegida)
         if(fn==='Cambio de Fibra'&&!pass&&_atrfPendingCto){
-          var _cfLus=[
-            _atrfPendingCto.logicalUnit2||'',
-            _atrfPendingCto.logicalUnit3||'',
-            _atrfPendingCto.logicalUnit4||'',
-            _atrfPendingCto.logicalUnit5||'',
-            _atrfPendingCto.logicalUnit6||'',
-            _atrfPendingCto.logicalUnit7||'',
-            _atrfPendingCto.logicalUnit8||''
-          ].filter(Boolean);
-          for(var _lri=0;_lri<_cfLus.length&&!pass;_lri++){
-            if(prog)prog.textContent='🔄 Fibra: probando LU'+(_lri+2)+'…';
-            _trLuTry=_lri+2;
+          var _cfCands=(_atrfPendingCto.cands||[]).slice(1,15);
+          if(!_cfCands.length){
+            _cfCands=[_atrfPendingCto.logicalUnit2,_atrfPendingCto.logicalUnit3,_atrfPendingCto.logicalUnit4,
+              _atrfPendingCto.logicalUnit5,_atrfPendingCto.logicalUnit6,_atrfPendingCto.logicalUnit7,
+              _atrfPendingCto.logicalUnit8].filter(Boolean).map(function(_l){return {logicalUnit:_l};});
+          }
+          for(var _lri=0;_lri<_cfCands.length&&!pass;_lri++){
+            var _cc=_cfCands[_lri];
+            if(prog)prog.textContent='🔄 Fibra: probando '+(_cc.ctoCode?'CTO '+_cc.ctoCode+' · ':'')+'LU '+_cc.logicalUnit+'…';
+            _trLuTry=_lri+2;_cfUsed={code:_cc.ctoCode||_ctoPayload.ctoCode,lu:_cc.logicalUnit};
             var _rBody=Object.assign({func:fn,vno:vno,
               direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
               serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
@@ -19173,15 +19184,17 @@ async function _atrf_runSelected(){
               newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
               serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
               serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},
-              _ctoPayload,{logicalUnit:_cfLus[_lri]});
+              _ctoPayload,_cc.ctoCode?{ctoCode:_cc.ctoCode,ctoType:_cc.ctoType,regionCode:_cc.regionCode,
+                siteCode:_cc.siteCode,ctoFunction:_cc.ctoFunction,cableCode:_cc.cableCode}:{},
+              {logicalUnit:_cc.logicalUnit});
             var _rResp=await fetch('/api/atrf/run-step',{method:'POST',
               headers:{'Content-Type':'application/json'},body:JSON.stringify(_rBody)});
-            if(_rResp.status===501){pass=Math.random()>0.25;break;}
+            if(_rResp.status===501){pass=false;break;}
             var _rRd=await _rResp.json();
             if(_rRd.mode!=='direct'){
               pass=!!_rRd.pass;rd=_rRd;
               req_s=_rRd.req||req_s;
-              res_s=(_rRd.res||res_s)+'  // (LU'+(_lri+2)+' auto-retry)';
+              res_s=(_rRd.res||res_s)+'  // (reintento '+(_lri+2)+': '+(_cc.ctoCode?'CTO '+_cc.ctoCode+' · ':'')+'LU '+_cc.logicalUnit+')';
               httpCode=_rRd.httpCode||0;
             }
           }
@@ -19238,7 +19251,7 @@ async function _atrf_runSelected(){
             asyncSubmitted:(rd&&rd.asyncSubmitted!==undefined)?rd.asyncSubmitted:null,
             noAccessId:!!_sr.noAccessId,
             accessIdFromResponse:(rd&&rd.accessId)||'',
-            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:_atrfPendingCto.ctoCode||'',lu:_atrfPendingCto.logicalUnit||'',curCto:_atrfPendingCto.curCto||'',curLu:_atrfPendingCto.curLu||'',auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
+            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:(_cfUsed&&_cfUsed.code)||_atrfPendingCto.ctoCode||'',lu:(_cfUsed&&_cfUsed.lu)||_atrfPendingCto.logicalUnit||'',curCto:_atrfPendingCto.curCto||'',curLu:_atrfPendingCto.curLu||'',auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
             error:_sr.error||''
           },
           req:req_s,res:res_s
