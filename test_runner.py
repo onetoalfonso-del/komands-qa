@@ -1246,7 +1246,9 @@ def _cu_flow_rows(html: str) -> list:
                 ts = int((d.replace(tzinfo=tz) if tz else d).timestamp() * 1000)
             except Exception:
                 pass
-            rows.append({"date": cur["date"], "ts_ms": ts, "name": name, "code": code, "msg": msg, "table": tok})
+            _sid = next((v for v in cur["vals"] if re.match(r'^[0-9a-f]{32}$', v)), "")
+            rows.append({"date": cur["date"], "ts_ms": ts, "name": name, "code": code, "msg": msg,
+                         "table": tok, "sys_id": _sid})
             cur = None
             continue
         cur["vals"].append(tok)
@@ -7805,7 +7807,19 @@ async def atrf_run_step(request: Request):
             "u_function":      cto_function,
             "u_cable_code":    cable_code,
             "u_logical_unit":  logical_unit,
+            # Campos del body de Postman (sin u_logic_unit_status la API responde código 4:
+            # "El nuevo estado de la unidad lógica... Valores admitidos: 1, 2 o 3")
+            "u_scenario":          scenario,
+            "u_service_type":      svc_type,
+            "u_note":              "Prueba de cambio de pelo QA Runner",
+            "u_fault_code":        996,
+            "u_logic_unit_status": 3,
+            "u_lateral":           "",
         }
+        # Numéricos como en Postman
+        for _nk in ("u_region_code", "u_logical_unit"):
+            if str(req_body_dict.get(_nk, "")).strip().isdigit():
+                req_body_dict[_nk] = int(str(req_body_dict[_nk]).strip())
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         # Misma API Fiber Change: síncrona (fiberChange) o asíncrona (FiberChangeAsync)
         _cf_url = (f"{apim_url.rstrip('/')}/fullFillment-FiberChangeAsync/v1/fiberChangeAsync" if async_mode
@@ -8466,6 +8480,88 @@ def _coreuse_parse_iia_fiber(html: str) -> dict:
     }
 
 
+# Detalle de una fila de "Flujos ejecutados" (botón ⓘ en CoreUse): Server Action de Next.js.
+# Payload confirmado en el navegador: [{"instancia":"qa","sysId":"<sys_id>","tabla":"u_assured_intervention"}]
+# El id de la acción cambia si CoreUse se redespliega → configurable por env.
+_CU_ROW_DETAIL_ACTION = os.environ.get("COREUSE_ROW_DETAIL_ACTION", "4057deeb60b84dce197e7269acf3e0574f50739617")
+_CU_ROUTER_TREE = ("%5B%22%22%2C%7B%22children%22%3A%5B%22(dashboard)%22%2C%7B%22children%22%3A%5B%22flujos-qa"
+                   "%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull"
+                   "%2C0%5D%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C16%5D")
+
+
+def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
+    """Llama la acción del detalle de fila. Retorna (status_http, texto RSC)."""
+    r = sess.post(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                  data=json.dumps([{"instancia": "qa", "sysId": sys_id, "tabla": table}]),
+                  headers={"Accept": "text/x-component", "Next-Action": _CU_ROW_DETAIL_ACTION,
+                           "Content-Type": "text/plain;charset=UTF-8",
+                           "Next-Router-State-Tree": _CU_ROUTER_TREE,
+                           "Origin": _COREUSE_BASE,
+                           "Referer": f"{_COREUSE_BASE}/flujos-qa?access={access_id}"},
+                  verify=False, timeout=20, allow_redirects=False)
+    # La respuesta no declara charset: decodificar UTF-8 (si no, "Sí" llega como "SÃ")
+    return r.status_code, r.content.decode("utf-8", errors="replace")
+
+
+def _cu_flatten_kv(rsc_text: str) -> dict:
+    """Pares campo → valor de la respuesta RSC (líneas 'N:{json}'), en cualquier anidamiento.
+    Soporta {campo: valor} y listas de {label|name|campo|key, value|valor}."""
+    out = {}
+
+    def _walk(o):
+        if isinstance(o, dict):
+            lk = next((k for k in ("label", "name", "campo", "key", "field") if isinstance(o.get(k), str)), None)
+            vk = next((k for k in ("value", "valor", "display_value") if k in o), None)
+            if lk and vk and isinstance(o.get(vk), (str, int, float, bool)):
+                out.setdefault(o[lk], str(o[vk]))
+                # CoreUse: {"clave":"u_cto5_cable","label":"CTO5_cable_code","valor":...}
+                if isinstance(o.get("clave"), str):
+                    out.setdefault(o["clave"], str(o[vk]))
+                return
+            for k, v in o.items():
+                if isinstance(v, (str, int, float, bool)) and not k.startswith("$"):
+                    out.setdefault(k, str(v))
+                else:
+                    _walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v)
+
+    for line in rsc_text.splitlines():
+        m = re.match(r'^[0-9a-zA-Z]+:(.*)$', line)
+        if not m:
+            continue
+        try:
+            _walk(json.loads(m.group(1)))
+        except Exception:
+            continue
+    return out
+
+
+def _cu_iia_from_kv(kv: dict) -> dict:
+    """Convierte los pares del detalle IIA al formato de _coreuse_parse_iia_fiber
+    (nombres sin distinguir mayúsculas ni prefijo u_)."""
+    norm = {}
+    for k, v in kv.items():
+        nk = re.sub(r'^u_', '', str(k).strip()).lower().replace(" ", "_")
+        norm.setdefault(nk, v)
+    synth = {}
+    for n in range(1, 7):
+        for f in ["type", "CODE", "CABLE", "cable_function"] + [f"availableLogicalUnit{lu}" for lu in range(1, 7)]:
+            lab = f"CTO{n}_{f}"
+            if lab.lower() in norm:
+                synth[lab] = norm[lab.lower()]
+        for f in ["siteCode", "cityCode"]:
+            lab = f"ADDR_CTO{n}_{f}"
+            if lab.lower() in norm:
+                synth[lab] = norm[lab.lower()]
+    fc = next((norm[k] for k in ("fiber_change_options", "fiber_change_option") if k in norm), "")
+    if fc:
+        synth["Fiber change options"] = "Sí" if str(fc).strip().lower() in (
+            "sí", "si", "yes", "1", "true", "verdadero") else str(fc)
+    return synth
+
+
 @app.get("/api/coreuse/iia-detail")
 async def api_coreuse_iia_detail(access_id: str = ""):
     """Extrae datos de IIA: FIBER CHANGE OPTIONS y campos CTO para Cambio de Fibra."""
@@ -8503,14 +8599,32 @@ async def api_coreuse_iia_detail(access_id: str = ""):
                     r = _get(s)
                 if _cu_is_locked(r) or _cu_is_login(r):
                     return None, "CoreUse sigue pidiendo login/PIN"
-                return r.text, None
+                html = r.text
+                # CoreUse ya no trae el detalle de la IIA en la página: se pide como al hacer clic en ⓘ
+                _iia = [x for x in _cu_flow_rows(html)
+                        if "u_assured_intervention" in x["table"] and x.get("sys_id")]
+                info = {"iia_rows": len(_iia)}
+                if _iia:
+                    _row = max(_iia, key=lambda x: x["ts_ms"] or 0)
+                    info.update({"iia_date": _row["date"], "iia_table": _row["table"]})
+                    st, txt = _cu_row_detail(s, access_id, _row["sys_id"], _row["table"])
+                    info.update({"action_http": st, "action_len": len(txt or "")})
+                    if st == 200:
+                        _kv = _cu_flatten_kv(txt)
+                        info["detail_keys"] = len(_kv)
+                        info["detail_key_sample"] = sorted(_kv)[:40]
+                        synth = _cu_iia_from_kv(_kv)
+                        if synth:
+                            html = html + "\n" + json.dumps(synth, ensure_ascii=False)
+                return (html, info), None
             except Exception as e:
                 return None, str(e)
 
     loop = _aio.get_event_loop()
-    html, err = await loop.run_in_executor(None, _fetch)
+    got, err = await loop.run_in_executor(None, _fetch)
     if err:
         return JSONResponse({"error": err}, status_code=500)
+    html, _info = got
 
     result = _coreuse_parse_iia_fiber(html)
     # Diagnóstico sin datos sensibles: ¿la página trae la IIA y los campos CTO?
@@ -8521,7 +8635,8 @@ async def api_coreuse_iia_detail(access_id: str = ""):
                       "paths": sorted(set(re.findall(r'(/[a-zA-Z][\w\-]*(?:/[\w\-\[\]]+)*\?[\w\-]+=)', html)))[:25],
                       "routes": sorted(set(re.findall(r'"(/(?:api|flujos[\w\-]*|detalle[\w\-]*|registro[\w\-]*)[\w\-/\[\]]*)"', html)))[:25],
                       "has_action": ("next-action" in html.lower()) or ("$ACTION" in html),
-                      "u_tables": sorted(set(re.findall(r'\bu_[a-z_]+_v2\b|\bu_assured_intervention\w*', html)))[:15]}
+                      "u_tables": sorted(set(re.findall(r'\bu_[a-z_]+_v2\b|\bu_assured_intervention\w*', html)))[:15],
+                      **_info}
     result["access_id"] = access_id
     result["coreuse_url"] = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
     return JSONResponse(result)
