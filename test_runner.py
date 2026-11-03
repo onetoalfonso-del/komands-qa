@@ -8477,22 +8477,35 @@ async def api_coreuse_iia_detail(access_id: str = ""):
 
     def _fetch():
         global _coreuse_session
-        s = _coreuse_get_session()
-        if not s:
-            return None, "No se pudo autenticar en CoreUse"
-        try:
-            r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
-                      verify=False, timeout=15, allow_redirects=True)
-            if _cu_is_login(r):
-                _coreuse_session = None
-                s = _coreuse_login()
-                if not s:
-                    return None, "Re-login CoreUse fallido"
-                r = s.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
-                          verify=False, timeout=15, allow_redirects=True)
-            return r.text, None
-        except Exception as e:
-            return None, str(e)
+        # Mismo acceso que el poll de estados: lock de sesión + desbloqueo con PIN
+        # (sin esto, con la sesión bloqueada se parseaba la pantalla de bloqueo → 0 campos)
+        with _coreuse_lock:
+            s = _coreuse_get_session()
+            if not s:
+                return None, "No se pudo autenticar en CoreUse"
+            try:
+                def _get(sess):
+                    return sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                                    verify=False, timeout=15, allow_redirects=True)
+                r = _get(s)
+                if _cu_is_locked(r):
+                    if not _coreuse_unlock(s, _cu_lock_url(r)):
+                        _coreuse_session = None
+                        s = _coreuse_login()
+                        if not s:
+                            return None, "CoreUse bloqueado y re-login falló"
+                    r = _get(s)
+                if _cu_is_login(r):
+                    _coreuse_session = None
+                    s = _coreuse_login()
+                    if not s:
+                        return None, "Re-login CoreUse fallido"
+                    r = _get(s)
+                if _cu_is_locked(r) or _cu_is_login(r):
+                    return None, "CoreUse sigue pidiendo login/PIN"
+                return r.text, None
+            except Exception as e:
+                return None, str(e)
 
     loop = _aio.get_event_loop()
     html, err = await loop.run_in_executor(None, _fetch)
@@ -8500,6 +8513,10 @@ async def api_coreuse_iia_detail(access_id: str = ""):
         return JSONResponse({"error": err}, status_code=500)
 
     result = _coreuse_parse_iia_fiber(html)
+    # Diagnóstico sin datos sensibles: ¿la página trae la IIA y los campos CTO?
+    result["diag"] = {"html_len": len(html), "has_flujos": "flujos ejecutados" in html.lower(),
+                      "has_assured": "assured" in html.lower(), "has_cto1": "CTO1_" in html,
+                      "has_fiber_opt": "fiber change options" in html.lower()}
     result["access_id"] = access_id
     result["coreuse_url"] = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
     return JSONResponse(result)
