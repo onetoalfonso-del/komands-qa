@@ -8516,7 +8516,12 @@ async def api_coreuse_iia_detail(access_id: str = ""):
     # Diagnóstico sin datos sensibles: ¿la página trae la IIA y los campos CTO?
     result["diag"] = {"html_len": len(html), "has_flujos": "flujos ejecutados" in html.lower(),
                       "has_assured": "assured" in html.lower(), "has_cto1": "CTO1_" in html,
-                      "has_fiber_opt": "fiber change options" in html.lower()}
+                      "has_fiber_opt": "fiber change options" in html.lower(),
+                      # rutas internas de la página (para ubicar cómo se carga el detalle de una fila)
+                      "paths": sorted(set(re.findall(r'(/[a-zA-Z][\w\-]*(?:/[\w\-\[\]]+)*\?[\w\-]+=)', html)))[:25],
+                      "routes": sorted(set(re.findall(r'"(/(?:api|flujos[\w\-]*|detalle[\w\-]*|registro[\w\-]*)[\w\-/\[\]]*)"', html)))[:25],
+                      "has_action": ("next-action" in html.lower()) or ("$ACTION" in html),
+                      "u_tables": sorted(set(re.findall(r'\bu_[a-z_]+_v2\b|\bu_assured_intervention\w*', html)))[:15]}
     result["access_id"] = access_id
     result["coreuse_url"] = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
     return JSONResponse(result)
