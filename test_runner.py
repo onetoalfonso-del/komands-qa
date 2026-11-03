@@ -19042,8 +19042,12 @@ async function _atrf_runSelected(){
       else if(_MTdSet.has(_psf.fn)&&_psi<_lastSeqIdx){_mSeqPhase.push(_psf);}  // intercalado antes de última Asig
       else if(_MTdSet.has(_psf.fn)){_mTeardown.push(_psf);}
     }
-    var _mIaPhase=_mAllSteps.filter(function(s){return _MIaSet.has(s.fn)||_MWrSet.has(s.fn);});
-    var _mIndep  =_mAllSteps.filter(function(s){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MWrSet.has(s.fn)&&!_MTdSet.has(s.fn);});
+    // Consultas declaradas DESPUÉS de un Cambio de Fibra (p.ej. RetrieveAccess para verificar la nueva CTO/LU)
+    // van en la cadena serial en su posición; en paralelo corrían antes del cambio
+    var _mFcIdx=-1;_mAllSteps.forEach(function(s,i){if(_mFcIdx<0&&s.fn==='Cambio de Fibra')_mFcIdx=i;});
+    var _mAfterFc=function(s,i){return _mFcIdx>=0&&i>_mFcIdx&&!_MSeqSet.has(s.fn)&&!_MTdSet.has(s.fn);};
+    var _mIaPhase=_mAllSteps.filter(function(s,i){return _MIaSet.has(s.fn)||_MWrSet.has(s.fn)||_mAfterFc(s,i);});
+    var _mIndep  =_mAllSteps.filter(function(s,i){return !_MSeqSet.has(s.fn)&&!_MIaSet.has(s.fn)&&!_MWrSet.has(s.fn)&&!_MTdSet.has(s.fn)&&!_mAfterFc(s,i);});
     // Función ejecutora de un solo paso
     // BL/DBL actúan sobre el plan vigente: el nuevo si ya pasó la Modificación de Acceso
     var _mModOk=false;
