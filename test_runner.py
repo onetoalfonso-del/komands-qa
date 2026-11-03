@@ -18137,6 +18137,14 @@ function _cuSelectCto(accessId,ctoData,btn){
   setTimeout(function(){var m=document.getElementById('cu-iia-modal');if(m)m.remove();},800);
 }
 
+// La CTO elegida solo vale para su Access ID; la automática se recalcula en cada Cambio de Fibra
+// (antes quedaba de la ejecución anterior y se usaba con otro AID, sin revisar LU actual ni Fiber change options)
+function _atrf_resetStaleCto(aid){
+  if(_atrfPendingCto&&(_atrfPendingCto.autoSelected||(_atrfPendingCto.accessId&&_atrfPendingCto.accessId!==aid))){
+    _atrfPendingCto=null;
+    var _ob=document.getElementById('cu-pending-cto-badge');if(_ob)_ob.remove();
+  }
+}
 function _cuShowPendingCtoBadge(){
   var el=document.getElementById('cu-pending-cto-badge');
   if(!el){
@@ -19050,6 +19058,7 @@ async function _atrf_runSelected(){
         // Para Cambio de Fibra: auto-fetch CTO desde CoreUse IIA si no hay selección manual
         var _ctoPayload={};
         if(fn==='Cambio de Fibra'){
+          _atrf_resetStaleCto(_currentAccessId);
           if(!_atrfPendingCto&&_currentAccessId){
             // Fetch automático: obtener datos IIA y elegir CTO 1
             try{
@@ -19308,6 +19317,7 @@ async function _atrf_runSelected(){
           continue;
         }
         // Fiber Change: si la IIA dice "Fiber change options = No" no hay cambio de pelo posible → no se llama a la API
+        if(_mIaPhase[_mi].fn==='Cambio de Fibra')_atrf_resetStaleCto(_currentAccessId);
         if(_mIaPhase[_mi].fn==='Cambio de Fibra'&&_currentAccessId&&!_atrfPendingCto){
           var _fcNo=false;
           try{
