@@ -17647,7 +17647,7 @@ function _atrf_buildDetailHtml(qi){
     // Estado mixto: hechos (pass/fail) + en ejecución (amarillo) + pendientes
     tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
     (q.tcResults||[]).forEach(function(r,idx){
-      var cls=r.pass?'pass':'fail';var icon=r.pass?'✓':'✗';
+      var cls=r.skipped?'pending':(r.pass?'pass':'fail');var icon=r.skipped?'⊘':(r.pass?'✓':'✗');
       tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
     });
     var _doneCount={};(q.tcResults||[]).forEach(function(r){_doneCount[r.func]=(_doneCount[r.func]||0)+1;});
@@ -17666,8 +17666,8 @@ function _atrf_buildDetailHtml(qi){
   } else if(q.tcResults&&q.tcResults.length){
     tcHtml='<div class="atrf-tc-section-lbl" style="margin-top:12px">Casos de prueba</div><div class="atrf-tc-results">';
     q.tcResults.forEach(function(r,idx){
-      var cls=r.pass?'pass':'fail';
-      var icon=r.pass?'✓':'✗';
+      var cls=r.skipped?'pending':(r.pass?'pass':'fail');
+      var icon=r.skipped?'⊘':(r.pass?'✓':'✗');
       tcHtml+='<span class="atrf-tc-badge '+cls+'" onclick="event.stopPropagation();_atrf_openTcModal('+qi+','+idx+')">'+icon+' '+esc(r.label)+'</span>';
     });
     tcHtml+='</div>';
@@ -19204,6 +19204,29 @@ async function _atrf_runSelected(){
             })}).catch(function(){});
           }
           continue;
+        }
+        // Fiber Change: si la IIA dice "Fiber change options = No" no hay cambio de pelo posible → no se llama a la API
+        if(_mIaPhase[_mi].fn==='Cambio de Fibra'&&_currentAccessId&&!_atrfPendingCto){
+          var _fcNo=false;
+          try{
+            var _fcR=await fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(_currentAccessId));
+            if(_fcR.ok){var _fcD=await _fcR.json();_fcNo=!_fcD.error&&_fcD.fiber_change_allowed===false&&(_fcD.diag||{}).action_http===200;}
+          }catch(_fcE){}
+          if(_fcNo){
+            var _fcTc=(_ATRF_TC_MAP['Cambio de Fibra']||{})[vno]||'';
+            var _fcMsg='⊘ Omitido: la IIA indica "Fiber change options: No" (no hay cambio de pelo posible)';
+            var _fcSk={func:'Cambio de Fibra',tc:_fcTc,label:_mIaPhase[_mi].label,pass:true,skipped:true,
+              req:'',res:_fcMsg,httpCode:0,newmanOut:'',duration_ms:0,error:_fcMsg};
+            _res.push(_fcSk);_mDone(_fcSk);
+            fetch('/api/aid-events',{method:'POST',headers:_authHdr(),body:JSON.stringify({
+              access_id:_currentAccessId,ts:Date.now(),run_key:q._traceRun||'',source:'manual',
+              seq_name:q.name||'',vno:vno,vno_lbl:_ATRF_TC_VNO_LABEL[vno]||vno,
+              func:'Cambio de Fibra',tc:_fcTc,mode:_asyncMode?'async':'sync',
+              api_pass:null,final_pass:true,coreuse_checked:'no',duration_ms:0,
+              extra:{error:_fcMsg}
+            })}).catch(function(){});
+            continue;
+          }
         }
         var _r=await _mDoStep(_mIaPhase[_mi]);
         if(_r){_res.push(_r);_mDone(_r);if(_mIaPhase[_mi].fn==="Inicio Intervención Asegurada"&&!_r.pass)_iaFailed=true;}
