@@ -8377,14 +8377,14 @@ def _coreuse_parse_iia_fiber(html: str) -> dict:
       CTO{n}_type, CTO{n}_CODE,
       ADDR_CTO{n}_siteCode, ADDR_CTO{n}_cityCode,
       CTO{n}_CABLE, CTO{n}_cable_function,
-      CTO{n}_availableLogicalUnit1..6
+      CTO{n}_availableLogicalUnit1..8
     Fiber: "Fiber change options" → "Sí"
     """
     # Conjunto completo de labels conocidos (exactos, case-sensitive)
     _FC_LABEL   = "Fiber change options"
     _CTO_FIELDS = ["type", "CODE",
                    "CABLE", "cable_function"] + \
-                  [f"availableLogicalUnit{lu}" for lu in range(1, 7)]
+                  [f"availableLogicalUnit{lu}" for lu in range(1, 9)]
     _ADDR_FIELDS = ["siteCode", "cityCode"]
 
     _ALL_LABELS: set[str] = {_FC_LABEL}
@@ -8548,7 +8548,7 @@ def _cu_iia_from_kv(kv: dict) -> dict:
         norm.setdefault(nk, v)
     synth = {}
     for n in range(1, 7):
-        for f in ["type", "CODE", "CABLE", "cable_function"] + [f"availableLogicalUnit{lu}" for lu in range(1, 7)]:
+        for f in ["type", "CODE", "CABLE", "cable_function"] + [f"availableLogicalUnit{lu}" for lu in range(1, 9)]:
             lab = f"CTO{n}_{f}"
             if lab.lower() in norm:
                 synth[lab] = norm[lab.lower()]
@@ -18019,11 +18019,13 @@ function _cuOpenIiaFiberDetail(accessId){
           var lu4=f['CTO'+n+'_availableLogicalUnit4']||'';
           var lu5=f['CTO'+n+'_availableLogicalUnit5']||'';
           var lu6=f['CTO'+n+'_availableLogicalUnit6']||'';
-          var allLus=[lu1,lu2,lu3,lu4,lu5,lu6].filter(Boolean);
+          var lu7=f['CTO'+n+'_availableLogicalUnit7']||'';
+          var lu8=f['CTO'+n+'_availableLogicalUnit8']||'';
+          var allLus=[lu1,lu2,lu3,lu4,lu5,lu6,lu7,lu8].filter(Boolean);
           var ctoData={ctoCode:code,ctoType:type,regionCode:regionCode,siteCode:siteCode,
             ctoFunction:ctoFn,cableCode:cableCode,logicalUnit:lu1,
             logicalUnit2:lu2,logicalUnit3:lu3,logicalUnit4:lu4,
-            logicalUnit5:lu5,logicalUnit6:lu6};
+            logicalUnit5:lu5,logicalUnit6:lu6,logicalUnit7:lu7,logicalUnit8:lu8};
           var ctoJson=JSON.stringify(ctoData);
           var luBadge=allLus.length>1
             ?'<span style="font-size:.65rem;color:var(--txt3);margin-left:4px">'+allLus.length+' LU disponibles</span>':'';
@@ -18131,7 +18133,7 @@ function _cuShowPendingCtoBadge(){
     document.body.appendChild(el);
   }
   var c=_atrfPendingCto;
-  var _luParts=[c.logicalUnit,c.logicalUnit2,c.logicalUnit3,c.logicalUnit4,c.logicalUnit5,c.logicalUnit6].filter(Boolean);
+  var _luParts=[c.logicalUnit,c.logicalUnit2,c.logicalUnit3,c.logicalUnit4,c.logicalUnit5,c.logicalUnit6,c.logicalUnit7,c.logicalUnit8].filter(Boolean);
   var _autoTag=c.autoSelected?'<span style="font-size:.6rem;background:rgba(0,200,212,.2);color:var(--atrf-accent,#00c8d4);border-radius:3px;padding:1px 4px;margin-left:4px">AUTO</span>':'';
   el.innerHTML=(c.autoSelected?'🤖':'🔗')+' CTO'+( c.ctoN?' '+c.ctoN:'')+': <strong>'+String(c.ctoCode||'—')+'</strong>'
     +_autoTag
@@ -19043,7 +19045,7 @@ async function _atrf_runSelected(){
                     var _b=_cl[0],_bn=0;
                     _cl.forEach(function(_c){
                       var _n=_c.cto_n,_f=_c.fields||{},_cnt=0;
-                      for(var _i=1;_i<=6;_i++)if(_f['CTO'+_n+'_availableLogicalUnit'+_i])_cnt++;
+                      for(var _i=1;_i<=8;_i++)if(_f['CTO'+_n+'_availableLogicalUnit'+_i])_cnt++;
                       if(_cnt>_bn){_bn=_cnt;_b=_c;}
                     });
                     return _b;
@@ -19063,6 +19065,8 @@ async function _atrf_runSelected(){
                     logicalUnit4:_af['CTO'+_an+'_availableLogicalUnit4']||'',
                     logicalUnit5:_af['CTO'+_an+'_availableLogicalUnit5']||'',
                     logicalUnit6:_af['CTO'+_an+'_availableLogicalUnit6']||'',
+                    logicalUnit7:_af['CTO'+_an+'_availableLogicalUnit7']||'',
+                    logicalUnit8:_af['CTO'+_an+'_availableLogicalUnit8']||'',
                     accessId:_currentAccessId,
                     autoSelected:true,
                     ctoN:_an,
@@ -19120,14 +19124,16 @@ async function _atrf_runSelected(){
             httpCode=rd.httpCode||0;newmanOut=rd.newmanOut||'';
           }
         }
-        // Cambio de Fibra: si LU inicial falla, reintentar automáticamente con LU2..LU6
+        // Cambio de Fibra: si LU inicial falla, reintentar automáticamente con LU2..LU8
         if(fn==='Cambio de Fibra'&&!pass&&_atrfPendingCto){
           var _cfLus=[
             _atrfPendingCto.logicalUnit2||'',
             _atrfPendingCto.logicalUnit3||'',
             _atrfPendingCto.logicalUnit4||'',
             _atrfPendingCto.logicalUnit5||'',
-            _atrfPendingCto.logicalUnit6||''
+            _atrfPendingCto.logicalUnit6||'',
+            _atrfPendingCto.logicalUnit7||'',
+            _atrfPendingCto.logicalUnit8||''
           ].filter(Boolean);
           for(var _lri=0;_lri<_cfLus.length&&!pass;_lri++){
             if(prog)prog.textContent='🔄 Fibra: probando LU'+(_lri+2)+'…';
