@@ -18139,6 +18139,20 @@ function _cuSelectCto(accessId,ctoData,btn){
 
 // La CTO elegida solo vale para su Access ID; la automática se recalcula en cada Cambio de Fibra
 // (antes quedaba de la ejecución anterior y se usaba con otro AID, sin revisar LU actual ni Fiber change options)
+// Detalle IIA (CoreUse) compartido por la revisión "Fiber change options" y la elección de CTO:
+// una sola lectura por AID (2 min de vigencia); _atrfIiaMs guarda cuánto tardó (diagnóstico)
+var _atrfIiaCache={},_atrfIiaMs=0;
+function _atrf_iiaDetail(aid){
+  var c=_atrfIiaCache[aid];
+  if(c&&Date.now()-c.t<120000)return c.p;
+  var t0=Date.now();
+  var p=fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(aid))
+    .then(function(r){return r.ok?r.json():null;})
+    .catch(function(){return null;})
+    .then(function(d){_atrfIiaMs=Date.now()-t0;return d;});
+  _atrfIiaCache[aid]={t:Date.now(),p:p};
+  return p;
+}
 function _atrf_resetStaleCto(aid){
   if(_atrfPendingCto&&(_atrfPendingCto.autoSelected||(_atrfPendingCto.accessId&&_atrfPendingCto.accessId!==aid))){
     _atrfPendingCto=null;
@@ -19066,9 +19080,8 @@ async function _atrf_runSelected(){
           if(!_atrfPendingCto&&_currentAccessId){
             // Fetch automático: obtener datos IIA y elegir CTO 1
             try{
-              var _iiaR=await fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(_currentAccessId));
-              if(_iiaR.ok){
-                var _iiaD=await _iiaR.json();
+              var _iiaD=await _atrf_iiaDetail(_currentAccessId);
+              if(_iiaD&&!_iiaD.error){
                 if(_iiaD.fiber_change_allowed&&_iiaD.ctos&&_iiaD.ctos.length>0){
                   // Cambio de pelo: LU distinta a la que el acceso tiene hoy. Se prefiere la misma
                   // CTO actual; si no tiene LU libres, la CTO con más LU disponibles.
@@ -19216,6 +19229,8 @@ async function _atrf_runSelected(){
           }
         }
       }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
+      // Tiempos para diagnóstico: hasta la respuesta de la API (incluye lectura IIA) y después (CoreUse)
+      var _trApiMs=Date.now()-_t0,_trApiEnd=Date.now();
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
       var _trApiPass=pass,_trCu={status:'',msg:'',attempts:0,checked:'no'};
       // Guardar estado de envío async inmediato
@@ -19263,11 +19278,11 @@ async function _atrf_runSelected(){
           coreuse_status:_trCu.status,coreuse_msg:_trCu.msg,coreuse_attempts:_trCu.attempts,coreuse_checked:_trCu.checked,
           duration_ms:Date.now()-_t0,
           extra:{
-            apim408:!!_is408,
+            apim408:!!_is408,apiMs:_trApiMs,afterApiMs:Date.now()-_trApiEnd,
             asyncSubmitted:(rd&&rd.asyncSubmitted!==undefined)?rd.asyncSubmitted:null,
             noAccessId:!!_sr.noAccessId,
             accessIdFromResponse:(rd&&rd.accessId)||'',
-            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:(_cfUsed&&_cfUsed.code)||_atrfPendingCto.ctoCode||'',lu:(_cfUsed&&_cfUsed.lu)||_atrfPendingCto.logicalUnit||'',curCto:_atrfPendingCto.curCto||'',curLu:_atrfPendingCto.curLu||'',auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
+            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:(_cfUsed&&_cfUsed.code)||_atrfPendingCto.ctoCode||'',lu:(_cfUsed&&_cfUsed.lu)||_atrfPendingCto.logicalUnit||'',curCto:_atrfPendingCto.curCto||'',curLu:_atrfPendingCto.curLu||'',iiaMs:_atrfIiaMs,auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
             error:_sr.error||''
           },
           req:req_s,res:res_s
@@ -19325,8 +19340,8 @@ async function _atrf_runSelected(){
         if(_mIaPhase[_mi].fn==='Cambio de Fibra'&&_currentAccessId&&!_atrfPendingCto){
           var _fcNo=false;
           try{
-            var _fcR=await fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(_currentAccessId));
-            if(_fcR.ok){var _fcD=await _fcR.json();_fcNo=!_fcD.error&&_fcD.fiber_change_allowed===false&&(_fcD.diag||{}).action_http===200;}
+            var _fcD=await _atrf_iiaDetail(_currentAccessId);
+            if(_fcD){_fcNo=!_fcD.error&&_fcD.fiber_change_allowed===false&&(_fcD.diag||{}).action_http===200;}
           }catch(_fcE){}
           if(_fcNo){
             var _fcTc=(_ATRF_TC_MAP['Cambio de Fibra']||{})[vno]||'';
