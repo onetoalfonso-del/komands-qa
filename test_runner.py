@@ -1051,7 +1051,6 @@ _COREUSE_NO_POLL = {
     "Consulta Estado Vecino (GET)", "Consulta Estado Vecino (POST)",
     "Diagnóstico de Acceso",
     "RetrieveAccess ONT",
-    "Cambio de Fibra",        # async-only, sin u_access_id_vno en respuesta
 }
 
 def _coreuse_login():
@@ -1193,6 +1192,7 @@ _CU_FLOW_KEYS = {
     "Reinicio ONT":                        ["u_ont_restart"],
     "Consulta de Alarmas":                 ["u_retrieve_data_ont"],   # retrieveDataONT/ONTRetrieve
     "Cambio de Pelo":                      ["u_fiber_change"],        # fullFillment-fiberChange
+    "Cambio de Fibra":                     ["u_fiber_change"],        # "Fiber Change V2" (sync y async)
     "Diagnóstico de Acceso":               ["u_access_status"],       # AccesStatusAsync ("Access Status")
     "RetrieveAccess ONT":                  ["u_retrieve_data_ont"],   # async → ONTRetrieveAsync
 }
@@ -2151,7 +2151,7 @@ async def _agenda_fire_async(schedule_id: int):
         # serie con la cadena IA (en paralelo chocaban en la OLT/ONT); igual que el runner manual.
         # ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
         _POST_ACT = {"Reinicio ONT", "Consulta de Alarmas", "RetrieveAccess ONT", "Diagnóstico de Acceso",
-                     "Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)"}
+                     "Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)", "Cambio de Fibra"}
         if _sched_async or (_POST_ACT & set(func_names)):
             _SEQ_FIRST_SET = {"Factibilidad", "Asignación", "Activación"}
         _BLK_SET = {"Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)"}
@@ -7848,10 +7848,11 @@ async def atrf_run_step(request: Request):
             _pass = (_rc == "0") if _rc else (_http_code in (200, 201))
         except Exception:
             _pass = _http_code in (200, 201)
-        # Fiber Change no devuelve u_access_id_vno — no hay polling CoreUse
+        # La respuesta async no trae u_access_id_vno, pero el AID es el enviado: CoreUse
+        # registra la fila "Fiber Change V2" y el resultado real se confirma ahí
         return JSONResponse({"pass": _pass, "req": req_body_str, "res": _res_body,
                              "vno": vno, "func": func_name, "httpCode": _http_code,
-                             "asyncSubmitted": _pass, "noAccessId": True})
+                             "asyncSubmitted": _pass, "accessId": access_id})
 
     # ── Resto de funcionalidades: pendiente ───────────────────────────────────
     return JSONResponse({"error": "not_implemented", "func": func_name}, status_code=501)
@@ -18958,7 +18959,7 @@ async function _atrf_runSelected(){
   // Funcionalidades sin polling CoreUse: Consultas (no aparecen) + Factibilidad (valida por response directo)
   var _COREUSE_NO_POLL={'Factibilidad':1,'GET Consulta de Acceso':1,
     'Consulta Estado Vecino (GET)':1,'Consulta Estado Vecino (POST)':1,
-    'Diagnóstico de Acceso':1,'RetrieveAccess ONT':1,'Cambio de Fibra':1};
+    'Diagnóstico de Acceso':1,'RetrieveAccess ONT':1};
   for(var qi=0;qi<_atrfQueue.length;qi++){
     var q=_atrfQueue[qi];
     if(!q.checked||q.status!=='espera')continue;
@@ -18976,7 +18977,7 @@ async function _atrf_runSelected(){
     // En async: Activación entra al grupo secuencial para que ONTRetrieve/ONTRestart/AccesStatusAsync
     // solo arranquen después de que Activación complete (no en paralelo con ella).
     // ONTRestart/ONTRetrieve/AccesStatus requieren la Activación completa también en síncrono.
-    var _mPostAct=(q.funcs||[]).some(function(fi){return ["Reinicio ONT","Consulta de Alarmas","RetrieveAccess ONT","Diagnóstico de Acceso","Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)"].indexOf(_ATRF_FUNCS[fi])>=0;});
+    var _mPostAct=(q.funcs||[]).some(function(fi){return ["Reinicio ONT","Consulta de Alarmas","RetrieveAccess ONT","Diagnóstico de Acceso","Bloqueo de Servicio (BL)","Desbloqueo de Servicio (DBL)","Cambio de Fibra"].indexOf(_ATRF_FUNCS[fi])>=0;});
     var _MSeqSet=new Set((_asyncMode||_mPostAct)?["Factibilidad","Asignación","Activación"]:["Factibilidad","Asignación"]);
     var _MIaSet=new Set(["Inicio Intervención Asegurada","Cancelación Intervención Asegurada","Finalización Intervención Asegurada","Cambio de Pelo","Cambio de Fibra"]);
     var _MTdSet=new Set(["Cancelación Orden de Servicio","Baja Total de Servicio"]);
