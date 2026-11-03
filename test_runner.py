@@ -19064,7 +19064,10 @@ async function _atrf_runSelected(){
                   var _luOf=function(_c){
                     var _n=_c.cto_n,_f=_c.fields||{},_o=[];
                     for(var _i=1;_i<=8;_i++){var _v=_f['CTO'+_n+'_availableLogicalUnit'+_i];
-                      if(_v&&String(_v)!==_curLu)_o.push(String(_v));}
+                      // La LU actual solo se descarta en la CTO actual: misma LU en otra CTO sí es cambio de pelo
+                      // (si no se conoce la CTO actual, se descarta en todas por seguridad)
+                      var _sameCto=!_curCto||_f['CTO'+_n+'_CODE']===_curCto;
+                      if(_v&&!(_sameCto&&String(_v)===_curLu))_o.push(String(_v));}
                     return _o;
                   };
                   // Orden de preferencia: 1) otra CTO y otra LU (más LU libres primero),
