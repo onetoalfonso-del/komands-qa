@@ -8669,6 +8669,21 @@ async def api_coreuse_iia_detail(access_id: str = ""):
                         synth = _cu_iia_from_kv(_kv)
                         if synth:
                             html = html + "\n" + json.dumps(synth, ensure_ascii=False)
+                        if _kv.get("u_cto_code"):
+                            info["current"] = {"cto_code": _kv["u_cto_code"]}
+                # LU actual: la de la Asignación (u_term_logical_cable_logical_unit) —
+                # el cambio de pelo debe usar una LU distinta
+                _asg = [x for x in _cu_flow_rows(r.text)
+                        if "u_assignment" in x["table"] and x.get("sys_id")]
+                if _asg:
+                    _arow = max(_asg, key=lambda x: x["ts_ms"] or 0)
+                    _ast, _atxt = _cu_row_detail(s, access_id, _arow["sys_id"], _arow["table"])
+                    if _ast == 200:
+                        _akv = _cu_flatten_kv(_atxt)
+                        _cur = info.setdefault("current", {})
+                        _cur.setdefault("cto_code", _akv.get("u_eqpt_term_ident") or _akv.get("u_eqpt_term_code") or "")
+                        _cur["logical_unit"] = _akv.get("u_term_logical_cable_logical_unit", "")
+                        _cur["cable_code"] = _akv.get("u_term_logical_cable_code", "")
                 return (html, info), None
             except Exception as e:
                 return None, str(e)
@@ -8690,6 +8705,7 @@ async def api_coreuse_iia_detail(access_id: str = ""):
                       "has_action": ("next-action" in html.lower()) or ("$ACTION" in html),
                       "u_tables": sorted(set(re.findall(r'\bu_[a-z_]+_v2\b|\bu_assured_intervention\w*', html)))[:15],
                       **_info}
+    result["current"] = _info.get("current", {})
     result["access_id"] = access_id
     result["coreuse_url"] = f"{_COREUSE_BASE}/flujos-qa?access={access_id}"
     return JSONResponse(result)
@@ -9828,7 +9844,8 @@ def _build_seq_report_html(title: str, events: list, aid_states: dict, user: str
             if e.get("mode"):
                 extra.append("Asíncrono" if e["mode"] == "async" else "Síncrono")
             if x.get("cto") and x["cto"].get("code"):
-                extra.append(f"CTO {x['cto']['code']}" + (f" · LU {x['cto'].get('lu')}" if x['cto'].get('lu') else "")
+                extra.append((f"antes CTO {x['cto'].get('curCto','')} · LU {x['cto'].get('curLu','')} → " if x['cto'].get('curLu') else "")
+                             + f"CTO {x['cto']['code']}" + (f" · LU {x['cto'].get('lu')}" if x['cto'].get('lu') else "")
                              + (f" (reintento LU{x['cto']['luRetry']})" if x['cto'].get('luRetry') else ""))
             if x.get("apim408"):
                 extra.append("APIM 408")
@@ -19040,18 +19057,27 @@ async function _atrf_runSelected(){
               if(_iiaR.ok){
                 var _iiaD=await _iiaR.json();
                 if(_iiaD.fiber_change_allowed&&_iiaD.ctos&&_iiaD.ctos.length>0){
-                  // Estrategia: elegir la CTO con más LUs disponibles (más opciones de reintento)
-                  var _autoCto=(function(_cl){
-                    var _b=_cl[0],_bn=0;
-                    _cl.forEach(function(_c){
-                      var _n=_c.cto_n,_f=_c.fields||{},_cnt=0;
-                      for(var _i=1;_i<=8;_i++)if(_f['CTO'+_n+'_availableLogicalUnit'+_i])_cnt++;
-                      if(_cnt>_bn){_bn=_cnt;_b=_c;}
-                    });
-                    return _b;
-                  })(_iiaD.ctos);
+                  // Cambio de pelo: LU distinta a la que el acceso tiene hoy. Se prefiere la misma
+                  // CTO actual; si no tiene LU libres, la CTO con más LU disponibles.
+                  var _cur=_iiaD.current||{};
+                  var _curLu=String(_cur.logical_unit||''),_curCto=String(_cur.cto_code||'');
+                  var _luOf=function(_c){
+                    var _n=_c.cto_n,_f=_c.fields||{},_o=[];
+                    for(var _i=1;_i<=8;_i++){var _v=_f['CTO'+_n+'_availableLogicalUnit'+_i];
+                      if(_v&&String(_v)!==_curLu)_o.push(String(_v));}
+                    return _o;
+                  };
+                  var _autoCto=null;
+                  _iiaD.ctos.forEach(function(_c){
+                    if(!_autoCto&&_curCto&&(_c.fields||{})['CTO'+_c.cto_n+'_CODE']===_curCto&&_luOf(_c).length)_autoCto=_c;
+                  });
+                  if(!_autoCto){
+                    var _bn=-1;
+                    _iiaD.ctos.forEach(function(_c){var _k=_luOf(_c).length;if(_k>_bn){_bn=_k;_autoCto=_c;}});
+                  }
                   var _an=_autoCto.cto_n;
                   var _af=_autoCto.fields||{};
+                  var _lus=_luOf(_autoCto);
                   _atrfPendingCto={
                     ctoCode:   _af['CTO'+_an+'_CODE']||'',
                     ctoType:   _af['CTO'+_an+'_type']||'',
@@ -19059,14 +19085,15 @@ async function _atrf_runSelected(){
                     siteCode:  _af['ADDR_CTO'+_an+'_siteCode']||'',
                     ctoFunction:_af['CTO'+_an+'_cable_function']||'',
                     cableCode: _af['CTO'+_an+'_CABLE']||'',
-                    logicalUnit: _af['CTO'+_an+'_availableLogicalUnit1']||'',
-                    logicalUnit2:_af['CTO'+_an+'_availableLogicalUnit2']||'',
-                    logicalUnit3:_af['CTO'+_an+'_availableLogicalUnit3']||'',
-                    logicalUnit4:_af['CTO'+_an+'_availableLogicalUnit4']||'',
-                    logicalUnit5:_af['CTO'+_an+'_availableLogicalUnit5']||'',
-                    logicalUnit6:_af['CTO'+_an+'_availableLogicalUnit6']||'',
-                    logicalUnit7:_af['CTO'+_an+'_availableLogicalUnit7']||'',
-                    logicalUnit8:_af['CTO'+_an+'_availableLogicalUnit8']||'',
+                    logicalUnit: _lus[0]||'',
+                    logicalUnit2:_lus[1]||'',
+                    logicalUnit3:_lus[2]||'',
+                    logicalUnit4:_lus[3]||'',
+                    logicalUnit5:_lus[4]||'',
+                    logicalUnit6:_lus[5]||'',
+                    logicalUnit7:_lus[6]||'',
+                    logicalUnit8:_lus[7]||'',
+                    curCto:_curCto,curLu:_curLu,
                     accessId:_currentAccessId,
                     autoSelected:true,
                     ctoN:_an,
@@ -19211,7 +19238,7 @@ async function _atrf_runSelected(){
             asyncSubmitted:(rd&&rd.asyncSubmitted!==undefined)?rd.asyncSubmitted:null,
             noAccessId:!!_sr.noAccessId,
             accessIdFromResponse:(rd&&rd.accessId)||'',
-            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:_atrfPendingCto.ctoCode||'',lu:_atrfPendingCto.logicalUnit||'',auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
+            cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:_atrfPendingCto.ctoCode||'',lu:_atrfPendingCto.logicalUnit||'',curCto:_atrfPendingCto.curCto||'',curLu:_atrfPendingCto.curLu||'',auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
             error:_sr.error||''
           },
           req:req_s,res:res_s
@@ -20382,7 +20409,7 @@ function _trLoadStepDetail(id){
 function _trStepDetailHtml(e,withOpen){
   var dg=e.diag||{},s=_QX_DIAG[dg.code]||_QX_DIAG.otro,x=e.extra||{};
   var meta=[e.mode==='async'?'Asíncrono':e.mode==='sync'?'Síncrono':'',e.user_email?'Usuario '+e.user_email:'',_QX_SRC[e.source]?'Origen '+_QX_SRC[e.source]:'',e.tc||'',
-    x.cto&&x.cto.code?'CTO '+x.cto.code+(x.cto.lu?' · LU '+x.cto.lu:'')+(x.cto.luRetry?' (reintento LU'+x.cto.luRetry+')':''):'',x.apim408?'APIM 408':''].filter(Boolean);
+    x.cto&&x.cto.code?(x.cto.curLu?'antes CTO '+x.cto.curCto+' · LU '+x.cto.curLu+' → ':'')+'CTO '+x.cto.code+(x.cto.lu?' · LU '+x.cto.lu:'')+(x.cto.luRetry?' (reintento LU'+x.cto.luRetry+')':''):'',x.apim408?'APIM 408':''].filter(Boolean);
   var h='<div style="display:flex;flex-wrap:wrap;gap:14px">'
     +'<div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:8px">'
     +'<b style="color:'+s.c+';font-size:.82rem">'+_trEsc(dg.label||'')+'</b>'
