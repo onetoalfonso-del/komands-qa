@@ -1614,6 +1614,16 @@ CREATE TABLE IF NOT EXISTS qa_atrf_seqs (
     updated_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_email, uid)
 );
+CREATE TABLE IF NOT EXISTS qa_known_defects (
+    id          BIGSERIAL PRIMARY KEY,
+    func        TEXT NOT NULL,
+    vno         TEXT DEFAULT '',
+    code        TEXT DEFAULT '',
+    match_text  TEXT DEFAULT '',
+    note        TEXT DEFAULT '',
+    created_by  TEXT DEFAULT '',
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS qa_return_codes (
     id          BIGSERIAL PRIMARY KEY,
     flow        TEXT NOT NULL,
@@ -9349,6 +9359,77 @@ async def _aid_events_query(pool, t0: int, t1: int, vno: str = "", func: str = "
     return out
 
 
+# Falla del ambiente (no de la prueba): sin respuesta, 5xx, ServiceNow/CoreUse sin procesar o código sistémico
+_ENV_KINDS = {"no_resp": "Sin respuesta / timeout", "http5xx": "Error del servidor (HTTP 5xx)",
+              "cu_missing": "ServiceNow no procesó (CoreUse sin registro)", "cu_down": "CoreUse no accesible",
+              "sistemico": "Código de retorno sistémico"}
+
+
+def _env_kind(e: dict, rc_cls: dict) -> str:
+    if e.get("final_pass") or e["diag"]["code"] == "skipped":
+        return ""
+    http = e.get("http_code") or 0
+    if e.get("api_pass") is False and not http:
+        return "no_resp"
+    if http >= 500:
+        return "http5xx"
+    if e["diag"]["code"] == "cu_missing":
+        return "cu_missing"
+    if (e.get("coreuse_status") or "") in ("error", "timeout") and e.get("api_pass") is not False:
+        return "cu_down"
+    rc = str(e.get("return_code") or "")
+    if rc and rc != "0" and rc_cls.get((_FUNC_TO_RC_FLOW.get(e["func"], e["func"]), rc)) == "Sistémico":
+        return "sistemico"
+    return ""
+
+
+async def _rc_class_map(pool) -> dict:
+    out: dict = {}
+    for r in await pool.fetch("SELECT flow, code, cls FROM qa_return_codes ORDER BY sort_order"):
+        out.setdefault((r["flow"], str(r["code"])), r["cls"])
+    return out
+
+
+async def _known_defects(pool) -> list:
+    try:
+        return [dict(r) for r in await pool.fetch(
+            "SELECT id, func, vno, code, match_text, note, created_by, created_at FROM qa_known_defects ORDER BY id")]
+    except Exception:
+        return []
+
+
+def _known_match(e: dict, defects: list):
+    """Defecto ya reportado que explica esta falla (o None)."""
+    if e.get("final_pass"):
+        return None
+    txt = " ".join(str(x or "") for x in (e.get("return_desc"), e.get("coreuse_msg"),
+                                          (e.get("extra") or {}).get("error"), e["diag"].get("detail"))).lower()
+    for d in defects:
+        if d["func"] != e["func"]:
+            continue
+        if d["vno"] and d["vno"] != (e.get("vno") or ""):
+            continue
+        if d["code"] and d["code"] != str(e.get("return_code") or ""):
+            continue
+        if d["match_text"] and d["match_text"].lower() not in txt:
+            continue
+        return d
+    return None
+
+
+# Catálogo que debería probarse: funcionalidad × VNO (BL/DBL solo DTV; Cambio de Pelo = Cambio de Fibra)
+def _coverage_catalog() -> list:
+    out = []
+    for f in ATRF_FUNCS_REAL:
+        if f == "Cambio de Pelo":
+            continue
+        for code_v, lbl in _DASH_VNOS:
+            if f in ("Bloqueo de Servicio (BL)", "Desbloqueo de Servicio (DBL)") and code_v != "05":
+                continue
+            out.append((f, code_v, lbl))
+    return out
+
+
 def _pctl(vals: list, p: float) -> float:
     if not vals:
         return 0.0
@@ -9377,7 +9458,14 @@ async def api_aid_steps(rng: str = Query("7d", alias="range"), t_from: int = 0, 
         summary[e["diag"]["code"]] = summary.get(e["diag"]["code"], 0) + 1
     if diag:
         wanted = set(diag.split(","))
-        evs = [e for e in evs if e["diag"]["code"] in wanted]
+        if wanted & {"env_down", "known"}:
+            rc_cls = await _rc_class_map(pool) if "env_down" in wanted else {}
+            kd = await _known_defects(pool) if "known" in wanted else []
+            evs = [e for e in evs if e["diag"]["code"] in wanted
+                   or ("env_down" in wanted and _env_kind(e, rc_cls))
+                   or ("known" in wanted and _known_match(e, kd))]
+        else:
+            evs = [e for e in evs if e["diag"]["code"] in wanted]
     if result == "ok":
         evs = [e for e in evs if e["final_pass"]]
     elif result == "fail":
@@ -9473,6 +9561,17 @@ async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
         return JSONResponse({"error": str(e)}, status_code=500)
     work = [e for e in evs if e.get("source") != "cierre"]
     work_prev = [e for e in prev if e.get("source") != "cierre"]
+    # Fallas ya reportadas (defectos conocidos): se muestran aparte y no cuentan en las métricas
+    kdefs = await _known_defects(pool)
+    known_hits: dict = {}
+    for e in work:
+        kd = _known_match(e, kdefs)
+        if kd:
+            e["known"] = kd["id"]
+            known_hits[kd["id"]] = known_hits.get(kd["id"], 0) + 1
+    known_n = sum(1 for e in work if e.get("known"))
+    work = [e for e in work if not e.get("known")]
+    work_prev = [e for e in work_prev if not _known_match(e, kdefs)]
 
     def _rate(lst):
         return round(sum(1 for e in lst if e["final_pass"]) / len(lst) * 100) if lst else None
@@ -9577,6 +9676,72 @@ async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
         matrix.append({"func": f, "cells": cells})
     regressions.sort(key=lambda r: r["streak"], reverse=True)
 
+    # Disponibilidad del ambiente: pasos que fallaron por el ambiente vs por la prueba
+    rc_cls = {k: v["cls"] for k, v in rc_map.items()}
+    env_by: dict = {}
+    env_funcs: dict = {}
+    env_bad = []
+    for e in work:
+        k = _env_kind(e, rc_cls)
+        if k:
+            env_bad.append(e)
+            env_by[k] = env_by.get(k, 0) + 1
+            env_funcs[e["func"]] = env_funcs.get(e["func"], 0) + 1
+    env_spark = []
+    for b in range(n_b):
+        b0, b1 = t0 + span * b // n_b, t0 + span * (b + 1) // n_b
+        tot_b = sum(1 for e in work if b0 <= e["ts"] < b1)
+        bad_b = sum(1 for e in env_bad if b0 <= e["ts"] < b1)
+        env_spark.append(round((1 - bad_b / tot_b) * 100) if tot_b else None)
+    env_prev = [e for e in work_prev if _env_kind(e, rc_cls)]
+    availability = {
+        "rate": round((1 - len(env_bad) / len(work)) * 100) if work else None,
+        "prev_rate": round((1 - len(env_prev) / len(work_prev)) * 100) if work_prev else None,
+        "down": len(env_bad), "steps": len(work),
+        "func_fail": sum(1 for e in work if not e["final_pass"] and e["diag"]["code"] != "skipped") - len(env_bad),
+        "by_kind": [{"kind": k, "label": _ENV_KINDS[k], "n": n} for k, n in sorted(env_by.items(), key=lambda x: -x[1])],
+        "funcs": [{"func": f, "n": n} for f, n in sorted(env_funcs.items(), key=lambda x: -x[1])[:6]],
+        "vno": [{"vno": cv, "label": lb,
+                 "rate": (lambda L, B: round((1 - B / L) * 100) if L else None)(
+                     sum(1 for e in work if e.get("vno") == cv), sum(1 for e in env_bad if e.get("vno") == cv))}
+                for cv, lb in _DASH_VNOS],
+        "spark": env_spark,
+    }
+
+    # Cobertura: qué funcionalidad × VNO se probó en el período y hace cuánto la última vez
+    coverage = {"total": 0, "tested": 0, "stale": [], "never": 0}
+    try:
+        last_rows = await pool.fetch(
+            "SELECT DISTINCT ON (func, vno) func, vno, ts, final_pass FROM qa_aid_events "
+            "WHERE source <> 'cierre' ORDER BY func, vno, ts DESC")
+        last = {(r["func"], r["vno"]): r for r in last_rows}
+        # ejecuciones antiguas de "Cambio de Pelo" cuentan como Cambio de Fibra
+        for (f, cv), r in list(last.items()):
+            if f == "Cambio de Pelo":
+                cur = last.get(("Cambio de Fibra", cv))
+                if not cur or (r["ts"] or 0) > (cur["ts"] or 0):
+                    last[("Cambio de Fibra", cv)] = r
+        now_ms = int(_time_lib.time() * 1000)
+        cat = [(f, cv, lb) for f, cv, lb in _coverage_catalog() if not vno or cv == vno]
+        stale = []
+        for f, cv, lb in cat:
+            r = last.get((f, cv))
+            ts = (r["ts"] or 0) if r else 0
+            if ts >= t0:
+                coverage["tested"] += 1
+                continue
+            if not ts:
+                coverage["never"] += 1
+            stale.append({"func": f, "vno": cv, "label": lb, "last_ts": ts or None,
+                          "days": (now_ms - ts) // 86_400_000 if ts else None,
+                          "last_pass": bool(r["final_pass"]) if r else None})
+        stale.sort(key=lambda x: (x["last_ts"] is not None, x["last_ts"] or 0))
+        coverage["total"] = len(cat)
+        coverage["rate"] = round(coverage["tested"] / len(cat) * 100) if cat else None
+        coverage["stale"] = stale
+    except Exception as exc:
+        print(f"[dashboard2] cobertura: {exc}")
+
     # 4 · Tiempos
     times = []
     for f in funcs_present:
@@ -9620,7 +9785,44 @@ async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
                         for k, v in layer_funcs.items()},
         "matrix": matrix, "regressions": regressions[:6], "flaky": flaky[:6],
         "times": times[:10], "hygiene": hyg,
+        "availability": availability, "coverage": coverage,
+        "known": {"n": known_n, "defects": [
+            {"id": k["id"], "func": k["func"], "vno": k["vno"], "code": k["code"], "match_text": k["match_text"],
+             "note": k["note"], "created_by": k["created_by"], "hits": known_hits.get(k["id"], 0)} for k in kdefs]},
+        "catalog_funcs": [f for f in ATRF_FUNCS_REAL if f != "Cambio de Pelo"],
     }
+
+
+@app.post("/api/known-defects")
+async def add_known_defect(req: Request):
+    """Marca una falla como defecto ya reportado (deja de contar en las métricas)."""
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    b = await req.json()
+    func = (b.get("func") or "").strip()
+    if not func:
+        return JSONResponse({"error": "Falta la funcionalidad"}, status_code=400)
+    if not ((b.get("code") or "").strip() or (b.get("match_text") or "").strip()):
+        return JSONResponse({"error": "Indica el código de retorno o un texto del error, para no ocultar otras fallas"},
+                            status_code=400)
+    pool = await _db()
+    row = await pool.fetchrow(
+        "INSERT INTO qa_known_defects (func, vno, code, match_text, note, created_by) "
+        "VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+        func, (b.get("vno") or "").strip(), (b.get("code") or "").strip(),
+        (b.get("match_text") or "").strip(), (b.get("note") or "").strip()[:500], user.get("email") or "")
+    return {"ok": True, "id": row["id"]}
+
+
+@app.delete("/api/known-defects/{kd_id}")
+async def delete_known_defect(kd_id: int, req: Request):
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    await pool.execute("DELETE FROM qa_known_defects WHERE id=$1", kd_id)
+    return {"ok": True}
 
 
 # ─── Reporte descargable por secuencia (desde Trazabilidad) ──────────────────
@@ -11235,6 +11437,9 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
 .qx-seqbar a:hover{filter:brightness(1.12)}
 .qx-legend{display:flex;flex-direction:column;gap:2px}
 .qx-lfn{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 8px 22px}
+.qx-mini{font:600 .68rem var(--sans);padding:3px 9px;border-radius:7px;border:1px solid var(--brd);background:var(--card);color:var(--txt2);cursor:pointer;align-self:flex-start}
+.qx-mini:hover{border-color:var(--acc);color:var(--txt)}
+.qx-help label{font-size:.72rem;color:var(--txt2)}
 .qx-chip{font-size:.7rem;padding:3px 9px;border-radius:999px;background:var(--brdl);color:var(--txt);text-decoration:none;border:1px solid transparent;cursor:pointer}
 .qx-chip:hover{border-color:var(--acc)}.qx-chip b{font-family:var(--mono);margin-left:3px}
 .qx-legend a{display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--txt);text-decoration:none;padding:6px 8px;border-radius:8px;cursor:pointer}
@@ -20141,6 +20346,57 @@ function _qxDashLoad(force){
 }
 function _qxSecH(n,t,d,help){return '<div class="qx-sec-h"><span class="qx-sec-n">'+n+'</span><h2>'+t+'</h2>'+(d?'<span class="qx-sec-d">'+d+'</span>':'')+'</div>'
   +(help?'<details class="qx-help"><summary>&#9432; ¿Cómo leo esto?</summary><div>'+help+'</div></details>':'');}
+// Fallas conocidas: defectos ya reportados a Onnet que no deben ensuciar las métricas
+function _qxKnownCard(d,F){
+  var K=d.known||{},DF=K.defects||[];
+  var h='<div class="qx-card" id="qx-kd-card"><span class="qx-card-t">&#127991;&#65039; Fallas conocidas (ya reportadas)</span>'
+    +'<div class="qx-muted" style="line-height:1.5">Errores que ya están reportados a Onnet. Se muestran aquí y <b>no se cuentan</b> en salud, regresiones ni “dónde se rompe”, para que solo te alerte lo nuevo.</div>';
+  if(K.n)h+=_qxA({t:'steps',f:F({diag:'known'}),from:'Fallas conocidas'},K.n+' pasos de este período coinciden con una falla conocida →');
+  if(!DF.length)h+='<div class="qx-muted">Aún no hay fallas conocidas registradas.</div>';
+  DF.forEach(function(k){
+    var cond=[];if(k.vno)cond.push(_QX_VNO[k.vno]||k.vno);if(k.code)cond.push('código '+_trEsc(k.code));if(k.match_text)cond.push('“'+_trEsc(k.match_text)+'”');
+    h+='<div style="display:flex;gap:8px;align-items:flex-start;font-size:.76rem;padding:6px 0;border-top:1px solid var(--brdl)">'
+      +'<div style="flex:1;min-width:0"><b>'+_trEsc(_fnLbl(k.func))+'</b>'+(cond.length?' · '+cond.join(' · '):'')
+      +(k.note?'<div class="qx-muted">'+_trEsc(k.note)+'</div>':'')+'</div>'
+      +'<span class="qx-mono qx-muted" title="Veces en el período">'+k.hits+'×</span>'
+      +'<button class="qx-mini" onclick="_qxKdDel('+k.id+')" title="Quitar: volverá a contar en las métricas">&#10005;</button></div>';
+  });
+  var fo=(d.catalog_funcs||[]).map(function(f){return '<option value="'+_trEsc(f)+'">'+_trEsc(_fnLbl(f))+'</option>';}).join('');
+  h+='<details class="qx-help" id="qx-kd-form"><summary>+ Agregar falla conocida</summary><div style="display:flex;flex-direction:column;gap:8px">'
+    +'<label>Funcionalidad<br><select class="qx-sel" id="qx-kd-f" style="width:100%">'+fo+'</select></label>'
+    +'<label>VNO<br><select class="qx-sel" id="qx-kd-v" style="width:100%"><option value="">Todos</option><option value="00">TCH</option><option value="02">KAO</option><option value="03">B1/Entel</option><option value="05">DTV</option></select></label>'
+    +'<label>Código de retorno <span class="qx-muted">(opcional)</span><br><input class="qx-inp" id="qx-kd-c" style="width:100%" placeholder="ej: 4"></label>'
+    +'<label>El error contiene el texto <span class="qx-muted">(opcional)</span><br><input class="qx-inp" id="qx-kd-t" style="width:100%" placeholder="ej: ticket de intervención asociado"></label>'
+    +'<label>Nota / ticket <span class="qx-muted">(opcional)</span><br><input class="qx-inp" id="qx-kd-n" style="width:100%" placeholder="ej: Reportado a Onnet 03-11, ticket 1234"></label>'
+    +'<div class="qx-muted">Indica al menos el código o el texto, para no ocultar otras fallas de la misma API.</div>'
+    +'<div><button class="qx-btn" onclick="_qxKdSave()">Guardar</button></div></div></details></div>';
+  return h;
+}
+function _qxKdPrefill(b){
+  var f=document.getElementById('qx-kd-form');if(!f)return;f.open=true;
+  document.getElementById('qx-kd-f').value=b.getAttribute('data-f')||'';
+  document.getElementById('qx-kd-v').value=b.getAttribute('data-v')||'';
+  document.getElementById('qx-kd-c').value=b.getAttribute('data-c')||'';
+  f.scrollIntoView({behavior:'smooth',block:'center'});
+  var t=document.getElementById('qx-kd-t');if(t)t.focus();
+}
+function _qxKdMsg(m,k){if(typeof showToast==='function')showToast(m,k||'ok');else alert(m);}
+function _qxKdSave(){
+  var g=function(id){var e=document.getElementById(id);return e?e.value.trim():'';};
+  var body={func:g('qx-kd-f'),vno:g('qx-kd-v'),code:g('qx-kd-c'),match_text:g('qx-kd-t'),note:g('qx-kd-n')};
+  if(!body.code&&!body.match_text){_qxKdMsg('Indica el código de retorno o un texto del error','warn');return;}
+  var hd=_authHdr();hd['Content-Type']='application/json';
+  fetch('/api/known-defects',{method:'POST',headers:hd,body:JSON.stringify(body)})
+    .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;});})
+    .then(function(){_qxKdMsg('Falla conocida guardada: ya no cuenta en las métricas');_qxDashLoad(true);})
+    .catch(function(e){_qxKdMsg('Error: '+e.message,'err');});
+}
+function _qxKdDel(id){
+  if(!confirm('¿Quitar esta falla conocida? Volverá a contar en las métricas.'))return;
+  fetch('/api/known-defects/'+id,{method:'DELETE',headers:_authHdr()})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);_qxDashLoad(true);})
+    .catch(function(e){_qxKdMsg('Error: '+e.message,'err');});
+}
 // Resumen en lenguaje simple de lo más importante del período
 function _qxSummary(d){
   var L=[],grp={ok:[],warn:[],err:[]};
@@ -20152,13 +20408,19 @@ function _qxSummary(d){
   if(st.length)L.push(st.join(' · '));
   var RG=d.regressions||[];
   if(RG.length)L.push('&#128308; <b>'+RG.length+'</b> '+(RG.length===1?'cosa que funcionaba dejó':'cosas que funcionaban dejaron')+' de funcionar: '
-    +RG.slice(0,3).map(function(r){return _trEsc(_fnLbl(r.func))+' en '+r.label;}).join(', ')+(RG.length>3?'…':'')+' (ver sección 03).');
+    +RG.slice(0,3).map(function(r){return _trEsc(_fnLbl(r.func))+' en '+r.label;}).join(', ')+(RG.length>3?'…':'')+' (ver sección 04).');
   var cu=d.coreuse||{};
   if(cu.rate!=null&&cu.rate<90)L.push('&#128225; CoreUse no respondió o no tenía el registro en '+(cu.unavailable||0)+' de '+(cu.checked||0)+' consultas: parte de las fallas pueden ser del ambiente, no de la prueba.');
+  var av=d.availability||{};
+  if(av.rate!=null&&av.rate<95)L.push('&#128268; El ambiente respondió bien en el <b>'+av.rate+'%</b> de los pasos: '+av.down+' fallaron por el ambiente, no por la prueba (ver sección 02).');
+  var cv=d.coverage||{};
+  if(cv.total&&cv.rate!=null&&cv.rate<100)L.push('&#128269; Se probó el <b>'+cv.rate+'%</b> del catálogo en el período: '+(cv.total-cv.tested)+' combinaciones funcionalidad × VNO sin probar'+(cv.never?' ('+cv.never+' nunca probadas)':'')+' (ver sección 05).');
+  var kn=d.known||{};
+  if(kn.n)L.push('&#127991;&#65039; '+kn.n+' fallas son defectos ya reportados y no se cuentan en las métricas.');
   var late=(d.times||[]).filter(function(t){return t.expected&&t.p95>t.expected*1.5;});
-  if(late.length)L.push('&#9201;&#65039; Más lentos de lo esperado: '+late.slice(0,3).map(function(t){return _trEsc(_fnLbl(t.func));}).join(', ')+' (ver sección 04).');
+  if(late.length)L.push('&#9201;&#65039; Más lentos de lo esperado: '+late.slice(0,3).map(function(t){return _trEsc(_fnLbl(t.func));}).join(', ')+' (ver sección 06).');
   var Y=d.hygiene||{};
-  if(Y.gt7d)L.push('&#129529; <b>'+Y.gt7d+'</b> Access ID llevan más de 7 días sin darse de baja (ver sección 05).');
+  if(Y.gt7d)L.push('&#129529; <b>'+Y.gt7d+'</b> Access ID llevan más de 7 días sin darse de baja (ver sección 07).');
   if(!L.length)return '';
   return '<div class="qx-sum"><b class="t">En resumen</b>'+L.map(function(x){return '<div>'+x+'</div>';}).join('')+'</div>';
 }
@@ -20231,10 +20493,38 @@ function _qxDashRender(d,cont){
       +(tot?'<b class="qx-'+t+'">'+p+'% OK</b><span class="qx-muted">'+s.manual+' manual · '+s.agenda+' agenda</span>':'<span class="qx-muted">sin secuencias</span>')+'</div></div>';
   });
   h+='</div></section>';
+  // ── 02 Disponibilidad del ambiente ──
+  var AV=d.availability||{},avT=AV.rate==null?'mut':AV.rate>=95?'ok':AV.rate>=85?'warn':'err';
+  h+='<section class="qx-sec">'+_qxSecH('02','¿El ambiente estuvo disponible?','fallas del ambiente vs fallas de la prueba',
+    'Separa dos tipos de falla que en la sección 01 cuentan igual:'
+    +'<ul><li><b>Falla del ambiente</b>: la API no respondió o se cortó (timeout), respondió con error de servidor (HTTP 5xx), ServiceNow no procesó el flujo (no apareció en CoreUse), CoreUse no estuvo accesible, o el código de retorno está marcado como <i>Sistémico</i> en Códigos de Retorno. Es responsabilidad de Onnet.</li>'
+    +'<li><b>Falla de la prueba</b>: el ambiente respondió, pero rechazó la operación por datos o reglas de negocio. Hay que revisar la prueba.</li>'
+    +'<li>El % es la <b>disponibilidad</b>: de cada 100 pasos, en cuántos el ambiente respondió. <b style="color:var(--ok)">95% o más</b> = bien, <b style="color:var(--warn)">85 a 94%</b> = inestable, <b style="color:var(--err)">menos de 85%</b> = el ambiente no sirve para probar.</li>'
+    +'<li>Las barritas muestran en qué momento del período se cayó (izquierda = inicio, derecha = ahora).</li></ul>')+'<div class="qx-row">';
+  var avD=(AV.rate!=null&&AV.prev_rate!=null)?AV.rate-AV.prev_rate:null;
+  var avDT=avD==null?'':avD===0?'igual que el período anterior':avD>0?'<span class="qx-ok">▲ '+avD+' puntos mejor</span> que el período anterior':'<span class="qx-err">▼ '+(-avD)+' puntos peor</span> que el período anterior';
+  var avBars=(AV.spark||[]).map(function(p){var c=p==null?'var(--brd)':p>=95?'var(--ok)':p>=85?'var(--warn)':'var(--err)';return '<span style="height:'+(p==null?10:Math.max(12,p))+'%;background:'+c+';opacity:'+(p==null?'.45':'.9')+'"></span>';}).join('');
+  h+='<div class="qx-card" style="flex:1 1 380px"><div class="qx-card-h"><span class="qx-card-t">Disponibilidad</span><span class="qx-pill '+avT+'">'+({ok:'Disponible',warn:'Inestable',err:'Caído seguido',mut:'Sin datos'}[avT])+'</span></div>'
+    +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+    +(AV.rate==null?'<span class="qx-big qx-mut" style="cursor:default">—</span>':_qxA({t:'steps',f:F({diag:'env_down'}),from:'Fallas del ambiente'},AV.rate+'%','qx-big qx-'+avT,'Ver los pasos que fallaron por el ambiente'))
+    +'<span class="qx-muted">de los pasos el ambiente respondió'+(avDT?' · '+avDT:'')+'</span></div>'
+    +'<div class="qx-spark" aria-hidden="true" title="Disponibilidad en el tiempo: izquierda = inicio del período, derecha = ahora">'+avBars+'</div>'
+    +'<div class="qx-key">'+(AV.vno||[]).map(function(v){var t=v.rate==null?'mut':v.rate>=95?'ok':v.rate>=85?'warn':'err';
+      return '<span>'+v.label+' <b class="qx-'+t+'">'+(v.rate==null?'—':v.rate+'%')+'</b></span>';}).join('')+'</div>'
+    +'<div class="qx-muted" style="line-height:1.5">'+(AV.down||0)+' pasos fallaron por el <b>ambiente</b> y '+Math.max(0,AV.func_fail||0)+' por la <b>prueba</b> (datos o reglas de negocio).</div></div>';
+  h+='<div class="qx-card" style="flex:1 1 380px"><span class="qx-card-t">¿Por qué falló el ambiente?</span>';
+  if(!(AV.by_kind||[]).length)h+='<div class="qx-muted">&#9989; Ninguna falla del ambiente en el período.</div>';
+  else{
+    h+='<div class="qx-legend">'+AV.by_kind.map(function(k){
+      return _qxA({t:'steps',f:F({diag:'env_down'}),from:'Fallas del ambiente'},'<span style="flex:1">'+k.label+'</span><span class="qx-mono">'+k.n+'</span><span class="qx-acc">→</span>','');
+    }).join('')+'</div><div class="qx-muted">APIs más afectadas:</div><div class="qx-lfn" style="padding-left:0">'
+    +(AV.funcs||[]).map(function(f){return _qxA({t:'steps',f:F({diag:'env_down',func:f.func}),from:'Ambiente · '+_fnLbl(f.func)},_trEsc(_fnLbl(f.func))+' <b>'+f.n+'</b>','qx-chip','Ver esos pasos');}).join('')+'</div>';
+  }
+  h+='</div></div></section>';
   // ── 02 Dónde se rompe ──
   var L=d.layers||{},LO=[['api_fail','API rechazó la solicitud','api_fail'],['cu_missing','API OK, CoreUse no registró el flujo','cu_missing'],['cu_fail','API OK, CoreUse registró error','cu_fail'],['skipped','Saltados por dependencia (Inicio IA)','skipped'],['otro','Otros','fail']];
   var bad=d.bad||0;
-  h+='<section class="qx-sec">'+_qxSecH('02','¿Dónde se rompe?','qué falla y en qué API',
+  h+='<section class="qx-sec">'+_qxSecH('03','¿Dónde se rompe?','qué falla y en qué API',
     '<ul><li><b>API rechazó la solicitud</b>: la API respondió con error (código distinto de 0). Revisar datos de entrada o el código de retorno.</li>'
     +'<li><b>API OK, CoreUse no registró</b>: la API aceptó, pero el flujo nunca apareció en CoreUse/ServiceNow.</li>'
     +'<li><b>API OK, CoreUse registró error</b>: la API aceptó, pero ServiceNow terminó el flujo con error.</li>'
@@ -20279,7 +20569,7 @@ function _qxDashRender(d,cont){
   h+='</div></div></section>';
   // ── 03 Regresiones ──
   var M=d.matrix||[];
-  h+='<section class="qx-sec">'+_qxSecH('03','¿Qué se rompió que antes funcionaba?','% de veces que cada funcionalidad salió bien, por VNO',
+  h+='<section class="qx-sec">'+_qxSecH('04','¿Qué se rompió que antes funcionaba?','% de veces que cada funcionalidad salió bien, por VNO',
     '<ul><li><b>Tabla</b>: cada fila es una funcionalidad y cada columna un VNO. El número es el % de veces que salió bien en el período. '
     +'Color: verde = bien (90% o más), amarillo = a veces falla (70 a 89%), rojo = falla mucho (menos de 70%). '
     +'<b>Borde rojo</b> = aunque el % sea bueno, <i>la última vez falló</i>. “—” = no se probó en ese VNO.</li>'
@@ -20315,6 +20605,7 @@ function _qxDashRender(d,cont){
   RG.forEach(function(r){
     h+=_qxA({t:'aid',aid:r.access_id,ev:r.last_id,from:'Regresión · '+r.func+' × '+r.label},
       '<b>'+_trEsc(_fnLbl(r.func))+' · '+r.label+' →</b><span>Antes salía bien el '+r.before_rate+'% de las veces; ahora falló <b>'+r.streak+' veces seguidas</b> desde '+_trFmtTs(r.since)+(r.code&&r.code!=='0'?' · código '+_trEsc(r.code):'')+'</span><span>'+_trEsc(r.diag)+'</span>','qx-reg');
+    h+='<button class="qx-mini" data-f="'+_trEsc(r.func)+'" data-v="'+_trEsc(r.vno)+'" data-c="'+_trEsc(r.code&&r.code!=='0'?r.code:'')+'" onclick="_qxKdPrefill(this)" title="Si este error ya está reportado a Onnet, deja de contarlo en las métricas">&#127991;&#65039; Es un defecto ya reportado</button>';
   });
   h+='</div><div class="qx-card"><span class="qx-card-t">&#127922; A veces sí, a veces no</span>';
   var FL=d.flaky||[];
@@ -20325,11 +20616,34 @@ function _qxDashRender(d,cont){
       +_qxA({t:'aid',aid:f.access_id,ev:f.last_id,from:'Inestable · '+f.func+' × '+f.label},_trEsc(f.func)+' · '+f.label,'qx-link','Abrir la última ejecución')
       +_qxA({t:'steps',f:F({func:f.func,vno:f.vno}),from:'Inestable · '+f.func+' × '+f.label},seq,'qx-mono','Comparar ejecuciones OK vs falla','letter-spacing:2px;text-decoration:none')+'</div>';
   });
-  h+='<div class="qx-muted">✓ salió bien · ✗ falló — de la más antigua (izq.) a la más reciente (der.)</div></div></div></div></section>';
+  h+='<div class="qx-muted">✓ salió bien · ✗ falló — de la más antigua (izq.) a la más reciente (der.)</div></div>';
+  h+=_qxKnownCard(d,F);
+  h+='</div></div></section>';
+  // ── 05 Cobertura ──
+  var CV=d.coverage||{},cvT=CV.rate==null?'mut':CV.rate>=90?'ok':CV.rate>=60?'warn':'err',ST=CV.stale||[];
+  h+='<section class="qx-sec">'+_qxSecH('05','¿Qué no se ha probado?','funcionalidad × VNO probadas en '+RL,
+    '<ul><li>El catálogo son todas las funcionalidades del runner por cada VNO (Bloqueo/Desbloqueo solo en DTV).</li>'
+    +'<li>El % es cuántas de esas combinaciones se ejecutaron al menos una vez en el período elegido arriba. Ideal: 100%.</li>'
+    +'<li>La lista muestra lo que <b>no</b> se probó, empezando por lo que lleva más tiempo sin probarse. Un “nunca” significa que no hay ninguna ejecución registrada.</li>'
+    +'<li>Si algo no se prueba, no sabemos si funciona: el % de salud de arriba no lo puede reflejar.</li></ul>')+'<div class="qx-card">';
+  h+='<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span class="qx-big qx-'+cvT+'" style="cursor:default">'+(CV.rate==null?'—':CV.rate+'%')+'</span>'
+    +'<span class="qx-muted">del catálogo probado · '+(CV.tested||0)+' de '+(CV.total||0)+' combinaciones'+(CV.never?' · <b class="qx-err">'+CV.never+' nunca probadas</b>':'')+'</span></div>';
+  h+='<div class="qx-bar" style="height:8px;border-radius:99px;background:var(--brdl);overflow:hidden"><div style="height:100%;width:'+(CV.rate||0)+'%;background:var(--'+(cvT==='mut'?'brd':cvT)+')"></div></div>';
+  if(!ST.length)h+='<div class="qx-muted">&#9989; Todo el catálogo se probó en el período.</div>';
+  else{
+    var stRow=function(x){
+      var when=x.last_ts?'hace '+x.days+(x.days===1?' día':' días')+' · la última vez '+(x.last_pass?'<span class="qx-ok">salió bien</span>':'<span class="qx-err">falló</span>'):'<b class="qx-err">nunca probada</b>';
+      var lbl='<span style="flex:1">'+_trEsc(_fnLbl(x.func))+' · <b>'+x.label+'</b></span><span class="qx-muted">'+when+'</span>';
+      return x.last_ts?_qxA({t:'steps',f:{range:'90d',func:x.func,vno:x.vno},from:'Cobertura · '+_fnLbl(x.func)+' × '+x.label},lbl+'<span class="qx-acc">→</span>',''):'<div style="display:flex;gap:8px;padding:4px 0">'+lbl+'</div>';
+    };
+    h+='<div class="qx-legend">'+ST.slice(0,8).map(stRow).join('')+'</div>';
+    if(ST.length>8)h+='<details class="qx-help"><summary>Ver las otras '+(ST.length-8)+'</summary><div class="qx-legend">'+ST.slice(8).map(stRow).join('')+'</div></details>';
+  }
+  h+='</div></section>';
   // ── 04 Tiempos ── y ── 05 Higiene ──
   var T=d.times||[],sc=10;T.forEach(function(t){sc=Math.max(sc,t.p95,t.expected||0);});sc=Math.ceil(sc);
   h+='<div class="qx-row" style="gap:12px 16px">';
-  h+='<section class="qx-sec" style="flex:1.4 1 540px;min-width:0">'+_qxSecH('04','¿Cuánto se demora cada paso?','minutos hasta que CoreUse confirma',
+  h+='<section class="qx-sec" style="flex:1.4 1 540px;min-width:0">'+_qxSecH('06','¿Cuánto se demora cada paso?','minutos hasta que CoreUse confirma',
     'Solo cuenta pasos que salieron bien, desde que se envía la API hasta que CoreUse confirma el resultado.'
     +'<ul><li><b style="color:var(--acc)">Barra de color = tiempo normal</b>: la mitad de las ejecuciones tarda menos que esto (técnicamente “p50”).</li>'
     +'<li><b>Barra gris = casos lentos</b>: solo 5 de cada 100 ejecuciones tardan más que esto (“p95”).</li>'
@@ -20347,7 +20661,7 @@ function _qxDashRender(d,cont){
   });
   h+='<div class="qx-muted">Escala de 0 a '+sc+' min · &#9888;&#65039; rojo = los casos lentos tardan más de 1,5 veces lo esperado</div></div></section>';
   var Y=d.hygiene||{};
-  h+='<section class="qx-sec" style="flex:1 1 360px;min-width:0">'+_qxSecH('05','¿Quedaron Access ID sin dar de baja?','',
+  h+='<section class="qx-sec" style="flex:1 1 360px;min-width:0">'+_qxSecH('07','¿Quedaron Access ID sin dar de baja?','',
     'Cada prueba crea un Access ID (AID). Al terminar debería darse de baja y volver a <b>InStock</b> (libre) en CoreUse. Si no, queda ocupado en el ambiente.'
     +'<ul><li>El número grande = AID que <b>siguen ocupados</b> de todos los que creó el runner. Ideal: 0.</li>'
     +'<li>Los 3 cuadros dicen <b>hace cuánto</b> están ocupados. Los de más de 7 días casi seguro quedaron olvidados.</li>'
@@ -20418,7 +20732,7 @@ var _TR_FDEF={
   range:{l:'Rango',o:[['24h','Últimas 24 h'],['7d','Últimos 7 días'],['30d','Últimos 30 días'],['90d','Últimos 90 días']]},
   vno:{l:'VNO',o:[['','Todos'],['00','TCH'],['02','KAO'],['03','B1/Entel'],['05','DTV']]},
   func:{l:'Funcionalidad',o:null},
-  diag:{l:'Diagnóstico',o:[['','Todos'],['ok','OK punta a punta'],['ok_api','OK sin registro CoreUse'],['api_fail','API rechazó'],['cu_missing','CoreUse no registró'],['cu_fail','CoreUse registró error'],['api_fail_cu_ok','API falló, CoreUse OK'],['skipped','Saltados'],['fail','Otros fallos']]},
+  diag:{l:'Diagnóstico',o:[['','Todos'],['ok','OK punta a punta'],['ok_api','OK sin registro CoreUse'],['api_fail','API rechazó'],['cu_missing','CoreUse no registró'],['cu_fail','CoreUse registró error'],['api_fail_cu_ok','API falló, CoreUse OK'],['skipped','Saltados'],['fail','Otros fallos'],['env_down','Falla del ambiente'],['known','Falla conocida']]},
   source:{l:'Origen',o:[['','Todos'],['manual','Manual'],['agenda','Agenda'],['cierre','Cierre']]},
   result:{l:'Resultado',o:[['','Todos'],['ok','OK'],['fail','Con problema']]},
   sort:{l:'Orden',o:[['recent','Más recientes'],['slow','Más lentos']]},
