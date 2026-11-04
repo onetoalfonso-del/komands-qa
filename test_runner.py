@@ -18370,12 +18370,36 @@ function _atrf_iiaDetail(aid){
   var c=_atrfIiaCache[aid];
   if(c&&Date.now()-c.t<120000)return c.p;
   var t0=Date.now();
-  var p=fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(aid))
+  var ent={t:Date.now(),p:null};
+  ent.p=fetch('/api/coreuse/iia-detail?access_id='+encodeURIComponent(aid))
     .then(function(r){return r.ok?r.json():null;})
     .catch(function(){return null;})
-    .then(function(d){_atrfIiaMs=Date.now()-t0;return d;});
-  _atrfIiaCache[aid]={t:Date.now(),p:p};
-  return p;
+    .then(function(d){
+      _atrfIiaMs=Date.now()-t0;
+      // Solo se reutiliza una lectura útil; una vacía (IIA aún sin CTOs en CoreUse) se vuelve a pedir
+      if(!_atrf_iiaUsable(d)&&_atrfIiaCache[aid]===ent)delete _atrfIiaCache[aid];
+      return d;
+    });
+  _atrfIiaCache[aid]=ent;
+  return ent.p;
+}
+function _atrf_iiaUsable(d){
+  if(!d||d.error)return false;
+  if(d.fiber_change_allowed===false&&(d.diag||{}).action_http===200)return true;
+  return !!(d.ctos&&d.ctos.length);
+}
+// La IIA recién ejecutada puede tardar en mostrar sus CTOs en CoreUse: reintentar hasta ~1 min
+async function _atrf_iiaDetailWait(aid,prog){
+  var d=null;
+  for(var i=1;i<=6;i++){
+    d=await _atrf_iiaDetail(aid);
+    if(_atrf_iiaUsable(d))return d;
+    if(i<6){
+      if(prog)prog.textContent='⏳ Fibra: esperando las CTO de la IIA en CoreUse ('+i+'/6)…';
+      await new Promise(function(r){setTimeout(r,10000);});
+    }
+  }
+  return d;
 }
 function _atrf_resetStaleCto(aid){
   if(_atrfPendingCto&&(_atrfPendingCto.autoSelected||(_atrfPendingCto.accessId&&_atrfPendingCto.accessId!==aid))){
@@ -19305,7 +19329,7 @@ async function _atrf_runSelected(){
           if(!_atrfPendingCto&&_currentAccessId){
             // Fetch automático: obtener datos IIA y elegir CTO 1
             try{
-              var _iiaD=await _atrf_iiaDetail(_currentAccessId);
+              var _iiaD=await _atrf_iiaDetailWait(_currentAccessId,prog);
               if(_iiaD&&!_iiaD.error){
                 if(_iiaD.fiber_change_allowed&&_iiaD.ctos&&_iiaD.ctos.length>0){
                   // Cambio de pelo: LU distinta a la que el acceso tiene hoy. Se prefiere la misma
@@ -19368,7 +19392,13 @@ async function _atrf_runSelected(){
                   _cuShowPendingCtoBadge();
                 }
               }
-            }catch(_iiaErr){/* si falla el fetch, continúa con body vacío */}
+            }catch(_iiaErr){}
+          }
+          if(!_atrfPendingCto){
+            var _ncE=new Error('No se envió el FiberChange: no se pudo leer la CTO/LU desde la IIA en CoreUse'
+              +(_currentAccessId?' para '+_currentAccessId:' (sin Access ID)')
+              +' después de 6 intentos. Revisa que la IIA esté en CoreUse con sus CTO o elige la CTO a mano (botón CTO).');
+            _ncE._noCto=true;throw _ncE;
           }
           if(_atrfPendingCto){
             _ctoPayload={
@@ -19453,7 +19483,10 @@ async function _atrf_runSelected(){
             }
           }
         }
-      }catch(e){req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
+      }catch(e){
+        if(e&&e._noCto){pass=false;req_s='(no enviado)';res_s=e.message;rd={noAccessId:true};}
+        else{req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
+      }
       // Tiempos para diagnóstico: hasta la respuesta de la API (incluye lectura IIA) y después (CoreUse)
       var _trApiMs=Date.now()-_t0,_trApiEnd=Date.now();
       var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
@@ -19565,7 +19598,7 @@ async function _atrf_runSelected(){
         if(_mIaPhase[_mi].fn==='Cambio de Fibra'&&_currentAccessId&&!_atrfPendingCto){
           var _fcNo=false;
           try{
-            var _fcD=await _atrf_iiaDetail(_currentAccessId);
+            var _fcD=await _atrf_iiaDetailWait(_currentAccessId,prog);
             if(_fcD){_fcNo=!_fcD.error&&_fcD.fiber_change_allowed===false&&(_fcD.diag||{}).action_http===200;}
           }catch(_fcE){}
           if(_fcNo){
