@@ -9516,10 +9516,13 @@ async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
     # 2 · Dónde se rompe
     bad = [e for e in work if not e["final_pass"]]
     layers: dict = {}
+    layer_funcs: dict = {}
     for e in bad:
         c = e["diag"]["code"]
         c = c if c in ("api_fail", "cu_missing", "cu_fail", "skipped") else "otro"
         layers[c] = layers.get(c, 0) + 1
+        lf = layer_funcs.setdefault(c, {})
+        lf[e["func"]] = lf.get(e["func"], 0) + 1
     rc_map: dict = {}
     for r in rc_rows:
         rc_map.setdefault((r["flow"], str(r["code"])), {"cls": r["cls"], "desc": r["description"]})
@@ -9613,6 +9616,8 @@ async def api_dashboard2(rng: str = Query("24h", alias="range"), vno: str = ""):
         "range": rng, "t0": t0, "t1": t1, "steps": len(work), "ok": sum(1 for e in work if e["final_pass"]),
         "health": health, "coreuse": coreuse, "seq_vno": seq_vno, "sequences": len(seqs),
         "layers": layers, "bad": len(bad), "top_codes": top_codes,
+        "layer_funcs": {k: sorted(({"func": f, "n": n} for f, n in v.items()), key=lambda x: -x["n"])
+                        for k, v in layer_funcs.items()},
         "matrix": matrix, "regressions": regressions[:6], "flaky": flaky[:6],
         "times": times[:10], "hygiene": hyg,
     }
@@ -11229,6 +11234,9 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
 .qx-seqbar a{display:flex;align-items:center;padding-left:8px;box-sizing:border-box;font:700 .7rem var(--mono);color:#0D1220;text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden}
 .qx-seqbar a:hover{filter:brightness(1.12)}
 .qx-legend{display:flex;flex-direction:column;gap:2px}
+.qx-lfn{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 8px 22px}
+.qx-chip{font-size:.7rem;padding:3px 9px;border-radius:999px;background:var(--brdl);color:var(--txt);text-decoration:none;border:1px solid transparent;cursor:pointer}
+.qx-chip:hover{border-color:var(--acc)}.qx-chip b{font-family:var(--mono);margin-left:3px}
 .qx-legend a{display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--txt);text-decoration:none;padding:6px 8px;border-radius:8px;cursor:pointer}
 .qx-legend a:hover{background:var(--brdl)}
 .qx-sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
@@ -20226,7 +20234,12 @@ function _qxDashRender(d,cont){
   // ── 02 Dónde se rompe ──
   var L=d.layers||{},LO=[['api_fail','API rechazó la solicitud','api_fail'],['cu_missing','API OK, CoreUse no registró el flujo','cu_missing'],['cu_fail','API OK, CoreUse registró error','cu_fail'],['skipped','Saltados por dependencia (Inicio IA)','skipped'],['otro','Otros','fail']];
   var bad=d.bad||0;
-  h+='<section class="qx-sec">'+_qxSecH('02','¿Dónde se rompe?','Pasos con problema según el diagnóstico de Trazabilidad')+'<div class="qx-row">';
+  h+='<section class="qx-sec">'+_qxSecH('02','¿Dónde se rompe?','qué falla y en qué API',
+    '<ul><li><b>API rechazó la solicitud</b>: la API respondió con error (código distinto de 0). Revisar datos de entrada o el código de retorno.</li>'
+    +'<li><b>API OK, CoreUse no registró</b>: la API aceptó, pero el flujo nunca apareció en CoreUse/ServiceNow.</li>'
+    +'<li><b>API OK, CoreUse registró error</b>: la API aceptó, pero ServiceNow terminó el flujo con error.</li>'
+    +'<li><b>Saltados</b>: no se ejecutaron porque un paso previo del que dependen (ej. Inicio IA) falló.</li>'
+    +'<li>Debajo de cada capa están <b>las APIs que fallan</b> y cuántas veces; clic para ver esos pasos.</li></ul>')+'<div class="qx-row">';
   h+='<div class="qx-card" style="flex:1 1 420px"><div class="qx-card-h"><span class="qx-card-t">Fallas por capa</span><span class="qx-muted qx-mono">'+bad+' pasos con problema de '+d.steps+'</span></div>';
   if(!bad){h+='<div class="qx-empty">Sin pasos con problema en el período.</div>';}
   else{
@@ -20234,11 +20247,17 @@ function _qxDashRender(d,cont){
     LO.forEach(function(x){var n=L[x[0]]||0;if(n)h+=_qxA({t:'steps',f:F({diag:x[2]}),from:'Fallas por capa · '+x[1]},'','',x[1]+': '+n,'display:block;width:'+(n/bad*100)+'%;background:'+(_QX_DIAG[x[0]]||_QX_DIAG.otro).c);});
     h+='</div><div class="qx-legend">';
     LO.forEach(function(x){var n=L[x[0]]||0;if(!n)return;
-      h+=_qxA({t:'steps',f:F({diag:x[2]}),from:'Fallas por capa · '+x[1]},'<span class="qx-sw" style="background:'+(_QX_DIAG[x[0]]||_QX_DIAG.otro).c+'"></span><span style="flex:1">'+x[1]+'</span><span class="qx-mono qx-muted">'+n+'</span><span class="qx-mono" style="width:44px;text-align:right">'+Math.round(n/bad*100)+'%</span><span class="qx-acc">→</span>','');});
+      h+=_qxA({t:'steps',f:F({diag:x[2]}),from:'Fallas por capa · '+x[1]},'<span class="qx-sw" style="background:'+(_QX_DIAG[x[0]]||_QX_DIAG.otro).c+'"></span><span style="flex:1">'+x[1]+'</span><span class="qx-mono qx-muted">'+n+'</span><span class="qx-mono" style="width:44px;text-align:right">'+Math.round(n/bad*100)+'%</span><span class="qx-acc">→</span>','');
+      var fl=(d.layer_funcs||{})[x[0]]||[];
+      if(fl.length)h+='<div class="qx-lfn">'+fl.map(function(f){
+        return _qxA({t:'steps',f:F({diag:x[2],func:f.func}),from:x[1]+' · '+_fnLbl(f.func)},_trEsc(_fnLbl(f.func))+' <b>'+f.n+'</b>','qx-chip','Ver los pasos de '+_fnLbl(f.func)+' en esta capa');
+      }).join('')+'</div>';});
     h+='</div>';
     var cuN=(L.cu_missing||0)+(L.cu_fail||0),apiN=L.api_fail||0,ins='';
-    if(cuN/bad>=0.5)ins='La mayoría de los problemas vienen de CoreUse/ServiceNow, no de la API: conviene escalar a Onnet antes de revisar las pruebas.';
-    else if(apiN/bad>=0.5)ins='La mayoría los rechaza la API: revisar datos de entrada y códigos de retorno funcionales.';
+    var _topF=function(keys){var m={};keys.forEach(function(k){((d.layer_funcs||{})[k]||[]).forEach(function(f){m[f.func]=(m[f.func]||0)+f.n;});});
+      return Object.keys(m).sort(function(a,b){return m[b]-m[a];}).slice(0,3).map(function(f){return _trEsc(_fnLbl(f))+' ('+m[f]+')';}).join(', ');};
+    if(cuN/bad>=0.5)ins='La mayoría de los problemas vienen de CoreUse/ServiceNow, no de la API: conviene escalar a Onnet antes de revisar las pruebas. Más afectadas: '+_topF(['cu_missing','cu_fail'])+'.';
+    else if(apiN/bad>=0.5)ins='La mayoría los rechaza la API: revisar datos de entrada y códigos de retorno funcionales. APIs que más fallan: '+_topF(['api_fail'])+'.';
     if(ins)h+='<div class="qx-muted qx-foot" style="line-height:1.5">'+ins+'</div>';
   }
   h+='</div>';
