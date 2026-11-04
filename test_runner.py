@@ -11192,6 +11192,17 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
 .qx-sec-n{font-family:var(--mono);font-size:.72rem;color:var(--acc);font-weight:700}
 .qx-sec-h h2{margin:0;font-size:1.02rem;font-weight:700}
 .qx-sec-d{font-size:.75rem;color:var(--txt2)}
+.qx-help{font-size:.76rem;color:var(--txt2);line-height:1.55}
+.qx-help summary{cursor:pointer;color:var(--acc);font-weight:600;width:max-content;list-style:none}
+.qx-help summary::-webkit-details-marker{display:none}
+.qx-help[open] summary{margin-bottom:6px}
+.qx-help>div{background:var(--brdl);border-radius:9px;padding:10px 14px}
+.qx-help ul{margin:4px 0 0;padding-left:18px}.qx-help li{margin:2px 0}
+.qx-sum{display:flex;flex-direction:column;gap:6px;padding:14px 18px;border-radius:10px;background:var(--card);border:1px solid var(--brd);border-left:4px solid var(--acc);font-size:.8rem;line-height:1.5}
+.qx-sum b.t{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--txt2)}
+.qx-key{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.7rem;color:var(--txt2);align-items:center}
+.qx-key span{display:flex;align-items:center;gap:6px}
+.qx-key i{display:inline-block;width:14px;height:12px;border-radius:3px}
 .qx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .qx-row{display:flex;flex-wrap:wrap;gap:12px}
 .qx-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--qx-r);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0;box-sizing:border-box}
@@ -11240,7 +11251,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
 .qx-reg:hover{border-color:var(--errb)}
 .qx-reg b{font-size:.8rem;color:var(--err)}
 .qx-reg span{font-size:.7rem;color:var(--txt2)}
-.qx-trow{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 120px;gap:12px;align-items:center;font-size:.78rem}
+.qx-trow{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 150px;gap:12px;align-items:center;font-size:.78rem}
 .qx-track{position:relative;height:16px;background:var(--brdl);border-radius:5px}
 .qx-track .p95{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--txt3)}
 .qx-track .p50{position:absolute;left:0;top:4px;bottom:4px;border-radius:3px;background:var(--acc)}
@@ -20120,7 +20131,29 @@ function _qxDashLoad(force){
       _qxDashRender(d,cont);
     }).catch(function(e){cont.innerHTML='<div class="qx-empty qx-err">Error: '+_trEsc(e)+'</div>';});
 }
-function _qxSecH(n,t,d){return '<div class="qx-sec-h"><span class="qx-sec-n">'+n+'</span><h2>'+t+'</h2>'+(d?'<span class="qx-sec-d">'+d+'</span>':'')+'</div>';}
+function _qxSecH(n,t,d,help){return '<div class="qx-sec-h"><span class="qx-sec-n">'+n+'</span><h2>'+t+'</h2>'+(d?'<span class="qx-sec-d">'+d+'</span>':'')+'</div>'
+  +(help?'<details class="qx-help"><summary>&#9432; ¿Cómo leo esto?</summary><div>'+help+'</div></details>':'');}
+// Resumen en lenguaje simple de lo más importante del período
+function _qxSummary(d){
+  var L=[],grp={ok:[],warn:[],err:[]};
+  (d.health||[]).forEach(function(v){var t=_qxTone(v.rate);if(grp[t])grp[t].push(v.label+(t==='ok'?'':' ('+v.rate+'%)'));});
+  var st=[];
+  if(grp.ok.length)st.push('&#9989; Bien: '+grp.ok.join(', '));
+  if(grp.warn.length)st.push('&#9888;&#65039; Con algunas fallas: '+grp.warn.join(', '));
+  if(grp.err.length)st.push('&#10060; Fallando mucho: '+grp.err.join(', '));
+  if(st.length)L.push(st.join(' · '));
+  var RG=d.regressions||[];
+  if(RG.length)L.push('&#128308; <b>'+RG.length+'</b> '+(RG.length===1?'cosa que funcionaba dejó':'cosas que funcionaban dejaron')+' de funcionar: '
+    +RG.slice(0,3).map(function(r){return _trEsc(_fnLbl(r.func))+' en '+r.label;}).join(', ')+(RG.length>3?'…':'')+' (ver sección 03).');
+  var cu=d.coreuse||{};
+  if(cu.rate!=null&&cu.rate<90)L.push('&#128225; CoreUse no respondió o no tenía el registro en '+(cu.unavailable||0)+' de '+(cu.checked||0)+' consultas: parte de las fallas pueden ser del ambiente, no de la prueba.');
+  var late=(d.times||[]).filter(function(t){return t.expected&&t.p95>t.expected*1.5;});
+  if(late.length)L.push('&#9201;&#65039; Más lentos de lo esperado: '+late.slice(0,3).map(function(t){return _trEsc(_fnLbl(t.func));}).join(', ')+' (ver sección 04).');
+  var Y=d.hygiene||{};
+  if(Y.gt7d)L.push('&#129529; <b>'+Y.gt7d+'</b> Access ID llevan más de 7 días sin darse de baja (ver sección 05).');
+  if(!L.length)return '';
+  return '<div class="qx-sum"><b class="t">En resumen</b>'+L.map(function(x){return '<div>'+x+'</div>';}).join('')+'</div>';
+}
 function _qxDashRender(d,cont){
   _qxLinks=[];
   var R=_qxDash.range, RL={'24h':'últimas 24 h','7d':'últimos 7 días','30d':'últimos 30 días'}[R]||R;
@@ -20137,15 +20170,24 @@ function _qxDashRender(d,cont){
     +[['','Todos los VNO'],['00','TCH'],['02','KAO'],['03','B1/Entel'],['05','DTV']].map(function(x){return '<option value="'+x[0]+'"'+(x[0]===_qxDash.vno?' selected':'')+'>'+x[1]+'</option>';}).join('')
     +'</select><button class="qx-btn" onclick="_qxDashLoad(true)">&#x21bb; Actualizar</button>'
     +'<span class="qx-upd">'+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})+'</span></div></div>';
+  if(d.steps)h+=_qxSummary(d);
   if(!d.steps){
     h+='<div class="qx-banner"><b>Aún no hay pasos registrados en este rango.</b> La Trazabilidad se llena con cada ejecución (manual, Agenda o cierre) desde esta versión del runner.</div>';
   }
   // ── 01 Salud ──
-  h+='<section class="qx-sec">'+_qxSecH('01','¿El ambiente está sano?','Tasa de pasos OK punta a punta por VNO · '+RL)+'<div class="qx-grid">';
+  h+='<section class="qx-sec">'+_qxSecH('01','¿El ambiente está sano?','% de pasos que salieron bien en cada VNO · '+RL,
+    'Cada tarjeta es un VNO. El número grande es el <b>% de pasos que salieron bien</b>: la API respondió OK <i>y</i> CoreUse confirmó el resultado.'
+    +'<ul><li><b style="color:var(--ok)">Sano</b> = 90% o más · <b style="color:var(--warn)">Atención</b> = 70 a 89% · <b style="color:var(--err)">Crítico</b> = menos de 70%.</li>'
+    +'<li>La frase al lado compara con el período anterior del mismo largo (ej. las 24 h previas): ▲ mejoró, ▼ empeoró.</li>'
+    +'<li>Las barritas son la <b>tendencia</b>: el período dividido en 12 tramos, de izquierda (más antiguo) a derecha (ahora). Gris = no hubo ejecuciones en ese tramo.</li>'
+    +'<li>La tarjeta <b>CoreUse</b> dice cuántas veces CoreUse respondió cuando le preguntamos por un resultado. Si baja, las fallas son del ambiente, no de la prueba.</li>'
+    +'<li>Abajo, <b>Secuencias</b>: una secuencia es exitosa solo si <i>todos</i> sus pasos salieron bien.</li>'
+    +'<li>Todo número es clickeable y lleva a los pasos que lo explican.</li></ul>')+'<div class="qx-grid">';
   (d.health||[]).forEach(function(v){
     var t=_qxTone(v.rate),st={ok:'Sano',warn:'Atención',err:'Crítico',mut:'Sin datos'}[t];
     var delta=(v.rate!=null&&v.prev_rate!=null)?v.rate-v.prev_rate:null;
-    var dTxt=delta==null?'sin período anterior':delta===0?'sin cambio vs período anterior':(delta>0?'+':'')+delta+' pts vs período anterior';
+    var dTxt=delta==null?'sin datos del período anterior para comparar':delta===0?'igual que el período anterior'
+      :delta>0?'<span class="qx-ok">▲ '+delta+' puntos mejor</span> que el período anterior':'<span class="qx-err">▼ '+(-delta)+' puntos peor</span> que el período anterior';
     var bars=(v.spark||[]).map(function(p){var c=p==null?'var(--brd)':p>=90?'var(--ok)':p>=70?'var(--warn)':'var(--err)';return '<span style="height:'+(p==null?10:Math.max(12,p))+'%;background:'+c+';opacity:'+(p==null?'.45':'.9')+'"></span>';}).join('');
     var ag='Agenda: sin ejecuciones';
     if(v.agenda){var agl='Agenda '+new Date(v.agenda.ts).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})+' '+(_QX_AG[v.agenda.status]||v.agenda.status)+' →';
@@ -20153,8 +20195,8 @@ function _qxDashRender(d,cont){
     h+='<div class="qx-card"><div class="qx-card-h"><span class="qx-card-t">'+v.label+'</span><span class="qx-pill '+t+'">'+st+'</span></div>'
       +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
       +(v.rate==null?'<span class="qx-big qx-mut" style="cursor:default">—</span>':_qxA({t:'steps',f:F({vno:v.vno,result:v.rate<100?'fail':''}),from:'Salud · '+v.label},v.rate+'%','qx-big qx-'+t,'Ver pasos con problema de '+v.label))
-      +'<span class="qx-muted">'+dTxt+'</span></div>'
-      +'<div class="qx-spark" aria-hidden="true">'+bars+'</div>'
+      +'<span class="qx-muted">de pasos OK · '+dTxt+'</span></div>'
+      +'<div class="qx-spark" aria-hidden="true" title="Tendencia: izquierda = inicio del período, derecha = ahora">'+bars+'</div>'
       +'<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.72rem">'
       +_qxA({t:'steps',f:F({vno:v.vno}),from:'Salud · '+v.label},v.steps+' pasos','qx-link','Ver todos los pasos')+ag+'</div>'
       +'<div class="qx-foot">'+_qxA({t:'steps',f:F({vno:v.vno,result:'fail'}),from:'Salud · '+v.label},'→ Pasos con problema')+'</div></div>';
@@ -20163,8 +20205,8 @@ function _qxDashRender(d,cont){
   h+='<div class="qx-card"><div class="qx-card-h"><span class="qx-card-t">CoreUse</span><span class="qx-pill '+ct+'">'+({ok:'Disponible',warn:'Degradado',err:'Con problemas',mut:'Sin datos'}[ct])+'</span></div>'
     +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
     +(cu.rate==null?'<span class="qx-big qx-mut" style="cursor:default">—</span>':_qxA({t:'steps',f:F({diag:'cu_missing'}),from:'Disponibilidad CoreUse'},cu.rate+'%','qx-big qx-'+ct))
-    +'<span class="qx-muted">consultas con respuesta</span></div>'
-    +'<div class="qx-muted" style="line-height:1.5">'+(cu.unavailable||0)+' de '+(cu.checked||0)+' consultas sin registro o con timeout. Si sube, la falla es del ambiente, no de la prueba.</div>'
+    +'<span class="qx-muted">de las veces CoreUse respondió</span></div>'
+    +'<div class="qx-muted" style="line-height:1.5">En '+(cu.unavailable||0)+' de '+(cu.checked||0)+' consultas CoreUse no tenía el registro o no respondió a tiempo. Si este % baja, el problema es del ambiente, no de la prueba.</div>'
     +'<div class="qx-foot">'+_qxA({t:'steps',f:F({diag:'cu_missing'}),from:'Disponibilidad CoreUse'},'→ CoreUse no registró')+'</div></div>';
   h+='</div>';
   // Secuencias por VNO
@@ -20218,8 +20260,19 @@ function _qxDashRender(d,cont){
   h+='</div></div></section>';
   // ── 03 Regresiones ──
   var M=d.matrix||[];
-  h+='<section class="qx-sec">'+_qxSecH('03','¿Qué se rompió que antes funcionaba?','Tasa de éxito por funcionalidad y VNO · borde rojo = la última ejecución falló')+'<div class="qx-row">';
-  h+='<div class="qx-card" style="flex:2 1 620px"><div class="qx-scroll">';
+  h+='<section class="qx-sec">'+_qxSecH('03','¿Qué se rompió que antes funcionaba?','% de veces que cada funcionalidad salió bien, por VNO',
+    '<ul><li><b>Tabla</b>: cada fila es una funcionalidad y cada columna un VNO. El número es el % de veces que salió bien en el período. '
+    +'Color: verde = bien (90% o más), amarillo = a veces falla (70 a 89%), rojo = falla mucho (menos de 70%). '
+    +'<b>Borde rojo</b> = aunque el % sea bueno, <i>la última vez falló</i>. “—” = no se probó en ese VNO.</li>'
+    +'<li><b>Dejaron de funcionar</b>: funcionalidades que antes andaban bien (80% o más) y ahora fallaron 2 o más veces seguidas. Es lo primero que hay que revisar.</li>'
+    +'<li><b>A veces sí, a veces no</b>: pruebas que cambian entre OK y falla sin un patrón claro (3 o más cambios en las últimas 10). '
+    +'Cada ✓ / ✗ es una ejecución, de la más antigua (izquierda) a la más reciente (derecha). Suele indicar un ambiente inestable más que un error de la prueba.</li></ul>')+'<div class="qx-row">';
+  h+='<div class="qx-card" style="flex:2 1 620px">'
+    +'<div class="qx-key"><span><i style="background:var(--okd);box-shadow:inset 0 0 0 1px var(--ok)"></i>90%+ bien</span>'
+    +'<span><i style="background:var(--qx-warnd);box-shadow:inset 0 0 0 1px var(--warn)"></i>70–89% a veces falla</span>'
+    +'<span><i style="background:var(--errd);box-shadow:inset 0 0 0 1px var(--err)"></i>&lt;70% falla mucho</span>'
+    +'<span><i style="box-shadow:inset 0 0 0 2px var(--err)"></i>la última vez falló</span>'
+    +'<span><b>—</b> no se probó</span></div><div class="qx-scroll">';
   if(!M.length)h+='<div class="qx-empty">Sin datos en el período.</div>';
   else{
     h+='<div class="qx-matrix" style="grid-template-columns:minmax(160px,230px) repeat(4,minmax(78px,1fr))"><div class="qx-mh" style="text-align:left">Funcionalidad</div>'
@@ -20237,46 +20290,58 @@ function _qxDashRender(d,cont){
   }
   h+='</div><div class="qx-foot">'+_qxA({t:'steps',f:F({result:'fail'}),from:'Matriz'},'→ Clic en una celda: pasos de esa funcionalidad × VNO')+'</div></div>';
   h+='<div style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:12px">';
-  h+='<div class="qx-card"><span class="qx-card-t">Regresiones detectadas</span>';
+  h+='<div class="qx-card"><span class="qx-card-t">&#128308; Dejaron de funcionar</span>';
   var RG=d.regressions||[];
-  if(!RG.length)h+='<div class="qx-muted">Sin regresiones: ninguna funcionalidad que andaba bien está fallando seguido.</div>';
+  if(!RG.length)h+='<div class="qx-muted">&#9989; Nada: ninguna funcionalidad que andaba bien está fallando seguido.</div>';
   RG.forEach(function(r){
     h+=_qxA({t:'aid',aid:r.access_id,ev:r.last_id,from:'Regresión · '+r.func+' × '+r.label},
-      '<b>'+_trEsc(r.func)+' · '+r.label+' →</b><span>'+r.streak+' fallas seguidas desde '+_trFmtTs(r.since)+' · antes '+r.before_rate+'%'+(r.code&&r.code!=='0'?' · código '+_trEsc(r.code):'')+'</span><span>'+_trEsc(r.diag)+'</span>','qx-reg');
+      '<b>'+_trEsc(_fnLbl(r.func))+' · '+r.label+' →</b><span>Antes salía bien el '+r.before_rate+'% de las veces; ahora falló <b>'+r.streak+' veces seguidas</b> desde '+_trFmtTs(r.since)+(r.code&&r.code!=='0'?' · código '+_trEsc(r.code):'')+'</span><span>'+_trEsc(r.diag)+'</span>','qx-reg');
   });
-  h+='</div><div class="qx-card"><span class="qx-card-t">Inestables (flaky)</span>';
+  h+='</div><div class="qx-card"><span class="qx-card-t">&#127922; A veces sí, a veces no</span>';
   var FL=d.flaky||[];
-  if(!FL.length)h+='<div class="qx-muted">Ninguna prueba alterna OK y falla en el período.</div>';
+  if(!FL.length)h+='<div class="qx-muted">&#9989; Nada: ninguna prueba alterna entre OK y falla en el período.</div>';
   FL.forEach(function(f){
     var seq=f.seq.map(function(b){return b?'<span class="qx-ok">✓</span>':'<span class="qx-err">✗</span>';}).join('');
     h+='<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.78rem">'
       +_qxA({t:'aid',aid:f.access_id,ev:f.last_id,from:'Inestable · '+f.func+' × '+f.label},_trEsc(f.func)+' · '+f.label,'qx-link','Abrir la última ejecución')
       +_qxA({t:'steps',f:F({func:f.func,vno:f.vno}),from:'Inestable · '+f.func+' × '+f.label},seq,'qx-mono','Comparar ejecuciones OK vs falla','letter-spacing:2px;text-decoration:none')+'</div>';
   });
-  h+='<div class="qx-muted">Alternan OK y falla con los mismos datos</div></div></div></div></section>';
+  h+='<div class="qx-muted">✓ salió bien · ✗ falló — de la más antigua (izq.) a la más reciente (der.)</div></div></div></div></section>';
   // ── 04 Tiempos ── y ── 05 Higiene ──
   var T=d.times||[],sc=10;T.forEach(function(t){sc=Math.max(sc,t.p95,t.expected||0);});sc=Math.ceil(sc);
   h+='<div class="qx-row" style="gap:12px 16px">';
-  h+='<section class="qx-sec" style="flex:1.4 1 540px;min-width:0">'+_qxSecH('04','¿ServiceNow cumple los tiempos?','')+'<div class="qx-card">'
-    +'<div style="display:flex;gap:16px;font-size:.7rem;color:var(--txt2);flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--acc);height:8px"></span>p50</span><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--txt3);height:8px"></span>p95</span><span style="display:flex;align-items:center;gap:6px"><span style="width:2px;height:12px;background:var(--txt)"></span>esperado</span></div>';
+  h+='<section class="qx-sec" style="flex:1.4 1 540px;min-width:0">'+_qxSecH('04','¿Cuánto se demora cada paso?','minutos hasta que CoreUse confirma',
+    'Solo cuenta pasos que salieron bien, desde que se envía la API hasta que CoreUse confirma el resultado.'
+    +'<ul><li><b style="color:var(--acc)">Barra de color = tiempo normal</b>: la mitad de las ejecuciones tarda menos que esto (técnicamente “p50”).</li>'
+    +'<li><b>Barra gris = casos lentos</b>: solo 5 de cada 100 ejecuciones tardan más que esto (“p95”).</li>'
+    +'<li><b>Línea vertical = lo esperado</b> para esa funcionalidad.</li>'
+    +'<li>El texto se pone <b style="color:var(--err)">rojo</b> cuando los casos lentos tardan más de 1,5 veces lo esperado: ServiceNow está demorando.</li>'
+    +'<li>Clic en el nombre para ver los pasos más lentos.</li></ul>')+'<div class="qx-card">'
+    +'<div style="display:flex;gap:16px;font-size:.7rem;color:var(--txt2);flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--acc);height:8px"></span>tiempo normal</span><span style="display:flex;align-items:center;gap:6px"><span class="qx-sw" style="background:var(--txt3);height:8px"></span>casos lentos</span><span style="display:flex;align-items:center;gap:6px"><span style="width:2px;height:12px;background:var(--txt)"></span>lo esperado</span></div>';
   if(!T.length)h+='<div class="qx-empty">Sin pasos OK con duración registrada.</div>';
   T.forEach(function(t){
     var late=t.expected&&t.p95>t.expected*1.5;
     h+='<div class="qx-trow">'+_qxA({t:'steps',f:F({func:t.func,result:'ok',sort:'slow'}),from:'Tiempos · '+t.func},_trEsc(t.func),'qx-link','Ver los pasos más lentos','color:var(--txt);font-weight:500;font-size:.78rem')
-      +'<div class="qx-track" title="'+t.n+' pasos"><div class="p95" style="width:'+(t.p95/sc*100)+'%"></div><div class="p50" style="width:'+(t.p50/sc*100)+'%"></div>'
+      +'<div class="qx-track" title="'+t.n+' pasos · normal '+String(t.p50).replace('.',',')+' min · lentos '+String(t.p95).replace('.',',')+' min'+(t.expected?' · esperado '+String(t.expected).replace('.',',')+' min':'')+'"><div class="p95" style="width:'+(t.p95/sc*100)+'%"></div><div class="p50" style="width:'+(t.p50/sc*100)+'%"></div>'
       +(t.expected?'<div class="exp" style="left:'+(t.expected/sc*100)+'%"></div>':'')+'</div>'
-      +'<span class="qx-mono" style="font-size:.7rem;text-align:right;color:'+(late?'var(--err)':'var(--txt2)')+'">'+String(t.p50).replace('.',',')+' / '+String(t.p95).replace('.',',')+' min</span></div>';
+      +'<span class="qx-mono" style="font-size:.7rem;text-align:right;color:'+(late?'var(--err)':'var(--txt2)')+'">'+String(t.p50).replace('.',',')+' · lento '+String(t.p95).replace('.',',')+' min'+(late?' &#9888;&#65039;':'')+'</span></div>';
   });
-  h+='<div class="qx-muted">Duración del paso hasta su confirmación · escala 0 a '+sc+' min · rojo = p95 supera 1,5 veces lo esperado</div></div></section>';
+  h+='<div class="qx-muted">Escala de 0 a '+sc+' min · &#9888;&#65039; rojo = los casos lentos tardan más de 1,5 veces lo esperado</div></div></section>';
   var Y=d.hygiene||{};
-  h+='<section class="qx-sec" style="flex:1 1 360px;min-width:0">'+_qxSecH('05','¿Dejamos basura en el ambiente?','')+'<div class="qx-card">'
-    +'<div style="display:flex;align-items:baseline;gap:10px">'+_qxA({t:'inv',filter:'pendientes'},String(Y.open||0),'qx-big '+((Y.open||0)?'qx-err':'qx-ok'))+'<span class="qx-muted">AIDs abiertos (no InStock en CoreUse) de '+(Y.total||0)+' creados</span></div>'
+  h+='<section class="qx-sec" style="flex:1 1 360px;min-width:0">'+_qxSecH('05','¿Quedaron Access ID sin dar de baja?','',
+    'Cada prueba crea un Access ID (AID). Al terminar debería darse de baja y volver a <b>InStock</b> (libre) en CoreUse. Si no, queda ocupado en el ambiente.'
+    +'<ul><li>El número grande = AID que <b>siguen ocupados</b> de todos los que creó el runner. Ideal: 0.</li>'
+    +'<li>Los 3 cuadros dicen <b>hace cuánto</b> están ocupados. Los de más de 7 días casi seguro quedaron olvidados.</li>'
+    +'<li><b>No calzan</b>: el runner hizo la baja, pero CoreUse todavía los muestra ocupados (la baja no se aplicó en ServiceNow).</li>'
+    +'<li><b>Sin verificar</b>: todavía no se han consultado en CoreUse, así que no sabemos su estado.</li></ul>')+'<div class="qx-card">'
+    +'<div style="display:flex;align-items:baseline;gap:10px">'+_qxA({t:'inv',filter:'pendientes'},String(Y.open||0),'qx-big '+((Y.open||0)?'qx-err':'qx-ok'))+'<span class="qx-muted">AID siguen ocupados (no volvieron a InStock en CoreUse) de '+(Y.total||0)+' creados</span></div>'
+    +'<div class="qx-muted">¿Hace cuánto están ocupados?</div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'
-    +_qxA({t:'inv',filter:'age_lt1'},'<b>'+(Y.lt1d||0)+'</b><span>menos de 1 día</span>','qx-tile')
+    +_qxA({t:'inv',filter:'age_lt1'},'<b>'+(Y.lt1d||0)+'</b><span>menos de 1 día (normal)</span>','qx-tile')
     +_qxA({t:'inv',filter:'age_1_7'},'<b class="qx-warn">'+(Y.d1to7||0)+'</b><span>1 a 7 días</span>','qx-tile')
-    +_qxA({t:'inv',filter:'age_gt7'},'<b class="qx-err">'+(Y.gt7d||0)+'</b><span>más de 7 días</span>','qx-tile')+'</div>'
-    +_qxA({t:'inv',filter:'inconsistentes'},'<b>'+(Y.inconsistent||0)+' inconsistentes</b><span>runner: dado de baja · CoreUse: no InStock</span>','qx-reg')
-    +_qxA({t:'inv',filter:'sin_verificar'},(Y.unverified||0)+' sin verificar en CoreUse →')
+    +_qxA({t:'inv',filter:'age_gt7'},'<b class="qx-err">'+(Y.gt7d||0)+'</b><span>más de 7 días (olvidados)</span>','qx-tile')+'</div>'
+    +_qxA({t:'inv',filter:'inconsistentes'},'<b>'+(Y.inconsistent||0)+' no calzan →</b><span>el runner los dio de baja, pero CoreUse todavía los muestra ocupados</span>','qx-reg')
+    +_qxA({t:'inv',filter:'sin_verificar'},(Y.unverified||0)+' aún sin consultar en CoreUse →')
     +'<div>'+_qxA({t:'inv',filter:'pendientes'},'Ir al Inventario AID','qx-btn')+'</div></div></section></div>';
   h+='</div>';
   cont.innerHTML=h;
