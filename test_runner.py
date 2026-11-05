@@ -9177,7 +9177,7 @@ def _cu_fix(v):
             return m.group(0).encode("latin-1").decode("utf-8")
         except Exception:
             return m.group(0)
-    return re.sub("[Â-ô][-¿]+", _one, v)
+    return re.sub(r"[\u00c2-\u00f4][\u0080-\u00bf]+", _one, v)
 
 
 def _cu_snapshot(html: str) -> dict:
