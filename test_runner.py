@@ -1195,9 +1195,10 @@ _CU_FLOW_KEYS = {
     "Cambio de Fibra":                     ["u_fiber_change"],        # "Fiber Change V2" (sync y async)
     "Diagnóstico de Acceso":               ["u_access_status"],       # AccesStatusAsync ("Access Status")
     "RetrieveAccess ONT":                  ["u_retrieve_data_ont"],   # async → ONTRetrieveAsync
+    "Consulta Estado Vecino (GET)":        ["neighbor"],              # async → "Neighboring State Query"
 }
 # Consultas sin polling en modo síncrono, pero que en asíncrono sí dejan fila en CoreUse
-_CU_ASYNC_POLL = {"Diagnóstico de Acceso", "RetrieveAccess ONT"}
+_CU_ASYNC_POLL = {"Diagnóstico de Acceso", "RetrieveAccess ONT", "Consulta Estado Vecino (GET)"}
 _CU_FLOW_CONFIRMED = set(_CU_FLOW_KEYS)
 # Mensajes de acuse inicial (fila recién creada, flujo aún procesando en ServiceNow)
 _CU_INTERIM_RE = re.compile(r'en curso|flujo contin[uú]a|operaci[oó]n aceptada', re.I)
@@ -19970,7 +19971,7 @@ async function _atrf_runSelected(){
       var _is408=rd&&rd.apim408;
       // En modo async: RetrieveAccess, Reinicio ONT y Consulta de Alarmas SÍ tienen registro CoreUse
       // Diagnóstico de Acceso (AccesStatusAsync) en async sí deja fila "Access Status" en CoreUse
-      var _cuEligible=(!_COREUSE_NO_POLL[fn]||(_asyncMode&&(fn==='Diagnóstico de Acceso'||fn==='RetrieveAccess ONT')))&&!_sr.noAccessId;
+      var _cuEligible=(!_COREUSE_NO_POLL[fn]||(_asyncMode&&(fn==='Diagnóstico de Acceso'||fn==='RetrieveAccess ONT'||fn==='Consulta Estado Vecino (GET)')))&&!_sr.noAccessId;
       if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
