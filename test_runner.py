@@ -8909,6 +8909,29 @@ async def api_aid_events_post(request: Request):
 
 
 # ── Secuencias del runner por usuario (mismas en web y celular) ──────────────
+# Detener ejecuciones manuales: corren en el navegador; este pedido lo ve el navegador que ejecuta
+# (consulta cada 5 s), aunque se haya pedido desde otro dispositivo.
+_ATRF_STOP: dict = {}
+
+
+@app.post("/api/atrf/stop")
+async def atrf_stop(req: Request):
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    b = await req.json() if req.headers.get("content-length") not in (None, "0") else {}
+    _ATRF_STOP[user.get("email") or ""] = {"ts": int(_time_lib.time() * 1000), "teardown": bool(b.get("teardown"))}
+    return {"ok": True}
+
+
+@app.get("/api/atrf/stop")
+async def atrf_stop_status(req: Request):
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    return _ATRF_STOP.get(user.get("email") or "") or {"ts": 0}
+
+
 @app.get("/api/atrf/seqs")
 async def api_atrf_seqs_get(request: Request):
     payload = await _get_auth(request)
@@ -11684,6 +11707,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected().catch(_atrf_runCrash)">&#9654; Ejecutar seleccionadas</button>
+            <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-stop-btn" onclick="_atrf_stop()" title="Detiene la ejecución en curso (en este u otro dispositivo): los pasos pendientes no se ejecutan">&#9209; Detener</button>
             <button class="atrf-btn atrf-btn-sm" id="atrf-dl-report-btn" onclick="_atrf_downloadManualReport()" style="display:none;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)">&#128229; Descargar Reporte</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-green" onclick="_atrf_openNew()">+ Nueva secuencia</button>
           </div>
@@ -18392,6 +18416,7 @@ function _atrf_iiaUsable(d){
 async function _atrf_iiaDetailWait(aid,prog){
   var d=null;
   for(var i=1;i<=6;i++){
+    if(_atrfStopReq)break;
     d=await _atrf_iiaDetail(aid);
     if(_atrf_iiaUsable(d))return d;
     if(i<6){
@@ -19184,6 +19209,7 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
   var last={status:'pending',message:''},reached=false,stKey='',stN=0,STABLE=3;
   // La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8 lecturas)
   for(var i=1;i<=maxAtt+8;i++){
+    if(_atrfStopReq)break;
     if(i>maxAtt&&!stN)break;
     if(prog)prog.textContent='🔍 CoreUse: '+_fnLbl(fn)+(stN?' · confirmando estado ('+stN+'/'+STABLE+')':' (intento '+i+'/'+maxAtt+')')+'…';
     try{
@@ -19218,7 +19244,7 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
 // Si la ejecución se cae por un error de JS, no dejar la cola pegada en "Ejecutando"
 function _atrf_runCrash(e){
   try{console.error('[atrf] ejecución interrumpida',e);}catch(_e){}
-  _atrfRunning=false;
+  _atrfRunning=false;_atrfStopReq=false;_atrf_stopWatch(false);
   var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
   var prog=document.getElementById('atrf-run-prog');if(prog)prog.style.display='none';
   _atrfQueue.forEach(function(q){if(q.status==='ejecutando'){q.status='error';q.runningFns=null;}});
@@ -19231,11 +19257,43 @@ function _atrf_unstick(){
   if(_atrfRunning)return;
   _atrfQueue.forEach(function(q){if(q.status==='ejecutando'){q.status='espera';q.tcResults=[];q.runningFns=null;q._stepMeta=null;}});
 }
+// ⏹ Detener: los pasos en curso terminan su llamada; los pendientes no se ejecutan.
+// Opcionalmente igual corre Cancelación/Baja para liberar el Access ID.
+var _atrfStopReq=false,_atrfStopTd=false,_atrfStopPoll=null,_atrfRunStartTs=0;
+function _atrf_stop(){
+  if(!confirm('¿Detener la ejecución? Los pasos que ya están en curso terminan; los pendientes no se ejecutan.'))return;
+  var td=confirm('¿Ejecutar igual la Cancelación / Baja de la secuencia para liberar el Access ID? — Aceptar = sí, liberar el AID · Cancelar = no, detener todo');
+  var hd=_authHdr();hd['Content-Type']='application/json';
+  fetch('/api/atrf/stop',{method:'POST',headers:hd,body:JSON.stringify({teardown:td})}).catch(function(){});
+  if(_atrfRunning){
+    _atrfStopReq=true;_atrfStopTd=td;
+    var b=document.getElementById('atrf-stop-btn');if(b){b.disabled=true;b.textContent='⏹ Deteniendo…';}
+    if(typeof showToast==='function')showToast('Deteniendo: se esperan los pasos que ya estaban en curso','warn');
+  } else if(typeof showToast==='function'){
+    showToast('Se pidió detener las ejecuciones abiertas en tus otros dispositivos (se detienen en unos segundos)','ok');
+  }
+}
+function _atrf_stopWatch(on){
+  if(_atrfStopPoll){clearInterval(_atrfStopPoll);_atrfStopPoll=null;}
+  var b=document.getElementById('atrf-stop-btn');
+  if(b){b.disabled=false;b.textContent='⏹ Detener';}
+  if(!on)return;
+  _atrfStopPoll=setInterval(function(){
+    fetch('/api/atrf/stop',{headers:_authHdr()}).then(function(r){return r.ok?r.json():null;}).then(function(d){
+      if(d&&d.ts>_atrfRunStartTs&&!_atrfStopReq){
+        _atrfStopReq=true;_atrfStopTd=!!d.teardown;
+        var b2=document.getElementById('atrf-stop-btn');if(b2){b2.disabled=true;b2.textContent='⏹ Deteniendo…';}
+        if(typeof showToast==='function')showToast('Ejecución detenida desde otro dispositivo','warn');
+      }
+    }).catch(function(){});
+  },5000);
+}
 async function _atrf_runSelected(){
   if(_atrfRunning)return;
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
   if(!toRun.length){if(typeof showToast==='function')showToast('No hay secuencias seleccionadas en espera','err');return;}
   _atrfRunning=true;
+  _atrfStopReq=false;_atrfStopTd=false;_atrfRunStartTs=Date.now();_atrf_stopWatch(true);
   _atrfLastRunKeys=[];
   _atrf_qStartTs=Date.now();
   var btn=document.getElementById('atrf-run-btn');if(btn){btn.textContent='⏳ Ejecutando…';btn.disabled=true;}
@@ -19253,6 +19311,7 @@ async function _atrf_runSelected(){
   for(var qi=0;qi<_atrfQueue.length;qi++){
     var q=_atrfQueue[qi];
     if(!q.checked||q.status!=='espera')continue;
+    if(_atrfStopReq)break;
     if(prog)prog.textContent=(qi+1)+'/'+_atrfQueue.length+' → '+q.name;
     q.status='ejecutando';
     var stEl=document.getElementById('atrf-qst-'+qi);
@@ -19317,6 +19376,11 @@ async function _atrf_runSelected(){
     function _mBlPlan(){return (_mModOk&&q.cfg.nplan)?q.cfg.nplan:(q.cfg.plan||'');}
     async function _mDoStep(s){
       var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
+      if(_atrfStopReq&&!(_atrfStopTd&&_MTdSet.has(fn)&&_currentAccessId)){
+        q._stopped=true;
+        return {func:fn,tc:tc,label:s.label,pass:false,skipped:true,req:'',res:'⏹ No ejecutado: detenido por el usuario',
+          httpCode:0,newmanOut:'',duration_ms:0,error:'⏹ No ejecutado: detenido por el usuario'};
+      }
       q.runningFns.add(fn);_atrf_refreshDetail(qi);
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
@@ -19671,6 +19735,9 @@ async function _atrf_runSelected(){
     if(_atrfViewIdx===qi&&document.getElementById('atrf-modal-view').classList.contains('show')) _atrf_openView(qi,true);
   }
   _atrfRunning=false;
+  _atrf_stopWatch(false);
+  if(_atrfStopReq&&typeof showToast==='function')showToast('Ejecución detenida','warn');
+  _atrfStopReq=false;
   if(prog)prog.style.display='none';
   if(btn){btn.textContent='▶ Ejecutar seleccionadas';btn.disabled=false;}
   // Mostrar botón de descarga de reporte y auto-generar al terminar
