@@ -72,3 +72,4 @@ Prueba Demo .txt
 
 # Config generado durante Docker build (contiene credenciales, nunca al repo)
 apim-config.json
+!templates/informe_mop.docx

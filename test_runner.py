@@ -1016,7 +1016,7 @@ def _apply_params(cmd: list, overrides: dict) -> list:
 # ─── FastAPI ──────────────────────────────────────────────────────────────────
 try:
     from fastapi import FastAPI, Request, HTTPException, Query
-    from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse
+    from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, FileResponse, Response
     import uvicorn
 except ImportError:
     print("Instalar: pip install fastapi \"uvicorn[standard]\"")
@@ -1614,6 +1614,35 @@ CREATE TABLE IF NOT EXISTS qa_atrf_seqs (
     updated_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_email, uid)
 );
+CREATE TABLE IF NOT EXISTS qa_mop_reports (
+    id             BIGSERIAL PRIMARY KEY,
+    inc            TEXT DEFAULT '',
+    title          TEXT DEFAULT '',
+    version        TEXT DEFAULT '1.0',
+    fecha          TEXT DEFAULT '',
+    autor          TEXT DEFAULT '',
+    clasif         TEXT DEFAULT 'CONFIDENCIAL',
+    ambiente       TEXT DEFAULT 'QA',
+    contexto       TEXT DEFAULT '',
+    intro          TEXT DEFAULT '',
+    evid_json      TEXT DEFAULT '[]',
+    resultado      TEXT DEFAULT '',
+    resultado_text TEXT DEFAULT '',
+    plan           TEXT DEFAULT '',
+    mop_name       TEXT DEFAULT '',
+    status         TEXT DEFAULT 'borrador',
+    created_by     TEXT DEFAULT '',
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS qa_mop_images (
+    id         BIGSERIAL PRIMARY KEY,
+    report_id  BIGINT NOT NULL,
+    mime       TEXT DEFAULT 'image/png',
+    data       BYTEA NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_qa_mop_images_rep ON qa_mop_images (report_id);
 CREATE TABLE IF NOT EXISTS qa_known_defects (
     id          BIGSERIAL PRIMARY KEY,
     func        TEXT NOT NULL,
@@ -9848,6 +9877,316 @@ async def delete_known_defect(kd_id: int, req: Request):
     return {"ok": True}
 
 
+# ─── Informes de ejecución de pruebas de MOP / incidentes (Word) ─────────────
+# Plantilla = informe real de QA (INC0279424) sin contenido: portada, ficha, índice y
+# las 3 secciones con marcadores {{CONTEXTO}} / {{EJECUCION}} / {{RESULTADO}}.
+_MOP_TPL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "informe_mop.docx")
+_MOP_IMG_MAX = 10 * 1024 * 1024
+_MOP_IMG_W = 5609590  # ancho máximo de imagen (EMU), igual que en el informe de ejemplo
+_MOP_FIELDS = ("inc", "title", "version", "fecha", "autor", "clasif", "ambiente", "contexto", "intro",
+               "evid_json", "resultado", "resultado_text", "plan", "mop_name", "status")
+# Títulos de sección de un MOP (para cortar el texto de cada una)
+_MOP_SECTIONS = ("descripcion de trabajo", "detalle tecnico", "contexto", "consideraciones previas", "justificacion",
+                 "servicios comprometidos", "procedimiento por ejecutar", "responsables", "documentacion",
+                 "diagramas de infraestructura", "babysitting", "procedimiento vuelta atras",
+                 "plan de pruebas", "coordinacion con areas", "herramientas utilizadas", "requerimientos de seguridad")
+
+
+def _mop_norm(t: str) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFD", t or "")
+    return "".join(c for c in t if unicodedata.category(c) != "Mn").lower().strip().rstrip(":").strip()
+
+
+def _mop_parse(data: bytes, name: str) -> dict:
+    """Lee un MOP (.docx) y devuelve los datos para prellenar el informe."""
+    import io
+    import docx as _docx
+    d = _docx.Document(io.BytesIO(data))
+    paras = [((p.style.name if p.style is not None else "") or "", (p.text or "").strip()) for p in d.paragraphs]
+    texts = [t for _, t in paras]
+    hdr = ""
+    try:
+        for sec in d.sections:
+            hdr += " ".join(p.text for p in sec.header.paragraphs) + " "
+            for t in sec.header.tables:
+                hdr += " ".join(c.text for row in t.rows for c in row.cells) + " "
+    except Exception:
+        pass
+    m = re.search(r"INC\d{5,}", "\n".join(texts) + " " + hdr + " " + (name or ""))
+    inc = m.group(0) if m else ""
+    title = ""
+    for i, t in enumerate(texts):
+        if _mop_norm(t) in ("descripcion", "descripcion del cambio"):
+            title = next((x for x in texts[i + 1:] if x), "")
+            break
+    amb = ""
+    for t in texts:
+        mm = re.match(r"ambiente\s*:\s*(.+)", t, re.I)
+        if mm:
+            amb = mm.group(1).strip()
+            break
+
+    def _is_head(i):
+        st, t = paras[i]
+        n = _mop_norm(t)
+        return bool(n) and (st.lower().startswith("heading") or any(n.startswith(h) for h in _MOP_SECTIONS))
+
+    def _section(key):
+        for i, (_, t) in enumerate(paras):
+            if _mop_norm(t).startswith(key):
+                out = []
+                for j in range(i + 1, len(paras)):
+                    if _is_head(j):
+                        break
+                    if paras[j][1]:
+                        out.append(paras[j][1])
+                return out
+        return []
+
+    ctx = _section("contexto")
+    work = _section("descripcion de trabajo")
+    work = work[:1]
+    contexto = "\n\n".join(ctx + work)
+    plan = "\n".join(_section("plan de pruebas"))
+    return {"inc": inc, "title": title, "ambiente": amb or "QA", "contexto": contexto, "plan": plan,
+            "mop_name": name or ""}
+
+
+def _mop_build_docx(r: dict, imgs: dict) -> bytes:
+    """Genera el informe Word desde la plantilla."""
+    import io
+    import docx as _docx
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    d = _docx.Document(_MOP_TPL)
+    inc, title = (r.get("inc") or "").strip(), (r.get("title") or "").strip()
+    full_title = f"{inc}_ {title}" if inc and title else (inc or title)
+    amb = (r.get("ambiente") or "QA").strip() or "QA"
+    simple = {"{{TITULO}}": full_title, "{{VERSION}}": r.get("version") or "1.0", "{{FECHA}}": r.get("fecha") or "",
+              "{{AUTOR}}": r.get("autor") or "", "{{CLASIF}}": r.get("clasif") or ""}
+
+    def _all_paras():
+        for p in d.paragraphs:
+            yield p
+        for t in d.tables:
+            for row in t.rows:
+                for c in row.cells:
+                    for p in c.paragraphs:
+                        yield p
+
+    blocks = {}
+    for p in _all_paras():
+        for run in p.runs:
+            for k, v in simple.items():
+                if k in run.text:
+                    run.text = run.text.replace(k, v)
+        if p.text.strip() in ("{{CONTEXTO}}", "{{EJECUCION}}", "{{RESULTADO}}"):
+            blocks[p.text.strip()] = p
+        if amb.upper() != "QA" and "Ambiente QA" in p.text:
+            for run in p.runs:
+                if "QA" in run.text:
+                    run.text = run.text.replace("QA", amb)
+
+    def _texts(anchor, txt):
+        for para in [x.strip() for x in re.split(r"\n\s*\n|\n", txt or "")]:
+            if para:
+                anchor.insert_paragraph_before(para)
+
+    def _img(anchor, img_id):
+        im = imgs.get(img_id)
+        if not im:
+            return
+        np_ = anchor.insert_paragraph_before()
+        np_.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        try:
+            sh = np_.add_run().add_picture(io.BytesIO(im))
+            if sh.width > _MOP_IMG_W:
+                sh.height = int(sh.height * _MOP_IMG_W / sh.width)
+                sh.width = _MOP_IMG_W
+        except Exception as e:
+            np_.add_run(f"[imagen no válida: {e}]")
+
+    a = blocks.get("{{CONTEXTO}}")
+    if a:
+        _texts(a, r.get("contexto"))
+    a = blocks.get("{{EJECUCION}}")
+    if a:
+        _texts(a, r.get("intro"))
+        try:
+            ev = json.loads(r.get("evid_json") or "[]")
+        except Exception:
+            ev = []
+        for e in ev:
+            _texts(a, e.get("text"))
+            for iid in e.get("imgs") or []:
+                _img(a, int(iid))
+            a.insert_paragraph_before("")
+    a = blocks.get("{{RESULTADO}}")
+    if a:
+        _texts(a, r.get("resultado_text"))
+    for p in blocks.values():
+        p._p.getparent().remove(p._p)
+    # Que Word actualice el índice (números de página) al abrir
+    try:
+        uf = OxmlElement("w:updateFields")
+        uf.set(qn("w:val"), "true")
+        d.settings.element.append(uf)
+    except Exception:
+        pass
+    out = io.BytesIO()
+    d.save(out)
+    return out.getvalue()
+
+
+def _mop_filename(r: dict) -> str:
+    inc, title = (r.get("inc") or "").strip(), (r.get("title") or "").strip()
+    base = "Informe de Ejecucion de Pruebas - " + (f"{inc}_ {title}" if inc and title else (inc or title or f"Informe {r.get('id')}"))
+    base = re.sub(r'[\\/:*?"<>|]+', " ", base).strip()
+    return base[:180] + ".docx"
+
+
+def _mop_row(r) -> dict:
+    o = dict(r)
+    for k in ("created_at", "updated_at"):
+        if o.get(k):
+            o[k] = int(o[k].timestamp() * 1000)
+    return o
+
+
+@app.post("/api/mop/parse")
+async def mop_parse(req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    b = await req.json()
+    try:
+        data = _b64_lib.b64decode((b.get("data") or "").split(",")[-1])
+        return _mop_parse(data, b.get("name") or "")
+    except Exception as e:
+        return JSONResponse({"error": f"No se pudo leer el MOP: {e}"}, status_code=400)
+
+
+@app.get("/api/mop/reports")
+async def mop_list(req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    rows = await pool.fetch(
+        "SELECT id, inc, title, resultado, status, autor, created_by, ambiente, created_at, updated_at, "
+        "(SELECT COUNT(*) FROM qa_mop_images i WHERE i.report_id=r.id) AS n_img "
+        "FROM qa_mop_reports r ORDER BY updated_at DESC LIMIT 500")
+    return [_mop_row(x) for x in rows]
+
+
+@app.get("/api/mop/reports/{rid}")
+async def mop_get(rid: int, req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    r = await pool.fetchrow("SELECT * FROM qa_mop_reports WHERE id=$1", rid)
+    if not r:
+        return JSONResponse({"error": "no encontrado"}, status_code=404)
+    return _mop_row(r)
+
+
+@app.post("/api/mop/reports")
+async def mop_create(req: Request):
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    b = await req.json()
+    pool = await _db()
+    cols = [k for k in _MOP_FIELDS if k in b]
+    vals = [str(b[k] if b[k] is not None else "") for k in cols]
+    q = (f"INSERT INTO qa_mop_reports ({', '.join(cols + ['created_by'])}) "
+         f"VALUES ({', '.join('$' + str(i + 1) for i in range(len(cols) + 1))}) RETURNING id")
+    row = await pool.fetchrow(q, *vals, user.get("email") or "")
+    return {"ok": True, "id": row["id"]}
+
+
+@app.put("/api/mop/reports/{rid}")
+async def mop_update(rid: int, req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    b = await req.json()
+    cols = [k for k in _MOP_FIELDS if k in b]
+    if not cols:
+        return {"ok": True}
+    pool = await _db()
+    sets = ", ".join(f"{k}=${i + 2}" for i, k in enumerate(cols))
+    await pool.execute(f"UPDATE qa_mop_reports SET {sets}, updated_at=NOW() WHERE id=$1",
+                       rid, *[str(b[k] if b[k] is not None else "") for k in cols])
+    return {"ok": True}
+
+
+@app.delete("/api/mop/reports/{rid}")
+async def mop_delete(rid: int, req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    await pool.execute("DELETE FROM qa_mop_images WHERE report_id=$1", rid)
+    await pool.execute("DELETE FROM qa_mop_reports WHERE id=$1", rid)
+    return {"ok": True}
+
+
+@app.post("/api/mop/reports/{rid}/images")
+async def mop_img_add(rid: int, req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    b = await req.json()
+    src = b.get("data") or ""
+    m = re.match(r"data:(image/[a-zA-Z0-9.+-]+);base64,(.*)$", src, re.S)
+    if not m:
+        return JSONResponse({"error": "Formato de imagen no válido"}, status_code=400)
+    data = _b64_lib.b64decode(m.group(2))
+    if len(data) > _MOP_IMG_MAX:
+        return JSONResponse({"error": "La imagen supera 10 MB"}, status_code=400)
+    pool = await _db()
+    row = await pool.fetchrow("INSERT INTO qa_mop_images (report_id, mime, data) VALUES ($1,$2,$3) RETURNING id",
+                              rid, m.group(1), data)
+    return {"ok": True, "id": row["id"]}
+
+
+@app.get("/api/mop/images/{iid}")
+async def mop_img_get(iid: int, req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    r = await pool.fetchrow("SELECT mime, data FROM qa_mop_images WHERE id=$1", iid)
+    if not r:
+        raise HTTPException(status_code=404)
+    return Response(content=bytes(r["data"]), media_type=r["mime"] or "image/png",
+                    headers={"Cache-Control": "private, max-age=86400"})
+
+
+@app.get("/api/mop/reports/{rid}/docx")
+async def mop_docx(rid: int, req: Request):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    r = await pool.fetchrow("SELECT * FROM qa_mop_reports WHERE id=$1", rid)
+    if not r:
+        raise HTTPException(status_code=404)
+    r = dict(r)
+    try:
+        ids = [int(i) for e in json.loads(r.get("evid_json") or "[]") for i in (e.get("imgs") or [])]
+    except Exception:
+        ids = []
+    imgs = {}
+    if ids:
+        for x in await pool.fetch("SELECT id, data FROM qa_mop_images WHERE id = ANY($1::bigint[])", ids):
+            imgs[x["id"]] = bytes(x["data"])
+    loop = _aio.get_event_loop()
+    data = await loop.run_in_executor(None, _mop_build_docx, r, imgs)
+    from urllib.parse import quote as _q
+    fn = _mop_filename(r)
+    return Response(content=data,
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f"attachment; filename=\"informe.docx\"; filename*=UTF-8''{_q(fn)}",
+                             "X-Filename": _q(fn), "Access-Control-Expose-Headers": "X-Filename"})
+
+
 # ─── Reporte descargable por secuencia (desde Trazabilidad) ──────────────────
 
 _RPT_CSS = """
@@ -11401,6 +11740,48 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .atrf-vno-multi-note.show{display:block}
 </style>
 <style>
+/* ── Informes MOP / INC (mop-) ─────────────────────────────────────────── */
+.mop-page{max-width:1080px;width:100%;margin:0 auto;padding:18px 16px 60px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px}
+.mop-card{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mop-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mop-h h2{margin:0;font-size:1rem}
+.mop-n{font:700 .72rem var(--mono);color:var(--acc)}
+.mop-sub{font-size:.74rem;color:var(--txt2);line-height:1.5}
+.mop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.mop-f{display:flex;flex-direction:column;gap:4px;font-size:.72rem;color:var(--txt2);min-width:0}
+.mop-f input,.mop-f select,.mop-f textarea,.mop-ta{background:var(--bg);color:var(--txt);border:1px solid var(--brd);border-radius:8px;padding:8px 10px;font:500 .8rem var(--sans);box-sizing:border-box;width:100%}
+.mop-f textarea,.mop-ta{resize:vertical;line-height:1.5;min-height:70px}
+.mop-f input:focus,.mop-f select:focus,.mop-f textarea:focus,.mop-ta:focus{outline:none;border-color:var(--acc)}
+.mop-btn{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 14px;border-radius:9px;border:1px solid var(--brd);background:var(--card);color:var(--txt);font:600 .76rem var(--sans);cursor:pointer;text-decoration:none}
+.mop-btn:hover{border-color:var(--acc)}
+.mop-btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.mop-btn.dng{color:var(--err)}
+.mop-btn:disabled{opacity:.5;cursor:default}
+.mop-drop{border:2px dashed var(--brd);border-radius:10px;padding:16px;text-align:center;font-size:.78rem;color:var(--txt2);cursor:pointer}
+.mop-drop:hover,.mop-drop.over{border-color:var(--acc);color:var(--txt)}
+.mop-ev{border:1px solid var(--brd);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.mop-ev.act{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.mop-ev-h{display:flex;align-items:center;gap:8px;font-size:.76rem;font-weight:700}
+.mop-ev-h .sp{flex:1}
+.mop-imgs{display:flex;flex-wrap:wrap;gap:8px}
+.mop-img{position:relative;width:150px;height:100px;border-radius:8px;overflow:hidden;border:1px solid var(--brd);background:var(--card)}
+.mop-img img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
+.mop-img button{position:absolute;top:4px;right:4px;border:none;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:.7rem;padding:2px 6px}
+.mop-paste{width:150px;height:100px;border:2px dashed var(--brd);border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.68rem;color:var(--txt2);cursor:pointer;padding:6px;box-sizing:border-box}
+.mop-paste:hover{border-color:var(--acc);color:var(--txt)}
+.mop-res{display:flex;gap:8px;flex-wrap:wrap}
+.mop-res label{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--brd);border-radius:9px;cursor:pointer;font-size:.78rem}
+.mop-res label.on{border-color:var(--acc);background:var(--accd)}
+.mop-tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.mop-tbl th{text-align:left;font-size:.68rem;color:var(--txt2);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--brd)}
+.mop-tbl td{padding:8px;border-bottom:1px solid var(--brdl);vertical-align:middle}
+.mop-tbl tr.cl{cursor:pointer}.mop-tbl tr.cl:hover td{background:var(--brdl)}
+.mop-pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.68rem;font-weight:600;background:var(--brdl);color:var(--txt2)}
+.mop-pill.ok{background:var(--okd);color:var(--ok)}.mop-pill.err{background:var(--errd);color:var(--err)}.mop-pill.warn{background:var(--qx-warnd,var(--brdl));color:var(--warn)}
+.mop-bar{position:sticky;bottom:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;background:linear-gradient(transparent,var(--bg) 30%)}
+.mop-save{font-size:.72rem;color:var(--txt2);margin-right:auto}
+.mop-zoom{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out}
+.mop-zoom img{max-width:95vw;max-height:95vh}
 /* ── Dashboard de calidad + Trazabilidad (qx-) ───────────────────────────── */
 :root{--qx-pur:#B57BFF;--qx-purd:rgba(181,123,255,.14);--qx-warnd:rgba(255,179,71,.13);--qx-mut:#7C88AE;--qx-r:12px}
 body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,114,0,.10);--qx-mut:#6B7895}
@@ -11625,6 +12006,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
     <button class="hist-btn" id="inv-btn" onclick="showInventario()">&#128273;<span class="hist-lbl">&nbsp; Inventario AID</span></button>
     <button class="hist-btn" id="traza-btn" onclick="showTrazabilidad()">&#128269;<span class="hist-lbl">&nbsp; Trazabilidad AID</span></button>
     <button class="hist-btn" id="agenda-btn" onclick="showAgenda()">&#128197;<span class="hist-lbl">&nbsp; Agenda</span></button>
+    <button class="hist-btn" id="mop-btn" onclick="showMop()">&#128221;<span class="hist-lbl">&nbsp; Informes MOP / INC</span></button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;<span class="hist-lbl">&nbsp; Settings</span></button>
   </aside>
   <main class="main">
@@ -11885,6 +12267,10 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
           </div>
         </div>
       </div>
+    </div>
+    <!-- Vista Informes MOP / INC -->
+    <div id="mop-view" style="display:none;flex-direction:column;flex:1;overflow:auto;min-width:0">
+      <div id="mop-body" class="mop-page"></div>
     </div>
     <!-- Vista Inventario AID -->
     <div id="inv-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -12703,11 +13089,12 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view","mop-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view","mop":"mop-view"}[mode]||"std-view";
   var _ib=document.getElementById('inv-btn');if(_ib&&mode!=='inventario')_ib.classList.remove('active');
   var _tb=document.getElementById('traza-btn');if(_tb&&mode!=='traza')_tb.classList.remove('active');
+  var _mb=document.getElementById('mop-btn');if(_mb&&mode!=='mop')_mb.classList.remove('active');
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -20161,7 +20548,7 @@ function showInventario(filter){
   if(filter){var _fsel=document.getElementById('inv-filter');if(_fsel)_fsel.value=filter;}
   switchView('inventario');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn','mop-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
   var ib=document.getElementById('inv-btn');if(ib)ib.classList.add('active');
   setTop('','Inventario AID','Access IDs creados · estado runner vs CoreUse');
   _invLoad();
@@ -20427,6 +20814,296 @@ function _trReportAid(){
 function _qxCopy(txt){
   try{navigator.clipboard.writeText(txt).then(function(){if(typeof showToast==='function')showToast('Copiado al portapapeles','ok');});}
   catch(e){window.prompt('Copiar:',txt);}
+}
+
+// ═══ INFORMES MOP / INC ═══════════════════════════════════════════════════
+// Informe de ejecución de pruebas (Word) a partir de un MOP: contexto, evidencias con
+// capturas (subir / arrastrar / Ctrl+V) y resultado. Se guarda en el servidor (autoguardado).
+var _mop={list:[],cur:null,dirty:false,timer:null,act:0,imgUrl:{},saving:null};
+var _MOP_RES={
+  exitosa:{l:'&#9989; Exitosa',c:'ok',t:'En observación a las pruebas realizadas y sus respectivas evidencias el resultado de la ejecución fue Exitoso, ya no se presentan los errores mencionados en el Ítem 1.'},
+  fallida:{l:'&#10060; Fallida',c:'err',t:'En observación a las pruebas realizadas y sus respectivas evidencias el resultado de la ejecución fue Fallido, ya que persisten los errores mencionados en el Ítem 1.'},
+  observaciones:{l:'&#9888;&#65039; Con observaciones',c:'warn',t:'En observación a las pruebas realizadas y sus respectivas evidencias el resultado de la ejecución fue Exitoso con observaciones, las que se detallan a continuación:'}
+};
+function _mopEsc(x){return _trEsc(x);}
+function _mopToday(){var d=new Date(),M=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return ('0'+d.getDate()).slice(-2)+'-'+M[d.getMonth()]+'-'+d.getFullYear();}
+function _mopMsg(m,k){if(typeof showToast==='function')showToast(m,k||'ok');else alert(m);}
+function _mopApi(url,opt){
+  opt=opt||{};var h=_authHdr();if(opt.body&&typeof opt.body!=='string'){opt.body=JSON.stringify(opt.body);}
+  opt.headers=h;
+  return fetch(url,opt).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||j.detail||('HTTP '+r.status));return j;});});
+}
+function showMop(){
+  _dashStopRefresh();
+  switchView('mop');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn','inv-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var mb=document.getElementById('mop-btn');if(mb)mb.classList.add('active');
+  setTop('','Informes MOP / INC','Informe de ejecución de pruebas en Word a partir de un MOP o incidente');
+  if(_mop.cur)_mopRenderEditor();else _mopLoadList();
+}
+// ── Lista ──
+function _mopLoadList(){
+  var b=document.getElementById('mop-body');if(!b)return;
+  b.innerHTML='<div class="mop-sub">Cargando informes…</div>';
+  _mopApi('/api/mop/reports').then(function(d){_mop.list=d||[];_mopRenderList();})
+    .catch(function(e){b.innerHTML='<div class="mop-card" style="color:var(--err)">Error: '+_mopEsc(e.message)+'</div>';});
+}
+function _mopRenderList(){
+  var b=document.getElementById('mop-body');if(!b)return;
+  var q=((document.getElementById('mop-q')||{}).value||'').toLowerCase();
+  var h='<div class="mop-card"><div class="mop-h"><h2>&#128221; Informes de ejecución de pruebas</h2><span style="flex:1"></span>'
+    +'<button class="mop-btn pri" onclick="_mopNew()">+ Nuevo informe</button></div>'
+    +'<div class="mop-sub">1) Sube el MOP del incidente → 2) agrega las evidencias (texto + capturas, puedes pegarlas con Ctrl+V) → 3) elige el resultado → 4) descarga el Word. Se guarda solo mientras escribes.</div></div>';
+  h+='<div class="mop-card"><input id="mop-q" class="mop-ta" style="min-height:0" placeholder="Buscar por INC o título…" value="'+_mopEsc(q)+'" oninput="_mopRenderList()">';
+  var L=_mop.list.filter(function(r){return !q||((r.inc||'')+' '+(r.title||'')).toLowerCase().indexOf(q)>=0;});
+  if(!L.length)h+='<div class="mop-sub" style="padding:12px 0">'+(_mop.list.length?'Sin resultados.':'Aún no hay informes. Crea el primero con “+ Nuevo informe”.')+'</div>';
+  else{
+    h+='<div style="overflow-x:auto"><table class="mop-tbl"><thead><tr><th>INC</th><th>Título</th><th>Resultado</th><th>Estado</th><th>Autor</th><th>Actualizado</th><th></th></tr></thead><tbody>';
+    L.forEach(function(r){
+      var R=_MOP_RES[r.resultado];
+      h+='<tr class="cl" onclick="_mopOpen('+r.id+')"><td style="font-family:var(--mono);font-weight:700">'+_mopEsc(r.inc||'—')+'</td>'
+        +'<td>'+_mopEsc(r.title||'(sin título)')+'</td>'
+        +'<td>'+(R?'<span class="mop-pill '+R.c+'">'+R.l+'</span>':'<span class="mop-pill">Pendiente</span>')+'</td>'
+        +'<td><span class="mop-pill'+(r.status==='terminado'?' ok':'')+'">'+(r.status==='terminado'?'Terminado':'Borrador')+'</span></td>'
+        +'<td>'+_mopEsc(r.autor||r.created_by||'')+'</td><td style="white-space:nowrap">'+_trFmtTs(r.updated_at)+'</td>'
+        +'<td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="mop-btn" title="Descargar Word" onclick="_mopDownload('+r.id+')">&#11015; Word</button> '
+        +'<button class="mop-btn dng" title="Eliminar" onclick="_mopDelete('+r.id+')">&#128465;</button></td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  b.innerHTML=h+'</div>';
+}
+function _mopNew(){
+  _mop.cur={id:null,inc:'',title:'',version:'1.0',fecha:_mopToday(),autor:(currentUser&&currentUser.name)||'',clasif:'CONFIDENCIAL',
+    ambiente:'QA',contexto:'',intro:'A continuación, se detalla las pruebas realizadas en ambiente de QA posterior a la corrección realizada:',
+    evid:[{text:'',imgs:[]}],resultado:'',resultado_text:'',plan:'',mop_name:'',status:'borrador'};
+  _mop.act=0;_mop.dirty=false;_mopRenderEditor();
+}
+function _mopOpen(id){
+  _mopApi('/api/mop/reports/'+id).then(function(r){
+    var ev=[];try{ev=JSON.parse(r.evid_json||'[]');}catch(e){}
+    r.evid=ev.length?ev:[{text:'',imgs:[]}];
+    _mop.cur=r;_mop.act=0;_mop.dirty=false;_mopRenderEditor();
+  }).catch(function(e){_mopMsg('Error: '+e.message,'err');});
+}
+function _mopBack(){
+  var go=function(){_mop.cur=null;_mopLoadList();};
+  if(_mop.dirty)_mopSave().then(go,go);else go();
+}
+function _mopDelete(id){
+  if(!confirm('¿Eliminar este informe y sus imágenes? No se puede deshacer.'))return;
+  _mopApi('/api/mop/reports/'+id,{method:'DELETE'}).then(function(){
+    if(_mop.cur&&_mop.cur.id===id)_mop.cur=null;_mopLoadList();_mopMsg('Informe eliminado');
+  }).catch(function(e){_mopMsg('Error: '+e.message,'err');});
+}
+// ── Editor ──
+function _mopF(k,lbl,type,ph,opts){
+  var v=_mop.cur[k]==null?'':_mop.cur[k];
+  if(type==='select')return '<label class="mop-f">'+lbl+'<select onchange="_mopSet(&quot;'+k+'&quot;,this.value)">'+opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+o+'</option>';}).join('')+'</select></label>';
+  if(type==='area')return '<label class="mop-f">'+lbl+'<textarea rows="6" placeholder="'+_mopEsc(ph||'')+'" oninput="_mopSet(&quot;'+k+'&quot;,this.value)">'+_mopEsc(v)+'</textarea></label>';
+  return '<label class="mop-f">'+lbl+'<input value="'+_mopEsc(v)+'" placeholder="'+_mopEsc(ph||'')+'" oninput="_mopSet(&quot;'+k+'&quot;,this.value)"></label>';
+}
+function _mopRenderEditor(){
+  var b=document.getElementById('mop-body');if(!b||!_mop.cur)return;
+  var c=_mop.cur,h='';
+  h+='<div class="mop-h"><button class="mop-btn" onclick="_mopBack()">← Informes</button><h2 style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+    +_mopEsc((c.inc?c.inc+' · ':'')+(c.title||'Nuevo informe'))+'</h2></div>';
+  // Paso 1: MOP
+  h+='<div class="mop-card"><div class="mop-h"><span class="mop-n">PASO 1</span><h2>Cargar el MOP</h2><span class="mop-sub">(opcional — rellena INC, título, ambiente y contexto)</span></div>'
+    +'<div class="mop-drop" id="mop-drop" onclick="document.getElementById(&quot;mop-file&quot;).click()" ondragover="event.preventDefault();this.classList.add(&quot;over&quot;)" ondragleave="this.classList.remove(&quot;over&quot;)" ondrop="_mopDropMop(event)">'
+    +(c.mop_name?'&#128196; <b>'+_mopEsc(c.mop_name)+'</b> · clic para cargar otro':'&#128196; Arrastra aquí el MOP (.docx) o haz clic para elegirlo')+'</div>'
+    +'<input type="file" id="mop-file" accept=".docx" style="display:none" onchange="_mopLoadMop(this.files[0]);this.value=&quot;&quot;">'
+    +(c.plan?'<details class="qx-help"><summary>&#128203; Plan de pruebas del MOP (referencia)</summary><div style="white-space:pre-wrap">'+_mopEsc(c.plan)+'</div></details>':'')+'</div>';
+  // Datos
+  h+='<div class="mop-card"><div class="mop-h"><span class="mop-n">PASO 2</span><h2>Datos del informe</h2></div><div class="mop-grid">'
+    +_mopF('inc','Incidente (INC)','text','INC0000000')+_mopF('ambiente','Ambiente','text','QA')
+    +_mopF('version','Versión','text','1.0')+_mopF('fecha','Fecha','text','05-Nov-2026')
+    +_mopF('autor','Autor','text','')+_mopF('clasif','Clasificación','select','',['CONFIDENCIAL','USO INTERNO','PÚBLICO'])
+    +'</div>'+_mopF('title','Título (sin el INC)','text','Ej: Adicionar Loss of Communication a Firewall ServiceNow.')
+    +'<div class="mop-sub">Nombre del archivo: <b>Informe de Ejecucion de Pruebas - '+_mopEsc((c.inc||'INC…')+'_ '+(c.title||'…'))+'.docx</b></div></div>';
+  // 1 Contexto
+  h+='<div class="mop-card"><div class="mop-h"><span class="mop-n">1.</span><h2>Contexto de Incidencia</h2></div>'
+    +_mopF('contexto','Qué pasaba y qué se corrigió (un párrafo por línea en blanco)','area','Se rellena desde el MOP (Contexto + Descripción de Trabajo)')+'</div>';
+  // 2 Ejecución
+  h+='<div class="mop-card"><div class="mop-h"><span class="mop-n">2.</span><h2>Ejecución de Pruebas Ambiente '+_mopEsc(c.ambiente||'QA')+'</h2></div>'
+    +_mopF('intro','Texto inicial','text','')
+    +'<div class="mop-sub">Cada evidencia = una descripción + sus capturas. <b>Para pegar una captura:</b> haz clic en la evidencia y presiona <b>Ctrl+V</b> (o arrastra/sube el archivo).</div>'
+    +'<div id="mop-evs" style="display:flex;flex-direction:column;gap:10px">'+_mopEvsHtml()+'</div>'
+    +'<div><button class="mop-btn" onclick="_mopEvAdd()">+ Agregar evidencia</button></div></div>';
+  // 3 Resultado
+  h+='<div class="mop-card"><div class="mop-h"><span class="mop-n">3.</span><h2>Resultado de Ejecución</h2></div><div class="mop-res">'
+    +Object.keys(_MOP_RES).map(function(k){return '<label class="'+(c.resultado===k?'on':'')+'"><input type="radio" name="mop-res" '+(c.resultado===k?'checked':'')+' onchange="_mopSetRes(&quot;'+k+'&quot;)">'+_MOP_RES[k].l+'</label>';}).join('')
+    +'</div><textarea id="mop-res-t" class="mop-ta" rows="4" placeholder="Elige un resultado para cargar el texto estándar; puedes editarlo" oninput="_mopSet(&quot;resultado_text&quot;,this.value)">'+_mopEsc(c.resultado_text||'')+'</textarea></div>';
+  // Barra
+  h+='<div class="mop-bar"><span class="mop-save" id="mop-save">'+(c.id?'Guardado':'Sin guardar')+'</span>'
+    +'<label class="mop-f" style="flex-direction:row;align-items:center;gap:6px;font-size:.76rem;color:var(--txt)"><input type="checkbox" style="width:auto" '+(c.status==='terminado'?'checked':'')+' onchange="_mopSet(&quot;status&quot;,this.checked?&quot;terminado&quot;:&quot;borrador&quot;)"> Terminado</label>'
+    +'<button class="mop-btn" onclick="_mopSave(true)">&#128190; Guardar</button>'
+    +'<button class="mop-btn pri" onclick="_mopDownload()">&#11015; Descargar Word</button></div>';
+  b.innerHTML=h;
+  _mopLoadThumbs();
+}
+function _mopEvsHtml(){
+  var c=_mop.cur;
+  return c.evid.map(function(e,i){
+    var im=(e.imgs||[]).map(function(id){
+      return '<div class="mop-img"><img data-mopimg="'+id+'" alt="Captura" onclick="_mopZoom('+id+')"><button title="Quitar" onclick="event.stopPropagation();_mopImgDel('+i+','+id+')">&#10005;</button></div>';
+    }).join('');
+    return '<div class="mop-ev'+(i===_mop.act?' act':'')+'" onclick="_mopEvAct('+i+')" ondragover="event.preventDefault()" ondrop="_mopDropImg(event,'+i+')">'
+      +'<div class="mop-ev-h">Evidencia '+(i+1)+'<span class="sp"></span>'
+      +'<button class="mop-btn" title="Subir" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();_mopEvMove('+i+',-1)">&#8593;</button>'
+      +'<button class="mop-btn" title="Bajar" '+(i===c.evid.length-1?'disabled':'')+' onclick="event.stopPropagation();_mopEvMove('+i+',1)">&#8595;</button>'
+      +'<button class="mop-btn dng" title="Eliminar evidencia" onclick="event.stopPropagation();_mopEvDel('+i+')">&#128465;</button></div>'
+      +'<textarea class="mop-ta" rows="2" placeholder="Qué se hizo / qué se ve en la captura. Ej: Se genera alarma en UUA con Loss of communication…" onfocus="_mopEvAct('+i+',true)" oninput="_mopEvText('+i+',this.value)">'+_mopEsc(e.text||'')+'</textarea>'
+      +'<div class="mop-imgs">'+im
+      +'<div class="mop-paste" onclick="event.stopPropagation();_mopEvAct('+i+',true);_mopPick('+i+')">&#128247; Clic para subir<br>o <b>Ctrl+V</b> para pegar</div></div></div>';
+  }).join('');
+}
+function _mopRedrawEvs(){var el=document.getElementById('mop-evs');if(el){el.innerHTML=_mopEvsHtml();_mopLoadThumbs();}}
+function _mopEvAct(i,noRedraw){
+  if(_mop.act===i)return;_mop.act=i;
+  var cards=document.querySelectorAll('#mop-evs .mop-ev');
+  for(var k=0;k<cards.length;k++)cards[k].classList.toggle('act',k===i);
+}
+function _mopEvAdd(){_mop.cur.evid.push({text:'',imgs:[]});_mop.act=_mop.cur.evid.length-1;_mopRedrawEvs();_mopDirty();}
+function _mopEvDel(i){
+  var e=_mop.cur.evid[i];
+  if(((e.text||'').trim()||(e.imgs||[]).length)&&!confirm('¿Eliminar la evidencia '+(i+1)+'?'))return;
+  _mop.cur.evid.splice(i,1);if(!_mop.cur.evid.length)_mop.cur.evid.push({text:'',imgs:[]});
+  _mop.act=Math.min(_mop.act,_mop.cur.evid.length-1);_mopRedrawEvs();_mopDirty();
+}
+function _mopEvMove(i,d){var a=_mop.cur.evid,j=i+d;if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;_mop.act=j;_mopRedrawEvs();_mopDirty();}
+function _mopEvText(i,v){_mop.cur.evid[i].text=v;_mopDirty();}
+function _mopImgDel(i,id){var a=_mop.cur.evid[i].imgs;a.splice(a.indexOf(id),1);_mopRedrawEvs();_mopDirty();}
+function _mopSet(k,v){
+  _mop.cur[k]=v;_mopDirty();
+  if(k==='inc'||k==='title'||k==='ambiente'){clearTimeout(_mop._rt);_mop._rt=setTimeout(function(){
+    var ae=document.activeElement,pos=ae&&ae.selectionStart,lbl=ae&&ae.parentNode&&ae.parentNode.textContent;
+    _mopRenderEditor();
+    if(lbl){var ins=document.querySelectorAll('#mop-body .mop-f');for(var x=0;x<ins.length;x++){if(ins[x].textContent===lbl){var f=ins[x].querySelector('input,textarea');if(f){f.focus();try{f.setSelectionRange(pos,pos);}catch(e){}}}}}
+  },900);}
+}
+function _mopSetRes(k){
+  var c=_mop.cur,old=_MOP_RES[c.resultado];
+  var std=!c.resultado_text||(old&&c.resultado_text===old.t);
+  c.resultado=k;if(std)c.resultado_text=_MOP_RES[k].t;
+  var labs=document.querySelectorAll('.mop-res label');var keys=Object.keys(_MOP_RES);
+  for(var x=0;x<labs.length;x++)labs[x].classList.toggle('on',keys[x]===k);
+  var t=document.getElementById('mop-res-t');if(t)t.value=c.resultado_text;
+  _mopDirty();
+}
+// ── Guardado ──
+function _mopDirty(){
+  _mop.dirty=true;var s=document.getElementById('mop-save');if(s)s.textContent='Cambios sin guardar…';
+  clearTimeout(_mop.timer);_mop.timer=setTimeout(function(){_mopSave();},1500);
+}
+function _mopPayload(){
+  var c=_mop.cur,o={};
+  ['inc','title','version','fecha','autor','clasif','ambiente','contexto','intro','resultado','resultado_text','plan','mop_name','status'].forEach(function(k){o[k]=c[k]||'';});
+  o.evid_json=JSON.stringify(c.evid.map(function(e){return {text:e.text||'',imgs:e.imgs||[]};}));
+  return o;
+}
+function _mopSave(manual){
+  clearTimeout(_mop.timer);
+  var c=_mop.cur;if(!c)return Promise.resolve();
+  if(_mop.saving)return _mop.saving.then(function(){return _mop.dirty||manual?_mopSave(manual):null;});
+  var s=document.getElementById('mop-save');if(s)s.textContent='Guardando…';
+  _mop.dirty=false;
+  var p=c.id?_mopApi('/api/mop/reports/'+c.id,{method:'PUT',body:_mopPayload()})
+            :_mopApi('/api/mop/reports',{method:'POST',body:_mopPayload()}).then(function(j){c.id=j.id;return j;});
+  _mop.saving=p.then(function(){
+    var s2=document.getElementById('mop-save');if(s2)s2.textContent=_mop.dirty?'Cambios sin guardar…':'Guardado ✓ '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+    if(manual)_mopMsg('Informe guardado');
+  },function(e){_mop.dirty=true;var s3=document.getElementById('mop-save');if(s3)s3.textContent='⚠️ No se pudo guardar: '+e.message;})
+    .then(function(){_mop.saving=null;});
+  return _mop.saving;
+}
+function _mopEnsureId(){return _mop.cur.id?Promise.resolve(_mop.cur.id):_mopSave().then(function(){if(!_mop.cur.id)throw new Error('no se pudo crear el informe');return _mop.cur.id;});}
+// ── MOP ──
+function _mopReadFile(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(f);});}
+function _mopDropMop(ev){ev.preventDefault();document.getElementById('mop-drop').classList.remove('over');var f=ev.dataTransfer.files[0];if(f)_mopLoadMop(f);}
+function _mopLoadMop(f){
+  if(!f)return;
+  if(!/[.]docx$/i.test(f.name)){_mopMsg('El MOP debe ser un archivo Word .docx','warn');return;}
+  var dz=document.getElementById('mop-drop');if(dz)dz.textContent='Leyendo '+f.name+'…';
+  _mopReadFile(f).then(function(data){return _mopApi('/api/mop/parse',{method:'POST',body:{name:f.name,data:data}});}).then(function(m){
+    var c=_mop.cur,filled=[];
+    ['inc','title','ambiente','contexto','plan'].forEach(function(k){
+      if(!m[k])return;
+      if(c[k]&&c[k]!==m[k]&&k!=='plan'&&!confirm('¿Reemplazar “'+k+'” con lo que trae el MOP?'))return;
+      c[k]=m[k];if(k!=='plan')filled.push(k);
+    });
+    c.mop_name=m.mop_name||f.name;
+    if(c.ambiente)c.intro=(c.intro||'').replace(/ambiente de [A-Za-zÁÉÍÓÚáéíóú0-9-]+/,'ambiente de '+c.ambiente);
+    _mopRenderEditor();_mopDirty();
+    _mopMsg(filled.length?'MOP cargado: se completaron '+filled.length+' campos. Revísalos.':'MOP cargado, pero no se encontraron datos para completar','ok');
+  }).catch(function(e){_mopMsg('Error leyendo el MOP: '+e.message,'err');_mopRenderEditor();});
+}
+// ── Imágenes ──
+function _mopPick(i){
+  var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;
+  inp.onchange=function(){_mopAddImgs(i,[].slice.call(inp.files));};inp.click();
+}
+function _mopDropImg(ev,i){
+  ev.preventDefault();ev.stopPropagation();
+  var fs=[].slice.call(ev.dataTransfer.files||[]).filter(function(f){return /^image[/]/.test(f.type);});
+  if(fs.length){_mopEvAct(i);_mopAddImgs(i,fs);}
+}
+function _mopAddImgs(i,files){
+  if(!files.length)return;
+  var s=document.getElementById('mop-save');if(s)s.textContent='Subiendo '+files.length+' imagen(es)…';
+  _mopEnsureId().then(function(id){
+    return files.reduce(function(pr,f){return pr.then(function(){
+      if(f.size>10*1024*1024){_mopMsg(f.name+' supera 10 MB','warn');return;}
+      return _mopReadFile(f).then(function(data){return _mopApi('/api/mop/reports/'+id+'/images',{method:'POST',body:{data:data}});})
+        .then(function(j){_mop.cur.evid[i].imgs.push(j.id);_mop.imgUrl[j.id]=null;});
+    });},Promise.resolve());
+  }).then(function(){_mopRedrawEvs();_mopDirty();})
+    .catch(function(e){_mopMsg('Error subiendo imagen: '+e.message,'err');});
+}
+function _mopLoadThumbs(){
+  var els=document.querySelectorAll('#mop-body img[data-mopimg]');
+  [].forEach.call(els,function(el){
+    var id=el.getAttribute('data-mopimg');
+    if(_mop.imgUrl[id]){el.src=_mop.imgUrl[id];return;}
+    var h=_authHdr();delete h['Content-Type'];
+    fetch('/api/mop/images/'+id,{headers:h}).then(function(r){if(!r.ok)throw 0;return r.blob();})
+      .then(function(b){_mop.imgUrl[id]=URL.createObjectURL(b);el.src=_mop.imgUrl[id];}).catch(function(){el.alt='No disponible';});
+  });
+}
+function _mopZoom(id){
+  if(!_mop.imgUrl[id])return;
+  var z=document.createElement('div');z.className='mop-zoom';z.innerHTML='<img src="'+_mop.imgUrl[id]+'" alt="Captura">';
+  z.onclick=function(){z.remove();};document.body.appendChild(z);
+}
+// Ctrl+V con una captura en el portapapeles → evidencia activa
+document.addEventListener('paste',function(ev){
+  var v=document.getElementById('mop-view');
+  if(!v||v.style.display==='none'||!_mop.cur)return;
+  var items=(ev.clipboardData&&ev.clipboardData.items)||[],fs=[];
+  for(var k=0;k<items.length;k++){if(items[k].kind==='file'&&/^image[/]/.test(items[k].type)){var f=items[k].getAsFile();if(f)fs.push(f);}}
+  if(!fs.length)return;
+  ev.preventDefault();
+  var i=Math.min(_mop.act,_mop.cur.evid.length-1);
+  _mopAddImgs(i,fs);_mopMsg('Captura pegada en la evidencia '+(i+1));
+});
+// ── Descarga ──
+function _mopDownload(id){
+  var go=function(rid){
+    var h=_authHdr();delete h['Content-Type'];
+    return fetch('/api/mop/reports/'+rid+'/docx',{headers:h}).then(function(r){
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      var fn=decodeURIComponent(r.headers.get('X-Filename')||'informe.docx');
+      return r.blob().then(function(b){
+        var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;document.body.appendChild(a);a.click();
+        setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},2000);
+        _mopMsg('Descargado: '+fn);
+      });
+    }).catch(function(e){_mopMsg('Error generando el Word: '+e.message,'err');});
+  };
+  if(id)return go(id);
+  if(!_mop.cur)return;
+  _mopSave().then(function(){if(_mop.cur.id)go(_mop.cur.id);});
 }
 
 // ═══ DASHBOARD ═══════════════════════════════════════════════════════════
