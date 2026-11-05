@@ -1521,6 +1521,10 @@ CREATE TABLE IF NOT EXISTS qa_aid_events (
     created_at      TIMESTAMPTZ  DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_qa_aid_events_aid ON qa_aid_events (access_id, ts);
+CREATE TABLE IF NOT EXISTS qa_secrets (
+    key        VARCHAR(100) PRIMARY KEY,
+    value      TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS qa_config (
     key        VARCHAR(100) PRIMARY KEY,
     value      TEXT NOT NULL DEFAULT '',
@@ -1808,6 +1812,7 @@ async def _db() -> _apg.Pool:
                                                    statement_cache_size=0, ssl=_ssl_ctx)
                 async with _db_pool.acquire() as _conn:
                     await _conn.execute(_DB_SCHEMA)
+                    await _jwt_secret_load(_conn)
                 print("[db] Conectado a Supabase PostgreSQL")
             except Exception as _e:
                 print(f"[db] Error conectando: {_e}")
@@ -1818,6 +1823,19 @@ async def _db() -> _apg.Pool:
 import hashlib as _hl, hmac as _hmac_lib, base64 as _b64_lib, secrets as _sec_lib, time as _time_lib
 
 _JWT_SECRET   = os.getenv("JWT_SECRET", _sec_lib.token_hex(32))
+
+
+async def _jwt_secret_load(conn):
+    # Sin JWT_SECRET en el entorno, el secreto aleatorio cambiaba en cada reinicio/réplica y
+    # las sesiones abiertas recibían 401. Se fija en la BD (tabla aparte, no expuesta por /api/config).
+    global _JWT_SECRET
+    if os.getenv("JWT_SECRET"):
+        return
+    await conn.execute("INSERT INTO qa_secrets (key, value) VALUES ('jwt_secret', $1) ON CONFLICT (key) DO NOTHING",
+                       _sec_lib.token_hex(32))
+    v = await conn.fetchval("SELECT value FROM qa_secrets WHERE key='jwt_secret'")
+    if v:
+        _JWT_SECRET = v
 _BOOTSTRAP_TK = os.getenv("ADMIN_BOOTSTRAP_TOKEN", "")
 
 def _hash_pwd(pwd: str) -> str:
@@ -20827,11 +20845,23 @@ var _MOP_RES={
 };
 function _mopEsc(x){return _trEsc(x);}
 function _mopToday(){var d=new Date(),M=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return ('0'+d.getDate()).slice(-2)+'-'+M[d.getMonth()]+'-'+d.getFullYear();}
-function _mopMsg(m,k){if(typeof showToast==='function')showToast(m,k||'ok');else alert(m);}
+function _mopMsg(m,k){
+  if(typeof showToast==='function')return showToast(m,k||'ok');
+  var t=document.getElementById('mop-toast');
+  if(!t){t=document.createElement('div');t.id='mop-toast';t.style.cssText='position:fixed;right:20px;bottom:20px;z-index:9999;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.18);max-width:420px';document.body.appendChild(t);}
+  var err=k==='err';t.style.background=err?'#fee2e2':'#dcfce7';t.style.color=err?'#991b1b':'#166534';t.textContent=m;t.style.display='block';
+  clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none';},err?7000:3500);
+}
 function _mopApi(url,opt){
   opt=opt||{};var h=_authHdr();if(opt.body&&typeof opt.body!=='string'){opt.body=JSON.stringify(opt.body);}
   opt.headers=h;
-  return fetch(url,opt).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||j.detail||('HTTP '+r.status));return j;});});
+  return fetch(url,opt).then(function(r){
+    if(r.status===401){
+      alert('Tu sesión expiró (el servidor se reinició). Vuelve a iniciar sesión; tus informes quedaron guardados.');
+      _doLogout();throw new Error('Sesión expirada');
+    }
+    return r.json().then(function(j){if(!r.ok)throw new Error(j.error||j.detail||('HTTP '+r.status));return j;});
+  });
 }
 function showMop(){
   _dashStopRefresh();
