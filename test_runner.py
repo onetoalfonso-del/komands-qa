@@ -9158,6 +9158,71 @@ def _coreuse_value_tokens(html: str) -> list:
     txt = re.sub(r'<script.*?</script>|<style.*?</style>', ' ', html, flags=re.S | re.I)
     return [t.strip() for t in re.split(r'<[^>]+>', txt) if t.strip()]
 
+_CU_SNAP_LABELS = {"ruta logica", "cto", "splitter primario", "splitter secundario", "serial ont",
+                   "estado", "vno", "direccion cto", "olt", "puerto", "modelo ont"}
+
+
+def _cu_norm(v: str) -> str:
+    import unicodedata as _ud
+    return "".join(c for c in _ud.normalize("NFD", v or "") if _ud.category(c) != "Mn").lower().strip()
+
+
+def _cu_snapshot(html: str) -> dict:
+    """Foto del Access ID en CoreUse (tarjeta "Recursos" + último flujo):
+    {estado, recursos:[{k,v}], campos:{label: valor}, ultimo_flujo:{...}}."""
+    toks = _coreuse_value_tokens(html)
+    snap = {"estado": "", "recursos": [], "campos": {}, "ultimo_flujo": None}
+    try:
+        i0 = toks.index("Recursos")
+    except ValueError:
+        i0 = -1
+    if i0 >= 0:
+        # Cadena de recursos: "Access ID · In Stock" seguido de la etiqueta "Access ID"
+        i = i0
+        grid = -1
+        while i < len(toks) - 1:
+            t = toks[i]
+            if t.startswith("grid "):
+                grid = i
+                break
+            if " · " in t:
+                k, v = t.split(" · ", 1)
+                nxt = next((x for x in toks[i + 1:i + 4] if not _cu_is_class(x)), "")
+                if nxt.strip() == k.strip():
+                    snap["recursos"].append({"k": k.strip(), "v": v.strip()})
+            i += 1
+        # Campos: etiqueta / valor (sin tokens de clases CSS) hasta la sección Factibilidad
+        if grid >= 0:
+            vals = []
+            for t in toks[grid + 1:]:
+                if t in ("Factibilidad", "Flujos ejecutados") or _CU_DATE_RE.match(t):
+                    break
+                if not _cu_is_class(t):
+                    vals.append(t)
+            j = 0
+            while j < len(vals):
+                lbl = vals[j]
+                nxt = vals[j + 1] if j + 1 < len(vals) else ""
+                if nxt and _cu_norm(nxt) not in _CU_SNAP_LABELS:
+                    snap["campos"][lbl] = nxt
+                    j += 2
+                else:
+                    snap["campos"][lbl] = ""
+                    j += 1
+    for lbl, v in snap["campos"].items():
+        if _cu_norm(lbl) == "estado":
+            snap["estado"] = v
+    if not snap["estado"]:
+        aid_r = next((r["v"] for r in snap["recursos"] if _cu_norm(r["k"]) == "access id"), "")
+        snap["estado"] = aid_r
+    rows = _cu_flow_rows(html)
+    if rows:
+        last = max(rows, key=lambda r: r["ts_ms"])
+        snap["ultimo_flujo"] = {k: last.get(k) for k in ("date", "ts_ms", "name", "code", "msg", "table")}
+        snap["n_flujos"] = len(rows)
+    return snap
+
+
 def _coreuse_resource_state(html: str, access_id: str) -> dict:
     """
     Determina si el acceso está liberado (InStock) según la página de CoreUse.
@@ -9170,6 +9235,20 @@ def _coreuse_resource_state(html: str, access_id: str) -> dict:
     hl = html.lower()
     if not ("flujos ejecutados" in hl or "recursos" in hl or access_id in html):
         return {"state": "sin_datos", "values": [], "evidence": ["Access ID sin registros en CoreUse"]}
+
+    try:
+        snap = _cu_snapshot(html)
+    except Exception as _se:
+        snap = {"error": str(_se)}
+    if snap.get("estado") or snap.get("recursos"):
+        _is_in = lambda v: re.sub(r'[\s_\-]', '', v or "").lower() == "instock"
+        aid_r = next((r["v"] for r in snap["recursos"] if _cu_norm(r["k"]) == "access id"), "")
+        st = "instock" if (_is_in(snap["estado"]) or _is_in(aid_r)) else "en_uso"
+        ev = [f"{r['k']}: {r['v']}" for r in snap["recursos"]]
+        return {"state": st, "values": [snap["estado"]] if snap["estado"] else [],
+                "evidence": ev, "snap": snap}
+    if snap.get("ultimo_flujo") is None and "flujos ejecutados" not in hl:
+        return {"state": "sin_datos", "values": [], "evidence": ["CoreUse no muestra recursos ni flujos"], "snap": snap}
 
     tokens = _coreuse_value_tokens(html)
 
@@ -9211,7 +9290,8 @@ async def _aid_cu_verify(access_id: str) -> dict:
     pool = await _db()
     if pool and res["state"] != "error":
         try:
-            detail = json.dumps({"values": res["values"], "evidence": res["evidence"]}, ensure_ascii=False)
+            detail = json.dumps({"values": res["values"], "evidence": res["evidence"],
+                                 "snap": res.get("snap") or {}}, ensure_ascii=False)
             async with pool.acquire() as conn:
                 await conn.execute("""
                     INSERT INTO qa_access_ids (access_id, vno, state, last_op, last_result, ts,
@@ -9302,6 +9382,7 @@ async def api_aid_inventory():
             "cu_state": t.get("cu_state") or "",
             "cu_values": cu_det.get("values") or [],
             "cu_evidence": cu_det.get("evidence") or [],
+            "cu_snap": cu_det.get("snap") or {},
             "cu_checked_at": t.get("cu_checked_at") or 0,
             "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={aid}",
         })
@@ -12306,6 +12387,10 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
           <option value="age_lt1">Abiertos · menos de 1 día</option>
           <option value="age_1_7">Abiertos · 1 a 7 días</option>
           <option value="age_gt7">Abiertos · más de 7 días</option>
+        </select>
+        <select id="inv-cuest" onchange="_invRender()" title="Estado real del Access ID en CoreUse (última verificación)"
+          style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
+          <option value="">Estado CoreUse: todos</option>
         </select>
         <select id="inv-vno" onchange="_invRender()"
           style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;flex-shrink:0">
@@ -20586,9 +20671,11 @@ function _invFiltered(){
   var q=((document.getElementById('inv-search')||{}).value||'').trim().toLowerCase();
   var f=(document.getElementById('inv-filter')||{}).value||'pendientes';
   var v=(document.getElementById('inv-vno')||{}).value||'';
+  var ce=(document.getElementById('inv-cuest')||{}).value||'';
   return _invData.filter(function(x){
     if(q&&x.access_id.toLowerCase().indexOf(q)<0)return false;
     if(v&&x.vno!==v)return false;
+    if(ce&&_invCuEstado(x)!==ce)return false;
     if(f==='pendientes')return x.cu_state!=='instock';
     if(f==='instock')return x.cu_state==='instock';
     if(f==='sin_verificar')return !x.cu_state;
@@ -20603,8 +20690,55 @@ function _invFiltered(){
     return true;
   });
 }
+// Estado real en CoreUse (campo "Estado" de la tarjeta Recursos) de la última verificación
+function _invCuEstado(x){
+  var sn=x.cu_snap||{};
+  if(sn.estado)return sn.estado;
+  if(x.cu_state==='instock')return 'In Stock';
+  if(x.cu_state==='sin_datos')return 'Sin registros';
+  return x.cu_state?'(verificar de nuevo)':'Sin verificar';
+}
+function _invEstColor(e){
+  var n=(e||'').toLowerCase().replace(/[^a-z]/g,'');
+  if(n==='instock')return '#22C55E';
+  if(n==='sinverificar'||n==='verificardenuevo')return '#94A3B8';
+  if(n==='sinregistros')return '#F59E0B';
+  return '#EF4444';
+}
+function _invSnapHtml(x){
+  var sn=x.cu_snap||{};
+  var h='';
+  if((sn.recursos||[]).length){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">'+sn.recursos.map(function(r){
+      var c=_invEstColor(r.v);
+      return '<span title="'+_trEsc(r.k+': '+r.v)+'" style="font-size:.6rem;padding:1px 5px;border-radius:4px;border:1px solid '+c+'55;color:'+c+';white-space:nowrap">'+_trEsc(r.k)+' · '+_trEsc(r.v)+'</span>';
+    }).join('')+'</div>';
+  }
+  var c=sn.campos||{},parts=[];
+  ['CTO','Splitter secundario','Serial ONT','Ruta lógica'].forEach(function(k){if(c[k])parts.push('<b style="color:var(--txt2);font-weight:600">'+_trEsc(k)+'</b> '+_trEsc(c[k]));});
+  if(parts.length)h+='<div style="font-size:.62rem;color:var(--txt3);margin-top:3px;line-height:1.5">'+parts.join(' · ')+'</div>';
+  if(c['Dirección CTO'])h+='<div style="font-size:.6rem;color:var(--txt3)">'+_trEsc(c['Dirección CTO'])+'</div>';
+  return h;
+}
+function _invLastFlowHtml(x){
+  var f=(x.cu_snap||{}).ultimo_flujo;
+  if(!f)return '';
+  var ok=f.code==='0';
+  return '<div style="font-size:.64rem;margin-top:2px"><span style="font-family:var(--mono);font-weight:700;color:'+(ok?'#22C55E':'#EF4444')+'">'+_trEsc(f.code)+'</span> '
+    +_trEsc(f.name||'')+(f.msg?' · <span style="color:var(--txt2)">'+_trEsc(f.msg)+'</span>':'')
+    +'<div style="color:var(--txt3);font-size:.6rem">'+_trEsc(f.date||'')+'</div></div>';
+}
 function _invRender(){
   var all=_invData;
+  // Opciones del filtro por estado real CoreUse
+  var _ces={};all.forEach(function(x){var e=_invCuEstado(x);_ces[e]=(_ces[e]||0)+1;});
+  var _cs=document.getElementById('inv-cuest');
+  if(_cs){
+    var _cv=_cs.value;
+    _cs.innerHTML='<option value="">Estado CoreUse: todos</option>'+Object.keys(_ces).sort().map(function(e){
+      return '<option value="'+_trEsc(e)+'"'+(e===_cv?' selected':'')+'>'+_trEsc(e)+' ('+_ces[e]+')</option>';}).join('');
+    if(_cv&&!_ces[_cv])_cs.value='';
+  }
   var cnt={total:all.length,instock:0,en_uso:0,sinv:0,otro:0};
   all.forEach(function(x){if(x.cu_state==='instock')cnt.instock++;else if(x.cu_state==='en_uso')cnt.en_uso++;else if(!x.cu_state)cnt.sinv++;else cnt.otro++;});
   document.getElementById('inv-summary').innerHTML=
@@ -20612,7 +20746,10 @@ function _invRender(){
     +'<span style="color:#22C55E">✅ '+cnt.instock+' InStock (cerrados)</span>'
     +'<span style="color:#EF4444">⛔ '+cnt.en_uso+' en uso</span>'
     +'<span>— '+cnt.sinv+' sin verificar</span>'
-    +(cnt.otro?'<span style="color:#F59E0B">❓ '+cnt.otro+' sin datos / no identificado</span>':'');
+    +(cnt.otro?'<span style="color:#F59E0B">❓ '+cnt.otro+' sin datos / no identificado</span>':'')
+    +'<span style="flex-basis:100%;height:0"></span><span style="color:var(--txt3)">Estado real en CoreUse:</span>'
+    +Object.keys(_ces).sort().map(function(e){var c=_invEstColor(e);
+      return '<span style="cursor:pointer;padding:1px 8px;border-radius:10px;background:'+c+'1f;color:'+c+';font-weight:600" title="Filtrar" onclick="var s=document.getElementById(&quot;inv-cuest&quot;);s.value=this.dataset.e;var f=document.getElementById(&quot;inv-filter&quot;);if(f)f.value=&quot;todos&quot;;_invRender()" data-e="'+_trEsc(e)+'">'+_trEsc(e)+' · '+_ces[e]+'</span>';}).join('');
   var rows=_invFiltered();
   var nSel=Object.keys(_invSel).length;
   document.getElementById('inv-sel-count').textContent=nSel?nSel+' seleccionado'+(nSel>1?'s':''):'';
@@ -20624,12 +20761,13 @@ function _invRender(){
     +'<thead><tr style="font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3)">'
     +'<th style="'+th+';width:28px"><input type="checkbox" data-act="selall" '+(allSel?'checked':'')+'></th>'
     +'<th style="'+th+'">Access ID</th><th style="'+th+'">VNO</th><th style="'+th+'">Estado runner</th>'
-    +'<th style="'+th+'">Estado CoreUse</th><th style="'+th+'">Última operación</th><th style="'+th+'">Última actividad</th>'
+    +'<th style="'+th+'">Estado CoreUse (foto real)</th><th style="'+th+'">Último flujo CoreUse</th><th style="'+th+'">Última operación runner</th><th style="'+th+'">Última actividad</th>'
     +'<th style="'+th+'">Fuentes</th><th style="'+th+'"></th></tr></thead><tbody>';
   rows.forEach(function(x){
     var a=_trEsc(x.access_id);
     var rs=_INV_RUN_ST[x.state]||_INV_RUN_ST.desconocido;
     var cs=_INV_CU_ST[x.cu_state||'']||_INV_CU_ST.desconocido;
+    var _est=_invCuEstado(x),_ec=_invEstColor(_est),_hasSnap=!!(x.cu_snap&&(x.cu_snap.estado||(x.cu_snap.recursos||[]).length));
     var incons=x.state==='dado_de_baja'&&x.cu_state&&x.cu_state!=='instock';
     var ev=(x.cu_evidence||[]).join(' | ');
     h+='<tr data-aid="'+a+'"'+(incons?' style="background:rgba(239,68,68,.06)"':'')+'>'
@@ -20637,11 +20775,14 @@ function _invRender(){
       +'<td style="'+td+';font-family:var(--mono);white-space:nowrap"><a href="'+_trEsc(x.coreuse_url)+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:none" title="Abrir en CoreUse">'+a+' ↗</a></td>'
       +'<td style="'+td+'">'+_trEsc(_INV_VNO_LBL[x.vno]||x.vno_lbl||x.vno)+'</td>'
       +'<td style="'+td+'"><span style="padding:2px 8px;border-radius:10px;background:'+rs.c+'22;color:'+rs.c+';font-weight:600;white-space:nowrap">'+rs.l+'</span></td>'
-      +'<td style="'+td+'"><span title="'+_trEsc(ev)+'" style="padding:2px 8px;border-radius:10px;background:'+cs.c+'22;color:'+cs.c+';font-weight:600;white-space:nowrap">'+cs.l+'</span>'
-      +((x.cu_values||[]).length&&x.cu_state!=='instock'?'<div style="font-size:.64rem;color:var(--txt2);margin-top:3px">'+_trEsc(x.cu_values.slice(0,3).join(' · '))+'</div>':'')
+      +'<td style="'+td+';min-width:220px">'+(_hasSnap
+        ?'<span title="'+_trEsc(ev)+'" style="padding:2px 8px;border-radius:10px;background:'+_ec+'22;color:'+_ec+';font-weight:700;white-space:nowrap">'+_trEsc(_est)+'</span>'+_invSnapHtml(x)
+        :'<span title="'+_trEsc(ev)+'" style="padding:2px 8px;border-radius:10px;background:'+cs.c+'22;color:'+cs.c+';font-weight:600;white-space:nowrap">'+cs.l+'</span>'
+          +(x.cu_state?'<div style="font-size:.6rem;color:var(--txt3);margin-top:3px">Verificado con la versión anterior: vuelve a verificar para ver la foto completa</div>':''))
       +(x.cu_checked_at?'<div style="font-size:.62rem;color:var(--txt3);margin-top:2px">'+_trFmtTs(x.cu_checked_at)+'</div>':'')
       +(incons?'<div style="font-size:.62rem;color:#EF4444;margin-top:2px">Runner: dado de baja · CoreUse: no InStock</div>':'')
       +'</td>'
+      +'<td style="'+td+';min-width:170px">'+(_invLastFlowHtml(x)||'<span style="color:var(--txt3)">—</span>')+'</td>'
       +'<td style="'+td+';color:var(--txt2)">'+_trEsc(x.last_op||'—')+(x.last_result?' '+(x.last_result==='ok'?'✅':'❌'):'')+'</td>'
       +'<td style="'+td+';color:var(--txt3);white-space:nowrap">'+_trFmtTs(x.last_ts)+'</td>'
       +'<td style="'+td+';color:var(--txt3)">'+_trEsc((x.sources||[]).join(', '))+'</td>'
@@ -20696,6 +20837,7 @@ async function _invVerifyList(list){
       var x=_invData.find(function(y){return y.access_id===list[i];});
       if(x&&d.state){
         x.cu_state=d.state;x.cu_values=d.values||[];x.cu_evidence=d.evidence||[];x.cu_checked_at=d.checked_at||Date.now();
+        x.cu_snap=d.snap||{};
         if(d.state==='instock')x.state='dado_de_baja';
       }
       if(d.state==='instock')ok++;
