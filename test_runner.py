@@ -9167,10 +9167,23 @@ def _cu_norm(v: str) -> str:
     return "".join(c for c in _ud.normalize("NFD", v or "") if _ud.category(c) != "Mn").lower().strip()
 
 
+def _cu_fix(v):
+    """Repara texto UTF-8 leído como Latin-1 ("lÃ³gica" → "lógica")."""
+    if not isinstance(v, str) or not ("Ã" in v or "Â" in v):
+        return v
+
+    def _one(m):
+        try:
+            return m.group(0).encode("latin-1").decode("utf-8")
+        except Exception:
+            return m.group(0)
+    return re.sub("[Â-ô][-¿]+", _one, v)
+
+
 def _cu_snapshot(html: str) -> dict:
     """Foto del Access ID en CoreUse (tarjeta "Recursos" + último flujo):
     {estado, recursos:[{k,v}], campos:{label: valor}, ultimo_flujo:{...}}."""
-    toks = _coreuse_value_tokens(html)
+    toks = [_cu_fix(t) for t in _coreuse_value_tokens(html)]
     snap = {"estado": "", "recursos": [], "campos": {}, "ultimo_flujo": None}
     try:
         i0 = toks.index("Recursos")
@@ -9191,24 +9204,18 @@ def _cu_snapshot(html: str) -> dict:
                 if nxt.strip() == k.strip():
                     snap["recursos"].append({"k": k.strip(), "v": v.strip()})
             i += 1
-        # Campos: etiqueta / valor (sin tokens de clases CSS) hasta la sección Factibilidad
+        # Campos: etiqueta conocida → siguiente valor (CoreUse repite el valor como title)
         if grid >= 0:
             vals = []
             for t in toks[grid + 1:]:
-                if t in ("Factibilidad", "Flujos ejecutados") or _CU_DATE_RE.match(t):
+                if t in ("card", "Factibilidad", "Flujos ejecutados") or _CU_DATE_RE.match(t):
                     break
                 if not _cu_is_class(t):
                     vals.append(t)
-            j = 0
-            while j < len(vals):
-                lbl = vals[j]
-                nxt = vals[j + 1] if j + 1 < len(vals) else ""
-                if nxt and _cu_norm(nxt) not in _CU_SNAP_LABELS:
-                    snap["campos"][lbl] = nxt
-                    j += 2
-                else:
-                    snap["campos"][lbl] = ""
-                    j += 1
+            for j, lbl in enumerate(vals):
+                if _cu_norm(lbl) in _CU_SNAP_LABELS and lbl not in snap["campos"]:
+                    nxt = vals[j + 1] if j + 1 < len(vals) else ""
+                    snap["campos"][lbl] = "" if _cu_norm(nxt) in _CU_SNAP_LABELS else nxt
     for lbl, v in snap["campos"].items():
         if _cu_norm(lbl) == "estado":
             snap["estado"] = v
@@ -9218,7 +9225,7 @@ def _cu_snapshot(html: str) -> dict:
     rows = _cu_flow_rows(html)
     if rows:
         last = max(rows, key=lambda r: r["ts_ms"])
-        snap["ultimo_flujo"] = {k: last.get(k) for k in ("date", "ts_ms", "name", "code", "msg", "table")}
+        snap["ultimo_flujo"] = {k: _cu_fix(last.get(k)) for k in ("date", "ts_ms", "name", "code", "msg", "table")}
         snap["n_flujos"] = len(rows)
     return snap
 
