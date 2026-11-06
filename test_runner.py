@@ -9469,6 +9469,12 @@ def _cu_snapshot(html: str) -> dict:
         last = max(rows, key=lambda r: r["ts_ms"])
         snap["ultimo_flujo"] = {k: _cu_fix(last.get(k)) for k in ("date", "ts_ms", "name", "code", "msg", "table")}
         snap["n_flujos"] = len(rows)
+
+        def _ok(prefix):
+            return any((r.get("table") or "").startswith(prefix) and r.get("code") == "0" for r in rows)
+        snap["fia"] = _ok("u_intervention_finalization")
+        snap["cancelado"] = _ok("u_ooss_cancellation")
+        snap["baja"] = _ok("u_access_deregistration")
     return snap
 
 
@@ -9610,6 +9616,11 @@ async def api_aid_inventory():
         trk = {r["access_id"]: dict(r) for r in await pool.fetch(
             "SELECT access_id, vno_lbl, state, last_op, last_result, ts, cu_state, cu_detail, cu_checked_at "
             "FROM qa_access_ids")}
+        fia_ok = {r["access_id"] for r in await pool.fetch(
+            "SELECT DISTINCT access_id FROM qa_aid_events "
+            "WHERE func='Finalización Intervención Asegurada' AND (final_pass OR api_pass)")}
+        fia_ok |= {r["access_id"] for r in await pool.fetch(
+            "SELECT DISTINCT access_id FROM qa_cu_flows WHERE tabla LIKE 'u_intervention_finalization%' AND code='0'")}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -9632,6 +9643,7 @@ async def api_aid_inventory():
             "cu_values": cu_det.get("values") or [],
             "cu_evidence": cu_det.get("evidence") or [],
             "cu_snap": cu_det.get("snap") or {},
+            "had_fia": aid in fia_ok,
             "cu_checked_at": t.get("cu_checked_at") or 0,
             "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={aid}",
         })
@@ -10879,13 +10891,14 @@ async def api_aid_inventory_close(request: Request):
     if not aids:
         return JSONResponse({"error": "Sin access IDs"}, status_code=400)
     svc_type = body.get("service_type") or "FTTH"
+    modes = {str(k): v for k, v in (body.get("modes") or {}).items() if v in ("cancel", "baja")}
     payload = await _get_auth(request)
     user_email = (payload or {}).get("email", "")
     job_id = _uid.uuid4().hex[:12]
     job = {"id": job_id, "total": len(aids), "done": 0, "running": True,
            "items": {a: {"access_id": a, "status": "pendiente", "steps": [], "cu_state": ""} for a in aids}}
     _aid_close_jobs[job_id] = job
-    _aio.create_task(_aid_close_run(job, aids, svc_type, user_email))
+    _aio.create_task(_aid_close_run(job, aids, svc_type, user_email, modes))
     return {"job_id": job_id}
 
 
@@ -10897,7 +10910,7 @@ async def api_aid_inventory_close_status(job_id: str):
     return {**job, "items": list(job["items"].values())}
 
 
-async def _aid_close_run(job: dict, aids: list, svc_type: str, user_email: str):
+async def _aid_close_run(job: dict, aids: list, svc_type: str, user_email: str, modes: dict = None):
     import urllib.request as _ur2
     base_url = f"http://localhost:{_AGENDA_PORT}"
     pool = await _db()
@@ -10921,8 +10934,14 @@ async def _aid_close_run(job: dict, aids: list, svc_type: str, user_email: str):
         async with sem:
             it = job["items"][aid]
             vno = aid[:2]
-            funcs = (["Baja Total de Servicio"] if states.get(aid) == "cancelado"
-                     else ["Cancelación Orden de Servicio", "Baja Total de Servicio"])
+            mode = (modes or {}).get(aid)
+            if mode == "cancel":      # sin FIA: la orden sigue abierta → se cancela
+                funcs = ["Cancelación Orden de Servicio"]
+            elif mode == "baja":      # con FIA: el servicio quedó instalado → se da de baja
+                funcs = ["Baja Total de Servicio"]
+            else:
+                funcs = (["Baja Total de Servicio"] if states.get(aid) == "cancelado"
+                         else ["Cancelación Orden de Servicio", "Baja Total de Servicio"])
             it["status"] = "ejecutando"
             loop = _aio.get_running_loop()
             for fn in funcs:
@@ -21076,6 +21095,7 @@ function _invRender(){
       +'<button data-act="traza" title="Ver trazabilidad" style="padding:2px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">📜</button> '
       +'<button data-act="verify" title="Verificar en CoreUse" style="padding:2px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🔍</button> '
       +'<button data-act="raw" title="Ver lo que lee el runner de CoreUse (debug)" style="padding:2px 6px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.65rem;cursor:pointer">🧪</button> '
+      +_invRelBtn(x)
       +'</td></tr>';
   });
   h+='</tbody></table>';
@@ -21096,11 +21116,46 @@ function _invTblClick(e){
   if(act==='traza'){e.preventDefault();showTrazabilidad(aid);return;}
   if(act==='verify'){_invVerifyList([aid]);return;}
   if(act==='raw'){_invShowRaw(aid);return;}
+  if(act==='release'){_invRelease(aid);return;}
 }
 function _invProgress(msg){
   var p=document.getElementById('inv-progress');
   if(!p)return;
   if(msg){p.style.display='';p.innerHTML=msg;}else{p.style.display='none';p.innerHTML='';}
+}
+// ── Liberar recursos de un AID: sin FIA → Cancelación OOSS; con FIA → Baja Total ──
+function _invRelAction(x){
+  var sn=x.cu_snap||{};
+  if(x.cu_state==='instock')return {act:'',why:'Ya está InStock en CoreUse (recursos liberados)'};
+  var fia=(sn.fia===true||sn.fia===false)?sn.fia:!!x.had_fia;
+  var src=(sn.fia===true||sn.fia===false)?'según CoreUse':'según las ejecuciones del runner (verifica en CoreUse para confirmarlo)';
+  if(sn.cancelado||x.state==='cancelado')return {act:'baja',why:'La orden ya fue cancelada: falta la Baja Total para liberar los recursos',fia:fia};
+  if(fia)return {act:'baja',why:'Tuvo FIA ('+src+'): el servicio quedó instalado, se libera con Baja Total de Servicio',fia:true};
+  return {act:'cancel',why:'No tuvo FIA ('+src+'): la orden sigue abierta, se libera con Cancelación Orden de Servicio',fia:false};
+}
+function _invRelBtn(x){
+  var a=_invRelAction(x);
+  if(!a.act)return '<span title="'+_trEsc(a.why)+'" style="font-size:.62rem;color:#22C55E;font-weight:600;white-space:nowrap">✓ Liberado</span>';
+  var bj=a.act==='baja';
+  return '<button data-act="release" title="'+_trEsc(a.why)+'" style="padding:2px 8px;border-radius:4px;border:1px solid '+(bj?'#EF4444':'#F59E0B')+';background:'+(bj?'#EF4444':'#F59E0B')+'1a;color:'+(bj?'#EF4444':'#B45309')+';font-size:.64rem;font-weight:700;cursor:pointer;white-space:nowrap">'
+    +(bj?'⬇ Dar de baja':'✖ Cancelar OOSS')+'</button>';
+}
+async function _invRelease(aid){
+  var x=_invData.find(function(y){return y.access_id===aid;});if(!x)return;
+  var a=_invRelAction(x);if(!a.act)return;
+  if(_invBusy){if(typeof showToast==='function')showToast('Hay una operación en curso','err');return;}
+  var svc=(document.getElementById('inv-svc')||{}).value||'FTTH';
+  var op=a.act==='baja'?'Baja Total de Servicio':'Cancelación Orden de Servicio';
+  if(!confirm('Liberar recursos de '+aid+' · Se ejecutará en ServiceNow: '+op+' (u_service_type '+svc+'). Motivo: '+a.why+'. Luego se verifica InStock en CoreUse (~2-3 min). ¿Continuar?'))return;
+  _invBusy=true;
+  _invProgress('▶ '+_trEsc(op)+' · '+_trEsc(aid)+'…');
+  try{
+    var md={};md[aid]=a.act;
+    var r=await fetch('/api/aid-inventory/close',{method:'POST',headers:_authHdr(),body:JSON.stringify({access_ids:[aid],service_type:svc,modes:md})});
+    var d=await r.json();
+    if(!d.job_id){_invBusy=false;_invProgress('');if(typeof showToast==='function')showToast(d.error||'Error iniciando la liberación','err');return;}
+    _invPollJob(d.job_id);
+  }catch(e){_invBusy=false;_invProgress('');if(typeof showToast==='function')showToast('Error: '+e,'err');}
 }
 async function _invVerifySelected(){
   var list=Object.keys(_invSel);
