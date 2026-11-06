@@ -1522,6 +1522,29 @@ CREATE TABLE IF NOT EXISTS qa_aid_events (
     created_at      TIMESTAMPTZ  DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_qa_aid_events_aid ON qa_aid_events (access_id, ts);
+CREATE TABLE IF NOT EXISTS qa_cu_flows (
+    sys_id         VARCHAR(64) PRIMARY KEY,
+    access_id      VARCHAR(120) NOT NULL,
+    tabla          VARCHAR(120) DEFAULT '',
+    flujo          VARCHAR(200) DEFAULT '',
+    fecha          VARCHAR(40)  DEFAULT '',
+    ts_ms          BIGINT DEFAULT 0,
+    vno            VARCHAR(8)   DEFAULT '',
+    olt            VARCHAR(120) DEFAULT '',
+    pon            VARCHAR(60)  DEFAULT '',
+    dir            TEXT DEFAULT '',
+    cto            VARCHAR(120) DEFAULT '',
+    code           VARCHAR(20)  DEFAULT '',
+    code_desc      TEXT DEFAULT '',
+    flow_state     VARCHAR(120) DEFAULT '',
+    breaking_point VARCHAR(120) DEFAULT '',
+    error_msg      TEXT DEFAULT '',
+    detail_http    INT DEFAULT 0,
+    fields_json    TEXT DEFAULT '{}',
+    fetched_by     VARCHAR(200) DEFAULT '',
+    fetched_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS qa_cu_flows_aid ON qa_cu_flows (access_id);
 CREATE TABLE IF NOT EXISTS qa_secrets (
     key        VARCHAR(100) PRIMARY KEY,
     value      TEXT NOT NULL
@@ -8673,6 +8696,206 @@ async def api_coreuse_row_detail(access_id: str = "", table: str = ""):
     return JSONResponse({"access_id": access_id, "rows": out})
 
 
+# ── CoreUse AID: cada flujo del Access ID con su detalle (botón ⓘ), guardado para filtrar ──
+_CU_FLOWS_MAX = 80
+_CU_RUTA_RE = re.compile(r'^(.*?_OLT_\d+)_(\d+)_(\d+)(?:_(\d+))?$', re.I)
+_CU_FLOW_COLS = ("sys_id", "access_id", "tabla", "flujo", "fecha", "ts_ms", "vno", "olt", "pon", "dir", "cto",
+                 "code", "code_desc", "flow_state", "breaking_point", "error_msg", "detail_http")
+
+
+def _cu_flows_page(access_id: str):
+    """GET /flujos-qa del Access ID con desbloqueo / re-login. Llamar con _coreuse_lock tomado.
+    Retorna (sesión, html, error)."""
+    global _coreuse_session
+    s = _coreuse_get_session()
+    if not s:
+        return None, "", "No se pudo autenticar en CoreUse"
+
+    def _get(sess):
+        return sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                        verify=False, timeout=20, allow_redirects=True)
+    r = _get(s)
+    if _cu_is_locked(r):
+        if not _coreuse_unlock(s, _cu_lock_url(r)):
+            _coreuse_session = None
+            s = _coreuse_login()
+            if not s:
+                return None, "", "CoreUse bloqueado y re-login falló"
+        r = _get(s)
+    if _cu_is_login(r):
+        _coreuse_session = None
+        s = _coreuse_login()
+        if not s:
+            return None, "", "Re-login CoreUse fallido"
+        r = _get(s)
+    return s, r.content.decode("utf-8", errors="replace"), None
+
+
+def _cu_flow_derive(aid: str, fields: dict, snap: dict, row: dict) -> dict:
+    """Columnas tipo ServiceNow (OLT, PON, dirección, VNO, código) desde el detalle ⓘ del flujo;
+    lo que el flujo no trae se completa con la tarjeta Recursos del Access ID."""
+    f = {k.lower(): v for k, v in fields.items()}
+
+    def first(*pats):
+        for pt in pats:
+            for k, v in f.items():
+                if re.search(pt, k) and v not in ("", "null", "None"):
+                    return v
+        return ""
+    campos = (snap or {}).get("campos") or {}
+    olt = first(r'^u_olt(_name)?$', r'olt_name$')
+    slot, pon = first(r'^u_slot$', r'^u_cto1_slot$'), first(r'^u_pon$', r'^u_cto1_pon$')
+    pon_s = f"{slot}/{pon}" if slot and pon else pon
+    if not pon_s:
+        # Puerto de la CTO que corresponde a este AID: "0/1/6/107" → slot 1 / PON 6
+        for k, v in f.items():
+            m = re.match(r'^u_cto_port(\d+)_access_id$', k)
+            if m and v == aid:
+                parts = (f.get(f"u_cto_port{m.group(1)}_id") or "").split("/")
+                if len(parts) >= 3:
+                    pon_s = f"{parts[1]}/{parts[2]}"
+                break
+    ruta = next((v for k, v in campos.items() if _cu_norm(k) == "ruta logica"), "")
+    m = _CU_RUTA_RE.match(ruta or "")
+    if m:
+        olt = olt or m.group(1)
+        pon_s = pon_s or f"{m.group(2)}/{m.group(3)}"
+    dir_ = first(r'^u_eqpt_term_address_gps$', r'^u_address_gps$', r'address_gps$') \
+        or next((v for k, v in campos.items() if _cu_norm(k) == "direccion cto"), "")
+    cto = first(r'^u_eqpt_term_ident$', r'^u_cto_code$', r'^u_cto1_code$') \
+        or next((v for k, v in campos.items() if _cu_norm(k) == "cto"), "")
+    err = first(r'^u_error_message$')
+    desc = first(r'^u_return_code_desc$') or row.get("msg") or ""
+    return {
+        "vno": first(r'^u_id_vno$', r'^u_vno_id$') or aid[:2],
+        "olt": olt, "pon": pon_s, "dir": dir_, "cto": cto,
+        "code": first(r'^u_return_code$') or row.get("code") or "",
+        "code_desc": desc,
+        "flow_state": first(r'^u_flow_state$'),
+        "breaking_point": first(r'^u_breaking_point$'),
+        "error_msg": err if err and err != desc else "",
+    }
+
+
+def _cu_flows_collect(aid: str, skip: set) -> tuple:
+    """Lee la página del AID y el detalle ⓘ de cada flujo (el lock se suelta entre filas
+    para no frenar las ejecuciones en curso)."""
+    with _coreuse_lock:
+        s, html, err = _cu_flows_page(aid)
+    if err:
+        return None, err
+    snap = _cu_snapshot(html)
+    rows = sorted([x for x in _cu_flow_rows(html) if x.get("sys_id")],
+                  key=lambda x: x["ts_ms"] or 0, reverse=True)[:_CU_FLOWS_MAX]
+    out = []
+    for row in rows:
+        if row["sys_id"] in skip:
+            continue
+        st, kv = 0, {}
+        with _coreuse_lock:
+            try:
+                st, txt = _cu_row_detail(_coreuse_get_session() or s, aid, row["sys_id"], row["table"])
+                kv = _cu_flatten_kv(txt) if st == 200 else {}
+            except Exception:
+                st = 0
+        fields = {k: _cu_fix(v) for k, v in kv.items() if k.startswith("u_") and v not in ("", "null")}
+        row = {**row, "name": _cu_fix(row.get("name")), "msg": _cu_fix(row.get("msg"))}
+        d = _cu_flow_derive(aid, fields, snap, row)
+        out.append({"sys_id": row["sys_id"], "access_id": aid, "tabla": row["table"], "flujo": row["name"],
+                    "fecha": row["date"], "ts_ms": int(row["ts_ms"] or 0), **d,
+                    "detail_http": st, "fields": fields})
+    return {"snap": snap, "rows": out, "total": len(rows)}, None
+
+
+def _cu_flow_out(r) -> dict:
+    d = {k: r[k] for k in _CU_FLOW_COLS}
+    d["fetched_at"] = int(r["fetched_at"].timestamp() * 1000) if r["fetched_at"] else 0
+    return d
+
+
+@app.post("/api/cu-flows/fetch")
+async def api_cu_flows_fetch(req: Request):
+    user = await _get_auth(req)
+    if not user:
+        raise HTTPException(status_code=401)
+    b = await req.json()
+    aid = (b.get("access_id") or "").strip()
+    if not aid or len(aid) > 120 or not re.match(r'^[A-Za-z0-9_.\-]+$', aid):
+        return JSONResponse({"error": "Access ID no válido"}, status_code=400)
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return JSONResponse({"error": "CoreUse no configurado"}, status_code=503)
+    pool = await _db()
+    # Siempre en vivo: se lee CoreUse completo en este momento (página + detalle ⓘ de cada flujo)
+    loop = _aio.get_event_loop()
+    res, err = await loop.run_in_executor(None, lambda: _cu_flows_collect(aid, set()))
+    if err:
+        return JSONResponse({"error": err}, status_code=502)
+    if pool:
+        await pool.execute("DELETE FROM qa_cu_flows WHERE access_id=$1 AND NOT (sys_id = ANY($2::text[]))",
+                           aid, [x["sys_id"] for x in res["rows"]])
+    if pool and res["rows"]:
+        await pool.executemany(
+            "INSERT INTO qa_cu_flows (sys_id, access_id, tabla, flujo, fecha, ts_ms, vno, olt, pon, dir, cto, code, "
+            "code_desc, flow_state, breaking_point, error_msg, detail_http, fields_json, fetched_by, fetched_at) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW()) "
+            "ON CONFLICT (sys_id) DO UPDATE SET flujo=EXCLUDED.flujo, fecha=EXCLUDED.fecha, ts_ms=EXCLUDED.ts_ms, "
+            "vno=EXCLUDED.vno, olt=EXCLUDED.olt, pon=EXCLUDED.pon, dir=EXCLUDED.dir, cto=EXCLUDED.cto, "
+            "code=EXCLUDED.code, code_desc=EXCLUDED.code_desc, flow_state=EXCLUDED.flow_state, "
+            "breaking_point=EXCLUDED.breaking_point, error_msg=EXCLUDED.error_msg, detail_http=EXCLUDED.detail_http, "
+            "fields_json=EXCLUDED.fields_json, fetched_by=EXCLUDED.fetched_by, fetched_at=NOW()",
+            [(x["sys_id"], aid, x["tabla"], x["flujo"], x["fecha"], x["ts_ms"], x["vno"], x["olt"], x["pon"],
+              x["dir"], x["cto"], x["code"], x["code_desc"], x["flow_state"], x["breaking_point"], x["error_msg"],
+              x["detail_http"], json.dumps(x["fields"], ensure_ascii=False), user.get("email") or "")
+             for x in res["rows"]])
+    rows = []
+    if pool:
+        rows = [_cu_flow_out(r) for r in await pool.fetch(
+            f"SELECT {', '.join(_CU_FLOW_COLS)}, fetched_at FROM qa_cu_flows WHERE access_id=$1 ORDER BY ts_ms DESC", aid)]
+    return {"access_id": aid, "rows": rows, "nuevos": len(res["rows"]), "total": res["total"],
+            "snap": res["snap"], "coreuse_url": f"{_COREUSE_BASE}/flujos-qa?access={aid}"}
+
+
+@app.get("/api/cu-flows")
+async def api_cu_flows_list(req: Request, access_id: str = ""):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    q = f"SELECT {', '.join(_CU_FLOW_COLS)}, fetched_at FROM qa_cu_flows"
+    rows = await (pool.fetch(q + " WHERE access_id=$1 ORDER BY ts_ms DESC", access_id) if access_id
+                  else pool.fetch(q + " ORDER BY ts_ms DESC LIMIT 5000"))
+    return {"rows": [_cu_flow_out(r) for r in rows], "coreuse_base": _COREUSE_BASE}
+
+
+@app.get("/api/cu-flows/item")
+async def api_cu_flows_item(req: Request, sys_id: str = ""):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    pool = await _db()
+    r = await pool.fetchrow(f"SELECT {', '.join(_CU_FLOW_COLS)}, fetched_at, fields_json FROM qa_cu_flows "
+                            "WHERE sys_id=$1", sys_id) if pool else None
+    if not r:
+        return JSONResponse({"error": "no encontrado"}, status_code=404)
+    d = _cu_flow_out(r)
+    try:
+        d["fields"] = json.loads(r["fields_json"] or "{}")
+    except Exception:
+        d["fields"] = {}
+    return d
+
+
+@app.delete("/api/cu-flows")
+async def api_cu_flows_delete(req: Request, access_id: str = ""):
+    if not await _get_auth(req):
+        raise HTTPException(status_code=401)
+    if not access_id:
+        return JSONResponse({"error": "access_id requerido"}, status_code=400)
+    pool = await _db()
+    await pool.execute("DELETE FROM qa_cu_flows WHERE access_id=$1", access_id)
+    return {"ok": True}
+
+
 @app.get("/api/coreuse/iia-detail")
 async def api_coreuse_iia_detail(access_id: str = ""):
     """Extrae datos de IIA: FIBER CHANGE OPTIONS y campos CTO para Cambio de Fibra."""
@@ -11879,6 +12102,23 @@ button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .mop-res{display:flex;gap:8px;flex-wrap:wrap}
 .mop-res label{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--brd);border-radius:9px;cursor:pointer;font-size:.78rem}
 .mop-res label.on{border-color:var(--acc);background:var(--accd)}
+.cuf-bar{padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;background:var(--card)}
+.cuf-in{padding:5px 10px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.76rem}
+.cuf-sel{padding:4px 6px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.72rem;max-width:190px}
+.cuf-b{padding:5px 12px;border-radius:6px;border:1px solid var(--brd);background:var(--card);color:var(--txt);font-size:.73rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.cuf-b.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.cuf-b:disabled{opacity:.5;cursor:default}
+.cuf-lbl{font-size:.66rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em}
+.cuf-tbl{width:100%;border-collapse:collapse;font-size:.72rem}
+.cuf-tbl th{position:sticky;top:0;background:var(--bg);text-align:left;padding:6px 8px;border-bottom:1px solid var(--brd);font-size:.63rem;text-transform:uppercase;letter-spacing:.04em;color:var(--txt3);cursor:pointer;white-space:nowrap;z-index:1}
+.cuf-tbl th:hover{color:var(--acc)}
+.cuf-tbl td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top}
+.cuf-tbl tr.bad td{background:rgba(239,68,68,.05)}
+.cuf-tbl tr:hover td{background:rgba(59,130,246,.06)}
+.cuf-code{font-family:var(--mono);font-weight:700;padding:1px 7px;border-radius:9px;font-size:.7rem}
+.cuf-empty{padding:28px;color:var(--txt2);font-size:.8rem;text-align:center}
+.cuf-mo{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+.cuf-mo-in{background:var(--card);border-radius:12px;max-width:860px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.3)}
 .mop-tbl{width:100%;border-collapse:collapse;font-size:.78rem}
 .mop-tbl th{text-align:left;font-size:.68rem;color:var(--txt2);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--brd)}
 .mop-tbl td{padding:8px;border-bottom:1px solid var(--brdl);vertical-align:middle}
@@ -12114,6 +12354,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
     <button class="hist-btn" id="traza-btn" onclick="showTrazabilidad()">&#128269;<span class="hist-lbl">&nbsp; Trazabilidad AID</span></button>
     <button class="hist-btn" id="agenda-btn" onclick="showAgenda()">&#128197;<span class="hist-lbl">&nbsp; Agenda</span></button>
     <button class="hist-btn" id="mop-btn" onclick="showMop()">&#128221;<span class="hist-lbl">&nbsp; Informes MOP / INC</span></button>
+    <button class="hist-btn" id="cuf-btn" onclick="showCuFlows()">&#128270;<span class="hist-lbl">&nbsp; CoreUse AID</span></button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;<span class="hist-lbl">&nbsp; Settings</span></button>
   </aside>
   <main class="main">
@@ -12374,6 +12615,23 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
           </div>
         </div>
       </div>
+    </div>
+    <!-- Vista CoreUse AID -->
+    <div id="cuf-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div class="cuf-bar">
+        <input id="cuf-aids" class="cuf-in" style="flex:1;min-width:240px" placeholder="Access ID (uno o varios, separados por coma o espacio)" onkeydown="if(event.key==='Enter')_cufQueryInput()">
+        <button class="cuf-b pri" id="cuf-go" onclick="_cufQueryInput()">&#128270; Consultar en CoreUse</button>
+        <button class="cuf-b" onclick="_cufRefreshShown()" title="Vuelve a consultar en CoreUse, ahora, los Access ID que se ven en la tabla">&#8635; Actualizar ahora</button>
+        <label style="font-size:.7rem;color:var(--txt2);display:flex;gap:4px;align-items:center" title="Con un Access ID elegido en el filtro, lo vuelve a consultar en CoreUse cada 60 s"><input type="checkbox" id="cuf-live" onchange="_cufLive(this.checked)"> en vivo (60 s)</label>
+        <span style="width:1px;height:22px;background:var(--brd)"></span>
+        <select id="cuf-inv-days" class="cuf-sel" title="AIDs del inventario del runner con actividad en este período">
+          <option value="1">AIDs del runner · último día</option><option value="7" selected>AIDs del runner · 7 días</option><option value="30">AIDs del runner · 30 días</option><option value="0">AIDs del runner · todos</option>
+        </select>
+        <button class="cuf-b" onclick="_cufQueryInventory()">Consultar AIDs del runner</button>
+      </div>
+      <div class="cuf-bar" id="cuf-filters" style="background:var(--bg)"></div>
+      <div id="cuf-progress" style="display:none;padding:6px 16px;border-bottom:1px solid var(--brd);font-size:.72rem;color:var(--acc);flex-shrink:0"></div>
+      <div id="cuf-body" style="flex:1;overflow:auto"></div>
     </div>
     <!-- Vista Informes MOP / INC -->
     <div id="mop-view" style="display:none;flex-direction:column;flex:1;overflow:auto;min-width:0">
@@ -13200,12 +13458,13 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view","mop-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view","mop-view","cuf-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view","mop":"mop-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view","mop":"mop-view","cuflows":"cuf-view"}[mode]||"std-view";
   var _ib=document.getElementById('inv-btn');if(_ib&&mode!=='inventario')_ib.classList.remove('active');
   var _tb=document.getElementById('traza-btn');if(_tb&&mode!=='traza')_tb.classList.remove('active');
   var _mb=document.getElementById('mop-btn');if(_mb&&mode!=='mop')_mb.classList.remove('active');
+  var _cfb=document.getElementById('cuf-btn');if(_cfb&&mode!=='cuflows')_cfb.classList.remove('active');
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -21013,11 +21272,213 @@ function _mopApi(url,opt){
     return r.json().then(function(j){if(!r.ok)throw new Error(j.error||j.detail||('HTTP '+r.status));return j;});
   });
 }
+// ── CoreUse AID: flujos de cada Access ID con el detalle (i) de CoreUse, como lista de ServiceNow ──
+var _cuf={rows:[],sort:{k:'ts_ms',d:-1},busy:false,loaded:false,base:''};
+var _CUF_COLS=[['fecha','Fecha'],['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir','Dirección'],['cto','CTO'],['vno','VNO'],['code','Cód. retorno'],['code_desc','Descripción código de retorno'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
+var _CUF_FILT=[['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir','Dirección'],['vno','VNO'],['code','Código'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
+function showCuFlows(){
+  _dashStopRefresh();
+  switchView('cuflows');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn','inv-btn','mop-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var cb=document.getElementById('cuf-btn');if(cb)cb.classList.add('active');
+  setTop('','CoreUse AID','Flujos de cada Access ID con el detalle (i) de CoreUse · filtra por OLT, PON, dirección, VNO y código de retorno');
+  if(!_cuf.loaded)_cufLoad();else _cufRenderFilters();
+}
+function _cufVno(v){return (typeof _INV_VNO_LBL!=='undefined'&&_INV_VNO_LBL[v])||v||'';}
+function _cufProgress(m){var p=document.getElementById('cuf-progress');if(!p)return;p.style.display=m?'':'none';p.innerHTML=m||'';}
+function _cufLoad(){
+  var body=document.getElementById('cuf-body');
+  body.innerHTML='<div class="cuf-empty">Cargando…</div>';
+  _mopApi('/api/cu-flows').then(function(d){_cuf.rows=d.rows||[];_cuf.base=d.coreuse_base||'';_cuf.loaded=true;_cufRenderFilters();})
+    .catch(function(e){body.innerHTML='<div class="cuf-empty" style="color:var(--err)">Error: '+_trEsc(e.message)+'</div>';});
+}
+function _cufQueryInput(){
+  var v=(document.getElementById('cuf-aids')||{}).value||'';
+  var list=v.split(/[^A-Za-z0-9_.-]+/).filter(function(x){return x.length>3;});
+  if(!list.length){_mopMsg('Escribe al menos un Access ID','err');return;}
+  _cufQuery(list);
+}
+function _cufQueryInventory(){
+  var days=parseInt((document.getElementById('cuf-inv-days')||{}).value||'7',10);
+  fetch('/api/aid-inventory',{headers:_authHdr()}).then(function(r){return r.json();}).then(function(d){
+    if(!Array.isArray(d)){_mopMsg('No se pudo leer el inventario','err');return;}
+    var lim=days?Date.now()-days*86400000:0;
+    var list=d.filter(function(x){return !lim||(x.last_ts||0)>=lim;}).map(function(x){return x.access_id;});
+    if(!list.length){_mopMsg('No hay Access IDs del runner en ese período','err');return;}
+    if(!confirm('Se consultarán en CoreUse '+list.length+' Access IDs del runner (con el detalle de cada flujo). Puede tardar unos minutos. ¿Continuar?'))return;
+    _cufQuery(list);
+  }).catch(function(e){_mopMsg('Error: '+e.message,'err');});
+}
+// Siempre en vivo: cada consulta lee CoreUse en ese momento (no reutiliza lo guardado)
+var _cufLiveT=null;
+function _cufLive(on){
+  if(_cufLiveT){clearInterval(_cufLiveT);_cufLiveT=null;}
+  if(!on)return;
+  if(!_cufFv('access_id'))_mopMsg('En vivo: elige un Access ID en el filtro (o consulta uno) para refrescarlo cada 60 s','ok');
+  _cufLiveT=setInterval(function(){
+    var v=document.getElementById('cuf-view'),aid=_cufFv('access_id');
+    if(!v||v.style.display==='none'||_cuf.busy||!aid)return;
+    _cufQuery([aid],true);
+  },60000);
+}
+function _cufRefreshShown(){
+  var aid=_cufFv('access_id'),list;
+  if(aid)list=[aid];
+  else{var m={};_cufFiltered().forEach(function(r){m[r.access_id]=1;});list=Object.keys(m);}
+  var inp=((document.getElementById('cuf-aids')||{}).value||'').split(/[^A-Za-z0-9_.-]+/).filter(function(x){return x.length>3;});
+  if(!list.length)list=inp;
+  if(!list.length){_mopMsg('No hay Access IDs para actualizar','err');return;}
+  if(list.length>5&&!confirm('Se consultarán ahora en CoreUse '+list.length+' Access IDs. ¿Continuar?'))return;
+  _cufQuery(list);
+}
+async function _cufQuery(list,silent){
+  if(_cuf.busy){if(!silent)_mopMsg('Ya hay una consulta en curso','err');return;}
+  _cuf.busy=true;
+  var go=document.getElementById('cuf-go');if(go)go.disabled=true;
+  var ok=0,errs=[];
+  for(var i=0;i<list.length;i++){
+    var aid=list[i];
+    _cufProgress('🔎 Consultando CoreUse '+(i+1)+'/'+list.length+' · <b>'+_trEsc(aid)+'</b> (lee el detalle (i) de cada flujo)…');
+    try{
+      var d=await _mopApi('/api/cu-flows/fetch',{method:'POST',body:{access_id:aid}});
+      _cuf.rows=_cuf.rows.filter(function(x){return x.access_id!==aid;}).concat(d.rows||[]);
+      if(!(d.rows||[]).length)errs.push(aid+': sin flujos en CoreUse');
+      ok++;
+    }catch(e){errs.push(aid+': '+e.message);if(e.message==='Sesión expirada')break;}
+    if(i%3===2||i===list.length-1)_cufRenderFilters();
+  }
+  _cuf.busy=false;if(go)go.disabled=false;
+  _cufProgress(errs.length?'⚠️ '+_trEsc(errs.slice(0,6).join(' · '))+(errs.length>6?' · …':''):'');
+  _cufRenderFilters();
+  if(list.length===1){var s=document.getElementById('cuf-f-access_id');if(s&&s.value!==list[0]){s.value=list[0];_cufRenderTable();}}
+  if(!silent||errs.length)_mopMsg('Consulta en vivo terminada: '+ok+'/'+list.length+' Access IDs · '+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),errs.length?'err':'ok');
+}
+function _cufFv(k){var e=document.getElementById('cuf-f-'+k);return e?e.value:'';}
+function _cufRenderFilters(){
+  var bar=document.getElementById('cuf-filters');if(!bar)return;
+  var keep={};_CUF_FILT.forEach(function(f){keep[f[0]]=_cufFv(f[0]);});
+  var q=((document.getElementById('cuf-q')||{}).value)||'';
+  var err=!!(document.getElementById('cuf-err')||{}).checked,last=!!(document.getElementById('cuf-last')||{}).checked;
+  var h='<input id="cuf-q" class="cuf-in" style="width:200px" placeholder="Buscar en todo…" value="'+_trEsc(q)+'" oninput="_cufRenderTable()">';
+  _CUF_FILT.forEach(function(f){
+    var k=f[0],cnt={};
+    _cuf.rows.forEach(function(r){var v=r[k]==null?'':String(r[k]);cnt[v]=(cnt[v]||0)+1;});
+    var opts=Object.keys(cnt).sort();
+    if(keep[k]&&!cnt[keep[k]])keep[k]='';
+    h+='<select id="cuf-f-'+k+'" class="cuf-sel" onchange="_cufRenderTable()" title="'+f[1]+'"><option value="">'+f[1]+': todos</option>'
+      +opts.map(function(v){var lb=v===''?'(vacío)':(k==='vno'?_cufVno(v):v);
+        return '<option value="'+_trEsc(v)+'"'+(v===keep[k]?' selected':'')+'>'+_trEsc(lb.length>60?lb.slice(0,60)+'…':lb)+' ('+cnt[v]+')</option>';}).join('')+'</select>';
+  });
+  h+='<label style="font-size:.7rem;color:var(--txt2);display:flex;gap:4px;align-items:center"><input type="checkbox" id="cuf-err" onchange="_cufRenderTable()"'+(err?' checked':'')+'> solo con error (código ≠ 0)</label>'
+    +'<label style="font-size:.7rem;color:var(--txt2);display:flex;gap:4px;align-items:center" title="Muestra solo el flujo más reciente de cada Access ID"><input type="checkbox" id="cuf-last" onchange="_cufRenderTable()"'+(last?' checked':'')+'> último flujo por AID</label>'
+    +'<span style="flex:1"></span><span id="cuf-count" style="font-size:.7rem;color:var(--txt2)"></span>'
+    +'<button class="cuf-b" onclick="_cufClearF()">Limpiar filtros</button>'
+    +'<button class="cuf-b" onclick="_cufCsv()">&#11015; Excel (CSV)</button>';
+  bar.innerHTML=h;
+  _cufRenderTable();
+}
+function _cufClearF(){
+  _CUF_FILT.forEach(function(f){var e=document.getElementById('cuf-f-'+f[0]);if(e)e.value='';});
+  var q=document.getElementById('cuf-q');if(q)q.value='';
+  ['cuf-err','cuf-last'].forEach(function(id){var e=document.getElementById(id);if(e)e.checked=false;});
+  _cufRenderTable();
+}
+function _cufFiltered(){
+  var q=(((document.getElementById('cuf-q')||{}).value)||'').trim().toLowerCase();
+  var err=!!(document.getElementById('cuf-err')||{}).checked,last=!!(document.getElementById('cuf-last')||{}).checked;
+  var fv={};_CUF_FILT.forEach(function(f){fv[f[0]]=_cufFv(f[0]);});
+  var L=_cuf.rows.filter(function(r){
+    for(var k in fv){if(fv[k]&&String(r[k]==null?'':r[k])!==fv[k])return false;}
+    if(err&&(r.code==='0'||r.code===''))return false;
+    if(q){var t=_CUF_COLS.map(function(c){return r[c[0]];}).concat([r.error_msg,r.tabla,_cufVno(r.vno)]).join(' ').toLowerCase();if(t.indexOf(q)<0)return false;}
+    return true;
+  });
+  if(last){var seen={};L=L.slice().sort(function(a,b){return (b.ts_ms||0)-(a.ts_ms||0);}).filter(function(r){if(seen[r.access_id])return false;seen[r.access_id]=1;return true;});}
+  var k=_cuf.sort.k,d=_cuf.sort.d;
+  return L.slice().sort(function(a,b){
+    var x=k==='fecha'?a.ts_ms:a[k],y=k==='fecha'?b.ts_ms:b[k];
+    if(k==='code'){x=parseFloat(x);y=parseFloat(y);if(isNaN(x))x=-1;if(isNaN(y))y=-1;}
+    if(x==null)x='';if(y==null)y='';
+    return (x<y?-1:x>y?1:0)*d||((b.ts_ms||0)-(a.ts_ms||0));
+  });
+}
+function _cufSort(k){_cuf.sort=_cuf.sort.k===k?{k:k,d:-_cuf.sort.d}:{k:k,d:(k==='fecha'||k==='ts_ms')?-1:1};_cufRenderTable();}
+function _cufRenderTable(){
+  var body=document.getElementById('cuf-body');if(!body)return;
+  if(!_cuf.rows.length){body.innerHTML='<div class="cuf-empty">Aún no hay datos. Escribe un Access ID arriba y pulsa <b>Consultar en CoreUse</b>, o usa <b>Consultar AIDs del runner</b>.<br><br>Por cada flujo del AID se abre el detalle (i) de CoreUse y se guarda: OLT, PON, dirección, VNO, código y descripción de retorno, estado y punto de quiebre, más todos los campos del detalle.</div>';var c0=document.getElementById('cuf-count');if(c0)c0.textContent='';return;}
+  var L=_cufFiltered();
+  var nA={};L.forEach(function(r){nA[r.access_id]=1;});
+  var c=document.getElementById('cuf-count');if(c)c.textContent=L.length+' flujos · '+Object.keys(nA).length+' Access IDs';
+  var sk=(_cuf.sort.k==='ts_ms'?'fecha':_cuf.sort.k);
+  var h='<table class="cuf-tbl"><thead><tr>'+_CUF_COLS.map(function(c){
+    return '<th onclick="_cufSort(&quot;'+c[0]+'&quot;)">'+c[1]+(sk===c[0]?(_cuf.sort.d>0?' ▲':' ▼'):'')+'</th>';}).join('')+'<th></th></tr></thead><tbody>';
+  L.slice(0,3000).forEach(function(r){
+    var ok=r.code==='0',bad=r.code!==''&&!ok;
+    var cc=ok?'#22C55E':(bad?'#EF4444':'#94A3B8');
+    h+='<tr class="'+(bad?'bad':'')+'">'
+      +'<td style="white-space:nowrap;color:var(--txt2)">'+_trEsc(r.fecha)+'</td>'
+      +'<td style="font-family:var(--mono);white-space:nowrap"><a href="'+_trEsc(_cuf.base+'/flujos-qa?access='+encodeURIComponent(r.access_id))+'" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:none" title="Abrir en CoreUse">'+_trEsc(r.access_id)+' ↗</a>'
+        +'<div style="font-family:var(--sans);font-size:.6rem;color:var(--txt3)" title="Hora en que se leyó CoreUse">leído '+_trFmtTs(r.fetched_at)+'</div></td>'
+      +'<td style="font-weight:600">'+_trEsc(r.flujo)+'</td>'
+      +'<td style="font-family:var(--mono);white-space:nowrap">'+_trEsc(r.olt||'—')+'</td>'
+      +'<td style="font-family:var(--mono)">'+_trEsc(r.pon||'—')+'</td>'
+      +'<td style="color:var(--txt2);min-width:160px">'+_trEsc(r.dir||'—')+'</td>'
+      +'<td style="font-family:var(--mono);white-space:nowrap">'+_trEsc(r.cto||'—')+'</td>'
+      +'<td>'+_trEsc(_cufVno(r.vno))+'</td>'
+      +'<td><span class="cuf-code" style="background:'+cc+'22;color:'+cc+'">'+_trEsc(r.code===''?'—':r.code)+'</span></td>'
+      +'<td style="min-width:180px">'+_trEsc(r.code_desc||'')+(r.error_msg?'<div style="font-size:.64rem;color:#EF4444;margin-top:2px">'+_trEsc(r.error_msg)+'</div>':'')+'</td>'
+      +'<td style="color:var(--txt2)">'+_trEsc(r.flow_state||'')+'</td>'
+      +'<td style="color:'+(r.breaking_point?'#EF4444':'var(--txt3)')+';font-weight:'+(r.breaking_point?'600':'400')+'">'+_trEsc(r.breaking_point||'')+'</td>'
+      +'<td><button class="cuf-b" style="padding:2px 9px" title="Ver todo el detalle (i) de CoreUse" onclick="_cufInfo(&quot;'+_trEsc(r.sys_id)+'&quot;)">ⓘ</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  if(L.length>3000)h+='<div class="cuf-empty">Se muestran 3000 de '+L.length+' flujos: usa los filtros para acotar.</div>';
+  if(!L.length)h='<div class="cuf-empty">Ningún flujo cumple los filtros.</div>';
+  body.innerHTML=h;
+}
+function _cufInfo(sid){
+  var mo=document.createElement('div');mo.className='cuf-mo';
+  mo.innerHTML='<div class="cuf-mo-in"><div class="cuf-empty">Cargando detalle…</div></div>';
+  mo.addEventListener('click',function(e){if(e.target===mo)mo.remove();});
+  document.body.appendChild(mo);
+  _mopApi('/api/cu-flows/item?sys_id='+encodeURIComponent(sid)).then(function(r){
+    var F=r.fields||{},keys=Object.keys(F);
+    var top=[['Access ID',r.access_id],['Flujo',r.flujo],['Fecha',r.fecha],['VNO',_cufVno(r.vno)],['OLT',r.olt],['PON',r.pon],['CTO',r.cto],['Dirección',r.dir],['Código de retorno',r.code],['Descripción',r.code_desc],['Estado flujo',r.flow_state],['Quiebre',r.breaking_point],['Tabla',r.tabla],['sys_id',r.sys_id]];
+    var h='<div style="padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;gap:10px;align-items:center">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.95rem">ⓘ '+_trEsc(r.flujo)+'</div><div style="font-size:.72rem;color:var(--txt2)">'+_trEsc(r.access_id)+' · '+_trEsc(r.fecha)+' · consultado '+_trFmtTs(r.fetched_at)+'</div></div>'
+      +'<button class="cuf-b" onclick="this.closest(&quot;.cuf-mo&quot;).remove()">Cerrar</button></div>'
+      +'<div style="padding:10px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px 14px;border-bottom:1px solid var(--brd)">'
+      +top.filter(function(t){return t[1];}).map(function(t){return '<div><div class="cuf-lbl">'+t[0]+'</div><div style="font-size:.74rem;word-break:break-word">'+_trEsc(t[1])+'</div></div>';}).join('')+'</div>'
+      +'<div style="padding:8px 18px;display:flex;gap:8px;align-items:center"><input class="cuf-in" style="flex:1" placeholder="Filtrar campos del detalle ('+keys.length+')…" oninput="_cufInfoFilter(this)"></div>'
+      +'<div style="overflow:auto;padding:0 18px 14px">'
+      +(keys.length?'<table class="cuf-tbl" data-cufinfo="1"><thead><tr><th style="cursor:default">Campo</th><th style="cursor:default">Valor</th></tr></thead><tbody>'
+        +keys.map(function(k){return '<tr><td style="font-family:var(--mono);color:var(--txt2);white-space:nowrap" title="'+_trEsc(k)+'">'+_trEsc(k.replace(/^u_/,''))+'</td><td style="word-break:break-word">'+_trEsc(F[k])+'</td></tr>';}).join('')
+        +'</tbody></table>':'<div class="cuf-empty">CoreUse no devolvió el detalle de este flujo'+(r.detail_http?' (HTTP '+r.detail_http+')':'')+'. Vuelve a consultar el AID sin “solo flujos nuevos”.</div>')
+      +'</div>';
+    mo.firstChild.innerHTML=h;
+  }).catch(function(e){mo.firstChild.innerHTML='<div class="cuf-empty" style="color:var(--err)">Error: '+_trEsc(e.message)+'</div>';});
+}
+function _cufInfoFilter(inp){
+  var q=inp.value.toLowerCase(),t=inp.closest('.cuf-mo-in').querySelector('[data-cufinfo]');if(!t)return;
+  [].forEach.call(t.tBodies[0].rows,function(tr){tr.style.display=!q||tr.textContent.toLowerCase().indexOf(q)>=0?'':'none';});
+}
+function _cufCsv(){
+  var L=_cufFiltered();if(!L.length){_mopMsg('No hay filas para exportar','err');return;}
+  var cols=_CUF_COLS.concat([['error_msg','Mensaje de error'],['tabla','Tabla'],['sys_id','sys_id']]);
+  var cell=function(v){return '"'+String(v==null?'':v).split('"').join('""')+'"';};
+  var lines=[cols.map(function(c){return cell(c[1]);}).join(';')];
+  L.forEach(function(r){lines.push(cols.map(function(c){return cell(c[0]==='vno'?_cufVno(r.vno):r[c[0]]);}).join(';'));});
+  var blob=new Blob([String.fromCharCode(65279)+lines.join(String.fromCharCode(13,10))],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  var d=new Date();a.download='coreuse_aid_'+d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'.csv';
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},2000);
+}
 function showMop(){
   _dashStopRefresh();
   switchView('mop');
   ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn','inv-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn','inv-btn','cuf-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
   var mb=document.getElementById('mop-btn');if(mb)mb.classList.add('active');
   setTop('','Informes MOP / INC','Informe de ejecución de pruebas en Word a partir de un MOP o incidente');
   if(_mop.cur)_mopRenderEditor();else _mopLoadList();
