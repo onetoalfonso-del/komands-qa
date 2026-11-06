@@ -8813,7 +8813,7 @@ def _cu_flows_collect(aid: str, skip: set) -> tuple:
         dir_id = m.group(0) if m else ""
     for x in out:
         x["dir_id"] = x["dir_id"] or dir_id
-    return {"snap": snap, "rows": out, "total": len(rows)}, None
+    return {"snap": snap, "rows": out, "total": len(rows), "ids": [r["sys_id"] for r in rows]}, None
 
 
 def _cu_flow_out(r) -> dict:
@@ -8834,14 +8834,24 @@ async def api_cu_flows_fetch(req: Request):
     if not _COREUSE_AVAILABLE or not _COREUSE_USER:
         return JSONResponse({"error": "CoreUse no configurado"}, status_code=503)
     pool = await _db()
-    # Siempre en vivo: se lee CoreUse completo en este momento (página + detalle ⓘ de cada flujo)
+    # La página del AID se lee siempre en este momento. En modo "en vivo" (light) el detalle ⓘ solo se
+    # vuelve a abrir en flujos nuevos, en curso o de los últimos 10 min: los terminados no cambian.
+    skip = set()
+    if pool and b.get("light"):
+        lim = int(_time_lib.time() * 1000) - 10 * 60_000
+        skip = {r["sys_id"] for r in await pool.fetch(
+            "SELECT sys_id, code_desc, ts_ms FROM qa_cu_flows WHERE access_id=$1 AND detail_http=200", aid)
+            if (r["ts_ms"] or 0) < lim and not _CU_INTERIM_RE.search(r["code_desc"] or "")}
     loop = _aio.get_event_loop()
-    res, err = await loop.run_in_executor(None, lambda: _cu_flows_collect(aid, set()))
+    res, err = await loop.run_in_executor(None, lambda: _cu_flows_collect(aid, skip))
     if err:
         return JSONResponse({"error": err}, status_code=502)
     if pool:
         await pool.execute("DELETE FROM qa_cu_flows WHERE access_id=$1 AND NOT (sys_id = ANY($2::text[]))",
-                           aid, [x["sys_id"] for x in res["rows"]])
+                           aid, res["ids"])
+        if skip:
+            await pool.execute("UPDATE qa_cu_flows SET fetched_at=NOW() WHERE access_id=$1 AND sys_id = ANY($2::text[])",
+                               aid, list(skip & set(res["ids"])))
     if pool and res["rows"]:
         await pool.executemany(
             "INSERT INTO qa_cu_flows (sys_id, access_id, tabla, flujo, fecha, ts_ms, vno, olt, pon, dir, cto, code, "
@@ -12631,7 +12641,8 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
         <input id="cuf-aids" class="cuf-in" style="flex:1;min-width:240px" placeholder="Access ID (uno o varios, separados por coma o espacio)" onkeydown="if(event.key==='Enter')_cufQueryInput()">
         <button class="cuf-b pri" id="cuf-go" onclick="_cufQueryInput()">&#128270; Consultar en CoreUse</button>
         <button class="cuf-b" onclick="_cufRefreshShown()" title="Vuelve a consultar en CoreUse, ahora, los Access ID que se ven en la tabla">&#8635; Actualizar ahora</button>
-        <label style="font-size:.7rem;color:var(--txt2);display:flex;gap:4px;align-items:center" title="Con un Access ID elegido en el filtro, lo vuelve a consultar en CoreUse cada 60 s"><input type="checkbox" id="cuf-live" onchange="_cufLive(this.checked)"> en vivo (60 s)</label>
+        <label style="font-size:.7rem;color:var(--txt2);display:flex;gap:4px;align-items:center" title="Con un Access ID elegido en el filtro, lo vuelve a leer en CoreUse cada pocos segundos"><input type="checkbox" id="cuf-live" onchange="_cufLive(this.checked)"> en vivo</label>
+        <select id="cuf-live-s" class="cuf-sel" title="Cada cuánto se vuelve a leer CoreUse en modo en vivo" onchange="var c=document.getElementById('cuf-live');if(c&&c.checked)_cufLive(true)"><option value="10">cada 10 s</option><option value="15" selected>cada 15 s</option><option value="30">cada 30 s</option><option value="60">cada 60 s</option></select>
         <span style="width:1px;height:22px;background:var(--brd)"></span>
         <select id="cuf-inv-days" class="cuf-sel" title="AIDs del inventario del runner con actividad en este período">
           <option value="1">AIDs del runner · último día</option><option value="7" selected>AIDs del runner · 7 días</option><option value="30">AIDs del runner · 30 días</option><option value="0">AIDs del runner · todos</option>
@@ -21324,12 +21335,13 @@ var _cufLiveT=null;
 function _cufLive(on){
   if(_cufLiveT){clearInterval(_cufLiveT);_cufLiveT=null;}
   if(!on)return;
-  if(!_cufFv('access_id'))_mopMsg('En vivo: elige un Access ID en el filtro (o consulta uno) para refrescarlo cada 60 s','ok');
+  var sec=parseInt((document.getElementById('cuf-live-s')||{}).value||'15',10)||15;
+  if(!_cufFv('access_id'))_mopMsg('En vivo: elige un Access ID en el filtro (o consulta uno) para refrescarlo cada '+sec+' s','ok');
   _cufLiveT=setInterval(function(){
     var v=document.getElementById('cuf-view'),aid=_cufFv('access_id');
     if(!v||v.style.display==='none'||_cuf.busy||!aid)return;
-    _cufQuery([aid],true);
-  },60000);
+    _cufQuery([aid],true,true);
+  },sec*1000);
 }
 function _cufRefreshShown(){
   var aid=_cufFv('access_id'),list;
@@ -21341,7 +21353,7 @@ function _cufRefreshShown(){
   if(list.length>5&&!confirm('Se consultarán ahora en CoreUse '+list.length+' Access IDs. ¿Continuar?'))return;
   _cufQuery(list);
 }
-async function _cufQuery(list,silent){
+async function _cufQuery(list,silent,light){
   if(_cuf.busy){if(!silent)_mopMsg('Ya hay una consulta en curso','err');return;}
   _cuf.busy=true;
   var go=document.getElementById('cuf-go');if(go)go.disabled=true;
@@ -21350,7 +21362,7 @@ async function _cufQuery(list,silent){
     var aid=list[i];
     _cufProgress('🔎 Consultando CoreUse '+(i+1)+'/'+list.length+' · <b>'+_trEsc(aid)+'</b> (lee el detalle (i) de cada flujo)…');
     try{
-      var d=await _mopApi('/api/cu-flows/fetch',{method:'POST',body:{access_id:aid}});
+      var d=await _mopApi('/api/cu-flows/fetch',{method:'POST',body:{access_id:aid,light:!!light}});
       _cuf.rows=_cuf.rows.filter(function(x){return x.access_id!==aid;}).concat(d.rows||[]);
       if(!(d.rows||[]).length)errs.push(aid+': sin flujos en CoreUse');
       ok++;
