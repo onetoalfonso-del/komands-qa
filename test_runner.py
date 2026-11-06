@@ -1545,6 +1545,7 @@ CREATE TABLE IF NOT EXISTS qa_cu_flows (
     fetched_at     TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS qa_cu_flows_aid ON qa_cu_flows (access_id);
+ALTER TABLE qa_cu_flows ADD COLUMN IF NOT EXISTS dir_id VARCHAR(40) DEFAULT '';
 CREATE TABLE IF NOT EXISTS qa_secrets (
     key        VARCHAR(100) PRIMARY KEY,
     value      TEXT NOT NULL
@@ -8699,7 +8700,7 @@ async def api_coreuse_row_detail(access_id: str = "", table: str = ""):
 # ── CoreUse AID: cada flujo del Access ID con su detalle (botón ⓘ), guardado para filtrar ──
 _CU_FLOWS_MAX = 80
 _CU_RUTA_RE = re.compile(r'^(.*?_OLT_\d+)_(\d+)_(\d+)(?:_(\d+))?$', re.I)
-_CU_FLOW_COLS = ("sys_id", "access_id", "tabla", "flujo", "fecha", "ts_ms", "vno", "olt", "pon", "dir", "cto",
+_CU_FLOW_COLS = ("sys_id", "access_id", "tabla", "flujo", "fecha", "ts_ms", "vno", "olt", "pon", "dir", "dir_id", "cto",
                  "code", "code_desc", "flow_state", "breaking_point", "error_msg", "detail_http")
 
 
@@ -8769,6 +8770,7 @@ def _cu_flow_derive(aid: str, fields: dict, snap: dict, row: dict) -> dict:
     return {
         "vno": first(r'^u_id_vno$', r'^u_vno_id$') or aid[:2],
         "olt": olt, "pon": pon_s, "dir": dir_, "cto": cto,
+        "dir_id": first(r'^u_address_id$', r'^u_address_id_', r'address_id$'),
         "code": first(r'^u_return_code$') or row.get("code") or "",
         "code_desc": desc,
         "flow_state": first(r'^u_flow_state$'),
@@ -8804,6 +8806,13 @@ def _cu_flows_collect(aid: str, skip: set) -> tuple:
         out.append({"sys_id": row["sys_id"], "access_id": aid, "tabla": row["table"], "flujo": row["name"],
                     "fecha": row["date"], "ts_ms": int(row["ts_ms"] or 0), **d,
                     "detail_http": st, "fields": fields})
+    # El DIR (address id) lo traen Factibilidad/Asignación: se completa en los demás flujos del AID
+    dir_id = next((x["dir_id"] for x in sorted(out, key=lambda x: x["ts_ms"]) if x["dir_id"]), "")
+    if not dir_id:
+        m = re.search(r'DIR\d{6,}', html)
+        dir_id = m.group(0) if m else ""
+    for x in out:
+        x["dir_id"] = x["dir_id"] or dir_id
     return {"snap": snap, "rows": out, "total": len(rows)}, None
 
 
@@ -8836,16 +8845,16 @@ async def api_cu_flows_fetch(req: Request):
     if pool and res["rows"]:
         await pool.executemany(
             "INSERT INTO qa_cu_flows (sys_id, access_id, tabla, flujo, fecha, ts_ms, vno, olt, pon, dir, cto, code, "
-            "code_desc, flow_state, breaking_point, error_msg, detail_http, fields_json, fetched_by, fetched_at) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW()) "
+            "code_desc, flow_state, breaking_point, error_msg, detail_http, fields_json, fetched_by, dir_id, fetched_at) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,NOW()) "
             "ON CONFLICT (sys_id) DO UPDATE SET flujo=EXCLUDED.flujo, fecha=EXCLUDED.fecha, ts_ms=EXCLUDED.ts_ms, "
-            "vno=EXCLUDED.vno, olt=EXCLUDED.olt, pon=EXCLUDED.pon, dir=EXCLUDED.dir, cto=EXCLUDED.cto, "
+            "vno=EXCLUDED.vno, olt=EXCLUDED.olt, pon=EXCLUDED.pon, dir=EXCLUDED.dir, dir_id=EXCLUDED.dir_id, cto=EXCLUDED.cto, "
             "code=EXCLUDED.code, code_desc=EXCLUDED.code_desc, flow_state=EXCLUDED.flow_state, "
             "breaking_point=EXCLUDED.breaking_point, error_msg=EXCLUDED.error_msg, detail_http=EXCLUDED.detail_http, "
             "fields_json=EXCLUDED.fields_json, fetched_by=EXCLUDED.fetched_by, fetched_at=NOW()",
             [(x["sys_id"], aid, x["tabla"], x["flujo"], x["fecha"], x["ts_ms"], x["vno"], x["olt"], x["pon"],
               x["dir"], x["cto"], x["code"], x["code_desc"], x["flow_state"], x["breaking_point"], x["error_msg"],
-              x["detail_http"], json.dumps(x["fields"], ensure_ascii=False), user.get("email") or "")
+              x["detail_http"], json.dumps(x["fields"], ensure_ascii=False), user.get("email") or "", x["dir_id"])
              for x in res["rows"]])
     rows = []
     if pool:
@@ -21274,8 +21283,8 @@ function _mopApi(url,opt){
 }
 // ── CoreUse AID: flujos de cada Access ID con el detalle (i) de CoreUse, como lista de ServiceNow ──
 var _cuf={rows:[],sort:{k:'ts_ms',d:-1},busy:false,loaded:false,base:''};
-var _CUF_COLS=[['fecha','Fecha'],['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir','Dirección'],['cto','CTO'],['vno','VNO'],['code','Cód. retorno'],['code_desc','Descripción código de retorno'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
-var _CUF_FILT=[['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir','Dirección'],['vno','VNO'],['code','Código'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
+var _CUF_COLS=[['fecha','Fecha'],['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir_id','DIR'],['dir','Dirección'],['cto','CTO'],['vno','VNO'],['code','Cód. retorno'],['code_desc','Descripción código de retorno'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
+var _CUF_FILT=[['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir_id','DIR'],['dir','Dirección'],['vno','VNO'],['code','Código'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
 function showCuFlows(){
   _dashStopRefresh();
   switchView('cuflows');
@@ -21423,6 +21432,7 @@ function _cufRenderTable(){
       +'<td style="font-weight:600">'+_trEsc(r.flujo)+'</td>'
       +'<td style="font-family:var(--mono);white-space:nowrap">'+_trEsc(r.olt||'—')+'</td>'
       +'<td style="font-family:var(--mono)">'+_trEsc(r.pon||'—')+'</td>'
+      +'<td style="font-family:var(--mono);white-space:nowrap;font-weight:600">'+_trEsc(r.dir_id||'—')+'</td>'
       +'<td style="color:var(--txt2);min-width:160px">'+_trEsc(r.dir||'—')+'</td>'
       +'<td style="font-family:var(--mono);white-space:nowrap">'+_trEsc(r.cto||'—')+'</td>'
       +'<td>'+_trEsc(_cufVno(r.vno))+'</td>'
@@ -21444,7 +21454,7 @@ function _cufInfo(sid){
   document.body.appendChild(mo);
   _mopApi('/api/cu-flows/item?sys_id='+encodeURIComponent(sid)).then(function(r){
     var F=r.fields||{},keys=Object.keys(F);
-    var top=[['Access ID',r.access_id],['Flujo',r.flujo],['Fecha',r.fecha],['VNO',_cufVno(r.vno)],['OLT',r.olt],['PON',r.pon],['CTO',r.cto],['Dirección',r.dir],['Código de retorno',r.code],['Descripción',r.code_desc],['Estado flujo',r.flow_state],['Quiebre',r.breaking_point],['Tabla',r.tabla],['sys_id',r.sys_id]];
+    var top=[['Access ID',r.access_id],['Flujo',r.flujo],['Fecha',r.fecha],['VNO',_cufVno(r.vno)],['OLT',r.olt],['PON',r.pon],['DIR',r.dir_id],['CTO',r.cto],['Dirección',r.dir],['Código de retorno',r.code],['Descripción',r.code_desc],['Estado flujo',r.flow_state],['Quiebre',r.breaking_point],['Tabla',r.tabla],['sys_id',r.sys_id]];
     var h='<div style="padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;gap:10px;align-items:center">'
       +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.95rem">ⓘ '+_trEsc(r.flujo)+'</div><div style="font-size:.72rem;color:var(--txt2)">'+_trEsc(r.access_id)+' · '+_trEsc(r.fecha)+' · consultado '+_trFmtTs(r.fetched_at)+'</div></div>'
       +'<button class="cuf-b" onclick="this.closest(&quot;.cuf-mo&quot;).remove()">Cerrar</button></div>'
