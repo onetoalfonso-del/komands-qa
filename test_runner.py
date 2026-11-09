@@ -21154,6 +21154,7 @@ function _invTblClick(e){
   if(act==='verify'){_invVerifyList([aid]);return;}
   if(act==='raw'){_invShowRaw(aid);return;}
   if(act==='release'){_invRelease(aid);return;}
+  if(act==='release-cancel'){_invRelease(aid,'cancel');return;}
 }
 function _invProgress(msg){
   var p=document.getElementById('inv-progress');
@@ -21175,11 +21176,14 @@ function _invRelBtn(x){
   if(!a.act)return '<span title="'+_trEsc(a.why)+'" style="font-size:.62rem;color:#22C55E;font-weight:600;white-space:nowrap">✓ Liberado</span>';
   var bj=a.act==='baja';
   return '<button data-act="release" title="'+_trEsc(a.why)+'" style="padding:2px 8px;border-radius:4px;border:1px solid '+(bj?'#EF4444':'#F59E0B')+';background:'+(bj?'#EF4444':'#F59E0B')+'1a;color:'+(bj?'#EF4444':'#B45309')+';font-size:.64rem;font-weight:700;cursor:pointer;white-space:nowrap">'
-    +(bj?'⬇ Dar de baja':'✖ Cancelar OOSS')+'</button>';
+    +(bj?'⬇ Dar de baja':'✖ Cancelar OOSS')+'</button>'
+    // Cancelación OOSS siempre disponible: a veces la Baja no deja el AID en InStock
+    +(bj?' <button data-act="release-cancel" title="Ejecutar Cancelación Orden de Servicio sobre este AID (útil si la Baja no lo dejó en InStock)" style="padding:2px 8px;border-radius:4px;border:1px solid #F59E0B;background:#F59E0B1a;color:#B45309;font-size:.64rem;font-weight:700;cursor:pointer;white-space:nowrap">✖ Cancelar OOSS</button>':'');
 }
-async function _invRelease(aid){
+async function _invRelease(aid,force){
   var x=_invData.find(function(y){return y.access_id===aid;});if(!x)return;
   var a=_invRelAction(x);if(!a.act)return;
+  if(force==='cancel'&&a.act!=='cancel')a={act:'cancel',why:'Cancelación manual de la OOSS (la recomendación era Baja Total; se usa cuando la Baja no dejó el AID en InStock)'};
   if(_invBusy){if(typeof showToast==='function')showToast('Hay una operación en curso','err');return;}
   var svc=(document.getElementById('inv-svc')||{}).value||'FTTH';
   var op=a.act==='baja'?'Baja Total de Servicio':'Cancelación Orden de Servicio';
