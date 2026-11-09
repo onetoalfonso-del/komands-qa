@@ -1045,6 +1045,7 @@ _sched_live_progress: dict = {}
 # Funcionalidades que NO deben consultarse en CoreUse:
 #   - Grupo Consultas: no aparecen en portal CoreUse
 #   - Factibilidad: no se guarda en "Flujos ejecutados"; se valida por u_return_code + u_return_code_desc del response
+_IIA_BUSY_TXT = "en un estado para realizar una evaluaci"  # IIA código 2: Customer Order ocupada
 _COREUSE_NO_POLL = {
     "Factibilidad",
     "GET Consulta de Acceso",
@@ -2281,6 +2282,7 @@ async def _agenda_fire_async(schedule_id: int):
             step_r = {"func": fn, "pass": False, "error": None, "duration_ms": 0}
             _t0_ms = int(_tme.time() * 1000)
             _t0 = _tme.monotonic()
+            _iia_retry = 0
             try:
                 _req_data = _j.dumps(body).encode("utf-8")
                 def _do_req():
@@ -2295,6 +2297,18 @@ async def _agenda_fire_async(schedule_id: int):
                         return _j.loads(_rsp.read())
                 _loop = _asyncio.get_running_loop()
                 _res  = await _loop.run_in_executor(None, _do_req)
+                # IIA rechazada porque la Customer Order sigue procesando el flujo anterior
+                # (p. ej. una FIA reciente): esperar 30 s y reintentar, hasta 3 veces
+                while (fn == "Inicio Intervención Asegurada" and not _res.get("pass")
+                       and _IIA_BUSY_TXT in str(_res.get("res", "")) and _iia_retry < 3):
+                    _iia_retry += 1
+                    print(f"[agenda] IIA: Customer Order ocupada · reintento {_iia_retry}/3 en 30 s")
+                    await _asyncio.sleep(30)
+                    _res = await _loop.run_in_executor(None, _do_req)
+                if _iia_retry:
+                    _res["res"] = (str(_res.get("res", "")) + "  // (IIA: "
+                                   + ("pasó" if _res.get("pass") else "falló")
+                                   + f" tras {_iia_retry} reintento(s) por Customer Order ocupada)")
                 step_r["pass"]   = _res.get("pass", False)
                 step_r["http"]   = _res.get("httpCode", 0)
                 step_r["req"]    = _res.get("req", "")
@@ -2357,7 +2371,8 @@ async def _agenda_fire_async(schedule_id: int):
                 "coreuse_status": _cu.get("status", ""), "coreuse_msg": _cu.get("msg", ""),
                 "coreuse_attempts": _cu.get("attempts", 0),
                 "duration_ms": step_r["duration_ms"],
-                "extra": {"error": step_r.get("error") or "", "apim408": step_r.get("apim408", False)},
+                "extra": {"error": step_r.get("error") or "", "apim408": step_r.get("apim408", False),
+                          "iiaRetry": _iia_retry},
                 "req": step_r.get("req", ""), "res": step_r.get("res", ""),
             })
             return step_r
@@ -20180,7 +20195,7 @@ async function _atrf_runSelected(){
       q.runningFns.add(fn);_atrf_refreshDetail(qi);
       if(prog)prog.textContent=(qi+1)+'/'+toRun.length+' → '+fn;
       var pass=false,req_s='',res_s='',httpCode=0,newmanOut='',rd=null;
-      var _t0=Date.now();var _trLuTry=0,_cfUsed=null;
+      var _t0=Date.now();var _trLuTry=0,_cfUsed=null,_iiaRetry=0;
       try{
         // Para Cambio de Fibra: auto-fetch CTO desde CoreUse IIA si no hay selección manual
         var _ctoPayload={};
@@ -20272,8 +20287,7 @@ async function _atrf_runSelected(){
             };
           }
         }
-        var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(Object.assign({func:fn,vno:vno,
+        var _stepBodyStr=JSON.stringify(Object.assign({func:fn,vno:vno,
             direccion:q.cfg.direccion||'',addressMcd:q.cfg.tdir||'',
             serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
             scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
@@ -20281,7 +20295,8 @@ async function _atrf_runSelected(){
             newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
             blPlan:_mBlPlan(),
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
-            serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload))});
+            serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload));
+        var resp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},body:_stepBodyStr});
         if(resp.status===501){
           // Sin implementación en el servidor: falla visible (antes se simulaba un resultado al azar)
           pass=false;req_s=_atrf_buildSimReq(fn,q.cfg);
@@ -20343,13 +20358,34 @@ async function _atrf_runSelected(){
             }
           }
         }
+        // IIA rechazada (código 2) porque la Customer Order sigue procesando el flujo anterior
+        // (p. ej. una FIA reciente): esperar 30 s y reintentar, hasta 3 veces
+        var _iiaBusy=function(t){return String(t||'').indexOf('en un estado para realizar una evaluaci')>=0;};
+        if(fn==='Inicio Intervención Asegurada'&&!pass&&_iiaBusy(res_s)){
+          for(var _ir=1;_ir<=3&&!pass;_ir++){
+            _iiaRetry=_ir;
+            var _wEnd=Date.now()+30000;
+            while(Date.now()<_wEnd){
+              if(prog)prog.textContent='⏳ IIA: Customer Order ocupada · reintento '+_ir+'/3 en '+Math.ceil((_wEnd-Date.now())/1000)+' s…';
+              await new Promise(function(r){setTimeout(r,Math.min(1000,_wEnd-Date.now()));});
+            }
+            var _irResp=await fetch('/api/atrf/run-step',{method:'POST',headers:{'Content-Type':'application/json'},body:_stepBodyStr});
+            if(_irResp.status===501)break;
+            var _irRd=await _irResp.json();
+            if(_irRd.mode==='direct')break;
+            rd=_irRd;pass=!!_irRd.pass;req_s=_irRd.req||req_s;res_s=_irRd.res||res_s;httpCode=_irRd.httpCode||httpCode;
+            if(!pass&&!_iiaBusy(res_s))break;
+          }
+          res_s=res_s+'  // (IIA: '+(pass?'pasó':'falló')+' tras '+_iiaRetry+' reintento(s) por Customer Order ocupada)';
+        }
       }catch(e){
         if(e&&e._noCto){pass=false;req_s='(no enviado)';res_s=e.message;rd={noAccessId:true};}
         else{req_s=_atrf_buildSimReq(fn,q.cfg);res_s='Error de red: '+String(e);}
       }
       // Tiempos para diagnóstico: hasta la respuesta de la API (incluye lectura IIA) y después (CoreUse)
       var _trApiMs=Date.now()-_t0,_trApiEnd=Date.now();
-      var _sr={func:fn,tc:tc,label:s.label,pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
+      var _sr={func:fn,tc:tc,label:s.label+(_iiaRetry?' · tras '+_iiaRetry+' reintento(s)':''),pass:pass,req:req_s,res:res_s,httpCode:httpCode,newmanOut:newmanOut,duration_ms:Date.now()-_t0};
+      if(_iiaRetry)_sr.iiaRetry=_iiaRetry;
       var _trApiPass=pass,_trCu={status:'',msg:'',attempts:0,checked:'no'};
       // Guardar estado de envío async inmediato
       if(rd&&rd.asyncSubmitted!==undefined)_sr.asyncSubmitted=rd.asyncSubmitted;
@@ -20401,7 +20437,8 @@ async function _atrf_runSelected(){
             noAccessId:!!_sr.noAccessId,
             accessIdFromResponse:(rd&&rd.accessId)||'',
             cto:(fn==='Cambio de Fibra'&&_atrfPendingCto)?{code:(_cfUsed&&_cfUsed.code)||_atrfPendingCto.ctoCode||'',lu:(_cfUsed&&_cfUsed.lu)||_atrfPendingCto.logicalUnit||'',curCto:_atrfPendingCto.curCto||'',curLu:_atrfPendingCto.curLu||'',iiaMs:_atrfIiaMs,auto:!!_atrfPendingCto.autoSelected,luRetry:_trLuTry}:null,
-            error:_sr.error||''
+            error:_sr.error||'',
+            iiaRetry:_iiaRetry||0
           },
           req:req_s,res:res_s
         })}).catch(function(){});
