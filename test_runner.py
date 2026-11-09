@@ -21170,6 +21170,7 @@ function _invTblClick(e){
   if(act==='raw'){_invShowRaw(aid);return;}
   if(act==='release'){_invRelease(aid);return;}
   if(act==='release-cancel'){_invRelease(aid,'cancel');return;}
+  if(act==='release-baja'){_invRelease(aid,'baja');return;}
 }
 function _invProgress(msg){
   var p=document.getElementById('inv-progress');
@@ -21193,11 +21194,14 @@ function _invRelBtn(x){
   return '<button data-act="release" title="'+_trEsc(a.why)+'" style="padding:2px 8px;border-radius:4px;border:1px solid '+(bj?'#EF4444':'#F59E0B')+';background:'+(bj?'#EF4444':'#F59E0B')+'1a;color:'+(bj?'#EF4444':'#B45309')+';font-size:.64rem;font-weight:700;cursor:pointer;white-space:nowrap">'
     +(bj?'⬇ Dar de baja':'✖ Cancelar OOSS')+'</button>'
     // Cancelación OOSS siempre disponible: a veces la Baja no deja el AID en InStock
+    // Baja Total siempre disponible también cuando la recomendación es Cancelar OOSS
+    +(!bj?' <button data-act="release-baja" title="Ejecutar Baja Total de Servicio sobre este AID" style="padding:2px 8px;border-radius:4px;border:1px solid #EF4444;background:#EF44441a;color:#EF4444;font-size:.64rem;font-weight:700;cursor:pointer;white-space:nowrap">⬇ Dar de baja</button>':'')
     +(bj?' <button data-act="release-cancel" title="Ejecutar Cancelación Orden de Servicio sobre este AID (útil si la Baja no lo dejó en InStock)" style="padding:2px 8px;border-radius:4px;border:1px solid #F59E0B;background:#F59E0B1a;color:#B45309;font-size:.64rem;font-weight:700;cursor:pointer;white-space:nowrap">✖ Cancelar OOSS</button>':'');
 }
 async function _invRelease(aid,force){
   var x=_invData.find(function(y){return y.access_id===aid;});if(!x)return;
   var a=_invRelAction(x);if(!a.act)return;
+  if(force==='baja'&&a.act!=='baja')a={act:'baja',why:'Baja Total manual (la recomendación era Cancelación OOSS porque no se detectó FIA)'};
   if(force==='cancel'&&a.act!=='cancel')a={act:'cancel',why:'Cancelación manual de la OOSS (la recomendación era Baja Total; se usa cuando la Baja no dejó el AID en InStock)'};
   if(_invBusy){showToast('Hay un cierre en curso: espera a que termine (se ve arriba de la tabla)','warn');return;}
   var svc=(document.getElementById('inv-svc')||{}).value||'FTTH';
