@@ -10990,8 +10990,10 @@ async def _aid_close_run(job: dict, aids: list, svc_type: str, user_email: str, 
             # Re-verificar InStock: CoreUse tarda ~2 min en reflejar la baja
             it["status"] = "verificando"
             cu = {"state": ""}
-            for attempt in range(8):
-                await _aio.sleep(20 if attempt else 15)
+            _any_ok = any(st.get("pass") for st in it["steps"])
+            for attempt in range(8 if _any_ok else 1):
+                if _any_ok:
+                    await _aio.sleep(20 if attempt else 15)
                 cu = await _aid_cu_verify(aid)
                 if cu["state"] == "instock":
                     break
@@ -20984,7 +20986,20 @@ function showCodigos(){
 }
 
 // ── Inventario de Access IDs (runner vs CoreUse) ─────────────────────────
-var _invData=[], _invSel={}, _invBusy=false;
+var _invData=[], _invSel={}, _invBusy=false, _invVerBusy=false;
+if(typeof window.showToast!=='function'){
+  window.showToast=function(msg,type){
+    var c=document.getElementById('qa-toasts');
+    if(!c){c=document.createElement('div');c.id='qa-toasts';
+      c.style.cssText='position:fixed;right:18px;bottom:18px;z-index:100000;display:flex;flex-direction:column;gap:8px;max-width:420px';
+      document.body.appendChild(c);}
+    var col=type==='err'?'#EF4444':(type==='warn'?'#F59E0B':'#22C55E');
+    var t=document.createElement('div');
+    t.style.cssText='background:#111827;color:#F9FAFB;border-left:4px solid '+col+';padding:10px 14px;border-radius:6px;font-size:.82rem;box-shadow:0 4px 14px rgba(0,0,0,.3)';
+    t.textContent=String(msg);c.appendChild(t);
+    setTimeout(function(){t.remove();},5000);
+  };
+}
 var _INV_RUN_ST={activo:{c:'#EF4444',l:'🔴 Activo'},cancelado:{c:'#F59E0B',l:'🟡 Cancelado'},dado_de_baja:{c:'#22C55E',l:'🟢 Dado de baja'},desconocido:{c:'#888',l:'⚪ Sin estado'}};
 var _INV_CU_ST={instock:{c:'#22C55E',l:'✅ InStock'},en_uso:{c:'#EF4444',l:'⛔ En uso'},sin_datos:{c:'#888',l:'∅ Sin datos'},desconocido:{c:'#F59E0B',l:'❓ No identificado'},error:{c:'#F59E0B',l:'⚠ Error'},'':{c:'#888',l:'— Sin verificar'}};
 var _INV_VNO_LBL={'00':'TCH','02':'KAO','03':'B1/Entel','05':'DTV'};
@@ -21184,7 +21199,7 @@ async function _invRelease(aid,force){
   var x=_invData.find(function(y){return y.access_id===aid;});if(!x)return;
   var a=_invRelAction(x);if(!a.act)return;
   if(force==='cancel'&&a.act!=='cancel')a={act:'cancel',why:'Cancelación manual de la OOSS (la recomendación era Baja Total; se usa cuando la Baja no dejó el AID en InStock)'};
-  if(_invBusy){if(typeof showToast==='function')showToast('Hay una operación en curso','err');return;}
+  if(_invBusy){showToast('Hay un cierre en curso: espera a que termine (se ve arriba de la tabla)','warn');return;}
   var svc=(document.getElementById('inv-svc')||{}).value||'FTTH';
   var op=a.act==='baja'?'Baja Total de Servicio':'Cancelación Orden de Servicio';
   if(!confirm('Liberar recursos de '+aid+' · Se ejecutará en ServiceNow: '+op+' (u_service_type '+svc+'). Motivo: '+a.why+'. Luego se verifica InStock en CoreUse (~2-3 min). ¿Continuar?'))return;
@@ -21208,11 +21223,12 @@ async function _invVerifySelected(){
   _invVerifyList(list);
 }
 async function _invVerifyList(list){
-  if(_invBusy){showToast&&showToast('Hay una operación en curso','err');return;}
-  _invBusy=true;
+  if(_invVerBusy){showToast('Ya hay una verificación en curso, espera a que termine','warn');return;}
+  _invVerBusy=true;
   var ok=0;
   for(var i=0;i<list.length;i++){
-    _invProgress('🔍 Verificando en CoreUse '+(i+1)+'/'+list.length+' · '+_trEsc(list[i])+'…');
+    if(!_invBusy)_invProgress('🔍 Verificando en CoreUse '+(i+1)+'/'+list.length+' · '+_trEsc(list[i])+'…');
+    else if(i===0)showToast('🔍 Verificando '+list.length+' AID en CoreUse…','ok');
     try{
       var r=await fetch('/api/aid-inventory/verify',{method:'POST',headers:_authHdr(),body:JSON.stringify({access_id:list[i]})});
       var d=await r.json();
@@ -21226,8 +21242,8 @@ async function _invVerifyList(list){
     }catch(e){}
     if(i%5===4||i===list.length-1)_invRender();
   }
-  _invBusy=false;
-  _invProgress('');
+  _invVerBusy=false;
+  if(!_invBusy)_invProgress('');
   if(typeof showToast==='function')showToast('Verificación terminada: '+ok+'/'+list.length+' en InStock','ok');
 }
 async function _invCloseSelected(){
