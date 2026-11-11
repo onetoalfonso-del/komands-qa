@@ -2395,8 +2395,18 @@ async def _agenda_fire_async(schedule_id: int):
         # ── FASE 2: Paralelo — Rama IA ∥ Independientes ───────────────────────
         async def _run_ia_chain():
             _res = []
+            _cia_end = 0.0
             for _i, _fn in enumerate(ia_phase):
+                # Tras una CIA, ServiceNow tarda en cerrar la intervención: esperar 30 s antes de la IIA
+                if _fn == "Inicio Intervención Asegurada" and _cia_end:
+                    _rest = 30 - (_tme.monotonic() - _cia_end)
+                    if _rest > 0:
+                        print(f"[agenda] esperando {int(_rest)} s post-CIA antes de la IIA…")
+                        await _asyncio.sleep(_rest)
+                    _cia_end = 0.0
                 _r = await _exec_step(_fn)
+                if _fn == "Cancelación Intervención Asegurada" and _r.get("pass"):
+                    _cia_end = _tme.monotonic()
                 # IIA rechazada porque la intervención anterior aún se está cerrando (código 7 tras una
                 # CIA / código 2 tras una FIA): esperar 30 s y repetir el paso completo, hasta 3 veces
                 _n7 = 0
@@ -20561,7 +20571,7 @@ async function _atrf_runSelected(){
     }
     // ── FASE 2: Paralelo — Cadena IA ∥ Independientes ───────────────────────
     async function _mRunIA(){
-      var _res=[];var _iaFailed=false;
+      var _res=[];var _iaFailed=false;var _ciaEnd=0;
       for(var _mi=0;_mi<_mIaPhase.length;_mi++){
         if(_iaFailed&&_MIaSet.has(_mIaPhase[_mi].fn)){
           var _skFn=_mIaPhase[_mi].fn,_skTc=(_ATRF_TC_MAP[_skFn]||{})[vno]||'';
@@ -20604,7 +20614,18 @@ async function _atrf_runSelected(){
             continue;
           }
         }
+        // Tras una CIA, ServiceNow tarda en cerrar la intervención: esperar 30 s antes de la siguiente IIA
+        // (si no, CoreUse la rechaza con código 7 "Existe una intervención en curso")
+        if(_mIaPhase[_mi].fn==='Inicio Intervención Asegurada'&&_ciaEnd&&!_atrfStopReq){
+          var _wC=_ciaEnd+30000;
+          while(Date.now()<_wC&&!_atrfStopReq){
+            if(prog)prog.textContent='⏸ '+Math.ceil((_wC-Date.now())/1000)+' s post-CIA para que ServiceNow cierre la intervención…';
+            await new Promise(function(rr){setTimeout(rr,Math.min(1000,_wC-Date.now()));});
+          }
+          _ciaEnd=0;
+        }
         var _r=await _mDoStep(_mIaPhase[_mi]);
+        if(_r&&_mIaPhase[_mi].fn==='Cancelación Intervención Asegurada'&&_r.pass)_ciaEnd=Date.now();
         // IIA rechazada en CoreUse porque la intervención anterior aún se está cerrando
         // (código 7 "Existe una intervención en curso" tras una CIA, o código 2 tras una FIA):
         // esperar 30 s y repetir el paso completo (API + CoreUse), hasta 3 veces
