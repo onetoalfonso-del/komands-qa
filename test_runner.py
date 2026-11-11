@@ -8597,11 +8597,15 @@ def _cu_discover_actions(sess, access_id: str) -> list:
                      verify=False, timeout=15, allow_redirects=True).text
     except Exception:
         return []
-    srcs = list(dict.fromkeys(re.findall(r"(/_next/static/chunks/[^\"'\s<>]+\.js)", h)))
+    # chunks en <script> y también los referenciados en el payload RSC (componentes cargados al abrir el ⓘ)
+    _hx = h.replace(chr(92) + "/", "/").replace('\\"', '"')
+    srcs = list(dict.fromkeys("/_next/" + m for m in
+                              re.findall(r"(?:/_next/)?(static/chunks/[A-Za-z0-9_./~%\-]+?\.js)", _hx)))
+    _cu_action_diag["chunks"] = len(srcs)
     strong, weak = [], []
     for m in re.findall(r'createServerReference\)?\(\s*"([0-9a-f]{40,44})"', h):
         strong.append(m)
-    for src in srcs[:60]:
+    for src in srcs[:150]:
         try:
             js = sess.get(f"{_COREUSE_BASE}{src}", verify=False, timeout=15).text
         except Exception:
@@ -8651,6 +8655,7 @@ def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
                 continue
             _t2 = r2.content.decode("utf-8", errors="replace")
             _cu_action_diag["tried"].append(f"{cand[:10]}:{r2.status_code}:{len(_t2)}:"
+                                            f"{(r2.headers.get('location') or '')[:40]}:"
                                             f"{sum(1 for k in _cu_flatten_kv(_t2) if str(k).startswith('u_'))}")
             if r2.status_code == 200:
                 if _cu_is_detail(r2.content.decode("utf-8", errors="replace")):
