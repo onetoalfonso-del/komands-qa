@@ -8587,16 +8587,69 @@ _CU_ROUTER_TREE = ("%5B%22%22%2C%7B%22children%22%3A%5B%22(dashboard)%22%2C%7B%2
                    "%2C0%5D%7D%2Cnull%2Cnull%2C0%5D%7D%2Cnull%2Cnull%2C16%5D")
 
 
-def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
-    """Llama la acción del detalle de fila. Retorna (status_http, texto RSC)."""
-    r = sess.post(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+_cu_action_diag = {"last_status": None, "last_body": "", "discovered": None, "candidates": 0, "last_scan": 0}
+
+
+def _cu_discover_actions(sess, access_id: str) -> list:
+    """Busca los ids de Server Actions en los chunks JS de /flujos-qa (cambian en cada deploy de CoreUse)."""
+    try:
+        h = sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
+                     verify=False, timeout=15, allow_redirects=True).text
+    except Exception:
+        return []
+    srcs = list(dict.fromkeys(re.findall(r"(/_next/static/chunks/[^\"'\s<>]+\.js)", h)))
+    strong, weak = [], []
+    for m in re.findall(r'createServerReference\)?\(\s*"([0-9a-f]{40,44})"', h):
+        strong.append(m)
+    for src in srcs[:60]:
+        try:
+            js = sess.get(f"{_COREUSE_BASE}{src}", verify=False, timeout=15).text
+        except Exception:
+            continue
+        strong += re.findall(r'createServerReference\)?\(\s*"([0-9a-f]{40,44})"', js)
+        if "createServerReference" in js or "callServer" in js:
+            weak += re.findall(r'"([0-9a-f]{40,44})"', js)
+    out = list(dict.fromkeys(strong + weak))
+    _cu_action_diag["candidates"] = len(out)
+    return out[:40]
+
+
+def _cu_row_detail_post(sess, access_id: str, sys_id: str, table: str, action: str):
+    return sess.post(f"{_COREUSE_BASE}/flujos-qa", params={"access": access_id},
                   data=json.dumps([{"instancia": "qa", "sysId": sys_id, "tabla": table}]),
-                  headers={"Accept": "text/x-component", "Next-Action": _CU_ROW_DETAIL_ACTION,
+                  headers={"Accept": "text/x-component", "Next-Action": action,
                            "Content-Type": "text/plain;charset=UTF-8",
                            "Next-Router-State-Tree": _CU_ROUTER_TREE,
                            "Origin": _COREUSE_BASE,
                            "Referer": f"{_COREUSE_BASE}/flujos-qa?access={access_id}"},
                   verify=False, timeout=20, allow_redirects=False)
+
+
+def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
+    """Llama la acción del detalle de fila (ⓘ). Retorna (status_http, texto RSC).
+    Si CoreUse se redesplegó y el id de la acción cambió, lo redescubre desde sus chunks JS."""
+    global _CU_ROW_DETAIL_ACTION
+    r = _cu_row_detail_post(sess, access_id, sys_id, table, _CU_ROW_DETAIL_ACTION)
+    _cu_action_diag["last_status"] = r.status_code
+    if ((r.status_code != 200 or not _cu_flatten_kv(r.content.decode("utf-8", errors="replace")))
+            and _time_lib.time() - _cu_action_diag["last_scan"] > 300):   # máx. un barrido cada 5 min
+        _cu_action_diag["last_scan"] = _time_lib.time()
+        _cu_action_diag["last_body"] = r.content[:120].decode("utf-8", errors="replace")
+        for cand in _cu_discover_actions(sess, access_id):
+            if cand == _CU_ROW_DETAIL_ACTION:
+                continue
+            try:
+                r2 = _cu_row_detail_post(sess, access_id, sys_id, table, cand)
+            except Exception:
+                continue
+            if r2.status_code == 200:
+                kv = _cu_flatten_kv(r2.content.decode("utf-8", errors="replace"))
+                if any(k.startswith("u_") for k in kv) or len(kv) >= 8:
+                    print(f"[coreuse] acción del detalle (i) redescubierta: {cand[:12]}…")
+                    _CU_ROW_DETAIL_ACTION = cand
+                    _cu_action_diag["discovered"] = cand
+                    r = r2
+                    break
     # La respuesta no declara charset: decodificar UTF-8 (si no, "Sí" llega como "SÃ")
     return r.status_code, r.content.decode("utf-8", errors="replace")
 
@@ -8976,7 +9029,8 @@ async def api_coreuse_iia_detail(access_id: str = ""):
                     _row = max(_iia, key=lambda x: x["ts_ms"] or 0)
                     info.update({"iia_date": _row["date"], "iia_table": _row["table"]})
                     st, txt = _cu_row_detail(s, access_id, _row["sys_id"], _row["table"])
-                    info.update({"action_http": st, "action_len": len(txt or "")})
+                    info.update({"action_http": st, "action_len": len(txt or ""),
+                                 "action_diag": dict(_cu_action_diag)})
                     if st == 200:
                         _kv = _cu_flatten_kv(txt)
                         info["detail_keys"] = len(_kv)
