@@ -8613,7 +8613,9 @@ def _cu_discover_actions(sess, access_id: str) -> list:
         strong += re.findall(r'createServerReference\)?\(\s*"([0-9a-f]{40,44})"', js)
         if "createServerReference" in js or "callServer" in js:
             weak += re.findall(r'"([0-9a-f]{40,44})"', js)
-    out = list(dict.fromkeys(strong + weak))
+    # Solo acciones de 1 argumento (prefijo 40/7f, como la original 4057…): las de 0 argumentos
+    # pueden ser cosas como cerrar sesión y no deben probarse
+    out = [c for c in dict.fromkeys(strong + weak) if c[:2] in ("40", "7f")]
     _cu_action_diag["candidates"] = len(out)
     return out[:40]
 
@@ -8651,6 +8653,13 @@ def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
                 continue
             try:
                 r2 = _cu_row_detail_post(sess, access_id, sys_id, table, cand)
+                if r2.status_code in (302, 303, 307, 308) and "/login" in (r2.headers.get("location") or ""):
+                    # sesión caída: re-login y se copian las cookies a la sesión del llamador
+                    s2 = _coreuse_login()
+                    if s2:
+                        sess.cookies.clear()
+                        sess.cookies.update(s2.cookies)
+                        r2 = _cu_row_detail_post(sess, access_id, sys_id, table, cand)
             except Exception:
                 continue
             _t2 = r2.content.decode("utf-8", errors="replace")
