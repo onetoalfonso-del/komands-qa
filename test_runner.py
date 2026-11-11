@@ -2397,6 +2397,17 @@ async def _agenda_fire_async(schedule_id: int):
             _res = []
             for _i, _fn in enumerate(ia_phase):
                 _r = await _exec_step(_fn)
+                # IIA rechazada porque la intervención anterior aún se está cerrando (código 7 tras una
+                # CIA / código 2 tras una FIA): esperar 30 s y repetir el paso completo, hasta 3 veces
+                _n7 = 0
+                while (_fn == "Inicio Intervención Asegurada" and not _r["pass"] and _n7 < 3
+                       and any(t in (str(_r.get("error") or "") + " " + str(_r.get("res") or ""))
+                               for t in ("Existe una intervenci", _IIA_BUSY_TXT))):
+                    _n7 += 1
+                    print(f"[agenda] IIA: intervención anterior en curso · reintento {_n7}/3 en 30 s")
+                    await _asyncio.sleep(30)
+                    _r = await _exec_step(_fn)
+                    _r["iiaRetry"] = _n7
                 _res.append(_r)
                 if _fn == "Inicio Intervención Asegurada" and not _r["pass"]:
                     # Inicio IA falló → marcar el resto de pasos IA como saltados;
@@ -20594,6 +20605,23 @@ async function _atrf_runSelected(){
           }
         }
         var _r=await _mDoStep(_mIaPhase[_mi]);
+        // IIA rechazada en CoreUse porque la intervención anterior aún se está cerrando
+        // (código 7 "Existe una intervención en curso" tras una CIA, o código 2 tras una FIA):
+        // esperar 30 s y repetir el paso completo (API + CoreUse), hasta 3 veces
+        if(_mIaPhase[_mi].fn==='Inicio Intervención Asegurada'){
+          var _iaBusy=function(r){var t=String((r&&r.coreuse_msg)||'')+' '+String((r&&r.res)||'')+' '+String((r&&r.coreuse_info)||'');
+            return t.indexOf('Existe una intervenci')>=0||t.indexOf('en un estado para realizar una evaluaci')>=0;};
+          for(var _ia7=1;_ia7<=3&&_r&&!_r.pass&&_iaBusy(_r)&&!_atrfStopReq;_ia7++){
+            var _w7=Date.now()+30000;
+            while(Date.now()<_w7){
+              if(prog)prog.textContent='⏳ IIA: intervención anterior aún en curso · reintento '+_ia7+'/3 en '+Math.ceil((_w7-Date.now())/1000)+' s…';
+              await new Promise(function(rr){setTimeout(rr,Math.min(1000,_w7-Date.now()));});
+            }
+            _r=await _mDoStep(_mIaPhase[_mi]);
+            if(_r){_r.iiaRetry=_ia7;_r.label=String(_r.label||'').split(' · tras ')[0]+' · tras '+_ia7+' reintento(s)';
+              _r.res=String(_r.res||'')+'  // (IIA: '+(_r.pass?'pasó':'falló')+' tras '+_ia7+' reintento(s): intervención anterior en curso)';}
+          }
+        }
         if(_r){_res.push(_r);_mDone(_r);if(_mIaPhase[_mi].fn==="Inicio Intervención Asegurada"&&!_r.pass)_iaFailed=true;}
       }
       return _res;
