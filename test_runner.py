@@ -8625,16 +8625,23 @@ def _cu_row_detail_post(sess, access_id: str, sys_id: str, table: str, action: s
                   verify=False, timeout=20, allow_redirects=False)
 
 
+def _cu_is_detail(txt: str) -> bool:
+    """¿La respuesta es el detalle de un registro (campos u_…) y no la página completa?"""
+    kv = _cu_flatten_kv(txt or "")
+    return sum(1 for k in kv if str(k).startswith("u_")) >= 3
+
+
 def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
     """Llama la acción del detalle de fila (ⓘ). Retorna (status_http, texto RSC).
     Si CoreUse se redesplegó y el id de la acción cambió, lo redescubre desde sus chunks JS."""
     global _CU_ROW_DETAIL_ACTION
     r = _cu_row_detail_post(sess, access_id, sys_id, table, _CU_ROW_DETAIL_ACTION)
     _cu_action_diag["last_status"] = r.status_code
-    if ((r.status_code != 200 or not _cu_flatten_kv(r.content.decode("utf-8", errors="replace")))
+    if ((r.status_code != 200 or not _cu_is_detail(r.content.decode("utf-8", errors="replace")))
             and _time_lib.time() - _cu_action_diag["last_scan"] > 300):   # máx. un barrido cada 5 min
         _cu_action_diag["last_scan"] = _time_lib.time()
         _cu_action_diag["last_body"] = r.content[:120].decode("utf-8", errors="replace")
+        _cu_action_diag["tried"] = []
         for cand in _cu_discover_actions(sess, access_id):
             if cand == _CU_ROW_DETAIL_ACTION:
                 continue
@@ -8642,9 +8649,11 @@ def _cu_row_detail(sess, access_id: str, sys_id: str, table: str):
                 r2 = _cu_row_detail_post(sess, access_id, sys_id, table, cand)
             except Exception:
                 continue
+            _t2 = r2.content.decode("utf-8", errors="replace")
+            _cu_action_diag["tried"].append(f"{cand[:10]}:{r2.status_code}:{len(_t2)}:"
+                                            f"{sum(1 for k in _cu_flatten_kv(_t2) if str(k).startswith('u_'))}")
             if r2.status_code == 200:
-                kv = _cu_flatten_kv(r2.content.decode("utf-8", errors="replace"))
-                if any(k.startswith("u_") for k in kv) or len(kv) >= 8:
+                if _cu_is_detail(r2.content.decode("utf-8", errors="replace")):
                     print(f"[coreuse] acción del detalle (i) redescubierta: {cand[:12]}…")
                     _CU_ROW_DETAIL_ACTION = cand
                     _cu_action_diag["discovered"] = cand
