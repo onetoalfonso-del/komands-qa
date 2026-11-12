@@ -1875,6 +1875,13 @@ async def _kb_seed(conn):
                            "AND title='FTTH / SSAA (u_service_type)' AND content LIKE '%pendiente completar%'",
                            next(c for (_k, _a, _cd, t, c, _tg) in _KB_SEED if t == "FTTH / SSAA (u_service_type)"))
         if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
+          await conn.execute(
+            "INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
+            "SELECT 'flujo', 'Bloqueo de Servicio (BL)', '', 'BL / DBL solo para DirecTV', $1, 'bl,dbl,dtv', 'Claude (dato del usuario)' "
+            "WHERE NOT EXISTS (SELECT 1 FROM qa_kb WHERE title='BL / DBL solo para DirecTV')",
+            "El Bloqueo (BL) y Desbloqueo (DBL) de servicio solo aplican a DirecTV (VNO 05). "
+            "No se prueban con Entel, KAO ni TCH. El DBL siempre va después de un BL.")
+        if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
             return
         for cat, api, code, title, content, tags in _KB_SEED:
             await conn.execute(
@@ -13010,7 +13017,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
   <div class="kb-box kb-a kb-clk" data-n="visita"><b>4. Visita técnica</b><span>el técnico va a la casa: IIA → trabajos (ej. Cambio de Fibra) → FIA</span><span>si no se hace: CIA</span></div>
   <div class="kb-arr">→</div>
   <div class="kb-box kb-clk" data-n="post" style="flex:1.4"><b>5. Postventa y soporte</b>
-    <span>• Cambio de plan · BL / DBL · cambio de ONT</span>
+    <span>• Cambio de plan · cambio de ONT · BL / DBL (solo DirecTV)</span>
     <span>• Diagnóstico: RetrieveAccess, Estado Vecino, AccessStatus, ONTRetrieve, ONT Restart</span>
     <span class="kb-chip" style="background:#EF444422;color:#EF4444">Installed</span></div>
   <div class="kb-arr">→</div>
@@ -21951,8 +21958,8 @@ var _KBM_API={
   'Asignación':{n:'Reserva los recursos de red para ir a instalar: el puerto / pelo (LU) en la CTO y la posición en el PON. Crea el Access ID y la orden de servicio (Customer Order).',s:['fullFillment-assignment/v1/assignment','fullFillment-AsignationSSAA/v1/assignment (PRE)'],a:['fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA'],cu:'Assignment (u_assignment)'},
   'Activación':{n:'Deja el servicio funcionando: registra el equipo ONT del cliente y activa el plan contratado. El recurso pasa a Installed.',s:['fullFillment-activation/v1/registrationActivation','fullFillment-ActivationSSAA/v1/registrationActivationSSAA (PRE)'],a:[],cu:'Registration activation (u_registration_activation)'},
   'Modificación de Acceso':{n:'Cambia el plan de velocidad contratado por el cliente (subir o bajar de plan).',s:['fullFillment-modification/v1/registrationModification','fullFillment-ModificationSSAA/v1/registrationModificationSSAA (PRE)'],a:[],cu:'Registration modification (u_registration_modification)'},
-  'Bloqueo de Servicio (BL)':{n:'Suspende el servicio del cliente (por ejemplo, por no pago) sin darlo de baja.',s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
-  'Desbloqueo de Servicio (DBL)':{n:'Restablece un servicio que estaba bloqueado.',s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
+  'Bloqueo de Servicio (BL)':{n:'Solo para DirecTV (VNO 05). Suspende el servicio del cliente (por ejemplo, por no pago) sin darlo de baja.',s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
+  'Desbloqueo de Servicio (DBL)':{n:'Solo para DirecTV (VNO 05). Restablece un servicio que estaba bloqueado. Siempre va después de un BL.',s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
   'Modificación de Dispositivo':{n:'Cambia el equipo ONT del cliente por otro (nuevo serial), por ejemplo por falla o recambio.',s:['fullFillment-deviceModification/v1/deviceModification'],a:['fullFillment-deviceModificationAsync/v1/deviceModificationAsync'],cu:'Device Modification (u_device_modification)'},
   'Inicio Intervención Asegurada':{n:'El técnico va a la casa del cliente a instalar o atender lo contratado: se abre la intervención (ticket WO). Mientras está abierta se pueden hacer trabajos en terreno, como el Cambio de Fibra.',s:['fullFillment-gIntervention/v1/assuredIntervention'],a:[],cu:'Assured intervention (u_assured_intervention)'},
   'Cancelación Intervención Asegurada':{n:'Se cancela la visita técnica que estaba abierta (por ejemplo, el cliente no estaba o se reagenda).',s:['fullFillment-cancelIntervention/v1/interventionCancellation'],a:['fullFillment-interventionCancellationAsync/v1/interventionCancellationAsync'],cu:'Intervention cancellation (u_intervention_cancellation)'},
@@ -21983,7 +21990,7 @@ var _KBM={
   asig:{t:'2. Asignación',d:'Reserva el puerto/LU en la CTO, crea el Access ID y la Customer Order (ORD…). En el CMDB queda Pending Install.',kb:['Access ID (AID)','Customer Order (ORD…)'],f:['Asignación'],rel:['fact','activ','cto']},
   activ:{t:'3. Activación',d:'Activa el servicio en la ONT con el plan contratado. En el CMDB queda Installed.',kb:['CMDB y estados'],f:['Activación'],rel:['asig','visita','ont']},
   visita:{t:'4. Visita técnica',d:'El técnico va a la casa del cliente: se abre la intervención (IIA), se hacen los trabajos en terreno (por ejemplo Cambio de Fibra) y se cierra (FIA). Si la visita no se realiza, se cancela (CIA).',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Inicio Intervención Asegurada','Cancelación Intervención Asegurada','Cambio de Fibra','Finalización Intervención Asegurada'],rel:['activ','post','iia1','fia']},
-  post:{t:'5. Postventa y soporte',d:'Cambios sobre un servicio activo (plan, bloqueo, equipo) y consultas para diagnosticar fallas. El AID sigue Installed.',kb:['Plan de velocidad'],f:['Modificación de Acceso','Bloqueo de Servicio (BL)','Desbloqueo de Servicio (DBL)','Modificación de Dispositivo','RetrieveAccess','Consulta Estado Vecino (GET)','Diagnóstico de Acceso','Consulta de Alarmas','Reinicio ONT'],rel:['visita','cierre']},
+  post:{t:'5. Postventa y soporte',d:'Cambios sobre un servicio activo (plan, equipo; bloqueo y desbloqueo solo en DirecTV) y consultas para diagnosticar fallas. El AID sigue Installed.',kb:['Plan de velocidad'],f:['Modificación de Acceso','Bloqueo de Servicio (BL)','Desbloqueo de Servicio (DBL)','Modificación de Dispositivo','RetrieveAccess','Consulta Estado Vecino (GET)','Diagnóstico de Acceso','Consulta de Alarmas','Reinicio ONT'],rel:['visita','cierre']},
   cierre:{t:'6. Cierre',d:'Libera los recursos. Sin FIA se cancela la orden (Cancelación OOSS); con FIA se da de baja (Baja Total). El AID debería quedar In Stock en CoreUse.',kb:['Cancelación OOSS vs Baja Total','CMDB y estados'],f:['Cancelación Orden de Servicio','Baja Total de Servicio'],rel:['post']},
   iia1:{t:'IIA · Inicio Intervención Asegurada',d:'Abre una intervención técnica sobre el acceso (ticket WO…). Habilita operaciones como el Cambio de Fibra; su detalle ⓘ trae las CTO y LU disponibles.',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Inicio Intervención Asegurada'],rel:['cia','fc']},
   cia:{t:'CIA · Cancelación Intervención Asegurada',d:'Cancela la intervención abierta. ServiceNow tarda en cerrarla: el runner espera 30 s antes de la siguiente IIA.',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Cancelación Intervención Asegurada'],rel:['iia1','iia2']},
