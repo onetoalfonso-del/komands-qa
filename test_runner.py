@@ -1694,6 +1694,18 @@ CREATE TABLE IF NOT EXISTS qa_return_codes (
     created_at  TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT qa_rc_uniq UNIQUE (flow,code,cls,description)
 );
+CREATE TABLE IF NOT EXISTS qa_kb (
+    id          BIGSERIAL PRIMARY KEY,
+    category    VARCHAR(20) NOT NULL,
+    api         TEXT DEFAULT '',
+    code        TEXT DEFAULT '',
+    title       TEXT NOT NULL,
+    content     TEXT DEFAULT '',
+    tags        TEXT DEFAULT '',
+    author      TEXT DEFAULT '',
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
 INSERT INTO qa_return_codes (flow,code,cls,description,breaking_pt,sort_order) VALUES
 -- FACTIBILIDAD
 ('Factibilidad','9','Funcional','La direcci\xf3n solicitada no existe en el inventario.','',1),
@@ -1839,6 +1851,7 @@ async def _db() -> _apg.Pool:
                 async with _db_pool.acquire() as _conn:
                     await _conn.execute(_DB_SCHEMA)
                     await _jwt_secret_load(_conn)
+                    await _kb_seed(_conn)
                 print("[db] Conectado a Supabase PostgreSQL")
             except Exception as _e:
                 print(f"[db] Error conectando: {_e}")
@@ -1849,6 +1862,22 @@ async def _db() -> _apg.Pool:
 import hashlib as _hl, hmac as _hmac_lib, base64 as _b64_lib, secrets as _sec_lib, time as _time_lib
 
 _JWT_SECRET   = os.getenv("JWT_SECRET", _sec_lib.token_hex(32))
+
+
+_KB_SEED = [('glosario', '', '', 'Onnet Fibra', 'Red mayorista de fibra óptica (FTTH). No vende al cliente final: arrienda el acceso a operadores (VNO) que venden el servicio con su marca.', 'red'), ('glosario', '', '', 'VNO (operador)', 'Operador que usa la red de Onnet para vender servicio. En el runner: 00 = TCH, 02 = KAO, 03 = Entel (B1), 05 = DTV.\nCada API se llama con el vnoId del operador y un Access ID solo responde a su VNO: si se consulta con otro VNO responde "Falla perímetro VNO" o "El Access ID solicitado corresponde a otra VNO".', 'vno'), ('glosario', '', '', 'Access ID (AID)', 'Identificador del acceso de un cliente. Lo crea la Asignación y desde ahí une todo: la Customer Order, el puerto/LU de la CTO, la ONT, el registro del CMDB y los flujos en CoreUse.\nEl prefijo es el VNO (ej. 03-TESTQAAO11112026-05 es de Entel).', 'aid'), ('glosario', '', '', 'Address ID (DIR) y dirección', 'Identificador de la dirección del cliente (DIR + dígitos, campo u_address_id). Es la entrada de la Factibilidad y de la Asignación, junto con la dirección MCD (u_address_mcd).\nEn CoreUse aparece como DIR y en el detalle ⓘ como u_address_id.', 'direccion'), ('glosario', '', '', 'Factibilidad', 'Consulta previa a la venta: dada una dirección (Address ID) responde si hay cobertura y facilidad disponible (una CTO con puerto libre). No crea nada en la red.', 'venta'), ('glosario', '', '', 'Customer Order (ORD…)', 'Orden en ServiceNow que crea la Asignación (ej. ORD0263225). Las operaciones siguientes validan el estado de esta orden; por eso aparecen códigos como "La Customer Order no está en un estado…".', 'servicenow'), ('glosario', '', '', 'OLT', 'Equipo en la central de Onnet donde nace la fibra. Tiene tarjetas (slots) y cada tarjeta puertos PON. Ej. OLT PITA_OLT_5, tarjeta 0/1, PON 0/1/6.', 'red'), ('glosario', '', '', 'PON', 'Puerto óptico de la OLT que se comparte entre varios clientes usando splitters. Ej. PON GPON 0/1/6.\nEl PON lógico agrega la posición del cliente: 0/1/6/111 (por confirmar: el último número sería el id de la ONT en ese PON).', 'red'), ('glosario', '', '', 'Ruta lógica', 'Camino del acceso escrito en una sola línea. Ej. PITA_OLT_5_1_6_111 = OLT PITA_OLT_5, tarjeta 1, PON 6, posición 111 (por confirmar la última parte).', 'red'), ('glosario', '', '', 'Splitter', 'Divisor óptico que reparte la señal de un PON entre varios clientes. Hay primarios y secundarios (ej. splitter secundario CA98SP11SS7).', 'red'), ('glosario', '', '', 'CTO', 'Caja terminal óptica en la calle o el edificio. De ella sale la acometida (fibra) hasta la casa del cliente. Ej. CTO 16/50(9). Tiene puertos / unidades lógicas (LU) y un código de cable (ej. CA98-F#11).', 'red'), ('glosario', '', '', 'LU (Logical Unit)', 'Unidad lógica (pelo) del cable en la CTO asignada al cliente (campo u_term_logical_cable_logical_unit). El Cambio de Fibra mueve el acceso a otra LU disponible; las disponibles salen del detalle ⓘ de la IIA (CTO1..CTO6 availableLogicalUnit).', 'red'), ('glosario', '', '', 'ONT', 'Equipo en la casa del cliente donde termina la fibra. Se identifica por su serial (ej. HWTC11091006, HWTC = Huawei). La Modificación de Dispositivo cambia el serial; ONT Restart la reinicia; ONTRetrieve lee sus datos y alarmas.', 'red'), ('glosario', '', '', 'Plan de velocidad', 'Velocidad contratada (u_speed_plan). Se cambia con Modificación de Acceso. El Bloqueo (BL) y Desbloqueo (DBL) usan la misma API registrationModification.', 'servicio'), ('glosario', '', '', 'ServiceNow', 'Sistema central de Onnet donde viven las Customer Orders, el CMDB (inventario de recursos) y las intervenciones (WO). Recibe las APIs a través del APIM y deja cada operación como un registro en tablas u_* (u_assignment, u_assured_intervention…).', 'servicenow'), ('glosario', '', '', 'CMDB y estados', 'Inventario de recursos de ServiceNow. Estados que vemos en CoreUse: Pending Install (asignado, aún no activo), Installed (en uso), In Stock (libre / recursos liberados).\n"+ 1 registro no-Installed en el CMDB" = hay otro registro del mismo AID en otro estado.', 'servicenow'), ('glosario', '', '', 'CoreUse', 'Portal (de Edgardo) que muestra por Access ID los flujos ejecutados en ServiceNow: fecha, flujo, código, mensaje y el detalle ⓘ con todos los campos u_*. El runner lo consulta para confirmar el resultado real de cada paso (sobre todo en modo asíncrono).', 'coreuse'), ('glosario', '', '', 'APIM', 'Gateway por donde entran las APIs (rutas fullFillment-…/v1/…). Un HTTP 408 es timeout del gateway: la solicitud igual pudo llegar a ServiceNow, por eso el runner revisa CoreUse.', 'apis'), ('glosario', '', '', 'Síncrono vs Asíncrono', 'Síncrono: la API responde con el resultado final.\nAsíncrono: la API solo acusa recibo (código 0 "Operación aceptada, el flujo continúa") y el resultado real aparece después en CoreUse/ServiceNow. El runner espera ese resultado consultando CoreUse.', 'apis'), ('glosario', '', '', 'Intervención asegurada (IIA / CIA / FIA) y WO', 'IIA = Inicio Intervención Asegurada: abre una intervención técnica sobre el acceso (ticket WO…).\nCIA = Cancelación de la intervención. FIA = Finalización de la intervención.\nAlgunas operaciones de postventa (Cambio de Fibra) requieren una IIA abierta.', 'aseguramiento'), ('glosario', '', '', 'Cancelación OOSS vs Baja Total', 'Cancelación Orden de Servicio (OOSS): cancela la orden cuando el servicio no quedó instalado (sin FIA).\nBaja Total de Servicio: da de baja un servicio instalado (con FIA).\nAmbas deberían dejar el AID en In Stock en CoreUse.', 'cierre'), ('glosario', '', '', 'FTTH / SSAA (u_service_type)', 'Tipo de servicio que se envía en las APIs (u_service_type). FTTH = fibra al hogar. SSAA: pendiente completar su significado.', 'servicio'), ('flujo', 'Inicio Intervención Asegurada', '7', 'Después de una CIA esperar antes de la IIA', 'Si la IIA llega pocos segundos después de la CIA, CoreUse responde código 7 "Existe una intervención en curso": ServiceNow aún está cerrando la intervención.\nObservado: 18, 35 y 46 s fallaron; 28 s y ~2 min pasaron. El runner espera 30 s post-CIA y reintenta hasta 3 veces.', 'iia,cia'), ('flujo', 'Finalización Intervención Asegurada', '0', 'La FIA termina en "Operación aceptada, el flujo continúa"', 'Ese es su mensaje final en CoreUse (confirmado). No cambia a "Flujo completado".', 'fia'), ('flujo', 'Inicio Intervención Asegurada', '2', 'IIA justo después de una FIA', 'Si la IIA llega muy pronto después de una FIA responde código 2 "La Customer Order no está en un estado…". El runner reintenta cada 30 s (hasta 3).', 'iia,fia'), ('flujo', 'Cambio de Fibra', '', 'El Cambio de Fibra necesita la IIA', 'Requiere una IIA abierta. El runner lee del detalle ⓘ de la IIA en CoreUse las CTO y LU disponibles y elige otra LU. Si la IIA dice "Fiber change options: No" el paso se omite. Si no puede leer la CTO, no se envía ("no enviado").', 'fiberchange'), ('flujo', 'Bloqueo de Servicio (BL)', '10', 'BL siempre antes que DBL', 'Si el Desbloqueo (DBL) va antes que el Bloqueo, responde código 10 "Plan de velocidad no está Bloqueado".', 'bl,dbl'), ('flujo', 'Cierre', '', 'Liberar recursos de un AID', 'Sin FIA: Cancelación Orden de Servicio. Con FIA: Baja Total de Servicio. Luego verificar In Stock en CoreUse.\nA veces la Baja responde "AccessID especificado no está ocupado" y el AID no queda In Stock: probar Cancelación OOSS desde Inventario AID.', 'cierre'), ('codigo', 'Factibilidad', '1', 'Error en validación del servicio', 'Revisar los datos enviados (servicio / tipo de servicio).', ''), ('codigo', 'Factibilidad', '2', 'El Address ID no está registrado', 'La dirección (DIR) no existe en el maestro de direcciones. Usar otro Address ID.', ''), ('codigo', 'Factibilidad', '13', 'La dirección no corresponde a un área de cobertura contratada', 'La dirección está fuera de la cobertura contratada por el VNO.', ''), ('codigo', 'Factibilidad', '14', 'Dirección con cobertura, pero no hay facilidad disponible', 'Hay cobertura pero no hay puerto libre en la CTO. Probar otra dirección.', ''), ('codigo', 'Activación', '1', 'No se ha encontrado Customer Order con AccessID especificado', 'La Asignación no dejó orden para ese AID.', ''), ('codigo', 'Activación', '6', 'La Customer Order especificada no se encuentra en estado asignado', 'La Asignación no terminó bien o la orden cambió de estado; el AID puede no existir de verdad.', ''), ('codigo', 'Inicio Intervención Asegurada', '1', 'No existe Customer Order asociada a Access ID de escenario de instalación', 'El AID no tiene orden de instalación (asignación/activación fallida).', ''), ('codigo', 'Inicio Intervención Asegurada', '2', 'La Customer Order no está en un estado para realizar una evaluación de intervención asegurada', 'Orden ocupada (p. ej. FIA reciente). Esperar y reintentar.', 'timing'), ('codigo', 'Inicio Intervención Asegurada', '7', 'Existe una intervención en curso sobre el mismo AccessID. Rechazo de intervención asegurada', 'Respuesta en CoreUse. La intervención anterior aún se está cerrando (CIA reciente). Esperar ≥30 s.', 'timing'), ('codigo', 'Modificación de Dispositivo', '2', 'El Access ID solicitado todavía no ha sido activado', 'Falta la Activación.', ''), ('codigo', 'Reinicio ONT', '2', 'El Access ID solicitado todavía no ha sido activado', 'Falta la Activación.', ''), ('codigo', 'Varias', '1', 'El AccessID solicitado no existe', 'El AID no existe en ServiceNow (asignación fallida o ya dado de baja).', ''), ('codigo', 'Consulta Estado Vecino (GET)', '4', 'Falla perímetro VNO', 'Se consultó con un VNO distinto al dueño del AID, o el AID no existe.', 'vno'), ('codigo', 'Consulta de Alarmas', '3', 'El Access ID solicitado corresponde a otra VNO', 'Revisar el vnoId de la llamada.', 'vno'), ('codigo', 'Diagnóstico de Acceso', '25', 'El AccessID solicitado no es válido', 'Formato de AID inválido o AID inexistente.', ''), ('codigo', 'RetrieveAccess', '7', 'No se encontró información para el acceso consultado', 'El AID no tiene datos (no existe o ya fue liberado).', ''), ('codigo', 'Desbloqueo de Servicio (DBL)', '10', 'Plan de velocidad no está Bloqueado', 'Respuesta en CoreUse (Registration modification). Se hizo DBL sin BL previo.', 'bl,dbl'), ('codigo', 'Cancelación Orden de Servicio', '1', 'No hay ninguna customer order abierta asociada al AccessID', 'La orden ya está cerrada/cancelada o el AID nunca existió.', 'cierre'), ('codigo', 'Baja Total de Servicio', '0', 'AccessID especificado no está ocupado', 'Código 0 pero puede no liberar: verificar In Stock en CoreUse.', 'cierre'), ('codigo', 'Finalización Intervención Asegurada', '0', 'Operación aceptada, el flujo continúa', 'Es el mensaje final normal de la FIA en CoreUse.', 'fia')]
+
+
+async def _kb_seed(conn):
+    """Contenido inicial de la Base de conocimiento (solo si la tabla está vacía)."""
+    try:
+        if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
+            return
+        for cat, api, code, title, content, tags in _KB_SEED:
+            await conn.execute(
+                "INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
+                "VALUES ($1,$2,$3,$4,$5,$6,'Claude (inicial)')", cat, api, code, title, content, tags)
+    except Exception as e:
+        print(f"[kb] seed: {e}")
 
 
 async def _jwt_secret_load(conn):
@@ -11335,6 +11364,99 @@ async def api_environments_delete(env_id: int):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# ─── Base de conocimiento ──────────────────────────────────────────────────────
+_KB_CATS = {"glosario": "Glosario", "codigo": "Códigos observados", "flujo": "Reglas de flujos", "nota": "Notas"}
+
+
+@app.get("/api/kb")
+async def kb_list(request: Request):
+    if not await _get_auth(request):
+        return JSONResponse({"error": "No autorizado"}, status_code=401)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    rows = await pool.fetch("SELECT id, category, api, code, title, content, tags, author, updated_at "
+                            "FROM qa_kb ORDER BY category, api, code, title")
+    return [{**dict(r), "updated_at": r["updated_at"].isoformat() if r["updated_at"] else ""} for r in rows]
+
+
+@app.post("/api/kb")
+async def kb_save(request: Request):
+    payload = await _get_auth(request)
+    if not payload:
+        return JSONResponse({"error": "No autorizado"}, status_code=401)
+    b = await request.json()
+    cat = (b.get("category") or "").strip()
+    title = (b.get("title") or "").strip()
+    if cat not in _KB_CATS or not title:
+        return JSONResponse({"error": "Faltan datos: categoría y título"}, status_code=400)
+    vals = [cat, (b.get("api") or "").strip()[:200], (b.get("code") or "").strip()[:50], title[:500],
+            (b.get("content") or "").strip()[:20000], (b.get("tags") or "").strip()[:300],
+            (payload or {}).get("email", "")]
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    kid = b.get("id")
+    if kid:
+        r = await pool.fetchrow("UPDATE qa_kb SET category=$1, api=$2, code=$3, title=$4, content=$5, tags=$6, "
+                                "author=$7, updated_at=NOW() WHERE id=$8 RETURNING id", *vals, int(kid))
+    else:
+        r = await pool.fetchrow("INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
+                                "VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id", *vals)
+    return {"ok": True, "id": r["id"] if r else None}
+
+
+@app.delete("/api/kb/{kb_id}")
+async def kb_delete(kb_id: int, request: Request):
+    if not await _get_auth(request):
+        return JSONResponse({"error": "No autorizado"}, status_code=401)
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    await pool.execute("DELETE FROM qa_kb WHERE id=$1", kb_id)
+    return {"ok": True}
+
+
+@app.get("/api/kb/export")
+async def kb_export():
+    """Base de conocimiento en Markdown (solo lectura) para que Claude la lea en cada sesión."""
+    from fastapi.responses import Response as _KbResp
+    pool = await _db()
+    if not pool:
+        return JSONResponse({"error": "Base de datos no disponible"}, status_code=503)
+    rows = await pool.fetch("SELECT category, api, code, title, content, tags, author, updated_at "
+                            "FROM qa_kb ORDER BY category, api, code, title")
+    out = ["# Base de conocimiento Komands QA · Onnet Fibra", ""]
+    for cat, lbl in _KB_CATS.items():
+        items = [r for r in rows if r["category"] == cat]
+        if not items:
+            continue
+        out += [f"## {lbl}", ""]
+        for r in items:
+            head = " · ".join(x for x in (r["api"], (f"código {r['code']}" if r["code"] else ""), r["title"]) if x)
+            out.append(f"### {head}")
+            if r["content"]:
+                out.append(r["content"])
+            meta = [f"tags: {r['tags']}" if r["tags"] else "",
+                    f"actualizado {r['updated_at']:%Y-%m-%d}" if r["updated_at"] else ""]
+            meta = " · ".join(m for m in meta if m)
+            if meta:
+                out.append(f"_{meta}_")
+            out.append("")
+    try:
+        rc = await pool.fetch("SELECT flow, code, cls, description, breaking_pt FROM qa_return_codes "
+                              "ORDER BY flow, sort_order, id")
+        if rc:
+            out += ["## Catálogo oficial de códigos de retorno", "",
+                    "| Flujo | Código | Clase | Descripción | Punto de quiebre |", "|---|---|---|---|---|"]
+            for r in rc:
+                out.append("| " + " | ".join(str(r[k] or "").replace("|", "/").replace("\n", " ")
+                                             for k in ("flow", "code", "cls", "description", "breaking_pt")) + " |")
+    except Exception:
+        pass
+    return _KbResp("\n".join(out), media_type="text/markdown; charset=utf-8")
+
+
 # ─── Return codes endpoints ────────────────────────────────────────────────────
 @app.get("/api/return-codes")
 async def get_return_codes(req: Request):
@@ -12508,6 +12630,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
     <button class="hist-btn" id="agenda-btn" onclick="showAgenda()">&#128197;<span class="hist-lbl">&nbsp; Agenda</span></button>
     <button class="hist-btn" id="mop-btn" onclick="showMop()">&#128221;<span class="hist-lbl">&nbsp; Informes MOP / INC</span></button>
     <button class="hist-btn" id="cuf-btn" onclick="showCuFlows()">&#128270;<span class="hist-lbl">&nbsp; CoreUse AID</span></button>
+    <button class="hist-btn" id="kb-btn" onclick="showKb()">&#128218;<span class="hist-lbl">&nbsp; Conocimiento</span></button>
     <button class="hist-btn" id="settings-btn" onclick="showSettings()">&#9881;<span class="hist-lbl">&nbsp; Settings</span></button>
   </aside>
   <main class="main">
@@ -12768,6 +12891,187 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
           </div>
         </div>
       </div>
+    </div>
+    <!-- Vista Base de conocimiento -->
+    <div id="kb-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
+      <div style="padding:10px 16px;border-bottom:1px solid var(--brd);display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex-shrink:0;background:var(--card)">
+        <button class="kb-tab" data-t="mapa" onclick="_kbTab('mapa')">🗺 Mapa Onnet Fibra</button>
+        <button class="kb-tab" data-t="glosario" onclick="_kbTab('glosario')">📖 Glosario</button>
+        <button class="kb-tab" data-t="codigo" onclick="_kbTab('codigo')">🔢 Códigos observados</button>
+        <button class="kb-tab" data-t="flujo" onclick="_kbTab('flujo')">🔁 Reglas de flujos</button>
+        <button class="kb-tab" data-t="nota" onclick="_kbTab('nota')">📝 Notas</button>
+        <span style="flex:1"></span>
+        <button onclick="showCodigos()" title="Catálogo oficial de códigos de retorno" style="padding:4px 10px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.72rem;cursor:pointer">📘 Catálogo oficial de códigos</button>
+      </div>
+      <div id="kb-bar" style="display:none;padding:8px 16px;border-bottom:1px solid var(--brd);gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0">
+        <input id="kb-q" placeholder="Buscar…" oninput="_kbRender()" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:220px">
+        <select id="kb-api" onchange="_kbRender()" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem"><option value="">Todas las APIs / flujos</option></select>
+        <span id="kb-count" style="font-size:.7rem;color:var(--txt2)"></span>
+        <span style="flex:1"></span>
+        <button onclick="_kbEdit(0)" style="padding:5px 12px;border-radius:5px;border:none;background:var(--acc);color:#000;font-size:.74rem;font-weight:700;cursor:pointer">+ Agregar</button>
+      </div>
+      <div id="kb-map" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+<style>
+.kbm{padding:18px 22px 40px;overflow:auto;flex:1;color:var(--txt);font-size:.82rem;line-height:1.5}
+.kbm h2{font-size:1rem;margin:26px 0 4px;color:var(--txt)}
+.kbm h2:first-child{margin-top:0}
+.kbm .kb-sub{color:var(--txt2);font-size:.76rem;margin:0 0 12px}
+.kb-row{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
+.kb-box{background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:9px 11px;min-width:120px;flex:1}
+.kb-box b{display:block;font-size:.8rem;margin-bottom:2px}
+.kb-box span{display:block;color:var(--txt2);font-size:.7rem}
+.kb-box.kb-a{border-color:#3D7FFF;border-width:2px}
+.kb-box.kb-g{border-color:#22C55E}
+.kb-box.kb-o{border-color:#F59E0B}
+.kb-box.kb-r{border-color:#EF4444}
+.kb-arr{align-self:center;color:var(--txt2);font-size:1.1rem;flex:0 0 auto;text-align:center;line-height:1.1}
+.kb-arr small{display:block;font-size:.6rem}
+.kb-chip{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.66rem;font-weight:700;margin:3px 3px 0 0}
+.kb-note{background:var(--bg);border-left:3px solid #3D7FFF;padding:7px 10px;margin-top:10px;font-size:.74rem;color:var(--txt2);border-radius:0 6px 6px 0}
+.kb-tbl{width:100%;border-collapse:collapse;font-size:.72rem}
+.kb-tbl th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--brd);color:var(--txt2);font-size:.66rem;text-transform:uppercase;position:sticky;top:0;background:var(--card)}
+.kb-tbl td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top}
+.kb-tbl code{font-size:.68rem;color:var(--txt2);word-break:break-all}
+.kb-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:900px){.kb-grid2{grid-template-columns:1fr}.kb-arr{transform:rotate(90deg);flex-basis:100%}}
+</style>
+<div class="kbm">
+
+<h2>1 · Quién habla con quién</h2>
+<p class="kb-sub">Los operadores (VNO) y nuestro runner llaman a las mismas APIs. Todo pasa por el APIM y se registra en ServiceNow; CoreUse muestra lo que quedó en ServiceNow.</p>
+<div class="kb-row">
+  <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:150px">
+    <div class="kb-box"><b>VNO (operadores)</b><span>00 TCH · 02 KAO · 03 Entel · 05 DTV</span><span>venden el servicio al cliente</span></div>
+    <div class="kb-box kb-a"><b>QA Runner (este sistema)</b><span>ejecuta las mismas APIs como si fuera un VNO</span></div>
+  </div>
+  <div class="kb-arr">→<small>APIs REST</small></div>
+  <div class="kb-box" style="max-width:190px"><b>APIM · gateway</b><span>rutas fullFillment-…/v1/…</span><span>408 = timeout del gateway (la solicitud igual pudo llegar)</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box kb-g" style="flex:1.4"><b>ServiceNow</b>
+    <span>• Customer Order (ORD…)</span><span>• CMDB: recursos y estados (Pending Install / Installed / In Stock)</span>
+    <span>• Intervenciones (WO…)</span><span>• Un registro por operación en tablas u_* (u_assignment, u_assured_intervention…)</span></div>
+  <div class="kb-arr">→</div>
+  <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:150px">
+    <div class="kb-box"><b>Red Onnet</b><span>OLT → splitter → CTO → ONT</span><span>se aprovisiona según la orden (detalle interno por confirmar)</span></div>
+    <div class="kb-box kb-o"><b>CoreUse (Edgardo)</b><span>muestra por AID los flujos u_* con código, mensaje y detalle ⓘ</span><span>el runner lo lee para confirmar resultados</span></div>
+  </div>
+</div>
+
+<h2>2 · La red física de un cliente</h2>
+<p class="kb-sub">Ejemplo real leído de CoreUse. El Access ID representa este camino completo para un cliente.</p>
+<div class="kb-row">
+  <div class="kb-box"><b>OLT</b><span>PITA_OLT_5</span><span>tarjeta 0/1 · PON 0/1/6</span><span>en la central</span></div>
+  <div class="kb-arr">→<small>fibra troncal</small></div>
+  <div class="kb-box"><b>Splitter</b><span>secundario CA98SP11SS7</span><span>reparte el PON entre clientes</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box"><b>CTO</b><span>16/50(9) · cable CA98-F#11</span><span>LU / puerto del cliente (ej. LU 108)</span><span>en la calle o edificio</span></div>
+  <div class="kb-arr">→<small>acometida</small></div>
+  <div class="kb-box"><b>ONT</b><span>serial HWTC11091006</span><span>posición 111 en el PON</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box"><b>Casa del cliente</b><span>Dirección + Address ID (DIR…)</span><span>(9)SANTIAGO, (014629)CL SEMINARIO…</span></div>
+</div>
+<div class="kb-note">Ruta lógica <b>PITA_OLT_5_1_6_111</b> = OLT · tarjeta 1 · PON 6 · posición 111 · PON lógico <b>0/1/6/111</b> (la lectura de la última posición está por confirmar).</div>
+
+<h2>3 · Ciclo de vida de un Access ID</h2>
+<p class="kb-sub">Las fases que recorre una secuencia del runner. Bajo cada fase: lo que crea o cambia y el estado esperado en el CMDB.</p>
+<div class="kb-row">
+  <div class="kb-box"><b>1. Factibilidad</b><span>¿hay cobertura y CTO libre en esta dirección?</span><span class="kb-chip" style="background:#88888822;color:var(--txt2)">no crea nada</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box kb-a"><b>2. Asignación</b><span>reserva puerto/LU · crea el AID y la Customer Order (ORD…)</span><span class="kb-chip" style="background:#F59E0B22;color:#B45309">Pending Install</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box"><b>3. Activación</b><span>activa la ONT y el plan</span><span class="kb-chip" style="background:#EF444422;color:#EF4444">Installed</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box" style="flex:1.5"><b>4. Postventa y aseguramiento</b>
+    <span>• Mod. Acceso (plan) · BL / DBL</span><span>• Mod. Dispositivo (serial ONT)</span>
+    <span>• IIA → Cambio de Fibra → FIA</span><span>• Consultas: RetrieveAccess, Estado Vecino, AccessStatus, ONTRetrieve, ONT Restart</span>
+    <span class="kb-chip" style="background:#EF444422;color:#EF4444">Installed</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box kb-g"><b>5. Cierre</b><span>sin FIA → Cancelación OOSS</span><span>con FIA → Baja Total</span><span class="kb-chip" style="background:#22C55E22;color:#22C55E">In Stock</span></div>
+</div>
+
+<h2>4 · Intervención asegurada</h2>
+<p class="kb-sub">Cadena IA del runner. Si la IIA falla, los pasos que dependen de ella se saltan.</p>
+<div class="kb-row">
+  <div class="kb-box kb-a"><b>IIA</b><span>abre intervención (WO…)</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box kb-o"><b>CIA</b><span>cancela la intervención</span></div>
+  <div class="kb-arr">→<small>⏸ 30 s</small></div>
+  <div class="kb-box kb-a"><b>IIA</b><span>nueva intervención</span><span>si llega antes: código 7</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box"><b>Cambio de Fibra</b><span>lee CTO/LU del ⓘ de la IIA y pasa a otra LU</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box"><b>Mod. Acceso / Dispositivo</b></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box kb-g"><b>FIA</b><span>finaliza · mensaje final: "Operación aceptada, el flujo continúa"</span></div>
+</div>
+
+<h2>5 · Síncrono vs Asíncrono</h2>
+<div class="kb-grid2">
+  <div class="kb-box"><b>Síncrono</b>
+    <span>Runner → API → <b>respuesta con el resultado final</b> (u_return_code).</span>
+    <span>CoreUse se usa como confirmación adicional.</span></div>
+  <div class="kb-box kb-a"><b>Asíncrono</b>
+    <span>Runner → API → acuse: código 0 "Operación aceptada, el flujo continúa".</span>
+    <span>El resultado real queda después en ServiceNow → el runner lo espera consultando <b>CoreUse</b>.</span></div>
+</div>
+
+<h2>6 · Catálogo de APIs</h2>
+<p class="kb-sub">Rutas que usa el runner (sobre el APIM) y el flujo que deja cada una en CoreUse. <b>(PRE)</b> = variante que se usa en el ambiente PRE (epreapi).</p>
+<div style="overflow:auto">
+<table class="kb-tbl">
+<tr><th>Funcionalidad</th><th>API síncrona</th><th>API asíncrona</th><th>Flujo en CoreUse (tabla)</th></tr>
+<tr><td>Factibilidad</td><td><code>presales-feasibility/v1/feasibility</code><br><code>fullFillment-Factibilidad/v1/feasibilityUpselling</code></td><td>—</td><td>—</td></tr>
+<tr><td>Asignación</td><td><code>fullFillment-assignment/v1/assignment</code><br><code>fullFillment-AsignationSSAA/v1/assignment</code> (PRE)</td><td><code>fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA</code></td><td>Assignment (u_assignment)</td></tr>
+<tr><td>Activación</td><td><code>fullFillment-activation/v1/registrationActivation</code><br><code>fullFillment-ActivationSSAA/v1/registrationActivationSSAA</code> (PRE)</td><td>—</td><td>Registration activation (u_registration_activation)</td></tr>
+<tr><td>Modificación de Acceso · BL · DBL</td><td><code>fullFillment-modification/v1/registrationModification</code><br><code>fullFillment-ModificationSSAA/v1/registrationModificationSSAA</code> (PRE)</td><td>—</td><td>Registration modification (u_registration_modification)</td></tr>
+<tr><td>Modificación de Dispositivo</td><td><code>fullFillment-deviceModification/v1/deviceModification</code></td><td><code>fullFillment-deviceModificationAsync/v1/deviceModificationAsync</code></td><td>Device Modification (u_device_modification)</td></tr>
+<tr><td>Inicio Intervención Asegurada (IIA)</td><td><code>fullFillment-gIntervention/v1/assuredIntervention</code></td><td>—</td><td>Assured intervention (u_assured_intervention)</td></tr>
+<tr><td>Cancelación Intervención (CIA)</td><td><code>fullFillment-cancelIntervention/v1/interventionCancellation</code></td><td><code>fullFillment-interventionCancellationAsync/v1/interventionCancellationAsync</code></td><td>Intervention cancellation (u_intervention_cancellation)</td></tr>
+<tr><td>Finalización Intervención (FIA)</td><td><code>fullFillment-finalization/v1/interventionFinalization</code></td><td>—</td><td>Intervention finalization (u_intervention_finalization)</td></tr>
+<tr><td>Cambio de Fibra</td><td><code>fullFillment-fiberChange/v1/fiberChange</code></td><td><code>fullFillment-FiberChangeAsync/v1/fiberChangeAsync</code></td><td>Fiber Change (u_fiber_change)</td></tr>
+<tr><td>RetrieveAccess</td><td><code>provisioning/v1/retrieve-access</code><br><code>fullFillment-retrieveAccess/v1/retrieveAccess</code></td><td><code>fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync</code></td><td>Retrieve Access (u_retrieve_access)</td></tr>
+<tr><td>Consulta Estado Vecino</td><td><code>fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{AID}</code><br><code>estadoVecino/v1/QueryNeighborsState</code></td><td><code>fullFillment-estadoVecinoasync/v1/estado_vecino_api/async/{AID}</code></td><td>Neighboring State Query</td></tr>
+<tr><td>Diagnóstico de Acceso (AccesStatus)</td><td><code>diagnosticoAcceso/v1/AccesStatus</code></td><td><code>fullFillment-AccesStatusAsync/v1/AccesStatusAsync</code></td><td>Access Status (u_access_status)</td></tr>
+<tr><td>Reinicio ONT</td><td><code>reinicioONT/v1/ONTRestart</code></td><td><code>fullFillment-oNTRestartAsync/v1/ONTRestartAsync</code></td><td>CU ONT Restart (u_ont_restart)</td></tr>
+<tr><td>Consulta de Alarmas (ONTRetrieve)</td><td><code>retrieveDataONT/v1/ONTRetrieve</code></td><td><code>fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync</code></td><td>CU Retrieve Data ONT (u_retrieve_data_ont)</td></tr>
+<tr><td>GET Consulta de Acceso</td><td><code>fullFillment-consultaAcceso/v1/{AID}</code></td><td>—</td><td>—</td></tr>
+<tr><td>Cancelación Orden de Servicio</td><td><code>fullFillment-cancelServiceOrder/v1/oossCancellation</code></td><td><code>fullFillment-oossCancellationAsync/v1/oossCancellationAsync</code></td><td>OOSS cancellation (u_ooss_cancellation)</td></tr>
+<tr><td>Baja Total de Servicio</td><td><code>fullFillment-unsubcription/v1/accessDeregistration</code></td><td><code>fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync</code></td><td>Access deregistration (u_access_deregistration)</td></tr>
+</table>
+</div>
+<div class="kb-note">Este mapa se armó con lo que el runner conoce hoy. Si algo está incompleto o mal, escríbelo en <b>Notas</b> o en el <b>Glosario</b> y lo corrijo aquí.</div>
+</div>
+
+      </div>
+      <div id="kb-list" style="display:none;flex:1;overflow:auto;padding:14px 16px 40px"></div>
+      <div id="kb-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;align-items:center;justify-content:center">
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:18px;width:min(640px,94vw);max-height:90vh;overflow:auto;color:var(--txt)">
+          <div style="font-weight:700;margin-bottom:10px" id="kb-m-title">Nueva entrada</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label style="font-size:.7rem;color:var(--txt2)">Sección<select id="kb-f-cat" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:100%;box-sizing:border-box;margin-top:3px">
+              <option value="glosario">Glosario</option><option value="codigo">Códigos observados</option>
+              <option value="flujo">Reglas de flujos</option><option value="nota">Notas</option></select></label>
+            <label style="font-size:.7rem;color:var(--txt2)">API / flujo<input id="kb-f-api" list="kb-api-list" placeholder="Ej: Inicio Intervención Asegurada" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:100%;box-sizing:border-box;margin-top:3px"></label>
+            <label style="font-size:.7rem;color:var(--txt2)">Código<input id="kb-f-code" placeholder="Ej: 7" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:100%;box-sizing:border-box;margin-top:3px"></label>
+            <label style="font-size:.7rem;color:var(--txt2)">Etiquetas<input id="kb-f-tags" placeholder="Ej: iia, timing" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:100%;box-sizing:border-box;margin-top:3px"></label>
+            <label style="font-size:.7rem;color:var(--txt2);grid-column:1 / -1">Título / mensaje<input id="kb-f-title" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:100%;box-sizing:border-box;margin-top:3px"></label>
+            <label style="font-size:.7rem;color:var(--txt2);grid-column:1 / -1">Contenido (qué significa, qué hacer, ejemplos)<textarea id="kb-f-content" rows="9" style="padding:5px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);font-size:.78rem;width:100%;box-sizing:border-box;margin-top:3px;font-family:inherit;resize:vertical"></textarea></label>
+          </div>
+          <datalist id="kb-api-list"></datalist>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button onclick="_kbClose()" style="padding:6px 14px;border-radius:5px;border:1px solid var(--brd);background:var(--bg);color:var(--txt);cursor:pointer">Cancelar</button>
+            <button onclick="_kbSave()" style="padding:6px 14px;border-radius:5px;border:none;background:var(--acc);color:#000;font-weight:700;cursor:pointer">Guardar</button>
+          </div>
+        </div>
+      </div>
+      <style>
+        .kb-tab{padding:5px 11px;border-radius:6px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.75rem;cursor:pointer}
+        .kb-tab.on{background:var(--acc);color:#000;border-color:var(--acc);font-weight:700}
+        .kb-card{background:var(--card);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+        .kb-card .kb-ct{white-space:pre-wrap;font-size:.78rem;color:var(--txt);margin-top:4px}
+        .kb-card .kb-meta{font-size:.66rem;color:var(--txt2);margin-top:6px}
+        .kb-act{padding:2px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg);color:var(--txt2);font-size:.66rem;cursor:pointer;margin-left:4px}
+      </style>
     </div>
     <!-- Vista CoreUse AID -->
     <div id="cuf-view" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-width:0">
@@ -13612,13 +13916,14 @@ function run(id){
 }
 
 function switchView(mode){
-  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view","mop-view","cuf-view"];
+  var _vs=["dashboard-view","std-view","sn-view","ep-view","ep-form-view","fact-view","asig-view","ia-view","activ-view","dm-view","cancel-view","unsub-suite-view","teardown-view","historial-view","settings-view","fulfillment-view","codigos-view","agenda-view","traza-view","inv-view","mop-view","cuf-view","kb-view"];
   _vs.forEach(function(vid){var el=document.getElementById(vid);if(el)el.style.display="none";});
-  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view","mop":"mop-view","cuflows":"cuf-view"}[mode]||"std-view";
+  var target={"dashboard":"dashboard-view","sn":"sn-view","ep":"ep-view","ep-form":"ep-form-view","fact":"fact-view","asig":"asig-view","ia":"ia-view","activ":"activ-view","dm":"dm-view","cancel":"cancel-view","unsub-suite":"unsub-suite-view","teardown":"teardown-view","historial":"historial-view","settings":"settings-view","fulfillment":"fulfillment-view","codigos":"codigos-view","agenda":"agenda-view","traza":"traza-view","inventario":"inv-view","mop":"mop-view","cuflows":"cuf-view","kb":"kb-view"}[mode]||"std-view";
   var _ib=document.getElementById('inv-btn');if(_ib&&mode!=='inventario')_ib.classList.remove('active');
   var _tb=document.getElementById('traza-btn');if(_tb&&mode!=='traza')_tb.classList.remove('active');
   var _mb=document.getElementById('mop-btn');if(_mb&&mode!=='mop')_mb.classList.remove('active');
   var _cfb=document.getElementById('cuf-btn');if(_cfb&&mode!=='cuflows')_cfb.classList.remove('active');
+  var _kbb=document.getElementById('kb-btn');if(_kbb&&mode!=='kb')_kbb.classList.remove('active');
   var el=document.getElementById(target);
   if(el){el.style.display="flex";el.style.flexDirection="column";}
   var _gfp=document.getElementById('gf-panel');
@@ -21535,6 +21840,100 @@ function _mopApi(url,opt){
   });
 }
 // ── CoreUse AID: flujos de cada Access ID con el detalle (i) de CoreUse, como lista de ServiceNow ──
+// ── Base de conocimiento ──────────────────────────────────────────────────────
+var _kb={rows:[],tab:'mapa',loaded:false};
+var _KB_CAT_LBL={glosario:'Glosario',codigo:'Códigos observados',flujo:'Reglas de flujos',nota:'Notas'};
+function showKb(tab){
+  _dashStopRefresh();
+  switchView('kb');
+  ['top-status','vno-sel','exec-btn','rpt-btn','dl-btn','clr-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['hist-btn','settings-btn','codigos-btn','dashboard-btn','agenda-btn','traza-btn','inv-btn','mop-btn','cuf-btn'].forEach(function(id){var b=document.getElementById(id);if(b)b.classList.remove('active');});
+  var kb=document.getElementById('kb-btn');if(kb)kb.classList.add('active');
+  setTop('','Base de conocimiento','Mapa de Onnet Fibra, glosario, códigos y aprendizajes · lo que escribes aquí también lo lee Claude');
+  _kbTab(tab||_kb.tab);
+  if(!_kb.loaded)_kbLoad();
+}
+function _kbTab(t){
+  _kb.tab=t;
+  document.querySelectorAll('.kb-tab').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-t')===t);});
+  var m=t==='mapa';
+  document.getElementById('kb-map').style.display=m?'flex':'none';
+  document.getElementById('kb-list').style.display=m?'none':'block';
+  document.getElementById('kb-bar').style.display=m?'none':'flex';
+  if(!m){var a=document.getElementById('kb-api');if(a)a.value='';_kbRender();}
+}
+async function _kbLoad(){
+  try{
+    var r=await fetch('/api/kb',{headers:_authHdr()});
+    if(r.status===401){document.getElementById('kb-list').innerHTML='<div style="color:var(--txt2)">Inicia sesión para ver y editar la base de conocimiento.</div>';return;}
+    _kb.rows=await r.json();_kb.loaded=true;
+  }catch(e){showToast('Error cargando la base de conocimiento: '+e,'err');return;}
+  _kbRender();
+}
+function _kbRender(){
+  if(_kb.tab==='mapa')return;
+  var cat=_kb.tab,q=((document.getElementById('kb-q')||{}).value||'').trim().toLowerCase();
+  var asel=document.getElementById('kb-api'),av=asel?asel.value:'';
+  var inCat=_kb.rows.filter(function(x){return x.category===cat;});
+  var apis={};inCat.forEach(function(x){if(x.api)apis[x.api]=1;});
+  if(asel){asel.innerHTML='<option value="">Todas las APIs / flujos</option>'+Object.keys(apis).sort().map(function(a){return '<option'+(a===av?' selected':'')+'>'+_trEsc(a)+'</option>';}).join('');}
+  var dl=document.getElementById('kb-api-list');
+  if(dl){var all={};_kb.rows.forEach(function(x){if(x.api)all[x.api]=1;});(typeof _ATRF_FUNCS!=='undefined'?_ATRF_FUNCS:[]).forEach(function(f){all[f]=1;});
+    dl.innerHTML=Object.keys(all).sort().map(function(a){return '<option value="'+_trEsc(a)+'">';}).join('');}
+  var rows=inCat.filter(function(x){
+    if(av&&x.api!==av)return false;
+    if(q&&[x.title,x.content,x.api,x.code,x.tags].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  document.getElementById('kb-count').textContent=rows.length+' de '+inCat.length;
+  var box=document.getElementById('kb-list');
+  if(!rows.length){box.innerHTML='<div style="color:var(--txt2);font-size:.8rem">Sin entradas. Usa “+ Agregar”.</div>';return;}
+  var act=function(x){return '<button class="kb-act" onclick="_kbEdit('+x.id+')">✎ Editar</button><button class="kb-act" onclick="_kbDel('+x.id+')">🗑</button>';};
+  var meta=function(x){return '<div class="kb-meta">'+(x.tags?'🏷 '+_trEsc(x.tags)+' · ':'')+_trEsc(x.author||'')+(x.updated_at?' · '+_trEsc(String(x.updated_at).slice(0,10)):'')+'</div>';};
+  if(cat==='codigo'){
+    box.innerHTML='<table class="kb-tbl"><tr><th>API / flujo</th><th>Código</th><th>Mensaje</th><th>Qué significa / qué hacer</th><th></th></tr>'
+      +rows.map(function(x){return '<tr><td>'+_trEsc(x.api)+'</td><td><b>'+_trEsc(x.code)+'</b></td><td>'+_trEsc(x.title)+'</td><td style="white-space:pre-wrap">'+_trEsc(x.content)+'</td><td style="white-space:nowrap">'+act(x)+'</td></tr>';}).join('')+'</table>';
+    return;
+  }
+  box.innerHTML=rows.map(function(x){
+    return '<div class="kb-card"><div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><b>'+_trEsc(x.title)+'</b>'
+      +(x.api?' <span style="font-size:.68rem;color:var(--txt2)">· '+_trEsc(x.api)+(x.code?' · código '+_trEsc(x.code):'')+'</span>':'')
+      +'</div><div style="white-space:nowrap">'+act(x)+'</div></div><div class="kb-ct">'+_trEsc(x.content)+'</div>'+meta(x)+'</div>';
+  }).join('');
+}
+function _kbEdit(id){
+  var x=_kb.rows.find(function(y){return y.id===id;})||{category:(_kb.tab==='mapa'?'nota':_kb.tab),api:'',code:'',title:'',content:'',tags:''};
+  _kb.editId=id||0;
+  document.getElementById('kb-m-title').textContent=id?'Editar entrada':'Nueva entrada';
+  document.getElementById('kb-f-cat').value=x.category;
+  document.getElementById('kb-f-api').value=x.api||'';
+  document.getElementById('kb-f-code').value=x.code||'';
+  document.getElementById('kb-f-tags').value=x.tags||'';
+  document.getElementById('kb-f-title').value=x.title||'';
+  document.getElementById('kb-f-content').value=x.content||'';
+  document.getElementById('kb-modal').style.display='flex';
+}
+function _kbClose(){document.getElementById('kb-modal').style.display='none';}
+async function _kbSave(){
+  var b={id:_kb.editId||null,category:document.getElementById('kb-f-cat').value,api:document.getElementById('kb-f-api').value,
+    code:document.getElementById('kb-f-code').value,tags:document.getElementById('kb-f-tags').value,
+    title:document.getElementById('kb-f-title').value,content:document.getElementById('kb-f-content').value};
+  if(!b.title.trim()){showToast('Falta el título','warn');return;}
+  try{
+    var r=await fetch('/api/kb',{method:'POST',headers:_authHdr(),body:JSON.stringify(b)});
+    var d=await r.json();
+    if(!d.ok){showToast(d.error||'No se pudo guardar','err');return;}
+  }catch(e){showToast('Error: '+e,'err');return;}
+  _kbClose();showToast('Guardado','ok');
+  if(b.category!==_kb.tab)_kbTab(b.category);
+  _kbLoad();
+}
+async function _kbDel(id){
+  var x=_kb.rows.find(function(y){return y.id===id;});
+  if(!x||!confirm('¿Eliminar “'+x.title+'”?'))return;
+  try{await fetch('/api/kb/'+id,{method:'DELETE',headers:_authHdr()});}catch(e){}
+  showToast('Eliminado','ok');_kbLoad();
+}
 var _cuf={rows:[],sort:{k:'ts_ms',d:-1},busy:false,loaded:false,base:''};
 var _CUF_COLS=[['fecha','Fecha'],['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir_id','DIR'],['dir','Dirección'],['cto','CTO'],['vno','VNO'],['code','Cód. retorno'],['code_desc','Descripción código de retorno'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
 var _CUF_FILT=[['access_id','Access ID'],['flujo','Flujo'],['olt','OLT'],['pon','PON'],['dir_id','DIR'],['dir','Dirección'],['vno','VNO'],['code','Código'],['flow_state','Estado flujo'],['breaking_point','Quiebre']];
