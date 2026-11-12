@@ -12941,6 +12941,8 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
 .kb-tbl th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--brd);color:var(--txt2);font-size:.66rem;text-transform:uppercase;background:var(--card)}
 .kb-tbl td{padding:6px 8px;border-bottom:1px solid var(--brd);vertical-align:top}
 .kb-tbl tr.kb-clk:hover td{background:var(--bg)}
+.kb-tbl tr.kb-clk{box-shadow:none!important;transform:none!important;opacity:1!important}
+.kb-tbl tr.kb-sel td{background:#00D4AA22}.kb-tbl tr.kb-rel td{background:#3D7FFF14}
 .kb-tbl code{font-size:.68rem;color:var(--txt2);word-break:break-all}
 .kb-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kbm-btn{padding:3px 10px;border-radius:12px;border:1px solid var(--acc);background:transparent;color:var(--acc);font-size:.7rem;font-weight:700;cursor:pointer}
@@ -12999,18 +13001,20 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
 <h2>3 · Ciclo de vida de un Access ID <button class="kbm-btn" onclick="_kbmTour('vida')">▶ Recorrer paso a paso</button></h2>
 <p class="kb-sub">Las fases que recorre una secuencia del runner y el estado esperado en el CMDB.</p>
 <div class="kb-row">
-  <div class="kb-box kb-clk" data-n="fact"><b>1. Factibilidad</b><span>¿hay cobertura y CTO libre?</span><span class="kb-chip" style="background:#88888822;color:var(--txt2)">no crea nada</span></div>
+  <div class="kb-box kb-clk" data-n="fact"><b>1. Factibilidad</b><span>¿se puede instalar en la dirección del cliente?</span><span class="kb-chip" style="background:#88888822;color:var(--txt2)">no crea nada</span></div>
   <div class="kb-arr">→</div>
-  <div class="kb-box kb-a kb-clk" data-n="asig"><b>2. Asignación</b><span>crea el AID y la Customer Order</span><span class="kb-chip" style="background:#F59E0B22;color:#B45309">Pending Install</span></div>
+  <div class="kb-box kb-a kb-clk" data-n="asig"><b>2. Asignación</b><span>reserva los recursos para ir a instalar · crea el AID y la orden</span><span class="kb-chip" style="background:#F59E0B22;color:#B45309">Pending Install</span></div>
   <div class="kb-arr">→</div>
-  <div class="kb-box kb-clk" data-n="activ"><b>3. Activación</b><span>activa la ONT y el plan</span><span class="kb-chip" style="background:#EF444422;color:#EF4444">Installed</span></div>
+  <div class="kb-box kb-clk" data-n="activ"><b>3. Activación</b><span>deja funcionando la ONT con el plan contratado</span><span class="kb-chip" style="background:#EF444422;color:#EF4444">Installed</span></div>
   <div class="kb-arr">→</div>
-  <div class="kb-box kb-clk" data-n="post" style="flex:1.5"><b>4. Postventa y aseguramiento</b>
-    <span>• Mod. Acceso · BL / DBL · Mod. Dispositivo</span><span>• IIA → Cambio de Fibra → FIA</span>
-    <span>• Consultas: RetrieveAccess, Estado Vecino, AccessStatus, ONTRetrieve, ONT Restart</span>
+  <div class="kb-box kb-a kb-clk" data-n="visita"><b>4. Visita técnica</b><span>el técnico va a la casa: IIA → trabajos (ej. Cambio de Fibra) → FIA</span><span>si no se hace: CIA</span></div>
+  <div class="kb-arr">→</div>
+  <div class="kb-box kb-clk" data-n="post" style="flex:1.4"><b>5. Postventa y soporte</b>
+    <span>• Cambio de plan · BL / DBL · cambio de ONT</span>
+    <span>• Diagnóstico: RetrieveAccess, Estado Vecino, AccessStatus, ONTRetrieve, ONT Restart</span>
     <span class="kb-chip" style="background:#EF444422;color:#EF4444">Installed</span></div>
   <div class="kb-arr">→</div>
-  <div class="kb-box kb-g kb-clk" data-n="cierre"><b>5. Cierre</b><span>sin FIA → Cancelación OOSS</span><span>con FIA → Baja Total</span><span class="kb-chip" style="background:#22C55E22;color:#22C55E">In Stock</span></div>
+  <div class="kb-box kb-g kb-clk" data-n="cierre"><b>6. Cierre</b><span>sin FIA → Cancelación OOSS</span><span>con FIA → Baja Total</span><span class="kb-chip" style="background:#22C55E22;color:#22C55E">In Stock</span></div>
 </div>
 
 <h2>4 · Intervención asegurada <button class="kbm-btn" onclick="_kbmTour('ia')">▶ Recorrer paso a paso</button></h2>
@@ -13029,13 +13033,17 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
   <div class="kb-box kb-g kb-clk" data-n="fia"><b>FIA</b><span>finaliza la intervención</span></div>
 </div>
 
-<h2>5 · Síncrono vs Asíncrono</h2>
+<h2>5 · Ciclo E2E completo (secuencia Sanity) <button class="kbm-btn" onclick="_kbmTour('e2e')">▶ Recorrer paso a paso</button></h2>
+<p class="kb-sub">La prueba de punta a punta que ejecutas con el preset ✅ Sanity: venta, instalación, visita técnica, diagnóstico, postventa y baja. Haz clic en un paso para ver por qué está ahí.</p>
+<div class="kb-row" id="kbm-e2e"></div>
+
+<h2>6 · Síncrono vs Asíncrono</h2>
 <div class="kb-grid2">
   <div class="kb-box kb-clk" data-n="sync"><b>Síncrono</b><span>Runner → API → respuesta con el resultado final (u_return_code).</span></div>
   <div class="kb-box kb-a kb-clk" data-n="async"><b>Asíncrono</b><span>Runner → API → acuse "Operación aceptada, el flujo continúa" → resultado real en CoreUse.</span></div>
 </div>
 
-<h2>6 · Catálogo de APIs</h2>
+<h2>7 · Catálogo de APIs</h2>
 <p class="kb-sub">Haz clic en una fila para ver su detalle. <b>(PRE)</b> = variante que el runner usa en el ambiente PRE (epreapi).</p>
 <div style="overflow:auto" id="kbm-cat"></div>
 <div class="kb-note">Este mapa se armó con lo que el runner conoce hoy. Si algo está incompleto o mal, escríbelo en <b>Notas</b> o en el <b>Glosario</b> y lo corrijo aquí.</div>
@@ -21939,25 +21947,25 @@ async function _kbSave(){
 }
 // ── Mapa Onnet interactivo ────────────────────────────────────────────────────
 var _KBM_API={
-  'Factibilidad':{s:['presales-feasibility/v1/feasibility','fullFillment-Factibilidad/v1/feasibilityUpselling'],a:[],cu:''},
-  'Asignación':{s:['fullFillment-assignment/v1/assignment','fullFillment-AsignationSSAA/v1/assignment (PRE)'],a:['fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA'],cu:'Assignment (u_assignment)'},
-  'Activación':{s:['fullFillment-activation/v1/registrationActivation','fullFillment-ActivationSSAA/v1/registrationActivationSSAA (PRE)'],a:[],cu:'Registration activation (u_registration_activation)'},
-  'Modificación de Acceso':{s:['fullFillment-modification/v1/registrationModification','fullFillment-ModificationSSAA/v1/registrationModificationSSAA (PRE)'],a:[],cu:'Registration modification (u_registration_modification)'},
-  'Bloqueo de Servicio (BL)':{s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
-  'Desbloqueo de Servicio (DBL)':{s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
-  'Modificación de Dispositivo':{s:['fullFillment-deviceModification/v1/deviceModification'],a:['fullFillment-deviceModificationAsync/v1/deviceModificationAsync'],cu:'Device Modification (u_device_modification)'},
-  'Inicio Intervención Asegurada':{s:['fullFillment-gIntervention/v1/assuredIntervention'],a:[],cu:'Assured intervention (u_assured_intervention)'},
-  'Cancelación Intervención Asegurada':{s:['fullFillment-cancelIntervention/v1/interventionCancellation'],a:['fullFillment-interventionCancellationAsync/v1/interventionCancellationAsync'],cu:'Intervention cancellation (u_intervention_cancellation)'},
-  'Finalización Intervención Asegurada':{s:['fullFillment-finalization/v1/interventionFinalization'],a:[],cu:'Intervention finalization (u_intervention_finalization)'},
-  'Cambio de Fibra':{s:['fullFillment-fiberChange/v1/fiberChange'],a:['fullFillment-FiberChangeAsync/v1/fiberChangeAsync'],cu:'Fiber Change (u_fiber_change)'},
-  'RetrieveAccess':{s:['provisioning/v1/retrieve-access','fullFillment-retrieveAccess/v1/retrieveAccess'],a:['fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync'],cu:'Retrieve Access (u_retrieve_access)'},
-  'Consulta Estado Vecino (GET)':{s:['fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{AID}','estadoVecino/v1/QueryNeighborsState'],a:['fullFillment-estadoVecinoasync/v1/estado_vecino_api/async/{AID}'],cu:'Neighboring State Query'},
-  'Diagnóstico de Acceso':{s:['diagnosticoAcceso/v1/AccesStatus'],a:['fullFillment-AccesStatusAsync/v1/AccesStatusAsync'],cu:'Access Status (u_access_status)'},
-  'Reinicio ONT':{s:['reinicioONT/v1/ONTRestart'],a:['fullFillment-oNTRestartAsync/v1/ONTRestartAsync'],cu:'CU ONT Restart (u_ont_restart)'},
-  'Consulta de Alarmas':{s:['retrieveDataONT/v1/ONTRetrieve'],a:['fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync'],cu:'CU Retrieve Data ONT (u_retrieve_data_ont)'},
-  'GET Consulta de Acceso':{s:['fullFillment-consultaAcceso/v1/{AID}'],a:[],cu:''},
-  'Cancelación Orden de Servicio':{s:['fullFillment-cancelServiceOrder/v1/oossCancellation'],a:['fullFillment-oossCancellationAsync/v1/oossCancellationAsync'],cu:'OOSS cancellation (u_ooss_cancellation)'},
-  'Baja Total de Servicio':{s:['fullFillment-unsubcription/v1/accessDeregistration'],a:['fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync'],cu:'Access deregistration (u_access_deregistration)'}
+  'Factibilidad':{n:'Revisa si en la dirección del cliente se puede instalar: si hay cobertura de fibra y una CTO con puerto libre cerca. Es lo primero que consulta el operador al vender.',s:['presales-feasibility/v1/feasibility','fullFillment-Factibilidad/v1/feasibilityUpselling'],a:[],cu:''},
+  'Asignación':{n:'Reserva los recursos de red para ir a instalar: el puerto / pelo (LU) en la CTO y la posición en el PON. Crea el Access ID y la orden de servicio (Customer Order).',s:['fullFillment-assignment/v1/assignment','fullFillment-AsignationSSAA/v1/assignment (PRE)'],a:['fullFillment-assignmentAsyncSSAA/v1/assignmentAsyncSSAA'],cu:'Assignment (u_assignment)'},
+  'Activación':{n:'Deja el servicio funcionando: registra el equipo ONT del cliente y activa el plan contratado. El recurso pasa a Installed.',s:['fullFillment-activation/v1/registrationActivation','fullFillment-ActivationSSAA/v1/registrationActivationSSAA (PRE)'],a:[],cu:'Registration activation (u_registration_activation)'},
+  'Modificación de Acceso':{n:'Cambia el plan de velocidad contratado por el cliente (subir o bajar de plan).',s:['fullFillment-modification/v1/registrationModification','fullFillment-ModificationSSAA/v1/registrationModificationSSAA (PRE)'],a:[],cu:'Registration modification (u_registration_modification)'},
+  'Bloqueo de Servicio (BL)':{n:'Suspende el servicio del cliente (por ejemplo, por no pago) sin darlo de baja.',s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
+  'Desbloqueo de Servicio (DBL)':{n:'Restablece un servicio que estaba bloqueado.',s:['fullFillment-modification/v1/registrationModification'],a:[],cu:'Registration modification (u_registration_modification)'},
+  'Modificación de Dispositivo':{n:'Cambia el equipo ONT del cliente por otro (nuevo serial), por ejemplo por falla o recambio.',s:['fullFillment-deviceModification/v1/deviceModification'],a:['fullFillment-deviceModificationAsync/v1/deviceModificationAsync'],cu:'Device Modification (u_device_modification)'},
+  'Inicio Intervención Asegurada':{n:'El técnico va a la casa del cliente a instalar o atender lo contratado: se abre la intervención (ticket WO). Mientras está abierta se pueden hacer trabajos en terreno, como el Cambio de Fibra.',s:['fullFillment-gIntervention/v1/assuredIntervention'],a:[],cu:'Assured intervention (u_assured_intervention)'},
+  'Cancelación Intervención Asegurada':{n:'Se cancela la visita técnica que estaba abierta (por ejemplo, el cliente no estaba o se reagenda).',s:['fullFillment-cancelIntervention/v1/interventionCancellation'],a:['fullFillment-interventionCancellationAsync/v1/interventionCancellationAsync'],cu:'Intervention cancellation (u_intervention_cancellation)'},
+  'Finalización Intervención Asegurada':{n:'El técnico terminó su trabajo en la casa del cliente y se cierra la intervención.',s:['fullFillment-finalization/v1/interventionFinalization'],a:[],cu:'Intervention finalization (u_intervention_finalization)'},
+  'Cambio de Fibra':{n:'En terreno, el técnico conecta al cliente a otro pelo (LU) de la CTO, por ejemplo porque el asignado está dañado u ocupado.',s:['fullFillment-fiberChange/v1/fiberChange'],a:['fullFillment-FiberChangeAsync/v1/fiberChangeAsync'],cu:'Fiber Change (u_fiber_change)'},
+  'RetrieveAccess':{n:'Consulta la ficha del acceso del cliente: sus datos técnicos y su estado actual.',s:['provisioning/v1/retrieve-access','fullFillment-retrieveAccess/v1/retrieveAccess'],a:['fullFillment-retrieveAccessAsync/v1/retrieveAccessAsync'],cu:'Retrieve Access (u_retrieve_access)'},
+  'Consulta Estado Vecino (GET)':{n:'Revisa cómo están los clientes vecinos que comparten la misma CTO / PON, para saber si una falla es solo de este cliente o afecta a varios.',s:['fullFillment-CEVEstadoVecino/v1/estado_vecino_api/{AID}','estadoVecino/v1/QueryNeighborsState'],a:['fullFillment-estadoVecinoasync/v1/estado_vecino_api/async/{AID}'],cu:'Neighboring State Query'},
+  'Diagnóstico de Acceso':{n:'Diagnostica en línea si la conexión del cliente está operativa, sin enviar un técnico.',s:['diagnosticoAcceso/v1/AccesStatus'],a:['fullFillment-AccesStatusAsync/v1/AccesStatusAsync'],cu:'Access Status (u_access_status)'},
+  'Reinicio ONT':{n:'Reinicia a distancia el equipo del cliente (como apagarlo y prenderlo) para intentar resolver una falla sin visita.',s:['reinicioONT/v1/ONTRestart'],a:['fullFillment-oNTRestartAsync/v1/ONTRestartAsync'],cu:'CU ONT Restart (u_ont_restart)'},
+  'Consulta de Alarmas':{n:'Lee los datos y alarmas del equipo ONT del cliente (por ejemplo, pérdida de señal) para diagnosticar fallas.',s:['retrieveDataONT/v1/ONTRetrieve'],a:['fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync'],cu:'CU Retrieve Data ONT (u_retrieve_data_ont)'},
+  'GET Consulta de Acceso':{n:'Consulta rápida de los datos de un acceso a partir de su Access ID.',s:['fullFillment-consultaAcceso/v1/{AID}'],a:[],cu:''},
+  'Cancelación Orden de Servicio':{n:'El cliente se arrepiente antes de quedar instalado: se cancela la orden y se liberan los recursos reservados.',s:['fullFillment-cancelServiceOrder/v1/oossCancellation'],a:['fullFillment-oossCancellationAsync/v1/oossCancellationAsync'],cu:'OOSS cancellation (u_ooss_cancellation)'},
+  'Baja Total de Servicio':{n:'El cliente termina su servicio: se da de baja y los recursos de red vuelven a quedar libres (In Stock).',s:['fullFillment-unsubcription/v1/accessDeregistration'],a:['fullFillment-accessDeregistrationAsync/v1/accessDeregistrationAsync'],cu:'Access deregistration (u_access_deregistration)'}
 };
 var _KBM={
   vno:{t:'VNO (operadores)',d:'Operadores que venden el servicio usando la red de Onnet. Cada llamada lleva su vnoId y un Access ID solo responde a su VNO.',kb:['VNO (operador)'],rel:['apim','runner']},
@@ -21973,9 +21981,10 @@ var _KBM={
   casa:{t:'Casa del cliente',d:'Dirección del cliente identificada por su Address ID (DIR…). Es el punto de partida de la Factibilidad.',kb:['Address ID (DIR) y dirección'],f:['Factibilidad'],rel:['ont','fact']},
   fact:{t:'1. Factibilidad',d:'Consulta si la dirección tiene cobertura y una CTO con puerto libre. No crea nada.',kb:['Factibilidad'],f:['Factibilidad'],rel:['casa','cto','asig']},
   asig:{t:'2. Asignación',d:'Reserva el puerto/LU en la CTO, crea el Access ID y la Customer Order (ORD…). En el CMDB queda Pending Install.',kb:['Access ID (AID)','Customer Order (ORD…)'],f:['Asignación'],rel:['fact','activ','cto']},
-  activ:{t:'3. Activación',d:'Activa el servicio en la ONT con el plan contratado. En el CMDB queda Installed.',kb:['CMDB y estados'],f:['Activación'],rel:['asig','post','ont']},
-  post:{t:'4. Postventa y aseguramiento',d:'Cambios sobre un servicio activo (plan, bloqueo, equipo, cambio de fibra) y consultas de diagnóstico. El AID sigue Installed.',kb:['Plan de velocidad'],f:['Modificación de Acceso','Bloqueo de Servicio (BL)','Desbloqueo de Servicio (DBL)','Modificación de Dispositivo','RetrieveAccess','Consulta Estado Vecino (GET)','Diagnóstico de Acceso','Consulta de Alarmas','Reinicio ONT'],rel:['activ','cierre','iia1']},
-  cierre:{t:'5. Cierre',d:'Libera los recursos. Sin FIA se cancela la orden (Cancelación OOSS); con FIA se da de baja (Baja Total). El AID debería quedar In Stock en CoreUse.',kb:['Cancelación OOSS vs Baja Total','CMDB y estados'],f:['Cancelación Orden de Servicio','Baja Total de Servicio'],rel:['post']},
+  activ:{t:'3. Activación',d:'Activa el servicio en la ONT con el plan contratado. En el CMDB queda Installed.',kb:['CMDB y estados'],f:['Activación'],rel:['asig','visita','ont']},
+  visita:{t:'4. Visita técnica',d:'El técnico va a la casa del cliente: se abre la intervención (IIA), se hacen los trabajos en terreno (por ejemplo Cambio de Fibra) y se cierra (FIA). Si la visita no se realiza, se cancela (CIA).',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Inicio Intervención Asegurada','Cancelación Intervención Asegurada','Cambio de Fibra','Finalización Intervención Asegurada'],rel:['activ','post','iia1','fia']},
+  post:{t:'5. Postventa y soporte',d:'Cambios sobre un servicio activo (plan, bloqueo, equipo) y consultas para diagnosticar fallas. El AID sigue Installed.',kb:['Plan de velocidad'],f:['Modificación de Acceso','Bloqueo de Servicio (BL)','Desbloqueo de Servicio (DBL)','Modificación de Dispositivo','RetrieveAccess','Consulta Estado Vecino (GET)','Diagnóstico de Acceso','Consulta de Alarmas','Reinicio ONT'],rel:['visita','cierre']},
+  cierre:{t:'6. Cierre',d:'Libera los recursos. Sin FIA se cancela la orden (Cancelación OOSS); con FIA se da de baja (Baja Total). El AID debería quedar In Stock en CoreUse.',kb:['Cancelación OOSS vs Baja Total','CMDB y estados'],f:['Cancelación Orden de Servicio','Baja Total de Servicio'],rel:['post']},
   iia1:{t:'IIA · Inicio Intervención Asegurada',d:'Abre una intervención técnica sobre el acceso (ticket WO…). Habilita operaciones como el Cambio de Fibra; su detalle ⓘ trae las CTO y LU disponibles.',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Inicio Intervención Asegurada'],rel:['cia','fc']},
   cia:{t:'CIA · Cancelación Intervención Asegurada',d:'Cancela la intervención abierta. ServiceNow tarda en cerrarla: el runner espera 30 s antes de la siguiente IIA.',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Cancelación Intervención Asegurada'],rel:['iia1','iia2']},
   iia2:{t:'IIA (después de la CIA)',d:'Nueva intervención. Si llega antes de que ServiceNow cierre la anterior, CoreUse responde código 7; el runner espera 30 s y reintenta hasta 3 veces.',kb:['Intervención asegurada (IIA / CIA / FIA) y WO'],f:['Inicio Intervención Asegurada'],rel:['cia','fc']},
@@ -21986,12 +21995,40 @@ var _KBM={
   async:{t:'Modo asíncrono',d:'La API solo acusa recibo (código 0 "Operación aceptada, el flujo continúa"). El resultado real aparece después en ServiceNow y el runner lo espera consultando CoreUse.',kb:['Síncrono vs Asíncrono'],rel:['sync','coreuse']}
 };
 var _KBM_TOURS={
-  vida:{t:'Ciclo de vida de un Access ID',n:['casa','fact','asig','activ','post','cierre']},
-  ia:{t:'Intervención asegurada',n:['iia1','cia','iia2','fc','mod','fia']}
+  vida:{t:'Ciclo de vida de un Access ID',n:['casa','fact','asig','activ','visita','post','cierre']},
+  ia:{t:'Intervención asegurada',n:['iia1','cia','iia2','fc','mod','fia']},
+  e2e:{t:'E2E · secuencia Sanity',n:[]}
 };
+var _KBM_E2E=[
+  ['Factibilidad','Venta: ¿se puede instalar en la dirección del cliente?'],
+  ['Asignación','Se reservan los recursos para ir a instalar y nace el Access ID con su orden.'],
+  ['RetrieveAccess','Se confirma que el acceso quedó creado leyendo su ficha.'],
+  ['Activación','El servicio queda funcionando con el plan contratado (Installed).'],
+  ['Inicio Intervención Asegurada','El técnico va a la casa del cliente: se abre la intervención.'],
+  ['Cancelación Intervención Asegurada','Se prueba cancelar esa visita (cliente no estaba / se reagenda).'],
+  ['Inicio Intervención Asegurada','Nueva visita técnica. El runner espera 30 s después de la CIA para que ServiceNow cierre la anterior.'],
+  ['Reinicio ONT','Con la visita abierta: reinicio remoto del equipo del cliente.'],
+  ['Consulta Estado Vecino (GET)','Diagnóstico: ¿los vecinos de la misma CTO/PON están bien?'],
+  ['Diagnóstico de Acceso','Diagnóstico en línea de la conexión del cliente.'],
+  ['Consulta de Alarmas','Diagnóstico: alarmas y datos del equipo ONT.'],
+  ['Cambio de Fibra','En terreno el técnico pasa al cliente a otro pelo (LU) de la CTO. Necesita la IIA abierta.'],
+  ['RetrieveAccess','Se confirma en la ficha que el acceso quedó con la nueva fibra.'],
+  ['Modificación de Acceso','Postventa: cambio de plan de velocidad.'],
+  ['Modificación de Dispositivo','Postventa: cambio del equipo ONT (nuevo serial).'],
+  ['Finalización Intervención Asegurada','El técnico termina y se cierra la intervención.'],
+  ['Baja Total de Servicio','El cliente termina su servicio: los recursos vuelven a quedar libres (In Stock).']
+];
+function _kbmRenderE2E(){
+  var c=document.getElementById('kbm-e2e');if(!c||c.getAttribute('data-ok'))return;
+  c.innerHTML=_KBM_E2E.map(function(x,i){
+    return (i?'<div class="kb-arr">→</div>':'')+'<div class="kb-box kb-clk" data-n="e2e:'+i+'" style="min-width:105px;max-width:150px;flex:0 1 auto">'
+      +'<span style="font-weight:700;color:var(--acc)">'+(i+1)+'</span><b>'+_trEsc(typeof _fnLbl==='function'?_fnLbl(x[0]):x[0])+'</b></div>';
+  }).join('');
+  c.setAttribute('data-ok','1');
+}
 var _kbmStats={},_kbmTourS=null,_kbmInited=false;
 function _kbmInit(){
-  _kbmRenderCat();
+  _kbmRenderCat();_kbmRenderE2E();
   if(_kbmInited)return;_kbmInited=true;
   var m=document.getElementById('kbm-main');
   if(m)m.addEventListener('click',function(ev){
@@ -22002,13 +22039,15 @@ function _kbmInit(){
 function _kbmRenderCat(){
   var c=document.getElementById('kbm-cat');if(!c||c.getAttribute('data-ok'))return;
   var code=function(l){return l.length?l.map(function(x){return '<code>'+_trEsc(x)+'</code>';}).join('<br>'):'—';};
-  c.innerHTML='<table class="kb-tbl"><tr><th>Funcionalidad</th><th>API síncrona</th><th>API asíncrona</th><th>Flujo en CoreUse</th></tr>'
+  c.innerHTML='<table class="kb-tbl"><tr><th>Funcionalidad</th><th>Para qué sirve</th><th>API síncrona</th><th>API asíncrona</th><th>Flujo en CoreUse</th></tr>'
     +Object.keys(_KBM_API).map(function(f){var a=_KBM_API[f];
-      return '<tr class="kb-clk" data-n="f:'+_trEsc(f)+'"><td><b>'+_trEsc(f)+'</b></td><td>'+code(a.s)+'</td><td>'+code(a.a)+'</td><td>'+_trEsc(a.cu||'—')+'</td></tr>';}).join('')+'</table>';
+      return '<tr class="kb-clk" data-n="f:'+_trEsc(f)+'"><td><b>'+_trEsc(f)+'</b></td><td style="min-width:220px">'+_trEsc(a.n||'')+'</td><td>'+code(a.s)+'</td><td>'+code(a.a)+'</td><td>'+_trEsc(a.cu||'—')+'</td></tr>';}).join('')+'</table>';
   c.setAttribute('data-ok','1');
 }
 function _kbmNode(id){
-  if(id.indexOf('f:')===0){var f=id.slice(2);return {t:f,d:'Funcionalidad del runner.',f:[f],kb:[],rel:[]};}
+  if(id.indexOf('f:')===0){var f=id.slice(2);return {t:f,d:'',f:[f],kb:[],rel:[]};}
+  if(id.indexOf('e2e:')===0){var e=_KBM_E2E[+id.slice(4)];if(!e)return null;
+    return {t:'Paso '+(+id.slice(4)+1)+' · '+e[0],d:'En la secuencia E2E: '+e[1],f:[e[0]],kb:[],rel:[]};}
   return _KBM[id];
 }
 function _kbmShow(id){
@@ -22017,7 +22056,8 @@ function _kbmShow(id){
   document.querySelectorAll('#kbm-main .kb-clk').forEach(function(e){
     var n=e.getAttribute('data-n');
     e.classList.toggle('kb-sel',n===id);
-    e.classList.toggle('kb-rel',(nd.rel||[]).indexOf(n)>=0||(id.indexOf('f:')===0&&n&&_KBM[n]&&(_KBM[n].f||[]).indexOf(id.slice(2))>=0));
+    var on=n&&n!==id?_kbmNode(n):null,f1=(id.indexOf('f:')===0||id.indexOf('e2e:')===0)?(nd.f||[])[0]:null;
+    e.classList.toggle('kb-rel',(nd.rel||[]).indexOf(n)>=0||!!(f1&&on&&(on.f||[]).indexOf(f1)>=0));
   });
   if(main)main.classList.add('kb-focus');
   var sel=document.querySelector('#kbm-main .kb-sel');
@@ -22026,11 +22066,13 @@ function _kbmShow(id){
   var rows=(typeof _kb!=='undefined'&&_kb.rows)||[];
   var fs=nd.f||[];
   var h='<div style="display:flex;align-items:flex-start;gap:8px"><h3 style="flex:1">'+_trEsc(nd.t)+'</h3>'
-    +'<button class="kb-act" onclick="_kbmClose()">✕</button></div><div>'+_trEsc(nd.d)+'</div>';
+    +'<button class="kb-act" onclick="_kbmClose()">✕</button></div>'+(nd.d?'<div>'+_trEsc(nd.d)+'</div>':'');
   // Glosario
   var gl=rows.filter(function(x){return x.category==='glosario'&&(nd.kb||[]).indexOf(x.title)>=0;});
   if(gl.length){h+='<h4>📖 Glosario</h4>'+gl.map(function(x){return '<div class="kbp-item"><b>'+_trEsc(x.title)+'</b><div style="white-space:pre-wrap;margin-top:2px">'+_trEsc(x.content)+'</div></div>';}).join('');}
   // APIs
+  var bz=fs.filter(function(f){return _KBM_API[f]&&_KBM_API[f].n;});
+  if(bz.length){h+='<h4>💼 En simple</h4>'+bz.map(function(f){return '<div class="kbp-item" style="border-left:3px solid var(--acc)">'+(bz.length>1?'<b>'+_trEsc(f)+':</b> ':'')+_trEsc(_KBM_API[f].n)+'</div>';}).join('');}
   if(fs.length){
     h+='<h4>🔌 APIs</h4>'+fs.map(function(f){var a=_KBM_API[f]||{s:[],a:[],cu:''};
       return '<div class="kbp-item"><b>'+_trEsc(f)+'</b>'
@@ -22087,12 +22129,12 @@ function _kbmSearch(){
   });
   if(first&&first.scrollIntoView)first.scrollIntoView({block:'center',behavior:'smooth'});
 }
-function _kbmTour(k){_kbmTourS={k:k,i:0};document.getElementById('kbm-tour').style.display='flex';_kbmTourGo(0);}
+function _kbmTour(k){if(k==='e2e')_KBM_TOURS.e2e.n=_KBM_E2E.map(function(x,i){return 'e2e:'+i;});_kbmTourS={k:k,i:0};document.getElementById('kbm-tour').style.display='flex';_kbmTourGo(0);}
 function _kbmTourGo(d){
   if(!_kbmTourS)return;var t=_KBM_TOURS[_kbmTourS.k];
   _kbmTourS.i=Math.max(0,Math.min(t.n.length-1,_kbmTourS.i+d));
   var id=t.n[_kbmTourS.i];_kbmShow(id);
-  document.getElementById('kbm-tour-txt').innerHTML='<b>'+_trEsc(t.t)+'</b> · paso '+(_kbmTourS.i+1)+' de '+t.n.length+': '+_trEsc(_KBM[id].t);
+  document.getElementById('kbm-tour-txt').innerHTML='<b>'+_trEsc(t.t)+'</b> · paso '+(_kbmTourS.i+1)+' de '+t.n.length+': '+_trEsc((_kbmNode(id)||{}).t||'');
 }
 function _kbmTourEnd(){_kbmTourS=null;document.getElementById('kbm-tour').style.display='none';_kbmClose();}
 async function _kbDel(id){
