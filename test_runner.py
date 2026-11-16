@@ -19105,8 +19105,29 @@ function _atrf_loadEnvUrls(){
     data.forEach(function(row){
       if(row.name&&row.base_url)_atrfEnvUrls[row.name.toUpperCase()]=row.base_url;
     });
+    _atrf_renderAmbRadios(data);
     _atrf_updateAmbUrl();
   }).catch(function(){});
+}
+// Botones de ambiente según los ambientes activos configurados (antes QA/PRD/PPRD fijos)
+function _atrf_renderAmbRadios(data){
+  var wrap=document.getElementById('atrf-amb-wrap');if(!wrap)return;
+  var q=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  var cur=_atrf_getAmb();
+  var ord={qa:0,custom:1,pprd:2,prd:3};
+  var rk=function(r){var o=ord[r.env_type];return o==null?1:o;};
+  var envs=data.filter(function(r){return r.name&&r.active!==false;}).sort(function(a,b){return rk(a)-rk(b);});
+  if(!envs.length)return;
+  var urlSpan=document.getElementById('atrf-amb-url');
+  wrap.innerHTML=envs.map(function(r){
+    var v=String(r.name).toUpperCase(),id='atrf-amb-'+v.toLowerCase().replace(/[^a-z0-9]/g,'');
+    return '<input type="radio" name="atrf-amb" id="'+id+'" value="'+q(v)+'" class="atrf-amb-radio" onchange="_atrf_onAmbChange()"'+(v===cur?' checked':'')+'/>'
+      +'<label for="'+id+'" class="atrf-amb-lbl" title="'+q((r.label||v)+(r.base_url?' · '+r.base_url:' · sin URL configurada'))+'">'+q(v)+'</label>';
+  }).join('');
+  if(urlSpan)wrap.appendChild(urlSpan);
+  if(!document.querySelector('input[name="atrf-amb"]:checked')){
+    var d=document.querySelector('input[name="atrf-amb"][value="QA"]')||document.querySelector('input[name="atrf-amb"]');if(d)d.checked=true;
+  }
 }
 
 function _atrf_getAmb(){var r=document.querySelector('input[name="atrf-amb"]:checked');return r?r.value:'QA';}
