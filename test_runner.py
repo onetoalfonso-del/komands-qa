@@ -94,6 +94,50 @@ QA_ACTIVACION_REQUEST_MAP = {
     "03": "Activation Entel",
     "05": "Activation DTV",
 }
+# ── Ambiente DEV (Proyecto APIM, colección wave2) ──────────────────────────────
+# Credenciales SOLO en variables de entorno de Railway: DEV_CLIENT_ID / DEV_CLIENT_SECRET
+# (genérico: <AMBIENTE>_CLIENT_ID / <AMBIENTE>_CLIENT_SECRET). Nunca en el código.
+# Rutas que en DEV (wave2) difieren de QA; el resto es igual.
+APIM_DEV_PATH_MAP = {
+    "/fullFillment-oNTRestartAsync/":          "/fullFillment-ONTRestartAsync/",
+    "/fullFillment-oNTRetrieveAsync/":         "/fullFillment-ONTRetrieveAsync/",
+    "/fullFillment-fiberChange/v1/fiberChange": "/fullFillment-fiberChange/v1/u_fiberChange",
+}
+APIM_DEV_PATH_MAP_TCH = {   # VNO 00 (Telefónica) usa su propia ONTRetrieve en DEV
+    "/retrieveDataONT/v1/ONTRetrieve": "/TCHretrieveDataONT/v1/ONTRetrieve",
+}
+
+
+def _apim_amb_name(body: dict) -> str:
+    a = str(body.get("ambiente") or "").strip().upper()
+    if a:
+        return a
+    if "apixqa" in str(body.get("ambUrl") or "").lower():
+        return "DEV"
+    return ""
+
+
+def _apim_amb_creds(amb: str):
+    """(client_id, client_secret) del ambiente desde env vars; ('','') si no hay o es QA."""
+    import os as _os_a
+    if not amb or amb == "QA":
+        return "", ""
+    k = "".join(c for c in amb if c.isalnum())
+    return (_os_a.environ.get(f"{k}_CLIENT_ID", "").strip(),
+            _os_a.environ.get(f"{k}_CLIENT_SECRET", "").strip())
+
+
+def _apim_dev_url(url: str, vno: str) -> str:
+    for a, b in APIM_DEV_PATH_MAP.items():
+        if a in url:
+            return url.replace(a, b)
+    if vno == "00":
+        for a, b in APIM_DEV_PATH_MAP_TCH.items():
+            if a in url:
+                return url.replace(a, b)
+    return url
+
+
 # VNOs que deben enviar el serial ONT en formato de 16 caracteres hex
 # (vendor ASCII → hex: HWTC12345678 → 4857544312345678). Pedido para Entel.
 QA_SERIAL_HEX16_VNOS = {"03"}
@@ -6823,6 +6867,23 @@ async def atrf_run_step(request: Request):
     service_iptv= body.get("serviceIptv", True)
     async_mode  = body.get("asyncMode", False)
 
+    # ── Ambiente con credenciales propias (DEV = Proyecto APIM / wave2) ──────
+    _amb_name = _apim_amb_name(body)
+    _is_dev   = _amb_name == "DEV"
+    _amb_ck, _amb_cs = _apim_amb_creds(_amb_name)
+    if _is_dev and not (_amb_ck and _amb_cs):
+        return JSONResponse({"pass": False, "func": func_name, "vno": vno, "req": "", "res": "",
+                             "error": "Ambiente DEV sin credenciales: configura DEV_CLIENT_ID y "
+                                      "DEV_CLIENT_SECRET en las variables de Railway"})
+    if _is_dev:
+        import types as _ty
+        _ur_real = _ur
+
+        def _dev_request(url, *a, **k):
+            return _ur_real.Request(_apim_dev_url(url, vno), *a, **k)
+        _ur = _ty.SimpleNamespace(Request=_dev_request, urlopen=_ur_real.urlopen,
+                                  HTTPError=_ur_real.HTTPError, URLError=_ur_real.URLError)
+
     # ── Factibilidad ──────────────────────────────────────────────────────────
     if func_name == "Factibilidad":
         use_pre  = "epreapi" in (amb_url or "")
@@ -6836,8 +6897,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -6858,7 +6919,7 @@ async def atrf_run_step(request: Request):
             "u_service_type": svc_type,
         }
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
-        if use_pre:
+        if use_pre or _is_dev:
             _fact_url = f"{apim_url.rstrip('/')}/fullFillment-Factibilidad/v1/feasibilityUpselling"
             _pass = False; _res_body = ""; _http_code = 0
             try:
@@ -6975,8 +7036,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7051,8 +7112,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7122,8 +7183,8 @@ async def atrf_run_step(request: Request):
         ev       = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7203,8 +7264,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7273,8 +7334,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7338,8 +7399,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7408,8 +7469,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7469,8 +7530,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7526,8 +7587,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7584,8 +7645,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7639,8 +7700,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7704,8 +7765,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7770,8 +7831,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7836,8 +7897,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7895,8 +7956,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -7970,8 +8031,8 @@ async def atrf_run_step(request: Request):
         ev = {v["key"]: v["value"] for v in env_data["values"]}
         apim_url = amb_url or ev.get("apimURL", "")
         import os as _os
-        _ck = _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
-        _cs = _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
+        _ck = _amb_ck or _os.environ.get(f"VNO{vno}_CONSUMER_KEY") or ev.get("consumerKey", "")
+        _cs = _amb_cs or _os.environ.get(f"VNO{vno}_CONSUMER_SECRET") or ev.get("consumerSecret", "")
         auth_b64 = _b64.b64encode(f"{_ck}:{_cs}".encode()).decode()
         token = ""
         try:
@@ -20870,7 +20931,7 @@ async function _atrf_runSelected(){
             serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
             scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
-            newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',
+            newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',ambiente:q.cfg.ambiente||'',
             blPlan:_mBlPlan(),
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload));
