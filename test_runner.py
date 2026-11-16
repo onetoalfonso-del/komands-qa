@@ -8314,6 +8314,7 @@ async def _coreuse_wait_result(access_id: str, func_name: str, since_ms=None,
     # CoreUse actualiza la fila a los 5-10 s: el estado final debe repetirse en lecturas seguidas
     # (éxito 3, fallo 5: un código ≠ 0 puede pasar a 0 segundos después)
     _STABLE_WAIT_S = 6
+    _err_n = 0
     stable_key, stable_n = None, 0
     # La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8)
     for attempt in range(1, _MAX_ATTEMPTS + 9):
@@ -8328,6 +8329,13 @@ async def _coreuse_wait_result(access_id: str, func_name: str, since_ms=None,
         result = {**r, "attempts": attempt}
         if result.get("status") == "not_applicable":
             return result
+        # CoreUse caído (login / red): 3 errores seguidos → no seguir esperando ~6 min
+        if result.get("status") == "error":
+            _err_n += 1
+            if _err_n >= 3:
+                return result
+        else:
+            _err_n = 0
         if result.get("status") in ("success", "failure"):
             if _MAX_ATTEMPTS == 1:
                 return result
@@ -9065,6 +9073,54 @@ async def api_cu_flows_delete(req: Request, access_id: str = ""):
     pool = await _db()
     await pool.execute("DELETE FROM qa_cu_flows WHERE access_id=$1", access_id)
     return {"ok": True}
+
+
+_cu_health = {"ts": 0.0, "ok": None, "msg": ""}
+
+
+@app.get("/api/coreuse/health")
+async def api_coreuse_health(force: int = 0):
+    """¿El runner puede leer CoreUse? (inicia sesión y abre /flujos-qa). Resultado cacheado 60 s."""
+    global _coreuse_session
+    if not force and _cu_health["ok"] is not None and _time_lib.time() - _cu_health["ts"] < 60:
+        return {"ok": _cu_health["ok"], "msg": _cu_health["msg"], "cached": True}
+    if not _COREUSE_AVAILABLE or not _COREUSE_USER:
+        return {"ok": False, "msg": "CoreUse no configurado"}
+
+    def _chk():
+        global _coreuse_session
+        with _coreuse_lock:
+            s = _coreuse_get_session()
+            if not s:
+                return False, "No se pudo autenticar en CoreUse"
+            try:
+                def _get(sess):
+                    return sess.get(f"{_COREUSE_BASE}/flujos-qa", params={"access": "health"},
+                                    verify=False, timeout=15, allow_redirects=True)
+                r = _get(s)
+                if _cu_is_locked(r) and not _coreuse_unlock(s, _cu_lock_url(r)):
+                    _coreuse_session = None
+                    s = _coreuse_login()
+                    if not s:
+                        return False, "CoreUse bloqueado y el re-login falló"
+                    r = _get(s)
+                if _cu_is_login(r):
+                    _coreuse_session = None
+                    s = _coreuse_login()
+                    if not s:
+                        return False, "No se pudo autenticar en CoreUse"
+                    r = _get(s)
+                if _cu_is_login(r) or _cu_is_locked(r):
+                    return False, "CoreUse sigue pidiendo login/PIN"
+                if r.status_code >= 500:
+                    return False, f"CoreUse responde HTTP {r.status_code}"
+                return True, "OK"
+            except Exception as e:
+                return False, f"CoreUse no responde: {e}"
+
+    ok, msg = await _aio.get_event_loop().run_in_executor(None, _chk)
+    _cu_health.update({"ts": _time_lib.time(), "ok": ok, "msg": msg})
+    return {"ok": ok, "msg": msg}
 
 
 @app.get("/api/coreuse/iia-detail")
@@ -12723,6 +12779,7 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
             </label>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
+            <label title="Ejecuta solo las APIs: no consulta CoreUse en ningún paso. El resultado de cada paso es el de la API y queda marcado &quot;sin CoreUse&quot;. El FiberChange necesita elegir la CTO a mano." style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--atrf-border2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="atrf-apionly" onchange="_atrfApiOnlySave()"> Solo APIs (sin CoreUse)</label>
             <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected().catch(_atrf_runCrash)">&#9654; Ejecutar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-stop-btn" onclick="_atrf_stop()" title="Detiene la ejecución en curso (en este u otro dispositivo): los pasos pendientes no se ejecutan">&#9209; Detener</button>
             <button class="atrf-btn atrf-btn-sm" id="atrf-dl-report-btn" onclick="_atrf_downloadManualReport()" style="display:none;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)">&#128229; Descargar Reporte</button>
@@ -19654,6 +19711,7 @@ function _atrf_iiaUsable(d){
 // La IIA recién ejecutada puede tardar en mostrar sus CTOs en CoreUse: reintentar hasta ~1 min
 async function _atrf_iiaDetailWait(aid,prog){
   var d=null;
+  if(!(await _atrfCuOk()))return {error:'CoreUse no disponible: '+_cuHealth.msg,ctos:[]};
   for(var i=1;i<=6;i++){
     if(_atrfStopReq)break;
     d=await _atrf_iiaDetail(aid);
@@ -20442,10 +20500,31 @@ function _atrf_switchView(t){
 var _atrf_qStartTs=0;
 // Polling CoreUse desde el navegador: 1 consulta corta por request (max_attempts=1).
 // Evita que el proxy de Railway corte un request largo (~5 min) y el resultado se pierda.
+// Salud de CoreUse: si está caído, los pasos se evalúan solo con la API (marcados "sin CoreUse")
+var _cuHealth={ts:0,ok:true,msg:'',warned:false,apiOnly:false};
+function _atrfApiOnly(){var e=document.getElementById('atrf-apionly');return !!(e&&e.checked);}
+function _atrfApiOnlySave(){
+  try{localStorage.setItem('qa_apionly',_atrfApiOnly()?'1':'0');}catch(e){}
+  if(typeof showToast==='function')showToast(_atrfApiOnly()?'Modo Solo APIs activado: no se consultará CoreUse':'Modo Solo APIs desactivado: se vuelve a confirmar en CoreUse',_atrfApiOnly()?'warn':'ok');
+}
+(function(){function f(){try{if(localStorage.getItem('qa_apionly')==='1'){var e=document.getElementById('atrf-apionly');if(e)e.checked=true;}}catch(e){}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',f);else f();})();
+async function _atrfCuOk(force){
+  _cuHealth.apiOnly=_atrfApiOnly();
+  if(_cuHealth.apiOnly){_cuHealth.msg='modo Solo APIs activado';return false;}
+  if(!force&&_cuHealth.ts&&Date.now()-_cuHealth.ts<60000)return _cuHealth.ok;
+  try{var r=await fetch('/api/coreuse/health'+(force?'?force=1':''));var d=await r.json();_cuHealth.ok=!!d.ok;_cuHealth.msg=d.msg||'';}
+  catch(e){_cuHealth.ok=false;_cuHealth.msg='Error de red: '+e;}
+  _cuHealth.ts=Date.now();
+  if(!_cuHealth.ok&&!_cuHealth.warned){_cuHealth.warned=true;
+    if(typeof showToast==='function')showToast('⚠ CoreUse no disponible ('+_cuHealth.msg+'): los pasos se evalúan solo con la respuesta de la API y quedan marcados "sin CoreUse"','warn');}
+  if(_cuHealth.ok)_cuHealth.warned=false;
+  return _cuHealth.ok;
+}
 async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
   // Estado final debe repetirse en lecturas seguidas (CoreUse actualiza la fila a los 5-10 s):
   // éxito 3 lecturas, fallo 5 (un código ≠ 0 puede pasar a 0 segundos después)
-  var last={status:'pending',message:''},reached=false,stKey='',stN=0,STABLE=3;
+  var last={status:'pending',message:''},reached=false,stKey='',stN=0,STABLE=3,errN=0;
   // La confirmación no consume el límite: si el estado final aparece al final, se extiende (máx. +8 lecturas)
   for(var i=1;i<=maxAtt+8;i++){
     if(_atrfStopReq)break;
@@ -20459,6 +20538,9 @@ async function _atrfCuPoll(aid,fn,maxAtt,prog,since,isAsync){
     }catch(e){last={status:'error',message:'Error de red consultando CoreUse: '+String(e)};}
     last.attempts=i;
     if(last.status!=='error')reached=true;
+    // CoreUse caído: 3 errores seguidos sin haber podido leerlo nunca → cortar (antes esperaba ~6 min)
+    errN=last.status==='error'?errN+1:0;
+    if(errN>=3&&!reached){_cuHealth.ok=false;_cuHealth.ts=Date.now();_cuHealth.msg=last.message||'';break;}
     if(last.status==='not_applicable')return last;
     if(last.status==='success'||last.status==='failure'){
       var k=last.status+'|'+(last.message||'');
@@ -20698,7 +20780,9 @@ async function _atrf_runSelected(){
             }catch(_iiaErr){}
           }
           if(!_atrfPendingCto){
-            var _ncE=new Error('No se envió el FiberChange: no se pudo leer la CTO/LU desde la IIA en CoreUse'
+            var _ncE=new Error(!_cuHealth.ok
+              ?'No se envió el FiberChange: '+(_cuHealth.apiOnly?'el modo Solo APIs está activado':'CoreUse no está disponible ('+_cuHealth.msg+')')+' y la CTO/LU se lee de la IIA en CoreUse. Elige la CTO a mano (botón CTO) o quita el FiberChange de la secuencia.'
+              :'No se envió el FiberChange: no se pudo leer la CTO/LU desde la IIA en CoreUse'
               +(_currentAccessId?' para '+_currentAccessId:' (sin Access ID)')
               +' después de 6 intentos. Revisa que la IIA esté en CoreUse con sus CTO o elige la CTO a mano (botón CTO).');
             _ncE._noCto=true;throw _ncE;
@@ -20826,7 +20910,16 @@ async function _atrf_runSelected(){
       // En modo async: RetrieveAccess, Reinicio ONT y Consulta de Alarmas SÍ tienen registro CoreUse
       // Diagnóstico de Acceso (AccesStatusAsync) en async sí deja fila "Access Status" en CoreUse
       var _cuEligible=(!_COREUSE_NO_POLL[fn]||(_asyncMode&&(fn==='Diagnóstico de Acceso'||fn==='RetrieveAccess ONT'||fn==='Consulta Estado Vecino (GET)')))&&!_sr.noAccessId;
-      if(_cuEligible&&_currentAccessId&&(pass||_is408)){
+      var _cuUp=(_cuEligible&&_currentAccessId)?await _atrfCuOk():true;
+      if(!_cuUp){
+        // CoreUse caído: no se espera; queda el resultado de la API, marcado
+        _trCu=_cuHealth.apiOnly
+          ?{status:'solo_api',msg:'Modo Solo APIs: no se consultó CoreUse, resultado solo de la API',attempts:0,checked:'solo_api'}
+          :{status:'caido',msg:'CoreUse no disponible ('+_cuHealth.msg+'): resultado solo de la API',attempts:0,checked:'caido'};
+        _sr.coreuse_info=_trCu.msg;_sr.cuDown=true;
+        _sr.label=String(_sr.label||'')+' · ⚠ sin CoreUse';
+        _sr.res=String(_sr.res||'')+'  // ⚠ Sin confirmar en CoreUse ('+(_cuHealth.apiOnly?'modo Solo APIs':'no disponible')+')'+(_asyncMode?': en asíncrono la API solo acusó recibo':'');
+      } else if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
           var _cuD=await _atrfCuPoll(_currentAccessId,fn,20,prog,_t0,_asyncMode);
@@ -20874,7 +20967,7 @@ async function _atrf_runSelected(){
       // Delay post-paso: solo si el paso pasó Y no hubo CoreUse poll.
       // Si CoreUse corrió, ya esperó a que el sistema procesara — el delay es redundante.
       var _dk=_ATRF_DELAY_MAP[fn];
-      var _hadCoreuse=_cuEligible&&_currentAccessId;
+      var _hadCoreuse=_cuEligible&&_currentAccessId&&_cuUp;
       if(pass&&!_hadCoreuse&&_dk&&_delays[_dk]>0){
         var _dEnd=Date.now()+_delays[_dk];
         while(Date.now()<_dEnd){
