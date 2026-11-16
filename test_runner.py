@@ -18930,6 +18930,7 @@ var _ATRF_PREREQS={
 };
 var _atrf_prereqTimer=null;
 var _ATRF_VNO_PREFIX={"02":"SCOM","03":"HWTC","05":"HWTC"};
+var _ATRF_SN_HEX16={"03":true};  // igual que QA_SERIAL_HEX16_VNOS en el servidor
 var _atrfQueue=[];
 var _atrfRunning=false;
 var _atrfLastRunKeys=[];  // run_keys de la última ejecución (el reporte incluye solo esas)
@@ -19870,8 +19871,15 @@ function _atrf_updateSerials(){
   var sfx=n.HH+n.mm;
   var multi=vnos.length>1;
   var px=!vnos.length?'':multi?'…':_atrf_getSnPrefix(vnos[0]);
-  var pxEl=document.getElementById('atrf-sn-px');if(pxEl)pxEl.textContent=px||'—';
-  var pxEl2=document.getElementById('atrf-nsn-px');if(pxEl2)pxEl2.textContent=px||'—';
+  // Entel: se envía en 16 caracteres (vendor en hex: HWTC → 48575443); ServiceNow lo guarda como HWTC…
+  var hex16=!multi&&vnos.length&&_ATRF_SN_HEX16[vnos[0]]&&/^[A-Z]{4}/.test(px);
+  var pxShow=hex16?px.slice(0,4).split('').map(function(c){return c.charCodeAt(0).toString(16).toUpperCase();}).join('')+px.slice(4):px;
+  var pxEl=document.getElementById('atrf-sn-px');if(pxEl){pxEl.textContent=pxShow||'—';pxEl.title=hex16?('Se envía '+pxShow+'xxxx (16 caracteres). En ServiceNow queda como '+px+'xxxx'):'';}
+  var pxEl2=document.getElementById('atrf-nsn-px');if(pxEl2){pxEl2.textContent=pxShow||'—';pxEl2.title=pxEl.title;}
+  var hEl=document.getElementById('atrf-sn-hint');
+  if(hEl)hEl.textContent=!vnos.length?'Elige un VNO para ver el prefijo · ingresa últimos 4 dígitos'
+    :hex16?'Entel: se envía en 16 caracteres ('+px.slice(0,4)+' → '+pxShow.slice(0,8)+') · ServiceNow lo guarda como '+px+'xxxx · ingresa últimos 4 dígitos'
+    :'Prefijo+Fecha automático · ingresa últimos 4 dígitos';
   if(_atrfAutoState.sn){var e=document.getElementById('atrf-sn');if(e){e.value=multi?'':sfx;_atrf_updateSnLen('atrf-sn','atrf-sn-len');}}
   if(_atrfAutoState.nsn){var e2=document.getElementById('atrf-nsn');if(e2){e2.value=multi?'':sfx;_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');}}
 }
@@ -23681,7 +23689,7 @@ function _trExport(){
             <span id="atrf-sn-px" style="font-family:var(--atrf-mono);font-size:.82rem;color:var(--txt3);letter-spacing:.04em">—</span>
             <input type="text" id="atrf-sn" maxlength="4" placeholder="0000" style="width:56px;font-family:var(--atrf-mono);letter-spacing:.06em" oninput="_atrf_onSnEdit('atrf-sn','atrf-sn-len')"/>
           </div>
-          <span class="atrf-hint">Prefijo+Fecha automático · ingresa últimos 4 dígitos</span>
+          <span class="atrf-hint" id="atrf-sn-hint">Prefijo+Fecha automático · ingresa últimos 4 dígitos</span>
         </div>
         <div class="atrf-field atrf-col-5">
           <label>Nuevo Serial Number
