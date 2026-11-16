@@ -1895,7 +1895,7 @@ async def _kb_seed(conn):
         if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
           await conn.execute(
             "UPDATE qa_kb SET content = content || $1, updated_at=NOW() "
-            "WHERE title='Formato del serial ONT en OLT Huawei' AND content NOT LIKE '%El runner convierte%'",
+            "WHERE title='Formato del serial ONT en OLT Huawei' AND content NOT LIKE '%runner convierte%'",
             chr(10) + "Entel pide enviar siempre 16 caracteres: el runner convierte solo el serial de Entel (VNO 03) "
             "antes de enviarlo (ej. HWTC11161230 → 4857544311161230).")
           await conn.execute(
