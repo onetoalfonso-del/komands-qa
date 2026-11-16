@@ -1877,6 +1877,17 @@ async def _kb_seed(conn):
         if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
           await conn.execute(
             "INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
+            "SELECT 'flujo', 'Modificación de Dispositivo', '', 'Formato del serial ONT en OLT Huawei', $1, 'serial,ont,huawei,entel', 'Claude (dato del usuario)' "
+            "WHERE NOT EXISTS (SELECT 1 FROM qa_kb WHERE title='Formato del serial ONT en OLT Huawei')",
+            "La federación valida el serial con formato Huawei: 4 letras de vendor + 8 caracteres hexadecimales "
+            "(0-9 y A-F), con o sin ':' (ej. HWTC12345678 o HWTC:12345678), o 16 caracteres hexadecimales.\n"
+            "Para pasarlo a 16 hex se reemplazan las 4 letras del vendor por su código ASCII en hexadecimal:\n"
+            "HWTC = 48575443 · ZTEG = 5A544547 · ALCL = 414C434C · SCOM = 53434F4D\n"
+            "Ej. HWTCA97D9CB5 → 48575443A97D9CB5 · ZTEG12345678 → 5A54454712345678\n"
+            "La parte de serie siempre debe tener 8 caracteres hex. Error visto: 'ZTEGD719E1661611' trae 12 después de ZTEG "
+            "(D719E1661611) → no calza; revisar el GPON SN en la etiqueta de la ONT.")
+          await conn.execute(
+            "INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
             "SELECT 'flujo', 'Bloqueo de Servicio (BL)', '', 'BL / DBL solo para DirecTV', $1, 'bl,dbl,dtv', 'Claude (dato del usuario)' "
             "WHERE NOT EXISTS (SELECT 1 FROM qa_kb WHERE title='BL / DBL solo para DirecTV')",
             "El Bloqueo (BL) y Desbloqueo (DBL) de servicio solo aplican a DirecTV (VNO 05). "
