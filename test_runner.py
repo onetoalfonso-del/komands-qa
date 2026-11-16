@@ -94,6 +94,24 @@ QA_ACTIVACION_REQUEST_MAP = {
     "03": "Activation Entel",
     "05": "Activation DTV",
 }
+# VNOs que deben enviar el serial ONT en formato de 16 caracteres hex
+# (vendor ASCII → hex: HWTC12345678 → 4857544312345678). Pedido para Entel.
+QA_SERIAL_HEX16_VNOS = {"03"}
+
+
+def _sn_to_hex16(sn: str) -> str:
+    """'HWTC12345678' / 'HWTC:12345678' → '4857544312345678'. Si ya tiene 16 hex lo deja igual;
+    si no calza con el formato (vendor 4 letras + 8 hex) lo deja tal cual para que la API lo informe."""
+    import re as _re_sn
+    v = (sn or "").strip().replace(":", "").upper()
+    if _re_sn.fullmatch(r"[0-9A-F]{16}", v):
+        return v
+    m = _re_sn.fullmatch(r"([A-Z]{4})([0-9A-F]{8})", v)
+    if m:
+        return m.group(1).encode("ascii").hex().upper() + m.group(2)
+    return sn
+
+
 QA_ACTIV_SERIAL_BASE = {
     "03": "ZTEG1104",
     "02": "ZTEGD719",
@@ -1875,6 +1893,11 @@ async def _kb_seed(conn):
                            "AND title='FTTH / SSAA (u_service_type)' AND content LIKE '%pendiente completar%'",
                            next(c for (_k, _a, _cd, t, c, _tg) in _KB_SEED if t == "FTTH / SSAA (u_service_type)"))
         if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
+          await conn.execute(
+            "UPDATE qa_kb SET content = content || $1, updated_at=NOW() "
+            "WHERE title='Formato del serial ONT en OLT Huawei' AND content NOT LIKE '%El runner convierte%'",
+            chr(10) + "Entel pide enviar siempre 16 caracteres: el runner convierte solo el serial de Entel (VNO 03) "
+            "antes de enviarlo (ej. HWTC11161230 → 4857544311161230).")
           await conn.execute(
             "INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
             "SELECT 'flujo', 'Modificación de Dispositivo', '', 'Formato del serial ONT en OLT Huawei', $1, 'serial,ont,huawei,entel', 'Claude (dato del usuario)' "
@@ -6788,6 +6811,9 @@ async def atrf_run_step(request: Request):
     access_id   = body.get("accessId", "")
     serial_num  = body.get("serialNumber", "")
     new_serial  = body.get("newSerialNumber", "")
+    if vno in QA_SERIAL_HEX16_VNOS:     # Entel: serial en 16 caracteres hex
+        serial_num = _sn_to_hex16(serial_num)
+        new_serial = _sn_to_hex16(new_serial)
     speed_plan      = body.get("speedPlan", "600/600")
     new_speed_plan  = body.get("newSpeedPlan", "")
     amb_url         = body.get("ambUrl", "")
