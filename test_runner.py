@@ -12900,6 +12900,8 @@ body.light{--qx-pur:#7B3FD1;--qx-purd:rgba(123,63,209,.10);--qx-warnd:rgba(184,1
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-del-sel-btn" onclick="_atrf_deleteSelected()" style="display:none">🗑 Eliminar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_clearQueue()">Vaciar cola</button>
             <label title="Ejecuta solo las APIs: no consulta CoreUse en ningún paso. El resultado de cada paso es el de la API y queda marcado &quot;sin CoreUse&quot;. El FiberChange necesita elegir la CTO a mano." style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--atrf-border2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="atrf-apionly" onchange="_atrfApiOnlySave()"> Solo APIs (sin CoreUse)</label>
+            <label title="Ejecuta varias secuencias seleccionadas al mismo tiempo (cada una con su propio Access ID). Los FiberChange de distintas secuencias se hacen de a uno. Usa direcciones distintas para no competir por el mismo puerto de la CTO." style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--atrf-border2);cursor:pointer;white-space:nowrap"><input type="checkbox" id="atrf-par" onchange="_atrfParSave()"> En paralelo
+              <select id="atrf-par-max" onchange="_atrfParSave()" onclick="event.stopPropagation()" style="font-size:11px;padding:0 2px;border:1px solid var(--atrf-border2);border-radius:4px;background:var(--bg);color:var(--txt)"><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></label>
             <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-run-btn" onclick="_atrf_runSelected().catch(_atrf_runCrash)">&#9654; Ejecutar seleccionadas</button>
             <button class="atrf-btn atrf-btn-sm atrf-btn-danger" id="atrf-stop-btn" onclick="_atrf_stop()" title="Detiene la ejecución en curso (en este u otro dispositivo): los pasos pendientes no se ejecutan">&#9209; Detener</button>
             <button class="atrf-btn atrf-btn-sm" id="atrf-dl-report-btn" onclick="_atrf_downloadManualReport()" style="display:none;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)">&#128229; Descargar Reporte</button>
@@ -20825,6 +20827,29 @@ function _atrf_stopWatch(on){
     }).catch(function(){});
   },5000);
 }
+// ── Ejecución en paralelo de secuencias ─────────────────────────────────────
+var _atrfParRun=false;
+function _atrfParOn(){var e=document.getElementById('atrf-par');return !!(e&&e.checked);}
+function _atrfParMax(){var e=document.getElementById('atrf-par-max');var n=parseInt(e&&e.value)||3;return Math.max(1,Math.min(5,n));}
+function _atrfParSave(){
+  try{localStorage.setItem('qa_par',_atrfParOn()?'1':'0');localStorage.setItem('qa_par_max',String(_atrfParMax()));}catch(e){}
+}
+(function(){function f(){try{
+  if(localStorage.getItem('qa_par')==='1'){var e=document.getElementById('atrf-par');if(e)e.checked=true;}
+  var m=localStorage.getItem('qa_par_max');var s=document.getElementById('atrf-par-max');if(m&&s)s.value=m;
+}catch(e){}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',f);else f();})();
+// FiberChange usa la CTO pendiente global (_atrfPendingCto): en paralelo se hace de a uno.
+// El candado se libera solo a los 5 min por si un paso queda colgado.
+var _atrfCfQ=Promise.resolve();
+function _atrf_cfLock(){
+  var rel,done=false;var p=new Promise(function(r){rel=r;});
+  var prev=_atrfCfQ;_atrfCfQ=prev.then(function(){return p;});
+  return prev.then(function(){
+    var f=function(){if(!done){done=true;rel();}};
+    setTimeout(f,300000);return f;
+  });
+}
 async function _atrf_runSelected(){
   if(_atrfRunning)return;
   var toRun=_atrfQueue.filter(function(q){return q.checked&&q.status==='espera';});
@@ -20845,11 +20870,15 @@ async function _atrf_runSelected(){
   var _COREUSE_NO_POLL={'Factibilidad':1,'GET Consulta de Acceso':1,
     'Consulta Estado Vecino (GET)':1,'Consulta Estado Vecino (POST)':1,
     'Diagnóstico de Acceso':1,'RetrieveAccess ONT':1};
-  for(var qi=0;qi<_atrfQueue.length;qi++){
+  var _runIdx=[];
+  for(var _k=0;_k<_atrfQueue.length;_k++){var _qq=_atrfQueue[_k];if(_qq.checked&&_qq.status==='espera')_runIdx.push(_k);}
+  _atrfParRun=_atrfParOn()&&_runIdx.length>1;
+  var _runPar=_atrfParRun?Math.min(_atrfParMax(),_runIdx.length):1;
+  // Cada secuencia corre en su propia función: sus variables (Access ID, fases, FIA…) no se mezclan
+  async function _atrf_runOne(qi){
     var q=_atrfQueue[qi];
-    if(!q.checked||q.status!=='espera')continue;
-    if(_atrfStopReq)break;
-    if(prog)prog.textContent=(qi+1)+'/'+_atrfQueue.length+' → '+q.name;
+    if(!q||_atrfStopReq)return;
+    if(prog)prog.textContent=(_runPar>1?'En paralelo ('+_runPar+') · ':'')+(_runIdx.indexOf(qi)+1)+'/'+_runIdx.length+' → '+q.name;
     q.status='ejecutando';
     var stEl=document.getElementById('atrf-qst-'+qi);
     if(stEl){stEl.className='atrf-badge atrf-badge-run';stEl.textContent='Ejecutando';}
@@ -21229,6 +21258,11 @@ async function _atrf_runSelected(){
           continue;
         }
         // Fiber Change: si la IIA dice "Fiber change options = No" no hay cambio de pelo posible → no se llama a la API
+        var _cfRel=null;
+        if(_mIaPhase[_mi].fn==='Cambio de Fibra'&&_atrfParRun){
+          if(prog)prog.textContent='⏳ FiberChange de '+(q.name||'')+' en espera: otra secuencia está haciendo el suyo…';
+          _cfRel=await _atrf_cfLock();
+        }
         if(_mIaPhase[_mi].fn==='Cambio de Fibra')_atrf_resetStaleCto(_currentAccessId);
         if(_mIaPhase[_mi].fn==='Cambio de Fibra'&&_currentAccessId&&!_atrfPendingCto){
           var _fcNo=false;
@@ -21249,6 +21283,7 @@ async function _atrf_runSelected(){
               api_pass:null,final_pass:true,coreuse_checked:'no',duration_ms:0,
               extra:{error:_fcMsg}
             })}).catch(function(){});
+            if(_cfRel){_cfRel();_cfRel=null;}
             continue;
           }
         }
@@ -21262,7 +21297,8 @@ async function _atrf_runSelected(){
           }
           _ciaEnd=0;
         }
-        var _r=await _mDoStep(_mIaPhase[_mi]);
+        var _r;
+        try{_r=await _mDoStep(_mIaPhase[_mi]);}finally{if(_cfRel){_cfRel();_cfRel=null;}}
         if(_r&&_mIaPhase[_mi].fn==='Cancelación Intervención Asegurada'&&_r.pass)_ciaEnd=Date.now();
         if(_r&&_mIaPhase[_mi].fn==='Finalización Intervención Asegurada'&&!_r.skipped&&String(_r.error||'').indexOf('Saltado')<0)_mFiaEnd=Date.now();
         // IIA rechazada en CoreUse porque la intervención anterior aún se está cerrando
@@ -21344,6 +21380,26 @@ async function _atrf_runSelected(){
     // Refresca modal de vista si está abierto para esta secuencia
     if(_atrfViewIdx===qi&&document.getElementById('atrf-modal-view').classList.contains('show')) _atrf_openView(qi,true);
   }
+  var _runNext=0;
+  async function _atrf_runWorker(wi){
+    // Arranque escalonado (5 s) para no disparar todas las Factibilidades/Asignaciones juntas
+    if(wi>0)await new Promise(function(r){setTimeout(r,wi*5000);});
+    while(_runNext<_runIdx.length&&!_atrfStopReq){
+      var _qi=_runIdx[_runNext++];
+      try{await _atrf_runOne(_qi);}
+      catch(_e){
+        console.error('Secuencia '+_qi+' falló',_e);
+        var _qe=_atrfQueue[_qi];
+        if(_qe){_qe.status='error';(_qe.tcResults=_qe.tcResults||[]).push({func:'(runner)',label:'Error interno',pass:false,req:'',res:String(_e&&_e.message||_e),httpCode:0,error:String(_e&&_e.message||_e)});}
+        _atrf_save();_atrf_renderQueue();
+        if(_runPar===1)throw _e;
+      }
+    }
+  }
+  var _workers=[];
+  for(var _w=0;_w<_runPar;_w++)_workers.push(_atrf_runWorker(_w));
+  await Promise.all(_workers);
+  _atrfParRun=false;
   _atrfRunning=false;
   _atrf_stopWatch(false);
   if(_atrfStopReq&&typeof showToast==='function')showToast('Ejecución detenida','warn');
