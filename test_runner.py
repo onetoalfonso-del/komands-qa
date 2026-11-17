@@ -19235,6 +19235,7 @@ function _atrf_renderQueue(){
         +'<div class="atrf-q-meta">'+(q.cfg&&q.cfg.tex==='Asíncrono'?'<span style="font-size:9px;font-family:var(--atrf-mono);background:rgba(0,200,212,.12);border:1px solid rgba(0,200,212,.35);color:var(--atrf-accent);border-radius:3px;padding:1px 5px;margin-right:4px;letter-spacing:.04em">ASYNC</span>':'')+q.funcs.length+' func · '+(q.ts||'')+'</div>'
         +'</div>'
         +'<span class="atrf-badge '+sc+'" id="atrf-qst-'+qi+'">'+sl+'</span>'
+        +(q.status!=='ejecutando'?'<button class="atrf-btn atrf-btn-sm" onclick="event.stopPropagation();_atrf_openEdit('+qi+')" style="padding:3px 8px" title="Editar secuencia">✎</button>':'')
         +'<button class="atrf-btn atrf-btn-sm ag-prog-btn" data-qi="'+qi+'" style="padding:3px 8px" title="Programar esta secuencia">&#128197;</button>'
         +'<button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="event.stopPropagation();_atrf_removeItem('+qi+')" style="padding:3px 8px">✕</button>'
         +'</div>'
@@ -19875,6 +19876,8 @@ function _cuShowPendingCtoBadge(){
 function _atrf_openNew(){
   _atrfSel=[];_atrfFilter='';
   _atrfAutoState={aid:true,sn:true,nsn:true};
+  _atrfEditIdx=-1;_atrfEditOrig=null;_atrf_setNewMode(false);
+  ['aid','sn','nsn'].forEach(function(k){var t=document.getElementById('atrf-auto-'+k);if(t)t.classList.remove('off');});
   document.getElementById('atrf-seq-name').value='';
   document.getElementById('atrf-seq-name').classList.remove('err');
   document.getElementById('atrf-seq-ts').textContent=_atrf_ts();
@@ -19899,7 +19902,47 @@ function _atrf_openNew(){
   document.getElementById('atrf-modal-new').classList.add('show');
   setTimeout(function(){document.getElementById('atrf-seq-name').focus();},80);
 }
-function _atrf_closeNew(){document.getElementById('atrf-modal-new').classList.remove('show');}
+function _atrf_closeNew(){document.getElementById('atrf-modal-new').classList.remove('show');_atrfEditIdx=-1;_atrfEditOrig=null;_atrf_setNewMode(false);}
+// ── Editar una secuencia encolada (reusa el formulario de "Nueva secuencia") ──
+var _atrfEditIdx=-1,_atrfEditOrig=null;
+function _atrf_setNewMode(edit){
+  var t=document.getElementById('atrf-new-title');if(t)t.textContent=edit?'Editar secuencia —':'Nueva secuencia —';
+  var b=document.getElementById('atrf-enq-btn');if(b)b.textContent=edit?'Guardar cambios':'Encolar';
+  var st=document.getElementById('atrf-ntab-sched');if(st)st.style.display=edit?'none':'flex';
+}
+function _atrf_snField(vno,sn){var px=_ATRF_VNO_PREFIX[vno]||'';sn=sn||'';return px&&sn.length>4?sn.slice(-4):sn;}
+function _atrf_openEdit(qi){
+  var q=_atrfQueue[qi];if(!q)return;
+  if(q.status==='ejecutando'){if(typeof showToast==='function')showToast('No se puede editar una secuencia en ejecución','warn');return;}
+  _atrf_openNew();
+  _atrfEditIdx=qi;_atrfEditOrig=JSON.parse(JSON.stringify(q.cfg||{}));_atrf_setNewMode(true);
+  var c=q.cfg||{};
+  document.getElementById('atrf-seq-name').value=q.name||'';
+  document.getElementById('atrf-seq-ts').textContent=q.ts||_atrf_ts();
+  // Campos fijos de la secuencia: no se regeneran (Auto apagado)
+  _atrfAutoState={aid:false,sn:false,nsn:false};
+  ['aid','sn','nsn'].forEach(function(k){var t=document.getElementById('atrf-auto-'+k);if(t)t.classList.add('off');});
+  var amb=document.querySelector('input[name="atrf-amb"][value="'+String(c.ambiente||'QA').replace(/"/g,'')+'"]');if(amb)amb.checked=true;
+  document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl').forEach(function(el){el.classList.toggle('on',el.dataset.vno===c.vno);});
+  var setV=function(id,v){var e=document.getElementById(id);if(e&&v!=null&&v!=='')e.value=v;};
+  setV('atrf-tdir',c.tdir);setV('atrf-tsvc',c.tsvc);setV('atrf-esc',c.esc);setV('atrf-tex',c.tex);
+  setV('atrf-bp',c.bp);setV('atrf-plan',c.plan);setV('atrf-nplan',c.nplan);
+  document.getElementById('atrf-dir').value=c.direccion||'';
+  document.getElementById('atrf-aid').value=c.accessId||'';
+  document.getElementById('atrf-sn').value=_atrf_snField(c.vno,c.sn);
+  document.getElementById('atrf-nsn').value=_atrf_snField(c.vno,c.nsn);
+  ['ba','voip','iptv'].forEach(function(k){var e=document.getElementById('atrf-svc-'+k);if(e)e.checked=c[k]!==false;});
+  _atrfSel=[].concat(q.funcs||[]);
+  _atrf_updateAmbUrl();_atrf_updateSerials();
+  _atrf_updateSnLen('atrf-sn','atrf-sn-len');_atrf_updateSnLen('atrf-nsn','atrf-nsn-len');
+  _atrf_renderCatalog();_atrf_renderSeq();
+  var cnt=document.getElementById('atrf-funcs-cnt');if(cnt)cnt.textContent=_atrfSel.length?('('+_atrfSel.length+')'):'';
+}
+function _atrf_editFromView(){
+  if(_atrfViewIdx<0)return;var qi=_atrfViewIdx;
+  if((_atrfQueue[qi]||{}).status==='ejecutando'){if(typeof showToast==='function')showToast('No se puede editar una secuencia en ejecución','warn');return;}
+  _atrf_closeView();_atrf_openEdit(qi);
+}
 
 function _atrf_switchTab(t){
   ['cfg','funcs','sched'].forEach(function(x){
@@ -20128,6 +20171,7 @@ async function _atrf_enqueue(){
       }));
     }
   }
+  var _edited=false;
   vnos.forEach(function(vno){
     var _snPx=_atrf_getSnPrefix(vno);
     var _snSfx=_atrfAutoState.sn?(_atrf_now().HH+_atrf_now().mm):_atrf_v('atrf-sn').trim();
@@ -20135,12 +20179,26 @@ async function _atrf_enqueue(){
     var _nsnSfx=_atrfAutoState.nsn?(_atrf_now().HH+_atrf_now().mm):_atrf_v('atrf-nsn').trim();
     var nsn_val=_snPx?_snPx+_nsnSfx:_nsnSfx;
     var aid_val=_atrfAutoState.aid?(_aidByVno[vno]||_atrf_buildAid(vno)):_atrf_v('atrf-aid').trim();
+    // Edición: si no tocaste el serial, se conserva el original (con su fecha)
+    var _eo=_atrfEditOrig;
+    if(_eo&&_eo.vno===vno){
+      if(!_atrfAutoState.sn&&_atrf_v('atrf-sn').trim()===_atrf_snField(vno,_eo.sn))sn_val=_eo.sn||sn_val;
+      if(!_atrfAutoState.nsn&&_atrf_v('atrf-nsn').trim()===_atrf_snField(vno,_eo.nsn))nsn_val=_eo.nsn||nsn_val;
+    }
     var qname=name+(vnos.length>1?' [VNO '+vno+']':'');
     var cfg={vno:vno,ambiente:amb,ambUrl:_atrfEnvUrls[amb]||'',tdir:_atrf_v('atrf-tdir'),direccion:dir,accessId:aid_val,tsvc:_atrf_v('atrf-tsvc'),esc:_atrf_v('atrf-esc'),tex:_atrf_v('atrf-tex'),bp:_atrf_v('atrf-bp'),plan:_atrf_v('atrf-plan'),nplan:_atrf_v('atrf-nplan'),sn:sn_val,nsn:nsn_val,ba:document.getElementById('atrf-svc-ba').checked,voip:document.getElementById('atrf-svc-voip').checked,iptv:document.getElementById('atrf-svc-iptv').checked};
-    _atrfQueue.push({name:qname,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:ts,cfg:cfg,history:[]});
+    var _old=_atrfEditIdx>=0&&!_edited?_atrfQueue[_atrfEditIdx]:null;
+    if(_old){
+      _edited=true;
+      _old.name=qname;_old.funcs=[].concat(_atrfSel);_old.cfg=cfg;_old.status='espera';
+      delete _old.tcResults;delete _old._stepMeta;delete _old.runningFns;
+    } else {
+      _atrfQueue.push({name:qname,funcs:[].concat(_atrfSel),status:'espera',checked:true,ts:ts,cfg:cfg,history:[]});
+    }
   });
+  var _wasEdit=_atrfEditIdx>=0;
   _atrf_closeNew();_atrf_renderQueue();_atrf_save();
-  var msg=vnos.length>1?vnos.length+' secuencias encoladas (una por VNO)':'"'+name+'" encolada';
+  var msg=_wasEdit?'"'+name+'" actualizada':vnos.length>1?vnos.length+' secuencias encoladas (una por VNO)':'"'+name+'" encolada';
   if(typeof showToast==='function')showToast(msg,'ok');
 }
 
@@ -23640,10 +23698,10 @@ function _trExport(){
 <div class="atrf-overlay" id="atrf-modal-new">
   <div class="atrf-modal">
     <div class="atrf-modal-head">
-      <div class="atrf-modal-head-title">Nueva secuencia —</div>
+      <div class="atrf-modal-head-title" id="atrf-new-title">Nueva secuencia —</div>
       <input type="text" class="atrf-name-inp" id="atrf-seq-name" placeholder="Nombre de la secuencia…"/>
       <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_closeNew()">Cancelar</button>
-      <button class="atrf-btn atrf-btn-sm atrf-btn-primary" onclick="_atrf_enqueue()">Encolar</button>
+      <button class="atrf-btn atrf-btn-sm atrf-btn-primary" id="atrf-enq-btn" onclick="_atrf_enqueue()">Encolar</button>
     </div>
     <div class="atrf-ts-row">Fecha registro: <span id="atrf-seq-ts">—</span></div>
     <div class="atrf-val-err" id="atrf-val-err"></div>
@@ -23853,6 +23911,7 @@ function _trExport(){
     <div class="atrf-modal-head">
       <div class="atrf-modal-head-title">Secuencia —</div>
       <input type="text" class="atrf-name-inp" id="atrf-view-name" readonly style="background:transparent;border-color:transparent;font-size:14px;color:var(--atrf-text)"/>
+      <button class="atrf-btn atrf-btn-sm" id="atrf-view-edit-btn" onclick="_atrf_editFromView()" title="Editar la secuencia antes de ejecutarla">✎ Editar</button>
       <button class="atrf-btn atrf-btn-sm atrf-btn-danger" onclick="_atrf_deleteFromView()">Eliminar</button>
       <button class="atrf-btn atrf-btn-sm" onclick="_atrf_closeView()">✕ Cerrar</button>
     </div>
