@@ -20458,9 +20458,16 @@ var _ATRF_ENDPOINT_MAP_ASYNC={
   "Consulta de Alarmas":                 "fullFillment-oNTRetrieveAsync/v1/ONTRetrieveAsync",
   "Cambio de Fibra":                     "fullFillment-FiberChangeAsync/v1/fiberChangeAsync"
 };
+function _atrf_splitNote(s){
+  s=String(s==null?'':s);var i=s.lastIndexOf('  // ⚠');
+  return i>0?{json:s.slice(0,i),note:s.slice(i+5)}:{json:s,note:''};
+}
 function _atrf_prettyJson(s){
   if(!s||s==='—')return s||'—';
-  try{return JSON.stringify(JSON.parse(s),null,2);}catch(e){return s;}
+  try{return JSON.stringify(JSON.parse(s),null,2);}catch(e){}
+  var p=_atrf_splitNote(s);
+  if(p.note){try{return JSON.stringify(JSON.parse(p.json),null,2)+String.fromCharCode(10,10)+'// '+p.note;}catch(e){}}
+  return s;
 }
 function _atrf_tcTab(t){
   document.getElementById('atrf-tc-panel-req').style.display=t==='req'?'block':'none';
@@ -20487,11 +20494,12 @@ function _atrf_openTcModal(qi,idx){
   stBadge.style.background=r.pass?'rgba(0,200,100,.18)':'rgba(240,60,60,.18)';
   stBadge.style.color=r.pass?'var(--atrf-green)':'var(--atrf-red)';
   document.getElementById('atrf-tc-modal-req').textContent=_atrf_prettyJson(r.req||'—');
-  document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(r.res||'—');
+  var _rsp=_atrf_splitNote(r.res||'');var _cuNote=r.cuNote||_rsp.note;
+  document.getElementById('atrf-tc-modal-res').textContent=_atrf_prettyJson(_rsp.json||'—')+(_cuNote?String.fromCharCode(10,10)+'// '+_cuNote:'');
   // Banner y código de retorno API
   var _retCode='',_retDesc='',_retDetail='';
   try{
-    var _rj=JSON.parse(r.res||'{}');
+    var _rj=JSON.parse(_rsp.json||'{}');
     var _rr=_rj.result||_rj;
     _retCode=String(_rr.u_return_code||_rr.returnCode||'');
     _retDesc=_rr.u_return_code_desc||_rr.returnCodeDesc||'';
@@ -20512,7 +20520,7 @@ function _atrf_openTcModal(qi,idx){
     _bannerIcon.textContent=_isOk?'✅':_isWarn?'⚠️':'❌';
     _bannerMsg.textContent='Código '+_retCode+(_retDesc?' · '+_retDesc:'');
     _bannerMsg.style.color=_isOk?'var(--atrf-green)':_isWarn?'#c8820a':'var(--atrf-red)';
-    _bannerDetail.textContent=_retDetail||'';
+    _bannerDetail.textContent=(_retDetail||'')+(_cuNote?(_retDetail?' · ':'')+_cuNote:'');
   } else {
     _rcEl.style.display='none';_banner.style.display='none';
   }
@@ -21103,7 +21111,7 @@ async function _atrf_runSelected(){
           :{status:'caido',msg:'CoreUse no disponible ('+_cuHealth.msg+'): resultado solo de la API',attempts:0,checked:'caido'};
         _sr.coreuse_info=_trCu.msg;_sr.cuDown=true;
         _sr.label=String(_sr.label||'')+' · ⚠ sin CoreUse';
-        _sr.res=String(_sr.res||'')+'  // ⚠ Sin confirmar en CoreUse ('+(_cuHealth.apiOnly?'modo Solo APIs':'no disponible')+')'+(_asyncMode?': en asíncrono la API solo acusó recibo':'');
+        _sr.cuNote='⚠ Sin confirmar en CoreUse ('+(_cuHealth.apiOnly?'modo Solo APIs':'no disponible')+')'+(_asyncMode?': en asíncrono la API solo acusó recibo':'');
       } else if(_cuEligible&&_currentAccessId&&(pass||_is408)){
         if(prog)prog.textContent='🔍 CoreUse: '+fn+'…';
         try{
