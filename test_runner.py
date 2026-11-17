@@ -1268,6 +1268,8 @@ _CU_INTERIM_RE = re.compile(r'en curso|flujo contin[uú]a|operaci[oó]n aceptada
 # Flujos cuyo estado final en CoreUse es el mismo acuse (confirmado: FIA queda en
 # "Operación aceptada, el flujo continúa" de forma permanente)
 _CU_ACK_IS_FINAL = {"Finalización Intervención Asegurada"}
+# Espera tras la FIA antes de la Baja / Cancelación OOSS (la FIA sigue procesándose en OSP)
+QA_POST_FIA_WAIT_S = 60
 _CU_DATE_RE  = re.compile(r'^\d{2}-\d{2}-\d{2}, \d{2}:\d{2}$')
 _CU_TABLE_RE = re.compile(r'^u_[a-z0-9_]+$')
 
@@ -1938,6 +1940,14 @@ async def _kb_seed(conn):
                            next(c for (_k, _a, _cd, t, c, _tg) in _KB_SEED if t == "FTTH / SSAA (u_service_type)"))
         if await conn.fetchval("SELECT COUNT(*) FROM qa_kb"):
           await conn.execute(
+            "INSERT INTO qa_kb (category, api, code, title, content, tags, author) "
+            "SELECT 'flujo', 'Baja Total de Servicio', '', 'Esperar que termine la FIA antes de la Baja', $1, 'fia,baja,timing', 'Claude (dato del usuario)' "
+            "WHERE NOT EXISTS (SELECT 1 FROM qa_kb WHERE title='Esperar que termine la FIA antes de la Baja')",
+            "La FIA responde al instante 'Operación aceptada, el flujo continúa', pero ServiceNow sigue cerrándola en OSP. "
+            "Caso visto (revisado por Humberto): la Baja de acceso se lanzó 2 s después de la FIA, terminó antes que ella "
+            "y encontró que el recurso no estaba ocupado en OSP. El runner espera 60 s después de la FIA antes de "
+            "la Baja / Cancelación OOSS (secuencias manuales y agenda).")
+          await conn.execute(
             "UPDATE qa_kb SET content = content || $1, updated_at=NOW() "
             "WHERE title='Formato del serial ONT en OLT Huawei' AND content NOT LIKE '%runner convierte%'",
             chr(10) + "Entel pide enviar siempre 16 caracteres: el runner convierte solo el serial de Entel (VNO 03) "
@@ -2511,6 +2521,8 @@ async def _agenda_fire_async(schedule_id: int):
                     prev_access_id = _aid
 
         # ── FASE 2: Paralelo — Rama IA ∥ Independientes ───────────────────────
+        _fia_end = [0.0]   # cuándo terminó la FIA (para esperar antes de la Baja)
+
         async def _run_ia_chain():
             _res = []
             _cia_end = 0.0
@@ -2525,6 +2537,8 @@ async def _agenda_fire_async(schedule_id: int):
                 _r = await _exec_step(_fn)
                 if _fn == "Cancelación Intervención Asegurada" and _r.get("pass"):
                     _cia_end = _tme.monotonic()
+                if _fn == "Finalización Intervención Asegurada":
+                    _fia_end[0] = _tme.monotonic()
                 # IIA rechazada porque la intervención anterior aún se está cerrando (código 7 tras una
                 # CIA / código 2 tras una FIA): esperar 30 s y repetir el paso completo, hasta 3 veces
                 _n7 = 0
@@ -2571,6 +2585,14 @@ async def _agenda_fire_async(schedule_id: int):
         steps_results.extend(_indep_res)
 
         # ── FASE 3: Teardown secuencial — Cancel OOSS → Baja Total ───────────
+        # La FIA responde "Operación aceptada, el flujo continúa" pero ServiceNow sigue
+        # cerrándola en OSP: si la Baja llega antes, termina primero y no encuentra el recurso
+        # ocupado. Esperar QA_POST_FIA_WAIT_S desde que terminó la FIA.
+        if teardown_phase and _fia_end[0]:
+            _rest = QA_POST_FIA_WAIT_S - (_tme.monotonic() - _fia_end[0])
+            if _rest > 0:
+                print(f"[agenda] esperando {int(_rest)} s post-FIA antes de {teardown_phase[0]}…")
+                await _asyncio.sleep(_rest)
         for fn in teardown_phase:
             _r3 = await _exec_step(fn)
             steps_results.append(_r3)
@@ -18946,6 +18968,7 @@ var _ATRF_TC_MAP={
   "Desbloqueo de Servicio (DBL)":        {"05":"DBL-05"}
 };
 var _ATRF_TC_VNO_LABEL={"00":"TCH","02":"KAO","03":"Entel","05":"DTV"};
+var _ATRF_POST_FIA_MS=60000;  // igual que QA_POST_FIA_WAIT_S en el servidor
 var _ATRF_DELAY_MAP={
   "Asignación":                    "delay_post_asig_ms",
   "Inicio Intervención Asegurada": "delay_post_ia_ms",
@@ -21184,6 +21207,7 @@ async function _atrf_runSelected(){
       var _mr=await _mDoStep(_mSeqPhase[_ms]);if(_mr){q.tcResults.push(_mr);_atrf_refreshDetail(qi);}
     }
     // ── FASE 2: Paralelo — Cadena IA ∥ Independientes ───────────────────────
+    var _mFiaEnd=0;  // cuándo terminó la FIA (para esperar antes de la Baja)
     async function _mRunIA(){
       var _res=[];var _iaFailed=false;var _ciaEnd=0;
       for(var _mi=0;_mi<_mIaPhase.length;_mi++){
@@ -21240,6 +21264,7 @@ async function _atrf_runSelected(){
         }
         var _r=await _mDoStep(_mIaPhase[_mi]);
         if(_r&&_mIaPhase[_mi].fn==='Cancelación Intervención Asegurada'&&_r.pass)_ciaEnd=Date.now();
+        if(_r&&_mIaPhase[_mi].fn==='Finalización Intervención Asegurada'&&!_r.skipped&&String(_r.error||'').indexOf('Saltado')<0)_mFiaEnd=Date.now();
         // IIA rechazada en CoreUse porque la intervención anterior aún se está cerrando
         // (código 7 "Existe una intervención en curso" tras una CIA, o código 2 tras una FIA):
         // esperar 30 s y repetir el paso completo (API + CoreUse), hasta 3 veces
@@ -21271,6 +21296,16 @@ async function _atrf_runSelected(){
     await Promise.all([_mRunIA(),_mRunIndep()]);
     _atrf_refreshDetail(qi);
     // ── FASE 3: Teardown secuencial (Cancel OOSS → Baja) ───────────────────
+    // La FIA responde "Operación aceptada, el flujo continúa" pero ServiceNow sigue cerrándola en OSP:
+    // si la Baja llega antes, termina primero y no encuentra el recurso ocupado → esperar 60 s post-FIA
+    if(_mTeardown.length&&_mFiaEnd&&!_atrfStopReq){
+      var _wF=_mFiaEnd+_ATRF_POST_FIA_MS;
+      while(Date.now()<_wF&&!_atrfStopReq){
+        if(prog)prog.textContent='⏸ '+Math.ceil((_wF-Date.now())/1000)+' s post-FIA para que ServiceNow termine de cerrarla antes de la '+_mTeardown[0].fn+'…';
+        await new Promise(function(rr){setTimeout(rr,Math.min(1000,_wF-Date.now()));});
+      }
+      if(prog)prog.textContent='';
+    }
     for(var _mt=0;_mt<_mTeardown.length;_mt++){
       var _mr2=await _mDoStep(_mTeardown[_mt]);if(_mr2){q.tcResults.push(_mr2);_atrf_refreshDetail(qi);}
     }
