@@ -23,6 +23,16 @@ import time
 import webbrowser
 from pathlib import Path
 
+# El Application Gateway (WAF) de Onnet bloquea con 403 los User-Agent "Python-urllib/…" y
+# "python-requests/…" (desde el 19-11-2026). Todas las llamadas del runner salen con este UA.
+import urllib.request as _ur_ua
+_RUNNER_UA = "KomandsQA-Runner/1.0"
+_ur_ua_init = _ur_ua.OpenerDirector.__init__
+def _ur_ua_patched(self, *a, **k):
+    _ur_ua_init(self, *a, **k)
+    self.addheaders = [(h, v) for h, v in self.addheaders if h.lower() != "user-agent"] + [("User-Agent", _RUNNER_UA)]
+_ur_ua.OpenerDirector.__init__ = _ur_ua_patched
+
 # CoreUse portal (polling resultado real ServiceNow)
 try:
     import requests as _req_cu
