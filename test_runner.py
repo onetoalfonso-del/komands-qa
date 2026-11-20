@@ -7321,6 +7321,26 @@ async def atrf_run_step(request: Request):
             "u_service_iptv": service_iptv,
             "u_serial_number": serial_num,
         }
+        if vno == "00":
+            # TCH: la Activación pide u_sl_id = isp_sl_id que devuelve la Asignación (sin serial ni VoIP/IPTV)
+            _sl_id = str(body.get("slId") or "").strip()
+            _sl_src = "runner (respuesta de la Asignación)" if _sl_id else ""
+            if not _sl_id:
+                _sl_id, _sl_src = await _tch_sl_id_lookup(access_id)
+            req_body_dict = {
+                "u_id_vno": vno,
+                "u_access_id_vno": access_id,
+                "u_operation_type": "A",
+                "u_speed_plan": speed_plan,
+                "u_sl_id": _sl_id,
+                "u_service_ba": service_ba,
+            }
+            if not _sl_id:
+                return JSONResponse({"pass": False, "vno": vno, "func": func_name, "httpCode": 0,
+                                     "req": _j.dumps(req_body_dict, indent=4, ensure_ascii=False), "res": "",
+                                     "error": "TCH: no se encontró el isp_sl_id de la Asignación de este Access ID "
+                                              "(ni en la respuesta ni en CoreUse). La Activación no se envió."})
+            print(f"[activacion] TCH {access_id}: u_sl_id={_sl_id} ({_sl_src})")
         req_body_str = _j.dumps(req_body_dict, indent=4, ensure_ascii=False)
         _activ_url = (f"{apim_url.rstrip('/')}/fullFillment-ActivationSSAA/v1/registrationActivationSSAA" if use_pre
                       else f"{apim_url.rstrip('/')}/fullFillment-activation/v1/registrationActivation")
@@ -9104,6 +9124,62 @@ def _cu_flows_collect(aid: str, skip: set) -> tuple:
     for x in out:
         x["dir_id"] = x["dir_id"] or dir_id
     return {"snap": snap, "rows": out, "total": len(rows), "ids": [r["sys_id"] for r in rows]}, None
+
+
+def _cu_assignment_sl_id(aid: str) -> str:
+    """TCH (VNO 00): u_isp_sl_id del detalle ⓘ del flujo Assignment más reciente en CoreUse."""
+    try:
+        with _coreuse_lock:
+            s, html, err = _cu_flows_page(aid)
+        if err:
+            return ""
+        rows = sorted([x for x in _cu_flow_rows(html)
+                       if x.get("sys_id") and "assign" in str(x.get("name") or x.get("table") or "").lower()],
+                      key=lambda x: x.get("ts_ms") or 0, reverse=True)
+        for row in rows[:3]:
+            with _coreuse_lock:
+                st, txt = _cu_row_detail(_coreuse_get_session() or s, aid, row["sys_id"], row["table"])
+            if st != 200:
+                continue
+            kv = _cu_flatten_kv(txt)
+            for k, v in kv.items():
+                if k.lower().endswith("isp_sl_id") and str(v).strip() not in ("", "null", "None"):
+                    return str(v).strip()
+    except Exception as e:
+        print(f"[tch-sl] CoreUse {aid}: {e}")
+    return ""
+
+
+async def _tch_sl_id_lookup(aid: str) -> tuple:
+    """Busca el isp_sl_id que dejó la Asignación del AID. Retorna (valor, origen)."""
+    import re as _re_sl
+    pat = _re_sl.compile(r'"u?_?isp_sl_id"\s*:\s*"?([0-9A-Za-z\-]+)"?')
+    pool = await _db()
+    if pool:
+        try:
+            # 1) respuesta síncrona de la Asignación guardada por el runner
+            for r in await pool.fetch(
+                    "SELECT res FROM qa_aid_events WHERE access_id=$1 AND func='Asignación' "
+                    "AND res LIKE '%isp_sl_id%' ORDER BY ts DESC LIMIT 5", aid):
+                m = pat.search(r["res"] or "")
+                if m and m.group(1).lower() not in ("null", "none"):
+                    return m.group(1), "respuesta de la Asignación"
+            # 2) detalle ⓘ de CoreUse ya leído (vista CoreUse AID)
+            for r in await pool.fetch(
+                    "SELECT fields_json FROM qa_cu_flows WHERE access_id=$1 AND fields_json LIKE '%isp_sl_id%' "
+                    "ORDER BY ts_ms DESC LIMIT 5", aid):
+                m = pat.search(r["fields_json"] or "")
+                if m and m.group(1).lower() not in ("null", "none"):
+                    return m.group(1), "CoreUse (caché)"
+        except Exception as e:
+            print(f"[tch-sl] BD {aid}: {e}")
+    # 3) CoreUse en vivo (Asignación asíncrona)
+    if _COREUSE_AVAILABLE and _COREUSE_USER:
+        import asyncio as _aio_sl
+        v = await _aio_sl.get_event_loop().run_in_executor(None, _cu_assignment_sl_id, aid)
+        if v:
+            return v, "CoreUse (detalle de la Asignación)"
+    return "", ""
 
 
 def _cu_flow_out(r) -> dict:
@@ -20949,6 +21025,7 @@ async function _atrf_runSelected(){
     // Función ejecutora de un solo paso
     // BL/DBL actúan sobre el plan vigente: el nuevo si ya pasó la Modificación de Acceso
     var _mModOk=false;
+    var _mSlId='';  // TCH (VNO 00): isp_sl_id de la Asignación → u_sl_id de la Activación
     function _mBlPlan(){return (_mModOk&&q.cfg.nplan)?q.cfg.nplan:(q.cfg.plan||'');}
     async function _mDoStep(s){
       var fn=s.fn;var tcM=_ATRF_TC_MAP[fn];var tc=tcM&&tcM[vno];if(!tc)return null;
@@ -21059,7 +21136,7 @@ async function _atrf_runSelected(){
             serviceType:q.cfg.tsvc||'FTTH',accessId:_currentAccessId||'',
             scenario:q.cfg.esc||'Instalación',serialNumber:q.cfg.sn||'',
             newSerialNumber:q.cfg.nsn||'',speedPlan:q.cfg.plan||'',
-            newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',ambiente:q.cfg.ambiente||'',
+            newSpeedPlan:q.cfg.nplan||'',ambUrl:q.cfg.ambUrl||'',ambiente:q.cfg.ambiente||'',slId:(vno==='00'&&fn==='Activación')?_mSlId:'',
             blPlan:_mBlPlan(),
             serviceBa:q.cfg.ba!==false,serviceVoip:q.cfg.voip!==false,
             serviceIptv:q.cfg.iptv!==false,asyncMode:_asyncMode},_ctoPayload));
@@ -21071,6 +21148,9 @@ async function _atrf_runSelected(){
           rd={noAccessId:true};
         } else {
           rd=await resp.json();
+          if(vno==='00'&&fn==='Asignación'&&rd&&rd.res){
+            try{var _slJ=JSON.parse(rd.res);var _slR=_slJ.result||_slJ;if(_slR&&_slR.u_isp_sl_id)_mSlId=String(_slR.u_isp_sl_id);}catch(_slE){}
+          }
           if(rd.mode==='direct'){
             req_s=rd.req||'';
             try{
