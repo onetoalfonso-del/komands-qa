@@ -19125,8 +19125,17 @@ function _atrf_ts(){return new Date().toLocaleString('es-CL',{hour12:false,year:
 function _atrf_v(id){var e=document.getElementById(id);return e?e.value:'';}
 function _atrf_getVnos(){return [].slice.call(document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl.on')).map(function(el){return el.dataset.vno;});}
 function _atrf_firstVno(){var v=_atrf_getVnos();return v.length?v[0]:'';}
+// Plan 400/400: solo TCH (VNO 00). Con otro VNO se oculta y vuelve a 600/600
+function _atrf_updatePlans(){
+  var v=_atrf_getVnos();var tch=v.length>0&&v.every(function(x){return x==='00';});
+  document.querySelectorAll('#atrf-modal-new .atrf-plan-tch').forEach(function(o){
+    o.hidden=!tch;o.disabled=!tch;
+    var sel=o.parentNode;if(!tch&&sel&&sel.value===o.value)sel.value='600/600';
+  });
+}
 function _atrf_toggleVno(el){
   el.classList.toggle('on');
+  _atrf_updatePlans();
   var vnos=_atrf_getVnos();
   var note=document.getElementById('atrf-vno-multi-note');
   if(note)note.classList.toggle('show',vnos.length>1);
@@ -19999,6 +20008,7 @@ function _atrf_openNew(){
   ['atrf-dir','atrf-aid','atrf-sn','atrf-nsn'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.classList.remove('err');}});
   document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl').forEach(function(el){el.classList.remove('on');});
   var multiNote=document.getElementById('atrf-vno-multi-note');if(multiNote)multiNote.classList.remove('show');
+  _atrf_updatePlans();
   _atrf_updateAmbUrl();
   _atrf_updateAid();
   _atrf_updateSerials();
@@ -20035,6 +20045,7 @@ function _atrf_openEdit(qi){
   ['aid','sn','nsn'].forEach(function(k){var t=document.getElementById('atrf-auto-'+k);if(t)t.classList.add('off');});
   var amb=document.querySelector('input[name="atrf-amb"][value="'+String(c.ambiente||'QA').replace(/"/g,'')+'"]');if(amb)amb.checked=true;
   document.querySelectorAll('#atrf-vno-checks .atrf-vno-lbl').forEach(function(el){el.classList.toggle('on',el.dataset.vno===c.vno);});
+  _atrf_updatePlans();
   var setV=function(id,v){var e=document.getElementById(id);if(e&&v!=null&&v!=='')e.value=v;};
   setV('atrf-tdir',c.tdir);setV('atrf-tsvc',c.tsvc);setV('atrf-esc',c.esc);setV('atrf-tex',c.tex);
   setV('atrf-bp',c.bp);setV('atrf-plan',c.plan);setV('atrf-nplan',c.nplan);
@@ -23996,6 +24007,7 @@ function _trExport(){
         <div class="atrf-field atrf-col-3">
           <label>Plan / Perfil <span class="req">★</span></label>
           <select id="atrf-plan">
+            <option class="atrf-plan-tch" hidden>400/400</option>
             <option selected>600/600</option>
             <option>800/800</option><option>940/940</option>
           </select>
@@ -24003,6 +24015,7 @@ function _trExport(){
         <div class="atrf-field atrf-col-3">
           <label>Nuevo Plan / Perfil</label>
           <select id="atrf-nplan">
+            <option class="atrf-plan-tch" hidden>400/400</option>
             <option selected>600/600</option>
             <option>800/800</option><option>940/940</option>
           </select>
